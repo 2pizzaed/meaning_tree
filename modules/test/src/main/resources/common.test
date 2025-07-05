@@ -1474,9 +1474,10 @@ group: SwitchStatement
             }
 
         c++:
+            int test = 0;
             switch (a) {
                 case t:
-                    test += 1;
+                    test++;
                     break;
                 case a:
                     test += 3;
@@ -1485,7 +1486,7 @@ group: SwitchStatement
                     test += 4;
                     break;
                 case m:
-                    test += 5
+                    test += 5;
                     break;
                 default:
                     test = 0;
@@ -1503,32 +1504,36 @@ group: SwitchStatement
                 case _:
                     test = 0
 
-        java:
+        isolated java:
             switch (a) {
                 case t:
-                    test += 1;
+                    test++;
                     break;
-                case 345:
+                case 345: {
                     int a = 345;
                     test += a;
                     break;
-                case _:
-                    test = 0;
+                }
+                default: {
+                    int test = 0;
                     break;
+                }
             }
 
-        c++:
+        isolated c++:
             switch (a) {
                 case t:
-                    test += 1;
+                    test++;
                     break;
-                case 345:
+                case 345: {
                     int a = 345;
                     test += a;
                     break;
-                case _:
-                    test = 0;
+                }
+                default: {
+                    int test = 0;
                     break;
+                }
             }
 
 

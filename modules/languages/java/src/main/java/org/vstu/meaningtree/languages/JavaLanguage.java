@@ -661,7 +661,11 @@ public class JavaLanguage extends LanguageParser {
             if (labelName.equals("default")) {
                 var statements = new ArrayList<Node>();
 
-                for (int j = 1; j < switchGroup.getNamedChildCount(); j++) {
+                for (int j = 0; j < switchGroup.getNamedChildCount(); j++) {
+                    if (switchGroup.getNamedChild(j).getType().equals("switch_label")) {
+                        continue;
+                    }
+
                     statements.add(fromTSNode(switchGroup.getNamedChild(j)));
                 }
 

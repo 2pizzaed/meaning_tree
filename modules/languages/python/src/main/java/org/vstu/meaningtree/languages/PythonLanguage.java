@@ -247,7 +247,8 @@ public class PythonLanguage extends LanguageParser {
             } else if (alternative.getNamedChild(0).getNamedChild(0).getType().equals("as_pattern")) {
                 condition = (Expression) fromTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(0).getNamedChild(0));
                 SimpleIdentifier ident = (SimpleIdentifier) fromTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(1));
-                newDecl = new VariableDeclaration(new UnknownType(), ident, condition);
+                Type variableType = HindleyMilner.inference(condition, scope);
+                newDecl = new VariableDeclaration(variableType, ident, condition);
             } else {
                 condition = (Expression) fromTSNode(alternative.getNamedChild(0).getNamedChild(0));
             }

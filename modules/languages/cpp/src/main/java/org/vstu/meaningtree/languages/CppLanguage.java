@@ -350,7 +350,7 @@ public class CppLanguage extends LanguageParser {
             if (labelName.equals("default")) {
                 var statements = new ArrayList<Node>();
 
-                for (int j = 1; j < switchGroup.getNamedChildCount(); j++) {
+                for (int j = 0; j < switchGroup.getNamedChildCount(); j++) {
                     statements.add(fromTSNode(switchGroup.getNamedChild(j)));
                 }
 

@@ -148,7 +148,7 @@ public class CppViewer extends LanguageViewer {
         _indentation = "    ";
         _indentLevel = 0;
         _openBracketOnSameLine = true;
-        _bracketsAroundCaseBranches = true;
+        _bracketsAroundCaseBranches = false;
         _autoVariableDeclaration = false;
     }
 

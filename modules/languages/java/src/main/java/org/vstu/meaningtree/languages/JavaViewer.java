@@ -278,7 +278,7 @@ public class JavaViewer extends LanguageViewer {
         StringBuilder builder = new StringBuilder();
 
         // Считаем каждую функцию доступной извне
-        builder.append("public ");
+        builder.append("public static ");
 
         String returnType = toString(functionDeclaration.getReturnType());
         builder.append(returnType).append(" ");
@@ -1027,13 +1027,19 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toString(DeclarationArgument parameter) {
-        String mid = "";
+        var builder = new StringBuilder();
+
         String type = toString(parameter.getElementType());
+        builder.append(type);
+
         if (parameter.isListUnpacking()) {
-            mid = "...";
+            builder.append("...");
         }
+
         String name = toString(parameter.getName());
-        return "%s %s %s".formatted(type, mid, name);
+        builder.append(" ").append(name);
+
+        return builder.toString();
     }
 
     // В отличие от всех остальных методов, данный называется так,

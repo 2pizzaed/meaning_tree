@@ -10,13 +10,11 @@ import org.vstu.meaningtree.languages.configs.params.EnforceEntryPoint;
 import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
 import org.vstu.meaningtree.languages.configs.params.SkipErrors;
 import org.vstu.meaningtree.nodes.*;
-import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
-import org.vstu.meaningtree.nodes.declarations.FieldDeclaration;
-import org.vstu.meaningtree.nodes.declarations.MethodDeclaration;
-import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
+import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
+import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
 import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
 import org.vstu.meaningtree.nodes.definitions.ObjectConstructorDefinition;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
@@ -73,6 +71,7 @@ import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
 
 import java.util.*;
+import java.util.function.Function;
 
 public class JavaLanguage extends LanguageParser {
     private TSLanguage _language;
@@ -684,7 +683,7 @@ public class JavaLanguage extends LanguageParser {
         return new SwitchStatement(matchValue, cases, defaultCaseBlock);
     }
 
-    private MethodDefinition fromMethodDeclarationTSNode(TSNode node) {
+    private Definition fromMethodDeclarationTSNode(TSNode node) {
         List<DeclarationModifier> modifiers = new ArrayList<>();
         if (node.getChild(0).getType().equals("modifiers")) {
             modifiers.addAll(fromModifiers(node.getChild(0)));
@@ -694,18 +693,35 @@ public class JavaLanguage extends LanguageParser {
         Identifier identifier = fromScopedIdentifierTSNode(node.getChildByFieldName("name"));
         List<DeclarationArgument> parameters = fromMethodParameters(node.getChildByFieldName("parameters"));
 
-        // TODO: Пока не реализован механизм нахождения класса, к которому принадлежит метод, и определение аннотаций
-        MethodDeclaration declaration = new MethodDeclaration(null,
-                identifier,
-                returnType,
-                List.of(),
-                modifiers,
-                parameters
-        );
-
         CompoundStatement body = fromBlockTSNode(node.getChildByFieldName("body"));
+        Definition definition;
 
-        return new MethodDefinition(declaration, body);
+        if (modifiers.size() == 2
+                && modifiers.contains(DeclarationModifier.STATIC)
+                && modifiers.contains(DeclarationModifier.PUBLIC)
+        ) {
+            var functionDeclaration = new FunctionDeclaration(
+                    identifier,
+                    returnType,
+                    List.of(),
+                    parameters
+            );
+            definition = new FunctionDefinition(functionDeclaration, body);
+        }
+        else {
+            // TODO: Пока не реализован механизм нахождения класса, к которому принадлежит метод, и определение аннотаций
+            var methodDeclaration = new MethodDeclaration(
+                    null,
+                    identifier,
+                    returnType,
+                    List.of(),
+                    modifiers,
+                    parameters
+            );
+            definition = new MethodDefinition(methodDeclaration, body);
+        }
+
+        return definition;
     }
 
     private List<DeclarationArgument> fromMethodParameters(TSNode node) {

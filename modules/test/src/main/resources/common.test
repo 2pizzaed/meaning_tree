@@ -1544,8 +1544,8 @@ group: Functions
                 return a + b
 
         java:
-            Object f(Object a, Object b) {
-                return a + b
+            public static Object f(Object a, Object b) {
+                return a + b;
             }
 
         c++:
@@ -1560,7 +1560,7 @@ group: Functions
                 return a + b
 
         java:
-            String concat(String a, String b) {
+            public static String concat(String a, String b) {
                 return a + b;
             }
 
@@ -1596,12 +1596,12 @@ group: Functions
                 return a + b
 
         java:
-            DataUnion concat(Data a, Data b) {
+            public static DataUnion join_data(Data a, Data b) {
                 return a + b;
             }
 
         c++:
-            DataUnion concat(Data a, Data b) {
+            DataUnion join_data(Data a, Data b) {
                 return a + b;
             }
 

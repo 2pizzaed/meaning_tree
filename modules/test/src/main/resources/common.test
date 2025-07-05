@@ -1308,7 +1308,7 @@ group: ForLoop
             for (;;) {
             }
 
-        python:
+        isolated python:
             while True:
                 pass
 

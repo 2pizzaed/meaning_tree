@@ -947,22 +947,24 @@ public class JavaLanguage extends LanguageParser {
             }
         }
 
-        step = switch (update) {
-            case PostfixDecrementOp postfixDecrementOp -> new IntegerLiteral("-1");
-            case PostfixIncrementOp postfixIncrementOp -> new IntegerLiteral("1");
-            case PrefixDecrementOp prefixDecrementOp -> new IntegerLiteral("-1");
-            case PrefixIncrementOp prefixIncrementOp -> new IntegerLiteral("1");
-            case AssignmentExpression assignment -> {
-                if (assignment.getAugmentedOperator() == AugmentedAssignmentOperator.ADD) {
-                    yield assignment.getRValue();
-                } else if (assignment.getAugmentedOperator() == AugmentedAssignmentOperator.SUB) {
-                    yield new UnaryMinusOp(assignment.getRValue());
-                } else {
-                    yield null;
+        if (update != null) {
+            step = switch (update) {
+                case PostfixDecrementOp postfixDecrementOp -> new IntegerLiteral("-1");
+                case PostfixIncrementOp postfixIncrementOp -> new IntegerLiteral("1");
+                case PrefixDecrementOp prefixDecrementOp -> new IntegerLiteral("-1");
+                case PrefixIncrementOp prefixIncrementOp -> new IntegerLiteral("1");
+                case AssignmentExpression assignment -> {
+                    if (assignment.getAugmentedOperator() == AugmentedAssignmentOperator.ADD) {
+                        yield assignment.getRValue();
+                    } else if (assignment.getAugmentedOperator() == AugmentedAssignmentOperator.SUB) {
+                        yield new UnaryMinusOp(assignment.getRValue());
+                    } else {
+                        yield null;
+                    }
                 }
-            }
-            default -> null;
-        };
+                default -> null;
+            };
+        }
 
         if (start != null && stop != null && step != null && loopVariable != null) {
             Range range = new Range(start, stop, step, false, isExcludingEnd, Range.Type.UNKNOWN);

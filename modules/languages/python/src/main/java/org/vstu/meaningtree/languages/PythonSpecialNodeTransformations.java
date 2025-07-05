@@ -68,7 +68,9 @@ public class PythonSpecialNodeTransformations {
             body = new CompoundStatement(stmt);
         }
         _prepend_continue_with_expression(body, update);
-        body.insert(body.getLength(), update);
+        if (update != null) {
+            body.insert(body.getLength(), update);
+        }
         List<Node> result = new ArrayList<>();
         result.add((Node) initializer);
         result.add(new WhileLoop(condition, body));
@@ -82,6 +84,10 @@ public class PythonSpecialNodeTransformations {
     }
 
     private static void _prepend_continue_with_expression(CompoundStatement compound, Node update) {
+        if (update == null) {
+            return;
+        }
+
         int found = -1;
         Node[] nodes = compound.getNodes();
         for (int i = 0; i < nodes.length; i++) {

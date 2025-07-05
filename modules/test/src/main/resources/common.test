@@ -1254,12 +1254,11 @@ group: ForLoop
                 func(a, b);
             }
 
-        python:
+        isolated python:
             a: int = x
             while a != m:
                 func(a, b)
                 m = g()
-            del a
 
 
     case: GeneralForWithMissingCondition
@@ -1268,12 +1267,11 @@ group: ForLoop
                 func(a, b);
             }
 
-        python:
+        isolated python:
             a: int = x
             while True:
                 func(a, b)
                 m = g()
-            del a
 
 
     case: GeneralForWithMissingUpdate
@@ -1282,11 +1280,10 @@ group: ForLoop
                 func(a, b);
             }
 
-        python:
+        isolated python:
             a: int = x
             while a != m:
                 func(a, b)
-            del a
 
 
     case: GeneralForWithMissingUpdateWithContinue
@@ -1298,13 +1295,12 @@ group: ForLoop
                 }
             }
 
-        python:
+        isolated python:
             a: int = x
             while a != m:
                 func(a, b)
                 if a == k:
                     continue
-            del a
 
 
     case: GeneralForEmptyLoop

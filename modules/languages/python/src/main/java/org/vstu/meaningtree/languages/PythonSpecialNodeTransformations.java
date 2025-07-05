@@ -125,14 +125,23 @@ public class PythonSpecialNodeTransformations {
         }
     }
 
+    private static Expression negateCondition(Expression condition) {
+        return switch (condition) {
+            case BoolLiteral boolLiteral -> boolLiteral.getValue() ? new BoolLiteral(false) : new BoolLiteral(true);
+            case NotOp notOp -> notOp.getArgument();
+            case EqOp eqOp -> new NotEqOp(eqOp.getLeft(), eqOp.getRight());
+            case NotEqOp notEqOp -> new EqOp(notEqOp.getLeft(), notEqOp.getRight());
+            case LtOp ltOp -> new GeOp(ltOp.getLeft(), ltOp.getRight());
+            case GtOp gtOp -> new LeOp(gtOp.getLeft(), gtOp.getRight());
+            case LeOp leOp -> new GtOp(leOp.getLeft(), leOp.getRight());
+            case GeOp geOp -> new LtOp(geOp.getLeft(), geOp.getRight());
+            default -> new NotOp(new ParenthesizedExpression(condition));
+        };
+    }
+
     public static Node representDoWhile(DoWhileLoop doWhile) {
-        Expression condition = doWhile.getCondition();
-        if (condition instanceof BinaryComparison cmp) {
-            condition = cmp.inverse();
-        } else {
-            condition = new NotOp(new ParenthesizedExpression(condition));
-        }
-        IfStatement breakCondition = new IfStatement(condition, new BreakStatement(), null);
+        Expression condition = negateCondition(doWhile.getCondition());
+        IfStatement breakCondition = new IfStatement(condition, new CompoundStatement(new BreakStatement()), null);
         List<Node> body;
         if (doWhile.getBody() instanceof CompoundStatement compound) {
             body = new ArrayList<>(List.of(compound.getNodes()));

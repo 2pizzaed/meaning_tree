@@ -1407,7 +1407,7 @@ group: WhileLoop
                 a += 1;
             } while (a != m);
 
-        python:
+        isolated python:
             while True:
                 a += 1
                 if a == m:
@@ -1420,10 +1420,10 @@ group: WhileLoop
                 a += 1;
             } while (!has_errors() && a < 35 && flag);
 
-        python:
+        isolated python:
             while True:
                 a += 1
-                if not (not has_errors() and a < 35 and flag):
+                if not (a < 35 and not has_errors() and flag):
                     break
 
 
@@ -1431,9 +1431,9 @@ group: WhileLoop
         java:
             do {} while (true);
 
-        python:
+        isolated python:
             while True:
-                if not True:
+                if False:
                     break
 
 

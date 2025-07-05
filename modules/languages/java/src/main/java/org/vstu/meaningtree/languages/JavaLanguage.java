@@ -252,6 +252,9 @@ public class JavaLanguage extends LanguageParser {
     private Node fromDoStatementTSNode(TSNode node) {
         Statement body = (Statement) fromTSNode(node.getChildByFieldName("body"));
         Expression condition = (Expression) fromTSNode(node.getChildByFieldName("condition"));
+        if (condition instanceof ParenthesizedExpression parenthesizedExpression) {
+            condition = parenthesizedExpression.getExpression();
+        }
         return new DoWhileLoop(condition, body);
     }
 
@@ -1000,6 +1003,10 @@ public class JavaLanguage extends LanguageParser {
 
         if (!node.getChildByFieldName("condition").isNull()) {
             condition = (Expression) fromTSNode(node.getChildByFieldName("condition"));
+
+            if (condition instanceof ParenthesizedExpression parenthesizedExpression) {
+                condition = parenthesizedExpression.getExpression();
+            }
         }
 
         if (!node.getChildByFieldName("update").isNull()) {

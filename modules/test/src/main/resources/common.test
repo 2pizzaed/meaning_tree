@@ -1217,9 +1217,11 @@ group: ForLoop
 
 
     case: RangeForLoopWithExpressions
-        python:
-            for v in range(a * b * c, dx - 1, 1):
+        isolated python:
+            v: float = a * b * c
+            while v < dx - 1:
                 func(a)
+                v += 1
 
         java:
             for (double v = a * b * c; v < dx - 1; v++) {
@@ -1323,8 +1325,8 @@ group: ForLoop
                 }
             }
 
-        python:
-            a = x
+        isolated python:
+            a: int = x
             while a != m:
                 func(a, b)
                 if a == m + 1:
@@ -1332,7 +1334,6 @@ group: ForLoop
                     m = g()
                     continue
                 m = g()
-            del a
 
 
 group: WhileLoop

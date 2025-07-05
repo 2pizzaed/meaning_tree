@@ -601,7 +601,8 @@ public class JavaViewer extends LanguageViewer {
                 .append(iterVarId)
                 .append(" : ")
                 .append(iterable)
-                .append(")\n")
+                .append(")")
+                .append(_openBracketOnSameLine ? " " : "\n")
                 .append(indent(body))
                 .toString();
     }

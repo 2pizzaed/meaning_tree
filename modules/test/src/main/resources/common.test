@@ -1238,7 +1238,7 @@ group: ForLoop
                 x += 4
 
         java:
-            for (var a : b) {
+            for (Object a : b) {
                 x += 4;
             }
 

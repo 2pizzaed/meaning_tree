@@ -118,10 +118,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.CaseBlock;
 import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
 import org.vstu.meaningtree.nodes.statements.conditions.components.DefaultCaseBlock;
 import org.vstu.meaningtree.nodes.statements.conditions.components.MatchValueCaseBlock;
-import org.vstu.meaningtree.nodes.statements.loops.GeneralForLoop;
-import org.vstu.meaningtree.nodes.statements.loops.InfiniteLoop;
-import org.vstu.meaningtree.nodes.statements.loops.RangeForLoop;
-import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
+import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.nodes.types.GenericUserType;
@@ -266,8 +263,30 @@ public class CppViewer extends LanguageViewer {
             case EmptyStatement emptyStatement -> toString(emptyStatement);
             case BreakStatement stmt -> toString(stmt);
             case ContinueStatement stmt -> toString(stmt);
+            case ForEachLoop forEachLoop -> toString(forEachLoop);
             default -> throw new UnsupportedViewingException("Unexpected value: " + node);
         };
+    }
+
+    private String toString(ForEachLoop forEachLoop) {
+        var type = toString(forEachLoop.getItem().getType());
+        var iterVarId = toString(forEachLoop.getItem().getDeclarators()[0].getIdentifier());
+        var iterable = toString(forEachLoop.getExpression());
+        var body = toString(forEachLoop.getBody());
+
+        StringBuilder builder = new StringBuilder();
+
+        return builder
+                .append("for (")
+                .append(type)
+                .append(" ")
+                .append(iterVarId)
+                .append(" : ")
+                .append(iterable)
+                .append(")")
+                .append(_openBracketOnSameLine ? " " : "\n")
+                .append(indent(body))
+                .toString();
     }
 
     private String toString(EmptyStatement emptyStatement) {

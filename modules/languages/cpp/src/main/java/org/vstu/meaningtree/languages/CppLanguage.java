@@ -222,10 +222,20 @@ public class CppLanguage extends LanguageParser {
             case "continue_statement" -> fromContinueStatement(node);
             case "switch_statement" -> fromSwitchStatement(node);
             case "return_statement" -> fromReturn(node);
+            case "for_range_loop" -> fromForRangeLoop(node);
             default -> throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
         };
         assignValue(node, createdNode);
         return createdNode;
+    }
+
+    private ForEachLoop fromForRangeLoop(TSNode node) {
+        Type type = (Type) fromTSNode(node.getChildByFieldName("type"));
+        SimpleIdentifier iterVarId = (SimpleIdentifier) fromTSNode(node.getChildByFieldName("declarator"));
+        Expression iterable = (Expression) fromTSNode(node.getChildByFieldName("right"));
+        Statement body = (Statement) fromTSNode(node.getChildByFieldName("body"));
+        VariableDeclaration varDecl = new VariableDeclaration(type, iterVarId);
+        return new ForEachLoop(varDecl, iterable, body);
     }
 
     private ReturnStatement fromReturn(TSNode node) {

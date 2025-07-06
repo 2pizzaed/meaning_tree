@@ -27,7 +27,7 @@ public class Main {
         @Parameter(names = "--from", description = "Source language", required = true)
         private String fromLanguage;
 
-        @Parameter(names = "--to", description = "Target language", required = true)
+        @Parameter(names = "--to", description = "Target language")
         private String toLanguage;
 
         @Parameter(names = "--serialize", description = "Serialization format: json or rdf")

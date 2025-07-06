@@ -1,6 +1,8 @@
 package org.vstu.meaningtree.serializers.json;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.MeaningTree;
@@ -34,13 +36,21 @@ import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.serializers.model.Serializer;
+import org.vstu.meaningtree.utils.Label;
 
+import java.util.Collection;
 import java.util.Objects;
 
 public class JsonSerializer implements Serializer<JsonObject> {
     @Override
     public JsonObject serialize(MeaningTree mt) {
-        return serialize(mt.getRootNode());
+        JsonObject root = new JsonObject();
+        root.add("rootNode", serialize(mt.getRootNode()));
+        var allLabels = mt.getAllLabels();
+        if (!allLabels.isEmpty()) {
+            root.add("labels", serializeLabels(allLabels));
+        }
+        return root;
     }
 
 
@@ -121,8 +131,36 @@ public class JsonSerializer implements Serializer<JsonObject> {
         };
 
         json.addProperty("id", node.getId());
+        var labels = node.getAllLabels();
+        if (!labels.isEmpty()) {
+            json.add("labels", serializeLabels(labels));
+        }
 
         return json;
+    }
+
+    /* -----------------------------
+    |        Labels helpers        |
+    ------------------------------ */
+    private final Gson gson = new Gson();
+
+    private JsonArray serializeLabels(Collection<Label> labels) {
+        JsonArray array = new JsonArray();
+        for (Label label : labels) {
+            array.add(serializeLabel(label));
+        }
+        return array;
+    }
+
+    private JsonObject serializeLabel(Label label) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("id", label.getId());
+        if (label.hasAttribute()) {
+            // Сериализуем attribute произвольного типа в Json
+            JsonElement attrJson = gson.toJsonTree(label.getAttribute());
+            obj.add("attr", attrJson);
+        }
+        return obj;
     }
 
     /* -----------------------------

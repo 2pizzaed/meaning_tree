@@ -779,6 +779,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
 
         json.add("body", serialize(stmt.getBody()));
+        json.addProperty("id", stmt.getId());
         return json;
     }
 
@@ -796,6 +797,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
         json.addProperty("rangeType", range.getType().name().toLowerCase());
 
+        json.addProperty("id", range.getId());
         return json;
     }
 
@@ -808,6 +810,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("range", serialize(stmt.getRange()));
         json.add("body", serialize(stmt.getBody()));
 
+        json.addProperty("id", stmt.getId());
         return json;
     }
 
@@ -819,6 +822,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("condition", serialize(stmt.getCondition()));
         json.add("body", serialize(stmt.getBody()));
 
+        json.addProperty("id", stmt.getId());
         return json;
     }
 
@@ -867,6 +871,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("body", serialize(stmt.getBody()));
         json.add("condition", serialize(stmt.getCondition()));
 
+        json.addProperty("id", stmt.getId());
         return json;
     }
 
@@ -887,6 +892,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
 
         json.add("body", body);
+        json.addProperty("id", entryPoint.getId());
         return json;
     }
 

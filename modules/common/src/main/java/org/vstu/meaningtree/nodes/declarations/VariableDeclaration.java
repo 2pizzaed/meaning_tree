@@ -36,6 +36,10 @@ public class VariableDeclaration extends Declaration implements HasInitializatio
         this.type = type;
     }
 
+    public void setType(Type newType) {
+        type = newType;
+    }
+
     public Type getType() {
         return type;
     }

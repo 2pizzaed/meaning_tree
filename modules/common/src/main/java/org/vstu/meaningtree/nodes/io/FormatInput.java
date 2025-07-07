@@ -15,7 +15,7 @@ public class FormatInput extends InputCommand {
     }
 
     public FormatInput(Expression formatString, List<Expression> values) {
-        super(values);
+        super(List.copyOf(values));
         this.formatString = formatString;
     }
 

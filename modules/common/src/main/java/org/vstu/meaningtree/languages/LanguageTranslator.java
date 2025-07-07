@@ -5,8 +5,12 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.treesitter.TSException;
 import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
+import org.vstu.meaningtree.languages.configs.*;
+import org.vstu.meaningtree.languages.configs.params.*;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
-import org.vstu.meaningtree.languages.configs.ConfigParameter;
+import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
+import org.vstu.meaningtree.languages.configs.parser.ConfigMapping;
+import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Experimental;
 import org.vstu.meaningtree.utils.Label;
@@ -15,28 +19,58 @@ import org.vstu.meaningtree.utils.tokens.TokenGroup;
 import org.vstu.meaningtree.utils.tokens.TokenList;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public abstract class LanguageTranslator {
     protected LanguageParser _language;
     protected LanguageViewer _viewer;
-    private ArrayList<ConfigParameter> _declaredConfigParams = new ArrayList<>();
+    protected Config _config = new Config();
+
+    public static Config getPredefinedCommonConfig() {
+        return new Config(
+                new ExpressionMode(false, ConfigScope.TRANSLATOR),
+                new TranslationUnitMode(true, ConfigScope.VIEWER),
+                new SkipErrors(true, ConfigScope.PARSER),
+                new EnforceEntryPoint(true, ConfigScope.ANY)
+        );
+    }
 
     public abstract int getLanguageId();
 
-    private static ConfigParameter[] getPredefinedCommonConfig() {
-        return new ConfigParameter[] {
-                // Если translationUnitMode установлен в true, то выводится сразу полный текст программы,
-                // а не её часть (например, только выражение)
-                new ConfigParameter("translationUnitMode", true, ConfigParameter.Scope.VIEWER),
-                // Вывод только одного выражения
-                new ConfigParameter("expressionMode", false, ConfigParameter.Scope.TRANSLATOR),
-                // Попытаться сгенерировать дерево, несмотря на ошибки
-                new ConfigParameter("skipErrors", false, ConfigParameter.Scope.PARSER)
-        };
+    protected Config getDeclaredConfig() { return new Config(); }
+
+    protected ConfigParser configParser = defaultConfigParser();
+
+    protected ConfigParser defaultConfigParser() {
+        return new ConfigParser(
+                new ConfigMapping<>(
+                        "disableCompoundComparisonConversion",
+                        DisableCompoundComparisonConversion::parse,
+                        DisableCompoundComparisonConversion::new
+                ),
+                new ConfigMapping<>(
+                        "enforceEntryPoint",
+                        EnforceEntryPoint::parse,
+                        EnforceEntryPoint::new
+                ),
+                new ConfigMapping<>(
+                        "expressionMode",
+                        ExpressionMode::parse,
+                        ExpressionMode::new
+                ),
+                new ConfigMapping<>(
+                        "skipErrors",
+                        SkipErrors::parse,
+                        SkipErrors::new
+                ),
+                new ConfigMapping<>(
+                        "translationUnitMode",
+                        TranslationUnitMode::parse,
+                        TranslationUnitMode::new
+                )
+        );
     }
 
     /**
@@ -49,24 +83,25 @@ public abstract class LanguageTranslator {
         _language = language;
         _viewer = viewer;
 
+        var configBuilder = new ConfigBuilder();
 
-        _declaredConfigParams.addAll(Arrays.asList(getPredefinedCommonConfig()));
         // Загрузка конфигов, специфических для конкретного языка
-        _declaredConfigParams.addAll(Arrays.asList(getDeclaredConfigParameters()));
-        for (String paramName : rawConfig.keySet()) {
-            ConfigParameter cfg = getConfigParameter(paramName);
-            if (cfg != null) {
-                cfg.inferValueFrom(rawConfig.get(paramName));
-            }
+        for (var entry : rawConfig.entrySet()) {
+            configBuilder.add(configParser.parse(entry.getKey(), entry.getValue()));
         }
 
-        if (_language != null) {
-            _language.setConfig(_declaredConfigParams.stream().filter(
-                    (ConfigParameter cfg) -> cfg.getScope() == ConfigParameter.Scope.PARSER || cfg.getScope() == ConfigParameter.Scope.TRANSLATOR).toList());
+        _config = _config.merge(getPredefinedCommonConfig(), getDeclaredConfig(), configBuilder.toConfig());
+
+        if (language != null) {
+            _language.setConfig(
+                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR))
+            );
         }
-        if (_viewer != null) {
-            _viewer.setConfig(_declaredConfigParams.stream().filter(
-                    (ConfigParameter cfg) -> cfg.getScope() == ConfigParameter.Scope.VIEWER || cfg.getScope() == ConfigParameter.Scope.TRANSLATOR).toList());
+
+        if (viewer != null) {
+            _viewer.setConfig(
+                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR))
+            );
         }
     }
 
@@ -78,17 +113,20 @@ public abstract class LanguageTranslator {
 
     protected void setViewer(LanguageViewer viewer) {
         _viewer = viewer;
+
         if (_viewer != null) {
-            _viewer.setConfig(_declaredConfigParams.stream().filter(
-                    (ConfigParameter cfg) -> cfg.getScope() == ConfigParameter.Scope.VIEWER || cfg.getScope() == ConfigParameter.Scope.TRANSLATOR).toList());
+            _viewer.setConfig(
+                    getDeclaredConfig().subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR))
+            );
         }
     }
 
     protected void setParser(LanguageParser parser) {
         _language = parser;
         if (_language != null) {
-            _language.setConfig(_declaredConfigParams.stream().filter(
-                    (ConfigParameter cfg) -> cfg.getScope() == ConfigParameter.Scope.PARSER || cfg.getScope() == ConfigParameter.Scope.TRANSLATOR).toList());
+            _language.setConfig(
+                    getDeclaredConfig().subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR))
+            );
         }
     }
 
@@ -197,22 +235,11 @@ public abstract class LanguageTranslator {
         return getTokenizer().tokenizeExtended(mt);
     }
 
-    public ConfigParameter getConfigParameter(String name) {
-        for (ConfigParameter param : _declaredConfigParams) {
-            if (param.getName().equals(name)) {
-                return param;
-            }
-        }
-        return null;
+    protected <P, T extends ConfigScopedParameter<P>> Optional<P> getConfigParameter(Class<T> configClass) {
+        return Optional.ofNullable(_config).flatMap(config -> config.get(configClass));
     }
 
     public abstract String prepareCode(String code);
 
     public abstract TokenList prepareCode(TokenList list);
-
-    /**
-     * Внимательно следите за тем, чтобы название параметра не пересекалось с уже предопределенными
-     * @return специфические параметры конфигурации языка
-     */
-    protected abstract ConfigParameter[] getDeclaredConfigParameters();
 }

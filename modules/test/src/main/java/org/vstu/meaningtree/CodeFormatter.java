@@ -1,6 +1,7 @@
 package org.vstu.meaningtree;
 
 import java.util.Arrays;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class CodeFormatter {
@@ -16,7 +17,28 @@ public class CodeFormatter {
     }
 
     public boolean equals(String codeA, String codeB) {
-        return removeMeaninglessIndents(codeA).equals(removeMeaninglessIndents(codeB));
+        // При сравнении всегда удаляем отступы и пустые строки, независимо от _indentSensitive
+        String[] linesA = codeA.replaceAll("\\r\\n", "\n")
+                             .replaceAll("\\t", " ".repeat(TAB_SIZE))
+                             .split("\n");
+        String[] linesB = codeB.replaceAll("\\r\\n", "\n")
+                             .replaceAll("\\t", " ".repeat(TAB_SIZE))
+                             .split("\n");
+                             
+        String strippedA = Arrays.stream(linesA)
+                            .filter(Predicate.not(String::isBlank))  // Удаляем пустые строки
+                            .map(String::strip)
+                            .collect(Collectors.joining("\n"));
+        String strippedB = Arrays.stream(linesB)
+                            .filter(Predicate.not(String::isBlank))  // Удаляем пустые строки
+                            .map(String::strip)
+                            .collect(Collectors.joining("\n"));
+                            
+        // Нормализуем пробелы вокруг else
+        strippedA = strippedA.replaceAll("\\}\\s*else\\s*\\{", "} else {");
+        strippedB = strippedB.replaceAll("\\}\\s*else\\s*\\{", "} else {");
+        
+        return strippedA.equals(strippedB);
     }
 
     /**

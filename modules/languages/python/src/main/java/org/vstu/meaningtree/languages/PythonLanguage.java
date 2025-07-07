@@ -3,11 +3,13 @@ package org.vstu.meaningtree.languages;
 import org.treesitter.*;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
-import org.vstu.meaningtree.languages.utils.PseudoCompoundStatement;
+import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
+import org.vstu.meaningtree.languages.configs.params.SkipErrors;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
+import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
@@ -34,10 +36,7 @@ import org.vstu.meaningtree.nodes.expressions.other.*;
 import org.vstu.meaningtree.nodes.expressions.unary.UnaryMinusOp;
 import org.vstu.meaningtree.nodes.expressions.unary.UnaryPlusOp;
 import org.vstu.meaningtree.nodes.io.PrintValues;
-import org.vstu.meaningtree.nodes.modules.Alias;
-import org.vstu.meaningtree.nodes.modules.Import;
-import org.vstu.meaningtree.nodes.modules.ImportAll;
-import org.vstu.meaningtree.nodes.modules.ImportMembers;
+import org.vstu.meaningtree.nodes.modules.*;
 import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
@@ -47,10 +46,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.BasicCaseBloc
 import org.vstu.meaningtree.nodes.statements.conditions.components.CaseBlock;
 import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
 import org.vstu.meaningtree.nodes.statements.conditions.components.DefaultCaseBlock;
-import org.vstu.meaningtree.nodes.statements.loops.ForEachLoop;
-import org.vstu.meaningtree.nodes.statements.loops.InfiniteLoop;
-import org.vstu.meaningtree.nodes.statements.loops.RangeForLoop;
-import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
+import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.nodes.types.GenericUserType;
@@ -61,8 +57,8 @@ import org.vstu.meaningtree.nodes.types.builtin.IntType;
 import org.vstu.meaningtree.nodes.types.builtin.StringType;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.user.Class;
-import org.vstu.meaningtree.utils.BodyBuilder;
-import org.vstu.meaningtree.utils.env.SymbolEnvironment;
+import org.vstu.meaningtree.utils.type_inference.HindleyMilner;
+import org.vstu.meaningtree.utils.type_inference.TypeScope;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayDeque;
@@ -72,9 +68,10 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public class PythonLanguage extends LanguageParser {
-    private SymbolEnvironment currentContext;
     private TSLanguage _language;
     private TSParser _parser;
+
+    private TypeScope scope = new TypeScope();
 
     @Override
     public TSTree getTSTree() {
@@ -100,11 +97,11 @@ public class PythonLanguage extends LanguageParser {
 
     @Override
     public synchronized MeaningTree getMeaningTree(String code) {
-        currentContext = new SymbolEnvironment(null);
+        scope = new TypeScope();
         _code = code;
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
-        if (!errors.isEmpty() && !getConfigParameter("skipErrors").getBooleanValue()) {
+        if (!errors.isEmpty() && !getConfigParameter(SkipErrors.class).orElse(false)) {
             throw new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors));
         }
         return new MeaningTree(fromTSNode(rootNode));
@@ -118,14 +115,14 @@ public class PythonLanguage extends LanguageParser {
         Node createdNode = switch (nodeType) {
             case "ERROR" -> fromTSNode(node.getChild(0));
             case "module" -> createEntryPoint(node);
-            case "block" -> fromCompoundTSNode(node, currentContext);
+            case "block" -> fromCompoundTSNode(node);
             case "if_statement" -> fromIfStatementTSNode(node);
             case "expression_statement", "expression_list", "tuple_pattern" -> fromExpressionSequencesTSNode(node);
             case "parenthesized_expression" -> fromParenthesizedExpressionTSNode(node);
             case "binary_operator" -> fromBinaryExpressionTSNode(node);
             case "unary_operator" -> fromUnaryExpressionTSNode(node);
             case "not_operator" -> fromNotOperatorTSNode(node);
-            case "pass_statement", "ellipsis" -> null;
+            case "pass_statement", "ellipsis" -> fromPassStatementOrEllipsis(node);
             case "integer" -> fromIntegerLiteralTSNode(node);
             case "float" -> fromFloatLiteralTSNode(node);
             case "identifier" -> fromIdentifier(node);
@@ -183,9 +180,11 @@ public class PythonLanguage extends LanguageParser {
     }
 
     private void rollbackContext() {
-        if (currentContext.getParent() != null) {
-            currentContext = currentContext.getParent();
-        }
+        scope.leave();
+    }
+
+    private EmptyStatement fromPassStatementOrEllipsis(TSNode node) {
+        return new EmptyStatement();
     }
 
     private Node fromComprehension(TSNode node) {
@@ -248,7 +247,8 @@ public class PythonLanguage extends LanguageParser {
             } else if (alternative.getNamedChild(0).getNamedChild(0).getType().equals("as_pattern")) {
                 condition = (Expression) fromTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(0).getNamedChild(0));
                 SimpleIdentifier ident = (SimpleIdentifier) fromTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(1));
-                newDecl = new VariableDeclaration(new UnknownType(), ident, condition);
+                Type variableType = HindleyMilner.inference(condition, scope);
+                newDecl = new VariableDeclaration(variableType, ident, condition);
             } else {
                 condition = (Expression) fromTSNode(alternative.getNamedChild(0).getNamedChild(0));
             }
@@ -279,24 +279,21 @@ public class PythonLanguage extends LanguageParser {
     private Node fromImportNodes(TSNode node) {
         if (node.getType().equals("import_statement")) {
             List<Identifier> scopes = new ArrayList<>();
-            List<Import> imports = new ArrayList<>();
+
             TSNode currentChild = node.getChildByFieldName("name");
             while (currentChild != null && !currentChild.isNull()) {
                 scopes.add((Identifier) fromTSNode(currentChild));
                 currentChild = currentChild.getNextNamedSibling();
             }
-            for (Identifier scope : scopes) {
-                imports.add(new ImportMembers(scope));
-            }
-            if (imports.size() == 1) {
-                return imports.getFirst();
+            if (scopes.size() == 1) {
+                return new ImportModule(scopes.getFirst());
             } else {
-                return new PseudoCompoundStatement(imports.toArray(new Node[0]));
+                return new ImportModules(scopes);
             }
         } else if (node.getType().equals("import_from_statement")) {
             Identifier scope = (Identifier) fromTSNode(node.getChildByFieldName("module_name"));
             if (node.getNamedChild(1).getType().equals("wildcard_import")) {
-                return new ImportAll(scope);
+                return new ImportAllFromModule(scope);
             }
             List<Identifier> members = new ArrayList<>();
             TSNode currentChild = node.getChildByFieldName("name");
@@ -304,7 +301,7 @@ public class PythonLanguage extends LanguageParser {
                 members.add((Identifier) fromTSNode(currentChild));
                 currentChild = currentChild.getNextNamedSibling();
             }
-            return new ImportMembers(scope, members);
+            return new ImportMembersFromModule(scope, members);
         } else {
             return fromTSNode(node);
         }
@@ -415,8 +412,10 @@ public class PythonLanguage extends LanguageParser {
             arguments.add(fromDeclarationArgument(node.getChildByFieldName("parameters").getNamedChild(i)));
         }
         Type returnType = determineType(node.getChildByFieldName("return_type"));
-        currentContext = new SymbolEnvironment(currentContext);
-        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"), currentContext);
+
+        scope.enter();
+        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"));
+
         assert body != null;
         rollbackContext();
         return new FunctionDefinition(new FunctionDeclaration(name, returnType, anno, arguments.toArray(new DeclarationArgument[0])), body);
@@ -471,8 +470,10 @@ public class PythonLanguage extends LanguageParser {
                 supertypes
         );
         UserType type = new Class((SimpleIdentifier) classDecl.getName());
-        currentContext = new SymbolEnvironment(currentContext);
-        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"), currentContext);
+
+        scope.enter();
+        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"));
+
         Node[] bodyNodes = body.getNodes();
         for (int i = 0; i < body.getLength(); i++) {
             Node bodyNode = bodyNodes[i];
@@ -503,9 +504,12 @@ public class PythonLanguage extends LanguageParser {
                 body.substitute(i, bodyNode);
             }
         }
+
         ClassDefinition def = new ClassDefinition(classDecl, body);
-        currentContext.setOwner(def);
-        rollbackContext();
+        // TODO: кто такой владелец контекста и зачем он нужен?
+        // currentContext.setOwner(def);
+        scope.leave();
+
         return def;
     }
 
@@ -532,9 +536,18 @@ public class PythonLanguage extends LanguageParser {
                 || condition instanceof BoolLiteral bool && bool.getValue()
                 || condition instanceof StringLiteral str && !str.getUnescapedValue().isEmpty()
         ) {
-            return new InfiniteLoop(body);
+            return new InfiniteLoop(body, getLoopType(node));
         }
         return new WhileLoop(condition, body);
+    }
+
+    private LoopType getLoopType(TSNode node) {
+        return switch (node.getType()) {
+            case "enhanced_for_statement", "for_statement" -> LoopType.FOR;
+            case "while_statement" -> LoopType.WHILE;
+            case "do_statement" -> LoopType.DO_WHILE;
+            default -> throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
+        };
     }
 
     private IndexExpression fromIndexTSNode(TSNode node) {
@@ -622,8 +635,11 @@ public class PythonLanguage extends LanguageParser {
 
     private Node createEntryPoint(TSNode node) {
         // detect if __name__ == __main__ construction
-        currentContext = new SymbolEnvironment(currentContext);
-        CompoundStatement compound = fromCompoundTSNode(node, currentContext);
+        scope.enter();
+        CompoundStatement compound = fromCompoundTSNode(node);
+
+        HindleyMilner.inference(List.of(compound.getNodes()), scope);
+
         Node entryPointNode = null;
         IfStatement entryPointIf = null;
         for (Node programNode : compound.getNodes()) {
@@ -639,21 +655,25 @@ public class PythonLanguage extends LanguageParser {
         }
         List<Node> nodes = new ArrayList<>(List.of(compound.getNodes()));
         nodes.remove(entryPointIf);
+
+        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
+
         if (
-                (nodes.size() > 1 && getConfigParameter("expressionMode").getBooleanValue())
+                (nodes.size() > 1 && expressionMode)
                 || (!nodes.isEmpty() && !(nodes.getFirst() instanceof ExpressionStatement) &&
                         !(nodes.getFirst() instanceof  AssignmentStatement) &&
-                        !(nodes.getFirst() instanceof Expression) && getConfigParameter("expressionMode").getBooleanValue())
+                        !(nodes.getFirst() instanceof Expression) && expressionMode)
         ) {
             throw new UnsupportedParsingException("Cannot parse the code as expression in expression mode");
         }
-        if (getConfigParameter("expressionMode").getBooleanValue() && !nodes.isEmpty()) {
+        if (expressionMode && !nodes.isEmpty()) {
             if (nodes.getFirst() instanceof ExpressionStatement exprStmt) {
                 return exprStmt.getExpression();
             }
             return nodes.getFirst();
         }
-        return new ProgramEntryPoint(currentContext, nodes, entryPointNode);
+
+        return new ProgramEntryPoint(nodes, entryPointNode);
     }
 
     private Identifier fromIdentifier(TSNode node) {
@@ -746,6 +766,22 @@ public class PythonLanguage extends LanguageParser {
     private Node fromAssignmentExpressionTSNode(TSNode node) {
         Expression left = (Expression) fromTSNode(node.getChildByFieldName("name"));
         Expression right = (Expression) fromTSNode(node.getChildByFieldName("value"));
+
+        if (left instanceof SimpleIdentifier variableName && right != null) {
+            var leftType = scope.getVariableType(variableName);
+            var rightType = HindleyMilner.inference(right, scope);
+
+            if (leftType == null) {
+                scope.changeVariableType(variableName, rightType);
+            }
+            else {
+                scope.changeVariableType(
+                        variableName,
+                        HindleyMilner.chooseGeneralType(leftType, rightType)
+                );
+            }
+        }
+
         return new AssignmentExpression(left, right);
     }
 
@@ -793,19 +829,22 @@ public class PythonLanguage extends LanguageParser {
                 augOp = AugmentedAssignmentOperator.NONE;
         }
 
+        // Обработка распаковки a, b = ...
         if (node.getChildByFieldName("left").getType().equals("pattern_list")) {
             List<Identifier> idents = new ArrayList<>();
-            for (int i = 0; i < node.getChildByFieldName("left").getNamedChildCount(); i++) {
-                idents.add(fromIdentifier(node.getChildByFieldName("left").getNamedChild(i)));
+            TSNode left = node.getChildByFieldName("left");
+            for (int i = 0; i < left.getNamedChildCount(); i++) {
+                idents.add(fromIdentifier(left.getNamedChild(i)));
             }
 
             List<Expression> exprs = new ArrayList<>();
-            if (node.getChildByFieldName("right").getType().equals("expression_list")) {
-                for (int i = 0; i < node.getChildByFieldName("right").getNamedChildCount(); i++) {
-                    exprs.add((Expression) fromTSNode(node.getChildByFieldName("right").getNamedChild(i)));
+            TSNode rightNode = node.getChildByFieldName("right");
+            if (rightNode.getType().equals("expression_list")) {
+                for (int i = 0; i < rightNode.getNamedChildCount(); i++) {
+                    exprs.add((Expression) fromTSNode(rightNode.getNamedChild(i)));
                 }
             } else {
-                exprs.add((Expression) fromTSNode(node.getChildByFieldName("right")));
+                exprs.add((Expression) fromTSNode(rightNode));
             }
             while (exprs.size() < idents.size()) {
                 exprs.add(new NullLiteral());
@@ -814,6 +853,26 @@ public class PythonLanguage extends LanguageParser {
                 throw new UnsupportedParsingException("Invalid using of unpacking construction");
             }
 
+            boolean allNew = augOp == AugmentedAssignmentOperator.NONE
+                    && idents.stream().allMatch(id -> scope.getVariableType((SimpleIdentifier) id) == null);
+
+            if (allNew) {
+                // Вычисляем общий тип по всем выражениям
+                var evaluatedTypes = exprs.stream().map(expr -> HindleyMilner.inference(expr, scope)).toList();
+                Type commonType = HindleyMilner.chooseGeneralType(evaluatedTypes);
+
+                // Регистрируем все переменные и создаём декларатор-ы
+                List<VariableDeclarator> decls = new ArrayList<>();
+                for (int i = 0; i < idents.size(); i++) {
+                    Identifier id = idents.get(i);
+                    Expression init = exprs.get(i);
+                    scope.changeVariableType((SimpleIdentifier) id, commonType);
+                    decls.add(new VariableDeclarator((SimpleIdentifier) id, init));
+                }
+                return new VariableDeclaration(commonType, decls);
+            }
+
+            // Иначе — обычный multiple assignment
             List<AssignmentStatement> stmts = new ArrayList<>();
             for (int i = 0; i < idents.size(); i++) {
                 stmts.add(new AssignmentStatement(idents.get(i), exprs.get(i), augOp));
@@ -821,28 +880,31 @@ public class PythonLanguage extends LanguageParser {
             return new MultipleAssignmentStatement(stmts);
         }
 
-        Expression left = (Expression) fromTSNode(node.getChildByFieldName("left"));
+        // Обычное присваивание
+        Expression leftExpr = (Expression) fromTSNode(node.getChildByFieldName("left"));
         Node rightRaw = fromTSNode(node.getChildByFieldName("right"));
-        Expression right;
-        if (rightRaw instanceof AssignmentStatement r) {
-            right = r.toExpression();
-        } else {
-            right = (Expression)rightRaw;
-        }
+        Expression rightExpr = (rightRaw instanceof AssignmentStatement r)
+                ? r.toExpression()
+                : (Expression) rightRaw;
 
-        if (!node.getChildByFieldName("type").isNull() && left instanceof SimpleIdentifier ident) {
-            Type type = determineType(node.getChildByFieldName("type"));
-            if (right instanceof PlainCollectionLiteral pl) {
-                if (type instanceof PlainCollectionType arrayType) {
-                    pl.setTypeHint(arrayType.getItemType());
-                } else {
-                    pl.setTypeHint(type);
-                }
+        if (leftExpr instanceof SimpleIdentifier variableName
+                && rightExpr != null
+                && augOp == AugmentedAssignmentOperator.NONE) {
+            Type leftType = scope.getVariableType(variableName);
+            Type rightType = HindleyMilner.inference(rightExpr, scope);
+
+            if (leftType == null) {
+                scope.changeVariableType(variableName, rightType);
+                return new VariableDeclaration(rightType, variableName, rightExpr);
+            } else {
+                scope.changeVariableType(
+                        variableName,
+                        HindleyMilner.chooseGeneralType(leftType, rightType)
+                );
             }
-            return new VariableDeclaration(type, ident, right);
         }
 
-        return new AssignmentStatement(left, right, augOp);
+        return new AssignmentStatement(leftExpr, rightExpr, augOp);
     }
 
     private Node fromList(TSNode node, String type) {
@@ -859,31 +921,23 @@ public class PythonLanguage extends LanguageParser {
         };
     }
 
-    private CompoundStatement fromCompoundTSNode(TSNode node, SymbolEnvironment context) {
-        currentContext = context;
-        BodyBuilder builder = new BodyBuilder(currentContext);
+    private CompoundStatement fromCompoundTSNode(TSNode node) {
+        var nodes = new ArrayList<Node>();
         for (int i = 0; i < node.getChildCount(); i++) {
-            Node treeNode = fromTSNode(node.getChild(i));
-            if (treeNode instanceof PseudoCompoundStatement pcs) {
-                for (Node subnode : pcs.getNodes()) {
-                    builder.put(subnode);
-                }
-            } else if (treeNode != null) {
-                builder.put(treeNode);
-            }
+            nodes.add(fromTSNode(node.getChild(i)));
         }
-        return builder.build();
+        return new CompoundStatement(nodes);
     }
 
     private IfStatement fromIfStatementTSNode(TSNode node) {
         List<ConditionBranch> branches = new ArrayList<>();
-        branches.add(createConditionBranchTSNode(node, currentContext));
+        branches.add(createConditionBranchTSNode(node));
         Statement elseBranch = null;
         TSNode altNode = node.getChildByFieldName("alternative");
         while (!altNode.isNull() &&
                 (altNode.getType().equals("elif_clause") || altNode.getType().equals("else_clause"))) {
             if (altNode.getType().equals("elif_clause")) {
-                branches.add(createConditionBranchTSNode(altNode, currentContext));
+                branches.add(createConditionBranchTSNode(altNode));
             } else {
                 elseBranch = (Statement) fromTSNode(altNode.getChildByFieldName("body"));
             }
@@ -892,10 +946,9 @@ public class PythonLanguage extends LanguageParser {
         return new IfStatement(branches, elseBranch);
     }
 
-    private ConditionBranch createConditionBranchTSNode(TSNode node, SymbolEnvironment parentContext) {
+    private ConditionBranch createConditionBranchTSNode(TSNode node) {
         Expression condition = (Expression) fromTSNode(node.getChildByFieldName("condition"));
         CompoundStatement consequence = (CompoundStatement) fromTSNode(node.getChildByFieldName("consequence"));
-        rollbackContext();
         return new ConditionBranch(condition, consequence);
     }
 

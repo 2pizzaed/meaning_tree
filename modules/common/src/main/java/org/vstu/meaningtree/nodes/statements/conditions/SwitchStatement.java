@@ -8,7 +8,6 @@ import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.statements.conditions.components.CaseBlock;
 import org.vstu.meaningtree.nodes.statements.conditions.components.DefaultCaseBlock;
 import org.vstu.meaningtree.nodes.statements.conditions.components.FallthroughCaseBlock;
-import org.vstu.meaningtree.utils.env.SymbolEnvironment;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -86,9 +85,9 @@ public class SwitchStatement extends Statement {
                 .toList();
     }
 
-    public void makeCompoundBranches(SymbolEnvironment env) {
+    public void makeCompoundBranches() {
         for (CaseBlock branch : cases) {
-            branch.makeCompoundBody(env);
+            branch.makeCompoundBody();
         }
     }
 }

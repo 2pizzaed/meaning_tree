@@ -2,6 +2,9 @@ package org.vstu.meaningtree.languages;
 
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
+import org.vstu.meaningtree.languages.configs.params.DisableCompoundComparisonConversion;
+import org.vstu.meaningtree.languages.configs.params.EnforceEntryPoint;
+import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.languages.utils.Tab;
 import org.vstu.meaningtree.nodes.*;
@@ -41,10 +44,7 @@ import org.vstu.meaningtree.nodes.io.FormatPrint;
 import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.modules.*;
-import org.vstu.meaningtree.nodes.statements.CompoundStatement;
-import org.vstu.meaningtree.nodes.statements.DeleteStatement;
-import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
-import org.vstu.meaningtree.nodes.statements.ReturnStatement;
+import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
@@ -61,7 +61,6 @@ import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.utils.Label;
-import org.vstu.meaningtree.utils.env.SymbolEnvironment;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
 import java.util.ArrayList;
@@ -72,8 +71,8 @@ import java.util.stream.Collectors;
 
 
 public class PythonViewer extends LanguageViewer {
-    public PythonViewer(LanguageTranslator translator) {
-        super(translator);
+    public PythonViewer(LanguageTokenizer tokenizer) {
+        super(tokenizer);
     }
 
     @Override
@@ -166,9 +165,14 @@ public class PythonViewer extends LanguageViewer {
             case MultipleAssignmentStatement stmtSequence -> assignmentToString(stmtSequence);
             case CastTypeExpression cast -> callsToString(cast);
             case Comprehension compr -> comprehensionToString(compr);
+            case EmptyStatement emptyStatement -> emptyStatementToString(emptyStatement);
             case null -> throw new MeaningTreeException("Null node detected");
             default -> throw new UnsupportedViewingException("Unsupported tree element: " + node.getClass().getName());
         };
+    }
+
+    private String emptyStatementToString(EmptyStatement emptyStatement) {
+        return "pass";
     }
 
     private String definitionArgumentToString(DefinitionArgument arg) {
@@ -268,25 +272,33 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String importToString(Import importStmt) {
-        if (importStmt instanceof ImportMembers importMembers) {
-            if (importMembers.getMembers().isEmpty()) {
-                return String.format("import %s", toString(importStmt.getScope()));
-            } else {
-                return String.format("from %s import %s", toString(importMembers.getScope()),
-                        importMembers.getMembers().stream().map(this::toString).collect(Collectors.joining(", ")));
-            }
-        } else if (importStmt instanceof ImportAll) {
-            return String.format("from %s import *", toString(importStmt.getScope()));
-        } else {
-            return String.format("import %s", toString(importStmt.getScope()));
-        }
+        return switch (importStmt) {
+            case ImportMembersFromModule importMembersFromModule ->
+                    String.format(
+                            "from %s import %s",
+                            toString(importMembersFromModule.getModuleName()),
+                            importMembersFromModule
+                                    .getMembers()
+                                    .stream()
+                                    .map(this::toString)
+                                    .collect(Collectors.joining(", "))
+                    );
+            case ImportAllFromModule importAllFromModule ->
+                    String.format(
+                            "from %s import *",
+                            toString(importAllFromModule.getModuleName())
+                    );
+            case ImportModule importModule ->
+                    String.format("import %s", toString(importModule.getModuleName()));
+            default -> throw new IllegalStateException("Unexpected import type: " + importStmt);
+        };
     }
 
     private String functionDeclarationToString(FunctionDeclaration decl, Tab tab) {
         if (decl instanceof MethodDeclaration method) {
-            return functionToString(new MethodDefinition(method, new CompoundStatement(new SymbolEnvironment(null))), tab);
+            return functionToString(new MethodDefinition(method, new CompoundStatement()), tab);
         }
-        return functionToString(new FunctionDefinition(decl, new CompoundStatement(new SymbolEnvironment(null))), tab);
+        return functionToString(new FunctionDefinition(decl, new CompoundStatement()), tab);
     }
 
     private String classToString(ClassDefinition def, Tab tab) {
@@ -302,7 +314,7 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String classDeclToString(ClassDeclaration decl, Tab tab) {
-        return toString(new ClassDefinition(decl, new CompoundStatement(new SymbolEnvironment(null))), tab);
+        return toString(new ClassDefinition(decl, new CompoundStatement()), tab);
     }
 
     private String functionToString(Definition func, Tab tab) {
@@ -394,7 +406,7 @@ public class PythonViewer extends LanguageViewer {
 
     private String entryPointToString(ProgramEntryPoint programEntryPoint, Tab tab) {
         IfStatement entryPointIf = null;
-        if (programEntryPoint.hasEntryPoint()) {
+        if (getConfigParameter(EnforceEntryPoint.class).orElse(false) && programEntryPoint.hasEntryPoint()) {
             Node entryPointNode = programEntryPoint.getEntryPoint();
             if (entryPointNode instanceof FunctionDefinition func) {
                 Identifier ident;
@@ -412,7 +424,7 @@ public class PythonViewer extends LanguageViewer {
                     }
                 }
                 FunctionCall funcCall = new FunctionCall(ident, nulls.toArray(new Expression[0]));
-                entryPointIf = new IfStatement(new EqOp(new SimpleIdentifier("__name__"), StringLiteral.fromUnescaped("__main__", StringLiteral.Type.NONE)), new CompoundStatement(new SymbolEnvironment(null), funcCall),null);
+                entryPointIf = new IfStatement(new EqOp(new SimpleIdentifier("__name__"), StringLiteral.fromUnescaped("__main__", StringLiteral.Type.NONE)), new CompoundStatement(funcCall),null);
             } else if (entryPointNode instanceof CompoundStatement compound) {
                 entryPointIf = new IfStatement(new EqOp(new SimpleIdentifier("__name__"), StringLiteral.fromUnescaped("__main__", StringLiteral.Type.NONE)), compound,null);
             }
@@ -470,17 +482,18 @@ public class PythonViewer extends LanguageViewer {
                     case FallthroughCaseBlock fallthroughCaseBlock -> {
                         throw new UnsupportedOperationException("Cannot translate fallthrough case branches");
                     }
-                    case DefaultCaseBlock defaultCaseBlock -> {
-                        builder.append(
-                                String.format(
-                                        "%scase _:\n%s\n",
-                                        tab,
-                                        toString(defaultCaseBlock.getBody(), tab)
-                                )
-                        );
-                    }
                     default -> throw new IllegalStateException("Unexpected case block: " + caseBranch.getClass());
                 }
+            }
+
+            if (switchStmt.hasDefaultCase()) {
+                builder.append(
+                        String.format(
+                                "%scase _:\n%s\n",
+                                tab,
+                                toString(switchStmt.getDefaultCase().getBody(), tab)
+                        )
+                );
             }
         } else if (stmt instanceof InfiniteLoop infLoop) {
             builder.append("while True:\n");
@@ -498,9 +511,11 @@ public class PythonViewer extends LanguageViewer {
 
         for (int i = 0; i < decls.length; i++) {
             lValues.append(toString(decls[i].getIdentifier()));
-            //NEED DISCUSSION, see typeToString notes
-            if (varDecl.getType() != null && !(varDecl.getType() instanceof UnknownType)) {
-                lValues.append(String.format(": %s", typeToString(varDecl.getType())));
+            // NEED DISCUSSION, see typeToString notes
+            // UPDATE: хинты о типах не добавляются в случае, если много переменных,
+            // т.к. это синтаксическая ошибка
+            if (decls.length == 1 && varDecl.getType() != null && !(varDecl.getType() instanceof UnknownType)) {
+                 lValues.append(String.format(": %s", typeToString(varDecl.getType())));
             }
             if (decls[i].hasInitialization() && decls[i].getRValue() != null) {
                 rValues.append(toString(decls[i].getRValue()));
@@ -572,7 +587,7 @@ public class PythonViewer extends LanguageViewer {
     private String assignmentExpressionToString(AssignmentExpression expr) {
         expr = (AssignmentExpression) parenFiller.process(expr);
         if (!(expr.getLValue() instanceof SimpleIdentifier) || (expr.getRValue() instanceof AssignmentExpression)) {
-            if (getConfigParameter("expressionMode").getBooleanValue()) {
+            if (getConfigParameter(ExpressionMode.class).orElse(false)) {
                 return String.format("%s = %s", toString(expr.getLValue()), toString(expr.getRValue()));
             } else {
                 throw new UnsupportedViewingException("Assignment expressions in Python supports only simple identifiers");
@@ -765,12 +780,12 @@ public class PythonViewer extends LanguageViewer {
         Expression left = node.getLeft();
         Expression right = node.getRight();
         String token = mapToToken(node).value;
-        
+
         if (node instanceof ShortCircuitAndOp) {
             try {
                 Node result = PythonSpecialNodeTransformations.detectCompoundComparison(node);
                 if (result instanceof CompoundComparison
-                        && !getConfigParameter("disableCompoundComparisonConversion").getBooleanValue()) {
+                        && !getConfigParameter(DisableCompoundComparisonConversion.class).orElse(false)) {
                     return compoundComparisonToString((CompoundComparison) result);
                 } else {
                     return preferExplicitAndOpToString(result);
@@ -790,7 +805,7 @@ public class PythonViewer extends LanguageViewer {
     private String preferExplicitAndOpToString(Node node) {
         if (node instanceof ShortCircuitAndOp op) {
             return String.format("%s and %s", preferExplicitAndOpToString(op.getLeft()), preferExplicitAndOpToString(op.getRight()));
-        } else if (node instanceof CompoundComparison op && getConfigParameter("disableCompoundComparisonConversion").getBooleanValue()) {
+        } else if (node instanceof CompoundComparison op && getConfigParameter(DisableCompoundComparisonConversion.class).orElse(false)) {
            return preferExplicitAndOpToString(BinaryExpression.fromManyOperands
                    (op.getComparisons().toArray(new BinaryComparison[0]), 0, ShortCircuitAndOp.class));
         } else {
@@ -855,13 +870,22 @@ public class PythonViewer extends LanguageViewer {
         for (int i = 0; i < node.getBranches().size(); i++) {
             ConditionBranch branch = node.getBranches().get(i);
             if (i == 0) {
-                sb.append(String.format("if %s:\n%s\n", toString(branch.getCondition()), toString(branch.getBody(), tab)));
+                if (!(branch.getBody() instanceof CompoundStatement))
+                    sb.append(String.format("if %s:\n%s\n", toString(branch.getCondition()), toString(branch.getBody(), tab.up())));
+                else
+                    sb.append(String.format("if %s:\n%s\n", toString(branch.getCondition()), toString(branch.getBody(), tab)));
             } else {
-                sb.append(String.format("%selif %s:\n%s\n", tab, toString(branch.getCondition()), toString(branch.getBody(), tab)));
+                if (!(branch.getBody() instanceof CompoundStatement))
+                    sb.append(String.format("%selif %s:\n%s\n", tab, toString(branch.getCondition()), toString(branch.getBody(), tab.up())));
+                else
+                    sb.append(String.format("%selif %s:\n%s\n", tab, toString(branch.getCondition()), toString(branch.getBody(), tab)));
             }
         }
         if (node.hasElseBranch()) {
-            sb.append(String.format("%selse:\n%s\n", tab, toString(node.getElseBranch(), tab)));
+            if (!(node.getElseBranch() instanceof CompoundStatement))
+                sb.append(String.format("%selse:\n%s\n", tab, toString(node.getElseBranch(), tab.up())));
+            else
+                sb.append(String.format("%selse:\n%s\n", tab, toString(node.getElseBranch(), tab)));
         }
         return sb.toString().stripTrailing();
     }
@@ -870,6 +894,9 @@ public class PythonViewer extends LanguageViewer {
         node = parenFiller.process(node);
         String pattern = "";
         Expression expr = node.getArgument();
+
+        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
+
         if (node instanceof UnaryPlusOp) {
             pattern = "+%s";
         } else if (node instanceof UnaryMinusOp) {
@@ -882,7 +909,7 @@ public class PythonViewer extends LanguageViewer {
         } else if (node instanceof InversionOp) {
             pattern = "~%s";
         } else if (node instanceof PostfixDecrementOp || node instanceof PrefixDecrementOp) {
-            boolean exprRepr = origin == null && getConfigParameter("expressionMode").getBooleanValue();
+            boolean exprRepr = origin == null && expressionMode;
             Node parent = origin == null ? null : origin.findParentOfNode(node);
             if (exprRepr || parent instanceof Expression) {
                 return String.format("%s := %s + 1", toString(expr), toString(expr));
@@ -890,7 +917,7 @@ public class PythonViewer extends LanguageViewer {
                 pattern = "%s -= 1";
             }
         } else if (node instanceof PostfixIncrementOp || node instanceof PrefixIncrementOp) {
-            boolean exprRepr = origin == null && getConfigParameter("expressionMode").getBooleanValue();
+            boolean exprRepr = origin == null && expressionMode;
             Node parent = origin == null ? null : origin.findParentOfNode(node);
             if (exprRepr || parent instanceof Expression) {
                 return String.format("%s := %s + 1", toString(expr), toString(expr));
@@ -1070,6 +1097,6 @@ public class PythonViewer extends LanguageViewer {
             case PrefixDecrementOp op -> "-=";
             default -> null;
         };
-        return translator.getTokenizer().getOperatorByTokenName(tok);
+        return tokenizer.getOperatorByTokenName(tok);
     }
 }

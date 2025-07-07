@@ -36,8 +36,6 @@ import org.vstu.meaningtree.nodes.statements.loops.GeneralForLoop;
 import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
-import org.vstu.meaningtree.utils.BodyBuilder;
-import org.vstu.meaningtree.utils.env.SymbolEnvironment;
 
 import java.util.*;
 
@@ -67,12 +65,12 @@ public class PythonSpecialNodeTransformations {
         if (stmt instanceof CompoundStatement compound) {
             body = compound;
         } else {
-            BodyBuilder bb = new BodyBuilder();
-            bb.put(stmt);
-            body = bb.build();
+            body = new CompoundStatement(stmt);
         }
         _prepend_continue_with_expression(body, update);
-        body.insert(body.getLength(), update);
+        if (update != null) {
+            body.insert(body.getLength(), update);
+        }
         List<Node> result = new ArrayList<>();
         result.add((Node) initializer);
         result.add(new WhileLoop(condition, body));
@@ -86,6 +84,10 @@ public class PythonSpecialNodeTransformations {
     }
 
     private static void _prepend_continue_with_expression(CompoundStatement compound, Node update) {
+        if (update == null) {
+            return;
+        }
+
         int found = -1;
         Node[] nodes = compound.getNodes();
         for (int i = 0; i < nodes.length; i++) {
@@ -100,7 +102,7 @@ public class PythonSpecialNodeTransformations {
             if (node instanceof ForLoop || node instanceof WhileLoop) {
                 return;
             } else if (node instanceof IfStatement ifStmt) {
-                ifStmt.makeCompoundBranches(compound.getEnv());
+                ifStmt.makeCompoundBranches();
                 for (ConditionBranch branch : ifStmt.getBranches()) {
                     _prepend_continue_with_expression((CompoundStatement) branch.getBody(), update);
                 }
@@ -109,7 +111,7 @@ public class PythonSpecialNodeTransformations {
                 }
             } else if (node instanceof SwitchStatement switchStmt) {
                 //TODO: it is correct (continue usage) in programming languages?
-                switchStmt.makeCompoundBranches(compound.getEnv());
+                switchStmt.makeCompoundBranches();
                 for (CaseBlock branch : switchStmt.getCases()) {
                     _prepend_continue_with_expression((CompoundStatement) branch.getBody(), update);
                 }
@@ -117,31 +119,38 @@ public class PythonSpecialNodeTransformations {
                     _prepend_continue_with_expression((CompoundStatement) switchStmt.getDefaultCase().getBody(), update);
                 }
             } else if (node instanceof HasBodyStatement hasBodyStmt) {
-                hasBodyStmt.makeCompoundBody(compound.getEnv());
+                hasBodyStmt.makeCompoundBody();
                 _prepend_continue_with_expression((CompoundStatement) hasBodyStmt.getBody(), update);
             }
         }
     }
 
+    private static Expression negateCondition(Expression condition) {
+        return switch (condition) {
+            case BoolLiteral boolLiteral -> boolLiteral.getValue() ? new BoolLiteral(false) : new BoolLiteral(true);
+            case NotOp notOp -> notOp.getArgument();
+            case EqOp eqOp -> new NotEqOp(eqOp.getLeft(), eqOp.getRight());
+            case NotEqOp notEqOp -> new EqOp(notEqOp.getLeft(), notEqOp.getRight());
+            case LtOp ltOp -> new GeOp(ltOp.getLeft(), ltOp.getRight());
+            case GtOp gtOp -> new LeOp(gtOp.getLeft(), gtOp.getRight());
+            case LeOp leOp -> new GtOp(leOp.getLeft(), leOp.getRight());
+            case GeOp geOp -> new LtOp(geOp.getLeft(), geOp.getRight());
+            default -> new NotOp(new ParenthesizedExpression(condition));
+        };
+    }
+
     public static Node representDoWhile(DoWhileLoop doWhile) {
-        Expression condition = doWhile.getCondition();
-        if (condition instanceof BinaryComparison cmp) {
-            condition = cmp.inverse();
-        } else {
-            condition = new NotOp(new ParenthesizedExpression(condition));
-        }
-        IfStatement breakCondition = new IfStatement(condition, new BreakStatement(), null);
+        Expression condition = negateCondition(doWhile.getCondition());
+        IfStatement breakCondition = new IfStatement(condition, new CompoundStatement(new BreakStatement()), null);
         List<Node> body;
-        SymbolEnvironment env = null;
         if (doWhile.getBody() instanceof CompoundStatement compound) {
-            env = compound.getEnv();
-            body = Arrays.asList(compound.getNodes());
+            body = new ArrayList<>(List.of(compound.getNodes()));
         } else {
             body = new ArrayList<>();
             body.add(doWhile.getBody());
         }
         body.add(breakCondition);
-        return new WhileLoop(new BoolLiteral(true), new CompoundStatement(env, body));
+        return new WhileLoop(new BoolLiteral(true), new CompoundStatement(body));
     }
 
     public static Node detectCompoundComparison(Node expressionNode) {

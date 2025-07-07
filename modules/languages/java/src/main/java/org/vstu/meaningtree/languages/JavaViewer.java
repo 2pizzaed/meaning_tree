@@ -1,23 +1,24 @@
 package org.vstu.meaningtree.languages;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
-import org.vstu.meaningtree.languages.utils.HindleyMilner;
-import org.vstu.meaningtree.languages.utils.Scope;
+import org.vstu.meaningtree.languages.configs.params.EnforceEntryPoint;
+import org.vstu.meaningtree.nodes.statements.EmptyStatement;
+import org.vstu.meaningtree.utils.type_inference.*;
 import org.vstu.meaningtree.nodes.*;
-import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
-import org.vstu.meaningtree.nodes.declarations.FieldDeclaration;
-import org.vstu.meaningtree.nodes.declarations.MethodDeclaration;
-import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
+import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
+import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
 import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
 import org.vstu.meaningtree.nodes.definitions.ObjectConstructorDefinition;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
+import org.vstu.meaningtree.nodes.expressions.*;
 import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
@@ -45,6 +46,7 @@ import org.vstu.meaningtree.nodes.expressions.unary.*;
 import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 import org.vstu.meaningtree.nodes.io.FormatInput;
 import org.vstu.meaningtree.nodes.io.FormatPrint;
+import org.vstu.meaningtree.nodes.io.InputCommand;
 import org.vstu.meaningtree.nodes.io.PrintValues;
 import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
@@ -83,23 +85,10 @@ public class JavaViewer extends LanguageViewer {
     private final boolean _bracketsAroundCaseBranches;
     private final boolean _autoVariableDeclaration;
 
-    private Scope _currentScope;
-    private Scope _typeScope;
+    private TypeScope _currentScope;
+    private TypeScope _typeScope;
 
-    private void enterNewScope() {
-        _currentScope = new Scope(_currentScope);
-        _typeScope = new Scope(_typeScope);
-    }
-
-    private void leaveScope() {
-        Scope parentScope = _currentScope.getParentScope();
-        Scope parentTypeScope = _typeScope.getParentScope();
-        if (parentScope == null) {
-            throw new MeaningTreeException("No parent scope found");
-        }
-        _currentScope = parentScope;
-        _typeScope = parentTypeScope;
-    }
+    private Type _methodReturnType = null;
 
     private void addVariableToCurrentScope(@NotNull SimpleIdentifier variableName, Type type) {
         _currentScope.addVariable(variableName, type);
@@ -109,22 +98,28 @@ public class JavaViewer extends LanguageViewer {
         _currentScope.addMethod(methodName, returnType);
     }
 
-    public JavaViewer(LanguageTranslator translator, int indentSpaceCount,
+    public JavaViewer() {
+        this(0, false, true, false);
+    }
+
+    public JavaViewer(int indentSpaceCount,
                       boolean openBracketOnSameLine,
                       boolean bracketsAroundCaseBranches,
                       boolean autoVariableDeclaration
     ) {
-        super(translator);
         _indentation = " ".repeat(indentSpaceCount);
         _indentLevel = 0;
         _openBracketOnSameLine = openBracketOnSameLine;
         _bracketsAroundCaseBranches = bracketsAroundCaseBranches;
-        _currentScope = new Scope();
-        _typeScope = new Scope();
+        _currentScope = new TypeScope();
+        _typeScope = new TypeScope();
         _autoVariableDeclaration = autoVariableDeclaration;
     }
 
-    public JavaViewer(LanguageTranslator translator) { this(translator, 4, true, false, false); }
+    public JavaViewer(LanguageTokenizer tokenizer) {
+        this(4, true, false, false);
+        this.tokenizer = tokenizer;
+    }
 
     @Override
     public String toString(Node node) {
@@ -164,7 +159,7 @@ public class JavaViewer extends LanguageViewer {
             case PointerType ptr -> toString(ptr.getTargetType());
             case MemoryAllocationCall memoryAllocationCall -> toString(memoryAllocationCall.toNew());
             case MemoryFreeCall freeCall -> toString(freeCall.toDelete());
-            case Type type -> toString(type, true);
+            case Type type -> toString(type);
             case SelfReference selfReference -> toString(selfReference);
             case UnaryMinusOp unaryMinusOp -> toString(unaryMinusOp);
             case UnaryPlusOp unaryPlusOp -> toString(unaryPlusOp);
@@ -199,9 +194,10 @@ public class JavaViewer extends LanguageViewer {
             case RangeForLoop rangeLoop -> toString(rangeLoop);
             case ProgramEntryPoint entryPoint -> toString(entryPoint);
             case MethodCall methodCall -> toString(methodCall);
-            case FormatPrint fmt -> String.format("System.out.printf(%s)", fmt.getFormatString(), toStringExprList(fmt.getArguments()));
+            case FormatPrint fmt -> toString(fmt);
             case PrintValues printValues -> toString(printValues);
-            case FormatInput fmt -> throw new UnsupportedViewingException("Format input is not supported in Java");
+            case FormatInput fmt -> toString(fmt);
+            case InputCommand inputCommand -> toString(inputCommand);
             case FunctionCall funcCall -> toString(funcCall);
             case WhileLoop whileLoop -> toString(whileLoop);
             case ScopedIdentifier scopedIdent -> toString(scopedIdent);
@@ -221,9 +217,9 @@ public class JavaViewer extends LanguageViewer {
             case SwitchStatement switchStatement -> toString(switchStatement);
             case NullLiteral nullLiteral -> toString(nullLiteral);
             case StaticImportAll staticImportAll -> toString(staticImportAll);
-            case StaticImportMembers staticImportMembers -> toString(staticImportMembers);
-            case ImportAll importAll -> toString(importAll);
-            case ImportMembers importMembers -> toString(importMembers);
+            case StaticImportMembersFromModule staticImportMembers -> toString(staticImportMembers);
+            case ImportAllFromModule importAll -> toString(importAll);
+            case ImportMembersFromModule importMembers -> toString(importMembers);
             case ObjectNewExpression objectNewExpression -> toString(objectNewExpression);
             case BoolLiteral boolLiteral -> toString(boolLiteral);
             case MemberAccess memberAccess -> toString(memberAccess);
@@ -246,13 +242,133 @@ public class JavaViewer extends LanguageViewer {
             case ExpressionSequence expressionSequence -> toString(expressionSequence);
             case CharacterLiteral characterLiteral -> toString(characterLiteral);
             case DoWhileLoop doWhileLoop -> toString(doWhileLoop);
+            case ForEachLoop forEachLoop -> toString(forEachLoop);
             case PointerPackOp ptr -> toString(ptr);
             case DefinitionArgument defArg ->toString(defArg.getInitialExpression());
             case PointerUnpackOp ptr -> toString(ptr);
             case ContainsOp op -> toString(op);
             case ReferenceEqOp op -> toString(op);
+            case FunctionDefinition functionDefinition -> toString(functionDefinition);
+            case EmptyStatement emptyStatement -> toString(emptyStatement);
             default -> throw new UnsupportedViewingException(String.format("Can't stringify node %s", node.getClass()));
         };
+    }
+
+    private String toString(EmptyStatement emptyStatement) {
+        return "";
+    }
+
+    private String toString(FunctionDefinition functionDefinition) {
+        StringBuilder builder = new StringBuilder();
+
+        // Преобразование типа нужно, чтобы избежать вызова toString(Node node)
+        String methodDeclaration = toString((FunctionDeclaration) functionDefinition.getDeclaration());
+        builder.append(methodDeclaration);
+
+        String body = toString(functionDefinition.getBody());
+        if (_openBracketOnSameLine)
+        { builder.append(" ").append(body); }
+        else
+        { builder.append("\n").append(indent(body)); }
+
+        return builder.toString();
+    }
+
+    private String toString(FunctionDeclaration functionDeclaration) {
+        StringBuilder builder = new StringBuilder();
+
+        // Считаем каждую функцию доступной извне
+        builder.append("public static ");
+
+        String returnType = toString(functionDeclaration.getReturnType());
+        builder.append(returnType).append(" ");
+
+        String name = toString(functionDeclaration.getName());
+        builder.append(name);
+
+        String parameters = toStringParameters(functionDeclaration.getArguments());
+        builder.append(parameters);
+
+        return builder.toString();
+    }
+
+    private String toString(InputCommand inputCommand) {
+        var builder = new StringBuilder();
+
+        int i = 0;
+        for (Expression stringPart : inputCommand.getArguments()) {
+            if (i > 0) {
+                builder
+                        .append(indent(toString(inputCommand.getArguments().getFirst())))
+                        .append(" = ")
+                        .append("new Scanner(System.in).");
+            }
+            else {
+                builder
+                        .append(toString(inputCommand.getArguments().getFirst()))
+                        .append(" = ")
+                        .append("new Scanner(System.in).");
+            }
+
+            Type exprType = HindleyMilner.inference(stringPart, _currentScope);
+            switch (exprType) {
+                case StringType stringType -> {
+                    builder.append("next()");
+                }
+                case IntType integerType -> {
+                    builder.append("nextInt()");
+                }
+                case FloatType floatType -> {
+                    builder.append("nextDouble()");
+                }
+                default -> {
+                    throw new IllegalStateException("Unsupported type in format input in Java: " + exprType);
+                }
+            }
+
+            builder.append("\n");
+            i += 1;
+        }
+
+        builder.deleteCharAt(builder.length() - 1);
+        return builder.toString();
+    }
+
+    private String toString(FormatInput formatInput) {
+        var builder = new StringBuilder();
+
+        builder.append("new Scanner(System.in).");
+        if (formatInput.getArguments().size() > 1) {
+            throw new IllegalStateException("Multiple input values are not supported in Java");
+        }
+
+        for (Expression stringPart : formatInput.getArguments()) {
+            Type exprType = HindleyMilner.inference(stringPart, _typeScope);
+            switch (exprType) {
+                case StringType stringType -> {
+                    builder.append("next()");
+                }
+                case IntType integerType -> {
+                    builder.append("nextInt()");
+                }
+                case FloatType floatType -> {
+                    builder.append("nextDouble()");
+                }
+                default -> {
+                    throw new IllegalStateException("Unsupported type in format input in Java: " + exprType);
+                }
+            }
+        }
+
+        return builder.toString();
+    }
+
+    private String toString(FormatPrint formatPrint) {
+        return String.format(
+                "System.out.printf(%s, %s)",
+                formatPrint.getFormatString(),
+                toStringExprList(formatPrint.getArguments())
+        );
     }
 
     private String toStringExprList(List<Expression> arguments) {
@@ -272,7 +388,9 @@ public class JavaViewer extends LanguageViewer {
 
     public String toString(ListLiteral list) {
         var builder = new StringBuilder();
-        String typeHint = list.getTypeHint() == null ? "" : toString(list.getTypeHint());
+        // FIX: уби
+        // String typeHint = "list.getTypeHint() == null ? "" : toString(list.getTypeHint());"
+        String typeHint = "";
         builder.append(String.format("new java.util.ArrayList<%s>(java.util.List.of(", typeHint));
         for (Expression expression : list.getList()) {
             builder.append(String.format("%s, ", toString(expression)));
@@ -309,7 +427,7 @@ public class JavaViewer extends LanguageViewer {
 
     public String toString(PlainCollectionLiteral unmodifiableListLiteral) {
         var builder = new StringBuilder();
-        String typeHint = unmodifiableListLiteral.getTypeHint() == null ? "Object" : toString(unmodifiableListLiteral.getTypeHint(), false);
+        String typeHint = unmodifiableListLiteral.getTypeHint() == null ? "Object" : toString(unmodifiableListLiteral.getTypeHint());
         builder.append(String.format("new %s[] {", typeHint));
 
         for (Expression expression : unmodifiableListLiteral.getList()) {
@@ -446,19 +564,47 @@ public class JavaViewer extends LanguageViewer {
         decreaseIndentLevel();
 
         if (_openBracketOnSameLine) {
-            builder.append("} ");
+            builder
+                    .append(indent("} "))
+                    .append(
+                            "while (%s);".formatted(
+                                    toString(doWhileLoop.getCondition())
+                            )
+                    );
         }
         else {
-            builder.append("}\n");
+            builder
+                    .append(indent("}\n"))
+                    .append(
+                            indent("while (%s);".formatted(
+                                        toString(doWhileLoop.getCondition())
+                                    )
+                            )
+                    );;
         }
 
-        builder.append(
-                "while %s;".formatted(
-                        toString(doWhileLoop.getCondition())
-                )
-        );
-
         return builder.toString();
+    }
+
+    private String toString(ForEachLoop forEachLoop) {
+        var type = toString(forEachLoop.getItem().getType());
+        var iterVarId = toString(forEachLoop.getItem().getDeclarators()[0].getIdentifier());
+        var iterable = toString(forEachLoop.getExpression());
+        var body = toString(forEachLoop.getBody());
+
+        StringBuilder builder = new StringBuilder();
+
+        return builder
+                .append("for (")
+                .append(type)
+                .append(" ")
+                .append(iterVarId)
+                .append(" : ")
+                .append(iterable)
+                .append(")")
+                .append(_openBracketOnSameLine ? " " : "\n")
+                .append(indent(body))
+                .toString();
     }
 
     private String toString(CharacterLiteral characterLiteral) {
@@ -485,8 +631,19 @@ public class JavaViewer extends LanguageViewer {
     private String toString(InfiniteLoop infiniteLoop) {
         StringBuilder builder = new StringBuilder();
 
-        builder.append(indent("while (true)"));
+        boolean trailingWhile = false;
+        var loopHeader = switch (infiniteLoop.getLoopType()) {
+            case FOR -> "for (;;)";
+            case WHILE -> "while (true)";
+            case DO_WHILE -> {
+                trailingWhile = true;
+                yield "do";
+            }
+        };
+
+        builder.append(indent(loopHeader));
         Statement body = infiniteLoop.getBody();
+
         if (body instanceof CompoundStatement compoundStatement) {
             if (_openBracketOnSameLine) {
                 builder
@@ -503,6 +660,10 @@ public class JavaViewer extends LanguageViewer {
             increaseIndentLevel();
             builder.append(indent(toString(body)));
             decreaseIndentLevel();
+        }
+
+        if (trailingWhile) {
+            builder.append("while (true);\n");
         }
 
         return builder.toString();
@@ -603,6 +764,10 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toString(ReturnStatement returnStatement) {
+        System.out.println(_methodReturnType);
+        if (_methodReturnType instanceof NoReturn)
+            return "return;";
+
         Expression expression = returnStatement.getExpression();
         return (expression != null) ? "return %s;".formatted(toString(expression)) : "return;";
     }
@@ -632,7 +797,7 @@ public class JavaViewer extends LanguageViewer {
         StringBuilder builder = new StringBuilder();
         builder.append("new ");
 
-        String type = toString(arrayNewExpression.getType(), false);
+        String type = toString(arrayNewExpression.getType());
         builder.append(type);
 
         String dimensions = toString(arrayNewExpression.getShape());
@@ -694,10 +859,10 @@ public class JavaViewer extends LanguageViewer {
 
     private String toString(StaticImportAll staticImportAll) {
         String importTemplate = "import static %s.*;";
-        return importTemplate.formatted(toString(staticImportAll.getScope()));
+        return importTemplate.formatted(toString(staticImportAll.getModuleName()));
     }
 
-    private String toString(StaticImportMembers staticImportMembers) {
+    private String toString(StaticImportMembersFromModule staticImportMembers) {
         StringBuilder builder = new StringBuilder();
 
         String importTemplate = "import static %s.%s;";
@@ -705,7 +870,7 @@ public class JavaViewer extends LanguageViewer {
             builder
                     .append(
                             importTemplate.formatted(
-                                    toString(staticImportMembers.getScope()),
+                                    toString(staticImportMembers.getModuleName()),
                                     toString(member)
                             )
                     )
@@ -719,12 +884,12 @@ public class JavaViewer extends LanguageViewer {
         return builder.toString();
     }
 
-    private String toString(ImportAll importAll) {
+    private String toString(ImportAllFromModule importAll) {
         String importTemplate = "import %s.*;";
-        return importTemplate.formatted(toString(importAll.getScope()));
+        return importTemplate.formatted(toString(importAll.getModuleName()));
     }
 
-    private String toString(ImportMembers importMembers) {
+    private String toString(ImportMembersFromModule importMembers) {
         StringBuilder builder = new StringBuilder();
 
         String importTemplate = "import %s.%s;";
@@ -732,7 +897,7 @@ public class JavaViewer extends LanguageViewer {
             builder
                     .append(
                         importTemplate.formatted(
-                            toString(importMembers.getScope()),
+                            toString(importMembers.getModuleName()),
                             toString(member)
                         )
                     )
@@ -848,6 +1013,13 @@ public class JavaViewer extends LanguageViewer {
                     .append(indent(toStringCaseBlock(caseBlock)))
                     .append("\n");
         }
+
+        if (switchStatement.hasDefaultCase()) {
+            builder
+                    .append(indent(toStringCaseBlock(switchStatement.getDefaultCase())))
+                    .append("\n");
+        }
+
         decreaseIndentLevel();
 
         builder.append(indent("}"));
@@ -855,13 +1027,19 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toString(DeclarationArgument parameter) {
-        String mid = "";
+        var builder = new StringBuilder();
+
         String type = toString(parameter.getElementType());
+        builder.append(type);
+
         if (parameter.isListUnpacking()) {
-            mid = "...";
+            builder.append("...");
         }
+
         String name = toString(parameter.getName());
-        return "%s %s %s".formatted(type, mid, name);
+        builder.append(" ").append(name);
+
+        return builder.toString();
     }
 
     // В отличие от всех остальных методов, данный называется так,
@@ -912,6 +1090,9 @@ public class JavaViewer extends LanguageViewer {
     private String toString(MethodDefinition methodDefinition) {
         StringBuilder builder = new StringBuilder();
 
+        // Нужен для отслеживания необходимости в return
+        _methodReturnType = ((MethodDeclaration) methodDefinition.getDeclaration()).getReturnType();
+
         // Преобразование типа нужно, чтобы избежать вызова toString(Node node)
         String methodDeclaration = toString((MethodDeclaration) methodDefinition.getDeclaration());
         builder.append(methodDeclaration);
@@ -921,6 +1102,8 @@ public class JavaViewer extends LanguageViewer {
             { builder.append(" ").append(body); }
         else
             { builder.append("\n").append(indent(body)); }
+
+        _methodReturnType = null;
 
         return builder.toString();
     }
@@ -1108,7 +1291,7 @@ public class JavaViewer extends LanguageViewer {
             case PrefixDecrementOp op -> "--U";
             default -> null;
         };
-        return translator.getTokenizer().getOperatorByTokenName(tok);
+        return tokenizer.getOperatorByTokenName(tok);
     }
 
     public String toString(AddOp op) {
@@ -1155,8 +1338,24 @@ public class JavaViewer extends LanguageViewer {
         return toString(op, "<");
     }
 
+    private String wrapperTypeName(Type possiblePrimitiveType) {
+        return switch (possiblePrimitiveType) {
+            case IntType t -> switch (t.size) {
+                case 8 -> "Byte";
+                case 16 -> "Short";
+                case 32 -> "Integer";
+                default -> "Long";
+            };
+            case CharacterType t -> "Character";
+            case BooleanType t -> "Boolean";
+            case FloatType t -> t.size == 32 ? "Float" : "Double";
+            default -> toString(possiblePrimitiveType);
+        };
+    }
+
     public String toString(InstanceOfOp op) {
-        return toString(op, "instanceof");
+        return toString(op.getLeft()) + " instanceof " +
+                wrapperTypeName(op.getType());
     }
 
     public String toString(NotEqOp op) {
@@ -1172,7 +1371,24 @@ public class JavaViewer extends LanguageViewer {
     }
 
     public String toString(NotOp op) {
-        return String.format("!%s", toString(op.getArgument()));
+        var arg = op.getArgument();
+
+        // These expressions don't need parentheses as they have higher precedence or are atomic
+        if (arg instanceof ParenthesizedExpression ||
+                arg instanceof Identifier ||  // All identifier types (SimpleIdentifier, ScopedIdentifier, QualifiedIdentifier, SelfReference, etc.)
+                arg instanceof Literal ||     // All literal types
+                arg instanceof FunctionCall ||
+                arg instanceof MemberAccess ||
+                arg instanceof IndexExpression ||
+                arg instanceof CastTypeExpression ||
+                arg instanceof UnaryExpression ||  // Other unary operators have same precedence level
+                arg instanceof ObjectNewExpression ||
+                arg instanceof ArrayNewExpression) {
+            return String.format("!%s", toString(arg));
+        }
+
+        // These expressions need parentheses as they have lower precedence
+        return String.format("!(%s)", toString(arg));
     }
 
     public String toString(MatMulOp op) {
@@ -1252,20 +1468,16 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toString(Type type) {
-        return toString(type, true);
-    }
-
-    private String toString(Type type, boolean isPrimitiveWrapper) {
         return switch (type) {
-            case FloatType floatType -> toString(floatType, isPrimitiveWrapper);
-            case IntType intType -> toString(intType, isPrimitiveWrapper);
-            case BooleanType booleanType -> toString(booleanType, isPrimitiveWrapper);
+            case FloatType floatType -> toString(floatType);
+            case IntType intType -> toString(intType);
+            case BooleanType booleanType -> toString(booleanType);
             case StringType stringType -> toString(stringType);
             case NoReturn voidType -> toString(voidType);
             case UnknownType unknownType -> toString(unknownType);
             case ArrayType arrayType -> toString(arrayType);
             case UserType userType -> toString(userType);
-            case CharacterType characterType -> toString(characterType, isPrimitiveWrapper);
+            case CharacterType characterType -> toString(characterType);
             case SetType setType -> toString(setType);
             case DictionaryType dictType -> toString(dictType);
             case PlainCollectionType plain -> toString(plain);
@@ -1274,38 +1486,37 @@ public class JavaViewer extends LanguageViewer {
         };
     }
 
+    public String toString(FloatType type) {
+        return type.size == 32 ? "float" : "double";
+    }
+
+    public String toString(IntType type) {
+        return switch (type.size) {
+            case 8 -> "byte";
+            case 16 -> "short";
+            case 32 -> "int";
+            default -> "long";
+        };
+    }
+
+    public String toString(BooleanType type) {
+        return "boolean";
+    }
+
     public String toString(SetType type) {
-        return String.format("java.util.HashSet<%s>", toString(type.getItemType()));
+        var typeName = wrapperTypeName(type.getItemType());
+        return String.format("java.util.HashSet<%s>", typeName);
     }
 
     public String toString(PlainCollectionType type) {
-        return String.format("java.util.ArrayList<%s>", toString(type.getItemType()));
+        var typeName = wrapperTypeName(type.getItemType());
+        return String.format("java.util.ArrayList<%s>", typeName);
     }
 
     public String toString(DictionaryType type) {
-        return String.format("java.util.TreeMap<%s, %s>", toString(type.getKeyType()), toString(type.getValueType()));
-    }
-
-    private String toString(FloatType type, boolean isPrimitiveWrapper) {
-        if (isPrimitiveWrapper) {
-            return type.size == 64 ? "Double" : "Float";
-        } else {
-            return type.size == 64 ? "double" : "float";
-        }
-    }
-
-    private String toString(IntType type, boolean isPrimitiveWrapper) {
-        if (type.size == 16) {
-            return isPrimitiveWrapper ? "Short" : "short";
-        } else if (type.size == 32) {
-            return isPrimitiveWrapper ? "Integer" : "int";
-        } else {
-            return isPrimitiveWrapper ? "Long" : "long";
-        }
-    }
-
-    private String toString(BooleanType type, boolean isPrimitiveWrapper) {
-        return isPrimitiveWrapper ? "Boolean" : "boolean";
+        var keyTypeName = wrapperTypeName(type.getKeyType());
+        var valueTypeName = wrapperTypeName(type.getValueType());
+        return String.format("java.util.TreeMap<%s, %s>", keyTypeName, valueTypeName);
     }
 
     private String toString(StringType type) {
@@ -1318,10 +1529,6 @@ public class JavaViewer extends LanguageViewer {
 
     private String toString(UnknownType type) {
         return "Object";
-    }
-
-    private String toString(CharacterType type, boolean isPrimitiveWrapper) {
-        return isPrimitiveWrapper ? "Character" : "char";
     }
 
     private String toString(Shape shape) {
@@ -1344,7 +1551,7 @@ public class JavaViewer extends LanguageViewer {
     private String toString(ArrayType type) {
         StringBuilder builder = new StringBuilder();
 
-        String baseType = toString(type.getItemType(), false);
+        String baseType = toString(type.getItemType());
         builder.append(baseType);
         builder.append(toString(type.getShape()));
 
@@ -1354,15 +1561,20 @@ public class JavaViewer extends LanguageViewer {
     private String toString(VariableDeclarator varDecl, Type type) {
         StringBuilder builder = new StringBuilder();
 
-
         SimpleIdentifier identifier = varDecl.getIdentifier();
         Type variableType = new UnknownType();
         Expression rValue = varDecl.getRValue();
         if (rValue != null) {
-            variableType = HindleyMilner.inference(rValue, _typeScope);
+            variableType = HindleyMilner.inference(rValue, _currentScope);
         }
 
-        addVariableToCurrentScope(identifier, variableType);
+        if (variableType instanceof UnknownType)
+            variableType = type;
+
+        addVariableToCurrentScope(
+                identifier,
+                HindleyMilner.chooseGeneralType(variableType, type)
+        );
 
         String identifierName = toString(identifier);
         builder.append(identifierName);
@@ -1383,7 +1595,7 @@ public class JavaViewer extends LanguageViewer {
         StringBuilder builder = new StringBuilder();
 
         Type declarationType = stmt.getType();
-        String type = toString(declarationType, false);
+        String type = toString(declarationType);
         if (declarationType.isConst()) {
             builder.append("final ");
         }
@@ -1393,6 +1605,8 @@ public class JavaViewer extends LanguageViewer {
 
         for (VariableDeclarator varDecl : stmt.getDeclarators()) {
             builder.append(toString(varDecl, stmt.getType())).append(", ");
+
+
         }
         // Чтобы избежать лишней головной боли на проверки "а последняя ли это декларация",
         // я автоматически после каждой декларации добавляю запятую и пробел,
@@ -1575,9 +1789,11 @@ public class JavaViewer extends LanguageViewer {
                 }
             }
             else {
+                increaseIndentLevel();
                 builder
                         .append("\n")
-                        .append(toString(elseBranch));
+                        .append(indent(toString(elseBranch)));
+                decreaseIndentLevel();
             }
         }
         else {
@@ -1678,7 +1894,12 @@ public class JavaViewer extends LanguageViewer {
 
     private String getForRangeUpdate(RangeForLoop forRangeLoop) {
         if (forRangeLoop.getRange().getType() == Range.Type.UP) {
-            long stepValue = forRangeLoop.getStepValueAsLong();
+            long stepValue;
+            try {
+                stepValue = forRangeLoop.getStepValueAsLong();
+            } catch (IllegalStateException exception) {
+                return String.format("%s += %s", toString(forRangeLoop.getIdentifier()), toString(forRangeLoop.getStep()));
+            }
 
             if (stepValue == 1) {
                 return String.format("%s++", toString(forRangeLoop.getIdentifier()));
@@ -1688,7 +1909,12 @@ public class JavaViewer extends LanguageViewer {
             }
         }
         else if (forRangeLoop.getRange().getType() == Range.Type.DOWN) {
-            long stepValue = forRangeLoop.getStepValueAsLong();
+            long stepValue;
+            try {
+                stepValue = forRangeLoop.getStepValueAsLong();
+            } catch (IllegalStateException exception) {
+                return String.format("%s -= %s", toString(forRangeLoop.getIdentifier()), toString(forRangeLoop.getStep()));
+            }
 
             if (stepValue == 1) {
                 return String.format("%s--", toString(forRangeLoop.getIdentifier()));
@@ -1766,39 +1992,105 @@ public class JavaViewer extends LanguageViewer {
         builder.append("public class Main {\n\n");
         increaseIndentLevel();
 
-        builder.append(
-                indent("public static void main(String[] args) {\n")
-        );
-        increaseIndentLevel();
+        var mainMethod = getMainMethod(nodes);
+        var otherMethods = getOtherMethods(nodes);
+        var notMethods = getNotMethods(nodes);
 
-        for (Node node : nodes) {
-            builder.append(
-                    indent("%s\n".formatted(toString(node)))
-            );
+        if (mainMethod != null) {
+            // Добавляем все не-методы в body main
+            var mainBody = mainMethod.getBody();
+            for (Node node : notMethods) {
+                mainBody.insert(mainBody.getLength(), node);
+            }
+
+            // Вставляем mainMethod (с уже добавленными не-методами)
+            // Вставляем фиксированный main
+            builder.append(indent("public static void main(String[] args) {\n"));
+            _methodReturnType = new NoReturn();
+            increaseIndentLevel();
+
+            for (var node : mainBody.getNodes()) {
+                builder.append(indent(toString(node))).append("\n");
+            }
+
+            _methodReturnType = null;
+
+            decreaseIndentLevel();
+            builder.append(indent("}\n"));
         }
-        decreaseIndentLevel();
+        else {
+            builder.append(indent("public static void main(String[] args) {\n"));
+            increaseIndentLevel();
 
-        builder.append(indent("}\n"));
-        decreaseIndentLevel();
+            for (var node : notMethods) {
+                builder.append(indent(toString(node))).append("\n");
+            }
 
-        builder.append("}");
+            decreaseIndentLevel();
+            builder.append(indent("}\n"));
+        }
+
+        // Вставляем все другие методы
+        for (MethodDefinition method : otherMethods) {
+            builder.append(indent(toString(method)));
+            builder.append("\n");
+        }
+
+        decreaseIndentLevel();
+        builder.append("}\n");
 
         return builder.toString();
     }
 
-    public String toString(ProgramEntryPoint entryPoint) {
-        List<Node> nodes = entryPoint.getBody();
+    @Nullable
+    private MethodDefinition getMainMethod(List<Node> nodes) {
         for (var node : nodes) {
-            /*
-            TODO: temporarily disabled
-            if (node instanceof Statement statement) {
-                HindleyMilner.inference(statement, _typeScope);
+            if (node instanceof FunctionDefinition functionDefinition
+                    && functionDefinition.getName().toString().equals("main")) {
+                return functionDefinition.makeMethod(
+                        null,
+                        List.of(DeclarationModifier.PUBLIC, DeclarationModifier.STATIC)
+                );
             }
-            */
         }
 
-        if (!entryPoint.hasMainClass()
-                && getConfigParameter("translationUnitMode").getBooleanValue()) {
+        return null;
+    }
+
+    private List<MethodDefinition> getOtherMethods(List<Node> nodes) {
+        var methods = new ArrayList<MethodDefinition>();
+
+        for (var node : nodes) {
+            if (node instanceof FunctionDefinition functionDefinition
+                    && !functionDefinition.getName().toString().equals("main")) {
+                methods.add(
+                        functionDefinition.makeMethod(
+                                null,
+                                List.of(DeclarationModifier.PUBLIC)
+                        )
+                );
+            }
+        }
+
+        return methods;
+    }
+
+    private List<Node> getNotMethods(List<Node> nodes) {
+        var notMethods = new ArrayList<Node>();
+
+        for (var node : nodes) {
+            if (!(node instanceof FunctionDefinition functionDefinition)) {
+                notMethods.add(node);
+            }
+        }
+
+        return notMethods;
+    }
+
+    public String toString(ProgramEntryPoint entryPoint) {
+        List<Node> nodes = entryPoint.getBody();
+
+        if (getConfigParameter(EnforceEntryPoint.class).orElse(false) && !entryPoint.hasMainClass()) {
             return makeSimpleJavaProgram(nodes);
         }
 

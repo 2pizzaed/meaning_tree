@@ -1,24 +1,29 @@
 package org.vstu.meaningtree.languages;
 
 import org.vstu.meaningtree.MeaningTree;
-import org.vstu.meaningtree.languages.configs.ConfigParameter;
+import org.vstu.meaningtree.languages.configs.Config;
+import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.ParenthesesFiller;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
-import java.util.List;
+import java.util.Optional;
 
 abstract public class LanguageViewer {
-    private List<ConfigParameter> _cfg;
+    private Config _config;
     protected MeaningTree origin;
 
-    public LanguageViewer(LanguageTranslator translator) {
-        this.translator = translator;
+    public LanguageViewer() {
         this.parenFiller = new ParenthesesFiller(this::mapToToken);
     }
 
-    protected LanguageTranslator translator;
+    public LanguageViewer(LanguageTokenizer tokenizer) {
+        this.tokenizer = tokenizer;
+        this.parenFiller = new ParenthesesFiller(this::mapToToken);
+    }
+
+    protected LanguageTokenizer tokenizer;
     protected ParenthesesFiller parenFiller;
 
     public abstract String toString(Node node);
@@ -29,16 +34,11 @@ abstract public class LanguageViewer {
         return toString(mt.getRootNode());
     }
 
-    void setConfig(List<ConfigParameter> params) {
-        _cfg = params;
+    void setConfig(Config config) {
+        _config = config;
     }
 
-    protected ConfigParameter getConfigParameter(String paramName) {
-        for (ConfigParameter param : _cfg) {
-            if (param.getName().equals(paramName)) {
-                return param;
-            }
-        }
-        return null;
+    protected <P, T extends ConfigScopedParameter<P>> Optional<P> getConfigParameter(Class<T> configClass) {
+        return Optional.ofNullable(_config).flatMap(config -> config.get(configClass));
     }
 }

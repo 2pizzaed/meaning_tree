@@ -10,7 +10,6 @@ import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.interfaces.HasBodyStatement;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.types.UserType;
-import org.vstu.meaningtree.utils.env.SymbolEnvironment;
 
 import java.util.List;
 
@@ -46,7 +45,7 @@ public class FunctionDefinition extends Definition implements HasBodyStatement {
     }
 
     @Override
-    public CompoundStatement makeCompoundBody(SymbolEnvironment env) {
+    public CompoundStatement makeCompoundBody() {
         return body;
     }
 }

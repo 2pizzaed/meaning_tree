@@ -3,14 +3,22 @@ package org.vstu.meaningtree;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import org.vstu.meaningtree.languages.LanguageTranslator;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import org.apache.jena.rdf.model.Model;
+import org.vstu.meaningtree.languages.*;
 
-import java.io.ByteArrayOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.serializers.json.JsonSerializer;
+import org.vstu.meaningtree.serializers.model.IOAlias;
+import org.vstu.meaningtree.serializers.model.IOAliases;
+import org.vstu.meaningtree.serializers.rdf.RDFSerializer;
+
+import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public class Main {
 
@@ -19,8 +27,11 @@ public class Main {
         @Parameter(names = "--from", description = "Source language", required = true)
         private String fromLanguage;
 
-        @Parameter(names = "--to", description = "Target language", required = true)
+        @Parameter(names = "--to", description = "Target language")
         private String toLanguage;
+
+        @Parameter(names = "--serialize", description = "Serialization format: json or rdf")
+        private String serializeFormat;
 
         @Parameter(description = "<input_file> [output_file]", required = true, arity = 1)
         private java.util.List<String> positionalParams;
@@ -31,6 +42,10 @@ public class Main {
 
         public String getToLanguage() {
             return toLanguage;
+        }
+
+        public String getSerializeFormat() {
+            return serializeFormat;
         }
 
         public String getInputFile() {
@@ -45,7 +60,21 @@ public class Main {
     @Parameters(commandDescription = "List all supported languages")
     public static class ListLangsCommand {}
 
-    public static Map<String, Class<? extends LanguageTranslator>> translators = SupportedLanguage.getStringMap();
+    public static Map<String, Class<? extends LanguageTranslator>> translators =
+            SupportedLanguage.getStringMap();
+
+    private static final IOAliases<Function<Node, String>> serializers = new IOAliases<>(List.of(
+            new IOAlias<>("json", node -> {
+                JsonObject json = new JsonSerializer().serialize(node);
+                return new GsonBuilder().setPrettyPrinting().create().toJson(json);
+            }),
+            new IOAlias<>("rdf", node -> {
+                Model model = new RDFSerializer().serialize(node);
+                StringWriter writer = new StringWriter();
+                model.write(writer, "RDF/XML");
+                return writer.toString();
+            })
+    ));
 
     public static void main(String[] args) throws Exception {
         TranslateCommand translateCommand = new TranslateCommand();
@@ -58,9 +87,10 @@ public class Main {
 
         jc.parse(args);
 
-        if ("list-langs".equals(jc.getParsedCommand())) {
+        String parsed = jc.getParsedCommand();
+        if ("list-langs".equals(parsed)) {
             listSupportedLanguages();
-        } else if ("translate".equals(jc.getParsedCommand())) {
+        } else if ("translate".equals(parsed)) {
             runTranslation(translateCommand);
         } else {
             jc.usage();
@@ -72,29 +102,68 @@ public class Main {
     }
 
     private static void runTranslation(TranslateCommand cmd) throws Exception {
-        String fromLanguage = cmd.getFromLanguage();
+        String fromLanguage = cmd.getFromLanguage().toLowerCase();
         String toLanguage = cmd.getToLanguage();
         String inputFilePath = cmd.getInputFile();
         String outputFilePath = cmd.getOutputFile();
+        String serializeFormat = cmd.getSerializeFormat();
 
-        if (!translators.containsKey(fromLanguage.toLowerCase()) || !translators.containsKey(toLanguage.toLowerCase())) {
-            System.err.println("Unsupported language. Supported languages: " + translators.keySet());
+        // Validate that either --to or --serialize is specified
+        if (toLanguage == null && serializeFormat == null) {
+            System.err.println("Either --to (target language) or --serialize (format) must be specified");
             return;
         }
 
+        if (!translators.containsKey(fromLanguage)) {
+            System.err.println("Unsupported source language: " + fromLanguage + ". Supported languages: " + translators.keySet());
+            return;
+        }
+
+        if (toLanguage != null && !translators.containsKey(toLanguage.toLowerCase())) {
+            System.err.println("Unsupported target language: " + toLanguage + ". Supported languages: " + translators.keySet());
+            return;
+        }
+
+        // Read source code (from file or stdin)
         String code = readCode(inputFilePath);
-        LanguageTranslator fromTranslator = translators.get(fromLanguage.toLowerCase()).getDeclaredConstructor().newInstance();
-        LanguageTranslator toTranslator = translators.get(toLanguage.toLowerCase()).getDeclaredConstructor().newInstance();
 
-        MeaningTree mt = fromTranslator.getMeaningTree(code);
-        String translatedCode = toTranslator.getCode(mt);
+        // Instantiate source-language translator
+        LanguageTranslator fromTranslator =
+                translators.get(fromLanguage).getDeclaredConstructor().newInstance();
+        var meaningTree = fromTranslator.getMeaningTree(code);
+        final var rootNode = meaningTree.getRootNode();
 
-        if ("-".equals(outputFilePath)) {
-            System.out.println(translatedCode);
-        } else {
-            try (PrintWriter out = new PrintWriter(new FileWriter(outputFilePath))) {
-                out.print(translatedCode);
+        // Handle serialization if requested
+        if (serializeFormat != null) {
+            serializers.apply(serializeFormat, function -> function.apply(rootNode))
+                    .ifPresentOrElse(
+                            result -> writeOutput(result, outputFilePath),
+                            () -> System.err.println("Unknown serialization format: " + serializeFormat + ". " + serializers.getSupportedFormatsMessage())
+                    );
+            return;
+        }
+
+        // Instantiate target-language translator and generate code
+        if (toLanguage != null) {
+            LanguageTranslator toTranslator =
+                    translators.get(toLanguage.toLowerCase()).getDeclaredConstructor().newInstance();
+            String translatedCode = toTranslator.getCode(meaningTree);
+            
+            writeOutput(translatedCode, outputFilePath);
+        }
+    }
+
+    private static void writeOutput(String content, String outputFilePath) {
+        try {
+            if ("-".equals(outputFilePath)) {
+                System.out.println(content);
+            } else {
+                try (PrintWriter out = new PrintWriter(new FileWriter(outputFilePath))) {
+                    out.print(content);
+                }
             }
+        } catch (IOException e) {
+            System.err.println("Error writing output: " + e.getMessage());
         }
     }
 

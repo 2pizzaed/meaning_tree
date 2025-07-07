@@ -6,14 +6,15 @@ import org.jetbrains.annotations.Nullable;
 import org.treesitter.*;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
+import org.vstu.meaningtree.languages.configs.params.EnforceEntryPoint;
+import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
+import org.vstu.meaningtree.languages.configs.params.SkipErrors;
 import org.vstu.meaningtree.nodes.*;
-import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
-import org.vstu.meaningtree.nodes.declarations.FieldDeclaration;
-import org.vstu.meaningtree.nodes.declarations.MethodDeclaration;
-import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
+import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
+import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
 import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
 import org.vstu.meaningtree.nodes.definitions.ObjectConstructorDefinition;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
@@ -68,20 +69,17 @@ import org.vstu.meaningtree.nodes.types.containers.SetType;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
-import org.vstu.meaningtree.utils.BodyBuilder;
-import org.vstu.meaningtree.utils.env.SymbolEnvironment;
 
 import java.util.*;
+import java.util.function.Function;
 
 public class JavaLanguage extends LanguageParser {
     private TSLanguage _language;
     private TSParser _parser;
     private final Map<String, UserType> _userTypes;
-    private SymbolEnvironment currentContext;
 
     public JavaLanguage() {
         _userTypes = new HashMap<>();
-        currentContext = new SymbolEnvironment(null);
     }
 
     private void _initBackend() {
@@ -109,53 +107,60 @@ public class JavaLanguage extends LanguageParser {
         _code = code;
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
-        if (!errors.isEmpty() && !getConfigParameter("skipErrors").getBooleanValue()) {
+        if (!errors.isEmpty() && !getConfigParameter(SkipErrors.class).orElse(false)) {
             throw new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors));
         }
+
         Node node = fromTSNode(rootNode);
         if (node instanceof AssignmentExpression expr) {
             node = expr.toStatement();
         }
+
         return new MeaningTree(node);
     }
 
     @Override
     public TSNode getRootNode() {
         TSNode result = super.getRootNode();
-        if (getConfigParameter("expressionMode").getBooleanValue()) {
-            // В режиме выражений в код перед парсингом подставляется заглушка в виде точки входа, чтобы парсинг выражения был корректен (имел контекст внутри функции)
+
+        Optional<Boolean> maybeExpressionMode = _config.get(ExpressionMode.class);
+
+        if (maybeExpressionMode.orElse(false)) {
+            // В режиме выражений в код перед парсингом подставляется заглушка в виде точки входа
             TSNode cls = result.getNamedChild(0);
+
             if (!cls.getType().equals("class_declaration")) {
                 throw new UnsupportedParsingException("Entry point class wasn't found");
             }
+
             TSNode clsbody = cls.getChildByFieldName("body");
+
             if (cls.getNamedChildCount() == 0) {
                 throw new UnsupportedParsingException("Entry point class is empty");
             }
+
             TSNode func = clsbody.getNamedChild(0);
+
             if (!getCodePiece(func.getChildByFieldName("name")).equals("main")) {
                 throw new UnsupportedParsingException("Entry point method wasn't found");
             }
             TSNode body = func.getChildByFieldName("body");
+
             if (body.getNamedChildCount() > 1 && !body.getNamedChild(0).isError()) {
                 throw new UnsupportedParsingException("Many expressions in given code (you're using expression mode)");
             }
+
             if (body.getNamedChildCount() < 1) {
                 throw new UnsupportedParsingException("Main expression was not found in expression mode");
             }
+
             result = body.getNamedChild(0);
+
             if (result.getType().equals("expression_statement")) {
                 result = result.getNamedChild(0);
             }
         }
         return result;
-    }
-
-
-    private void rollbackContext() {
-        if (currentContext.getParent() != null) {
-            currentContext = currentContext.getParent();
-        }
     }
 
     @Override
@@ -171,7 +176,7 @@ public class JavaLanguage extends LanguageParser {
         Node createdNode = switch (nodeType) {
             case "ERROR" -> fromTSNode(node.getChild(0));
             case "program" -> fromProgramTSNode(node);
-            case "block" -> fromBlockTSNode(node, currentContext);
+            case "block" -> fromBlockTSNode(node);
             case "statement" -> fromStatementTSNode(node);
             case "if_statement" -> fromIfStatementTSNode(node);
             case "condition" -> fromConditionTSNode(node);
@@ -205,7 +210,7 @@ public class JavaLanguage extends LanguageParser {
             case "array_creation_expression" -> fromArrayCreationExpressionTSNode(node);
             case "array_initializer" -> fromArrayInitializer(node);
             case "return_statement" -> fromReturnStatementTSNode(node);
-            case "void_type" -> fromTypeTSNode(node);
+            case "void_type", "type_identifier" -> fromTypeTSNode(node);
             case "line_comment", "block_comment" -> fromCommentTSNode(node);
             case "cast_expression" -> fromCastExpressionTSNode(node);
             case "array_access" -> fromArrayAccessTSNode(node);
@@ -216,10 +221,23 @@ public class JavaLanguage extends LanguageParser {
             case "do_statement" -> fromDoStatementTSNode(node);
             case "instanceof_expression" -> fromInstanceOfTSNode(node);
             case "class_literal" -> fromClassLiteralTSNode(node);
+            case "enhanced_for_statement" -> fromEnhancedForStatementTSNode(node);
             default -> throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
         };
         assignValue(node, createdNode);
+
         return createdNode;
+    }
+
+    private Node fromEnhancedForStatementTSNode(TSNode node) {
+        Type type = (Type) fromTSNode(node.getChildByFieldName("type"));
+        SimpleIdentifier iterVarId = (SimpleIdentifier) fromTSNode(node.getChildByFieldName("name"));
+        Expression iterable = (Expression) fromTSNode(node.getChildByFieldName("value"));
+        Statement body = (Statement) fromTSNode(node.getChildByFieldName("body"));
+
+        VariableDeclaration varDecl = new VariableDeclaration(type, iterVarId);
+
+        return new ForEachLoop(varDecl, iterable, body);
     }
 
     private Node fromClassLiteralTSNode(TSNode node) {
@@ -233,6 +251,9 @@ public class JavaLanguage extends LanguageParser {
     private Node fromDoStatementTSNode(TSNode node) {
         Statement body = (Statement) fromTSNode(node.getChildByFieldName("body"));
         Expression condition = (Expression) fromTSNode(node.getChildByFieldName("condition"));
+        if (condition instanceof ParenthesizedExpression parenthesizedExpression) {
+            condition = parenthesizedExpression.getExpression();
+        }
         return new DoWhileLoop(condition, body);
     }
 
@@ -255,7 +276,7 @@ public class JavaLanguage extends LanguageParser {
             { modifiers = List.of(); }
         Identifier name = fromIdentifierTSNode(node.getChildByFieldName("name"));
         List<DeclarationArgument> parameters = fromMethodParameters(node.getChildByFieldName("parameters"));
-        CompoundStatement body = fromBlockTSNode(node.getChildByFieldName("body"), currentContext);
+        CompoundStatement body = fromBlockTSNode(node.getChildByFieldName("body"));
         // TODO: определение класса, к которому принадлежит метод и считывание аннотаций
         return new ObjectConstructorDefinition(null, name, List.of(), modifiers, parameters, body);
     }
@@ -572,17 +593,17 @@ public class JavaLanguage extends LanguageParser {
             else {
                 Identifier scope = fromIdentifierTSNode(scopeNode.getChildByFieldName("scope"));
                 Identifier member = fromIdentifierTSNode(scopeNode.getChildByFieldName("name"));
-                return new StaticImportMembers(scope, member);
+                return new StaticImportMembersFromModule(scope, member);
             }
         }
         else if (isWildcardImport(importDeclaration)) {
             Identifier scope = fromIdentifierTSNode(scopeNode);
-            return new ImportAll(scope);
+            return new ImportAllFromModule(scope);
         }
         else {
             Identifier scope = fromIdentifierTSNode(scopeNode.getChildByFieldName("scope"));
             Identifier member = fromIdentifierTSNode(scopeNode.getChildByFieldName("name"));
-            return new ImportMembers(scope, member);
+            return new ImportMembersFromModule(scope, member);
         }
     }
 
@@ -602,18 +623,23 @@ public class JavaLanguage extends LanguageParser {
         Expression matchValue =
                 (Expression) fromTSNode(switchGroup.getNamedChild(0).getNamedChild(0));
 
-        BodyBuilder builder = new BodyBuilder(currentContext);
+        var statements = new ArrayList<Node>();
         for (int i = 1; i < switchGroup.getNamedChildCount(); i++) {
-            builder.put(fromTSNode(switchGroup.getNamedChild(i)));
+            statements.add(fromTSNode(switchGroup.getNamedChild(i)));
         }
 
         CaseBlock caseBlock;
-        if (!builder.isEmpty() && builder.getLast() instanceof BreakStatement) {
-            builder.removeLast();
-            caseBlock = new BasicCaseBlock(matchValue, builder.build());
+        if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
+            caseBlock = new BasicCaseBlock(
+                    matchValue,
+                    new CompoundStatement(statements.subList(0, statements.size() - 1))
+            );
         }
         else {
-            caseBlock = new FallthroughCaseBlock(matchValue, builder.build());
+            caseBlock = new FallthroughCaseBlock(
+                    matchValue,
+                    new CompoundStatement(statements)
+            );
         }
 
         return caseBlock;
@@ -629,32 +655,35 @@ public class JavaLanguage extends LanguageParser {
         TSNode switchBlock = switchNode.getChildByFieldName("body");
         for (int i = 0; i < switchBlock.getNamedChildCount(); i++) {
             TSNode switchGroup = switchBlock.getNamedChild(i);
-            currentContext = new SymbolEnvironment(currentContext);
 
             String labelName = getCodePiece(switchGroup.getNamedChild(0));
             if (labelName.equals("default")) {
-                BodyBuilder statements = new BodyBuilder(currentContext);
+                var statements = new ArrayList<Node>();
 
-                for (int j = 1; j < switchGroup.getNamedChildCount(); j++) {
-                    statements.put(fromTSNode(switchGroup.getNamedChild(j)));
+                for (int j = 0; j < switchGroup.getNamedChildCount(); j++) {
+                    if (switchGroup.getNamedChild(j).getType().equals("switch_label")) {
+                        continue;
+                    }
+
+                    statements.add(fromTSNode(switchGroup.getNamedChild(j)));
                 }
 
                 if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
                     statements.removeLast();
                 }
-                defaultCaseBlock = new DefaultCaseBlock(statements.build());
+
+                defaultCaseBlock = new DefaultCaseBlock(new CompoundStatement(statements));
             }
             else {
                 CaseBlock caseBlock = fromSwitchGroupTSNode(switchGroup);
                 cases.add(caseBlock);
             }
-            rollbackContext();
         }
 
         return new SwitchStatement(matchValue, cases, defaultCaseBlock);
     }
 
-    private MethodDefinition fromMethodDeclarationTSNode(TSNode node) {
+    private Definition fromMethodDeclarationTSNode(TSNode node) {
         List<DeclarationModifier> modifiers = new ArrayList<>();
         if (node.getChild(0).getType().equals("modifiers")) {
             modifiers.addAll(fromModifiers(node.getChild(0)));
@@ -664,18 +693,35 @@ public class JavaLanguage extends LanguageParser {
         Identifier identifier = fromScopedIdentifierTSNode(node.getChildByFieldName("name"));
         List<DeclarationArgument> parameters = fromMethodParameters(node.getChildByFieldName("parameters"));
 
-        // TODO: Пока не реализован механизм нахождения класса, к которому принадлежит метод, и определение аннотаций
-        MethodDeclaration declaration = new MethodDeclaration(null,
-                identifier,
-                returnType,
-                List.of(),
-                modifiers,
-                parameters
-        );
+        CompoundStatement body = fromBlockTSNode(node.getChildByFieldName("body"));
+        Definition definition;
 
-        CompoundStatement body = fromBlockTSNode(node.getChildByFieldName("body"), currentContext);
+        if (modifiers.size() == 2
+                && modifiers.contains(DeclarationModifier.STATIC)
+                && modifiers.contains(DeclarationModifier.PUBLIC)
+        ) {
+            var functionDeclaration = new FunctionDeclaration(
+                    identifier,
+                    returnType,
+                    List.of(),
+                    parameters
+            );
+            definition = new FunctionDefinition(functionDeclaration, body);
+        }
+        else {
+            // TODO: Пока не реализован механизм нахождения класса, к которому принадлежит метод, и определение аннотаций
+            var methodDeclaration = new MethodDeclaration(
+                    null,
+                    identifier,
+                    returnType,
+                    List.of(),
+                    modifiers,
+                    parameters
+            );
+            definition = new MethodDefinition(methodDeclaration, body);
+        }
 
-        return new MethodDefinition(declaration, body);
+        return definition;
     }
 
     private List<DeclarationArgument> fromMethodParameters(TSNode node) {
@@ -771,13 +817,12 @@ public class JavaLanguage extends LanguageParser {
         currentChildIndex++;
 
         // Парсим тело класса как блочное выражение... Правильно ли? Кто знает...
-        CompoundStatement classBody = fromBlockTSNode(node.getChild(currentChildIndex), currentContext);
+        CompoundStatement classBody = fromBlockTSNode(node.getChild(currentChildIndex));
         currentChildIndex++;
 
         ClassDeclaration decl = new ClassDeclaration(modifiers, className);
         // TODO: нужно поменять getNodes() у CompoundStatement, чтобы он не массив возвращал
         ClassDefinition def = new ClassDefinition(decl, classBody);
-        classBody.getEnv().setOwner(def);
         return def;
     }
 
@@ -925,22 +970,24 @@ public class JavaLanguage extends LanguageParser {
             }
         }
 
-        step = switch (update) {
-            case PostfixDecrementOp postfixDecrementOp -> new IntegerLiteral("-1");
-            case PostfixIncrementOp postfixIncrementOp -> new IntegerLiteral("1");
-            case PrefixDecrementOp prefixDecrementOp -> new IntegerLiteral("-1");
-            case PrefixIncrementOp prefixIncrementOp -> new IntegerLiteral("1");
-            case AssignmentExpression assignment -> {
-                if (assignment.getAugmentedOperator() == AugmentedAssignmentOperator.ADD) {
-                    yield assignment.getRValue();
-                } else if (assignment.getAugmentedOperator() == AugmentedAssignmentOperator.SUB) {
-                    yield new UnaryMinusOp(assignment.getRValue());
-                } else {
-                    yield null;
+        if (update != null) {
+            step = switch (update) {
+                case PostfixDecrementOp postfixDecrementOp -> new IntegerLiteral("-1");
+                case PostfixIncrementOp postfixIncrementOp -> new IntegerLiteral("1");
+                case PrefixDecrementOp prefixDecrementOp -> new IntegerLiteral("-1");
+                case PrefixIncrementOp prefixIncrementOp -> new IntegerLiteral("1");
+                case AssignmentExpression assignment -> {
+                    if (assignment.getAugmentedOperator() == AugmentedAssignmentOperator.ADD) {
+                        yield assignment.getRValue();
+                    } else if (assignment.getAugmentedOperator() == AugmentedAssignmentOperator.SUB) {
+                        yield new UnaryMinusOp(assignment.getRValue());
+                    } else {
+                        yield null;
+                    }
                 }
-            }
-            default -> null;
-        };
+                default -> null;
+            };
+        }
 
         if (start != null && stop != null && step != null && loopVariable != null) {
             Range range = new Range(start, stop, step, false, isExcludingEnd, Range.Type.UNKNOWN);
@@ -976,6 +1023,10 @@ public class JavaLanguage extends LanguageParser {
 
         if (!node.getChildByFieldName("condition").isNull()) {
             condition = (Expression) fromTSNode(node.getChildByFieldName("condition"));
+
+            if (condition instanceof ParenthesizedExpression parenthesizedExpression) {
+                condition = parenthesizedExpression.getExpression();
+            }
         }
 
         if (!node.getChildByFieldName("update").isNull()) {
@@ -997,7 +1048,7 @@ public class JavaLanguage extends LanguageParser {
         Statement body = (Statement) fromTSNode(node.getChildByFieldName("body"));
 
         if (init == null && condition == null && update == null) {
-            return new InfiniteLoop(body);
+            return new InfiniteLoop(body, getLoopType(node));
         }
 
         RangeForLoop rangeFor = tryMakeRangeForLoop(init, condition, update, body);
@@ -1006,6 +1057,15 @@ public class JavaLanguage extends LanguageParser {
         }
 
         return new GeneralForLoop(init, condition, update, body);
+    }
+
+    private LoopType getLoopType(TSNode node) {
+        return switch (node.getType()) {
+            case "enhanced_for_statement", "for_statement" -> LoopType.FOR;
+            case "while_statement" -> LoopType.WHILE;
+            case "do_statement" -> LoopType.DO_WHILE;
+            default -> throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
+        };
     }
 
     private VariableDeclarator fromVariableDeclarator(TSNode node, Type type) {
@@ -1173,37 +1233,15 @@ public class JavaLanguage extends LanguageParser {
         return new VariableDeclaration(type, declarators);
     }
 
-    @Deprecated
-    private ProgramEntryPoint _fromProgramTSNode(TSNode node) {
-        if (node.getChildCount() == 0) {
-            throw new IllegalArgumentException();
-        }
-
-        PackageDeclaration packageDeclaration = fromPackageDeclarationTSNode(node.getChild(0));
-
-        ClassDefinition classDefinition = fromClassDeclarationTSNode(node.getChild(1));
-
-        currentContext = new SymbolEnvironment(null);
-        BodyBuilder builder = new BodyBuilder(currentContext);
-        List<Node> body = List.of(packageDeclaration, classDefinition);
-        for (Node bodyNode : body) {
-            builder.put(bodyNode);
-        }
-
-        MethodDefinition mainMethod = classDefinition.findMethod("main");
-        return (mainMethod != null) ? new ProgramEntryPoint(builder.getEnv(), List.of(builder.getCurrentNodes()), classDefinition, mainMethod)
-                                    : new ProgramEntryPoint(builder.getEnv(), List.of(builder.getCurrentNodes()), classDefinition);
-    }
-
     private Node fromProgramTSNode(TSNode node) {
-        BodyBuilder builder = new BodyBuilder();
+        var statements = new ArrayList<Node>();
         for (int i = 0; i < node.getNamedChildCount(); i++) {
-            builder.put(fromTSNode(node.getNamedChild(i)));
+            statements.add(fromTSNode(node.getNamedChild(i)));
         }
 
         ClassDefinition mainClass = null;
         MethodDefinition mainMethod = null;
-        for (Node n : builder.getCurrentNodes()) {
+        for (Node n : statements) {
             // Только один класс в файле может иметь модификатор public,
             // поэтому он и является главным классом
             if (n instanceof ClassDefinition classDefinition
@@ -1217,6 +1255,7 @@ public class JavaLanguage extends LanguageParser {
             }
         }
 
+        /*
         Node[] nodes = builder.getCurrentNodes();
         if (
                 (nodes.length > 1 && getConfigParameter("expressionMode").getBooleanValue())
@@ -1228,7 +1267,17 @@ public class JavaLanguage extends LanguageParser {
             throw new UnsupportedParsingException("Cannot parse the code as expression in expression mode");
         }
 
-        return new ProgramEntryPoint(builder.getEnv(), List.of(builder.getCurrentNodes()), mainClass, mainMethod);
+        */
+
+        List<Node> body = new ArrayList<>();
+
+        if (mainMethod != null) {
+            body = Arrays.asList(mainMethod.getBody().getNodes());
+        } else if (getConfigParameter(EnforceEntryPoint.class).orElse(false)) {
+            body = statements;
+        }
+
+        return new ProgramEntryPoint(body, mainClass, mainMethod);
     }
 
     private Loop fromWhileTSNode(TSNode node) {
@@ -1242,21 +1291,18 @@ public class JavaLanguage extends LanguageParser {
         Statement mtBody = (Statement) fromTSNode(tsBody);
 
         if (mtCond instanceof BoolLiteral boolLiteral && boolLiteral.getValue()) {
-            return new InfiniteLoop(mtBody);
+            return new InfiniteLoop(mtBody, getLoopType(node));
         }
 
         return new WhileLoop(mtCond, mtBody);
     }
 
-    private CompoundStatement fromBlockTSNode(TSNode node, SymbolEnvironment parentEnv) {
-        currentContext = new SymbolEnvironment(parentEnv);
-        BodyBuilder builder = new BodyBuilder(currentContext);
+    private CompoundStatement fromBlockTSNode(TSNode node) {
+        var statements = new ArrayList<Node>();
         for (int i = 1; i < node.getChildCount() - 1; i++) {
-            Node child = fromTSNode(node.getChild(i));
-            builder.put(child);
+            statements.add(fromTSNode(node.getChild(i)));
         }
-        rollbackContext();
-        return builder.build();
+        return new CompoundStatement(statements);
     }
 
     private Node fromStatementTSNode(TSNode node) {

@@ -40,7 +40,6 @@ import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
 import org.vstu.meaningtree.nodes.types.user.Structure;
-import org.vstu.meaningtree.utils.env.SymbolEnvironment;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
@@ -209,7 +208,7 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
     }
 
     private Node deserializeEntryPoint(SerializedNode serialized) {
-        return new ProgramEntryPoint(new SymbolEnvironment(null), (List<Node>) deserializeList(
+        return new ProgramEntryPoint((List<Node>) deserializeList(
                 (SerializedListNode) serialized.fields.get("body"))
         );
     }

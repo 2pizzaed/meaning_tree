@@ -1,11 +1,11 @@
 package org.vstu.meaningtree.nodes.statements.conditions;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
-import org.vstu.meaningtree.utils.env.SymbolEnvironment;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,10 +17,33 @@ public class IfStatement extends Statement {
     @Nullable
     private Statement _elseBranch;
 
-    public IfStatement(Expression condition, @Nullable Statement thenBranch, @Nullable Statement elseBranch) {
-        _elseBranch = elseBranch;
+    public IfStatement(@NotNull Expression condition, @NotNull Statement thenBranch, @Nullable Statement elseBranch) {
         branches = new ArrayList<>();
         branches.add(new ConditionBranch(condition, thenBranch));
+        _elseBranch = collectConditionBranches(branches, elseBranch);
+    }
+
+    private Statement collectConditionBranches(
+            @NotNull List<ConditionBranch> branches,
+            @Nullable Statement elseBranch
+    ) {
+        if (elseBranch == null) {
+            return null;
+        }
+
+        Statement current = elseBranch;
+        while (current instanceof IfStatement ifStatement) {
+            branches.addAll(ifStatement.getBranches());
+
+            if (ifStatement.hasElseBranch()) {
+                current = ifStatement.getElseBranch();
+            }
+            else {
+                return null;
+            }
+        }
+
+        return current;
     }
 
     public IfStatement(List<ConditionBranch> branches, @Nullable Statement elseBranch) {
@@ -64,9 +87,9 @@ public class IfStatement extends Statement {
         return builder.toString();
     }
 
-    public void makeCompoundBranches(SymbolEnvironment env) {
+    public void makeCompoundBranches() {
         for (ConditionBranch branch : branches) {
-            branch.makeCompoundBody(env);
+            branch.makeCompoundBody();
         }
     }
 }

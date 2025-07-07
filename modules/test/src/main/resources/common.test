@@ -155,7 +155,7 @@ group: LiteralsTest
             [1, 2, 4, a, b]
 
         java:
-            new java.util.ArrayList<Object>(java.util.List.of(1, 2, 4, a, b));
+            new java.util.ArrayList<>(java.util.List.of(1, 2, 4, a, b));
 
     case: SetLiteral
         python:
@@ -180,290 +180,419 @@ group: LiteralsTest
             x = {"a": b, "x": y}
 
         java:
-            x = new java.util.TreeMap<>() {{put("a", b);put("x", y);}};
+            java.util.TreeMap<String, Object> x = new java.util.TreeMap<>() {{put("a", b);put("x", y);}};
 
         c++:
-            x = {{"a", b}, {"x", y}};
+            std::map<std::string, auto> x = {{"a", b}, {"x", y}};
 
 
 group: SimpleExpressionsTest
     case: PlusOp
         python:
-            a + 5
+            a: int = 1
+            a = a + 5
 
         java:
-            a + 5;
+            int a = 1;
+            a = a + 5;
 
         c++:
-            a + 5;
+            int a = 1;
+            a = a + 5;
 
 
     case: SubOp
         python:
-            x - y
+            x: int = 0
+            y: int = 0
+            a: int = x - y
 
         java:
-            x - y;
+            int x = 0;
+            int y = 0;
+            int a = x - y;
 
         c++:
-            x - y;
+            int x = 0;
+            int y = 0;
+            int a = x - y;
 
 
     case: MulOp
         python:
-            (x * y)
+            x: int = 0
+            y: int = 0
+            a: int = x * y
 
         java:
-            (x * y);
+            int x = 0;
+            int y = 0;
+            int a = x * y;
 
         c++:
-            (x * y);
+            int x = 0;
+            int y = 0;
+            int a = x * y;
 
 
     case: DivOp
         python:
-            x / y
+            x: int = 0
+            y: int = 0
+            a: float = x / y
 
         java:
-            x / y;
+            int x = 0;
+            int y = 0;
+            float a = x / y;
 
         c++:
-            x / y;
+            int x = 0;
+            int y = 0;
+            float a = x / y;
 
 
     case: FloorDivOp
         python:
-            x // y
+            x: int = 0
+            y: int = 0
+            a: int = x // y
 
         java:
-            (long) (x / y);
+            int x = 0;
+            int y = 0;
+            int a = (long) (x / y);
 
         c++:
-            (long) (x / y);
+            int x = 0;
+            int y = 0;
+            int a = (long) (x / y);
 
 
     case: IncrementOp
         python:
+            x: int = 0
             x += 1
 
         java:
+            int x = 0;
             x++;
 
         c++:
+            int x = 0;
             x++;
 
 
     case: DecrementOp
         python:
+            x: int = 0
             x -= 1
 
         java:
+            int x = 0;
             x--;
 
         c++:
+            int x = 0;
             x--;
 
 
     case: UnaryMinusOp
         python:
-            -x
+            x: int = 0
+            a: int = -x
 
         java:
-            -x;
+            int x = 0;
+            int a = -x;
 
         c++:
-            -x;
+            int x = 0;
+            int a = -x;
 
     case: ContainsOp
         main python:
-            x in list
+            list: List[int] = []
+            x: int = 0
+            a: bool = x in list
 
         java:
-            list.contains(x);
+            java.util.ArrayList<Object> list = new java.util.ArrayList<>(java.util.List.of());
+            int x = 0;
+            boolean a = list.contains(x);
 
         c++:
-            list.contains(x);
+            std::vector<auto> list = {};
+            int x = 0;
+            bool a = list.contains(x);
 
     case: ContainsNegativeOp
         main python:
-            x not in list
+            list: List[int] = []
+            x: int = 0
+            a: bool = x not in list
 
         java:
-            !list.contains(x);
+            java.util.ArrayList<Object> list = new java.util.ArrayList<>(java.util.List.of());
+            int x = 0;
+            boolean a = !list.contains(x);
 
         c++:
-            !list.contains(x);
+            std::vector<auto> list = {};
+            int x = 0;
+            bool a = !list.contains(x);
 
     case: ReferenceEqualOp
         main python:
-            a is b
+            a: int = 0
+            b: int = 0
+            result: bool = a is b
 
         java:
-            a == b;
+            int a = 0;
+            int b = 0;
+            boolean result = a == b;
 
         c++:
-            &a == &b;
+            int a = 0;
+            int b = 0;
+            bool result = &a == &b;
 
     case: ReferenceNotEqualOp
         main python:
-            a is not b
+            a: int = 0
+            b: int = 0
+            result: bool = a is not b
 
         java:
-            a != b;
+            int a = 0;
+            int b = 0;
+            boolean result = a != b;
 
         c++:
-            &a != &b;
+            int a = 0;
+            int b = 0;
+            bool result = &a != &b;
 
     case: NotInstanceOf
         python:
-            not isinstance(a, int)
+            a: int = 0
+            result: bool = not isinstance(a, int)
 
         java:
-            !(a instanceof Integer);
+            int a = 0;
+            boolean result = !(a instanceof Integer);
 
         c++:
-            dynamic_cast<int>(a) == nullptr;
+            int a = 0;
+            bool result = dynamic_cast<int>(a) == nullptr;
 
     case: InstanceOf
         python:
+            a: int = 0
             isinstance(a, int)
 
         java:
+            int a = 0;
             a instanceof Integer;
 
         c++:
+            int a = 0;
             dynamic_cast<int>(a) != nullptr;
 
     case: UnaryPlusOp
         python:
-            +x
+            x: int = 0
+            a: int = +x
 
         java:
-            +x;
+            int x = 0;
+            int a = +x;
 
         c++:
-            +x;
+            int x = 0;
+            int a = +x;
 
 
     case: ModOp
         python:
-            x % y
+            x: int = 0
+            y: int = 0
+            a: int = x % y
 
         java:
-            x % y;
+            int x = 0;
+            int y = 0;
+            int a = x % y;
 
         c++:
-            x % y;
+            int x = 0;
+            int y = 0;
+            int a = x % y;
 
 
     case: PowOp
         python:
-            x ** y
+            x: int = 0
+            y: int = 0
+            a: int = x ** y
 
         java:
-            Math.pow(x, y);
+            int x = 0;
+            int y = 0;
+            int a = Math.pow(x, y);
 
         c++:
-            pow(x, y);
+            int x = 0;
+            int y = 0;
+            int a = pow(x, y);
 
 
     case: AndOp
         python:
-            (x and y)
+            x: bool = False
+            y: bool = False
+            a: bool = x and y
 
         java:
-            (x && y);
+            boolean x = false;
+            boolean y = false;
+            boolean a = x && y;
 
         c++:
-            (x && y);
+            bool x = false;
+            bool y = false;
+            bool a = x && y;
 
 
     case: OrOp
         python:
-            x or y
+            x: bool = False
+            y: bool = False
+            a: bool = x or y
 
         java:
-            x || y;
+            boolean x = false;
+            boolean y = false;
+            boolean a = x || y;
 
         c++:
-            x || y;
+            bool x = false;
+            bool y = false;
+            bool a = x || y;
 
 
     case: BitwiseAndOp
         python:
-            (x & y)
+            x: int = 0
+            y: int = 0
+            res: int = x & y
 
         java:
-            (x & y);
+            int x = 0;
+            int y = 0;
+            int res = x & y;
 
         c++:
-            (x & y);
+            int x = 0;
+            int y = 0;
+            int res = x & y;
 
 
     case: BitwiseOrOp
         python:
-            x | y
+            x: int = 0
+            y: int = 0
+            res: int = x | y
 
         java:
-            x | y;
+            int x = 0;
+            int y = 0;
+            int res = x | y;
 
         c++:
-            x | y;
+            int x = 0;
+            int y = 0;
+            int res = x | y;
 
 
     case: BitwiseNotOp
         python:
-            ~x
+            x: int = 0
+            res: int = ~x
 
         java:
-            ~x;
+            int x = 0;
+            int res = ~x;
 
         c++:
-            ~x;
+            int x = 0;
+            int res = ~x;
 
 
     case: BitwiseXorOp
         python:
-            x ^ y
+            x: int = 0
+            y: int = 0
+            res: int = x ^ y
 
         java:
-            x ^ y;
+            int x = 0;
+            int y = 0;
+            int res = x ^ y;
 
         c++:
-            x ^ y;
+            int x = 0;
+            int y = 0;
+            int res = x ^ y;
 
 
     case: NotOp
         python:
-            not x
+            x: bool = False
+            res: bool = not x
 
         java:
-            !x;
+            boolean x = false;
+            boolean res = !x;
 
         c++:
-            !x;
+            bool x = false;
+            bool res = !x;
 
 
     case: BitwiseLeftShiftOp
         python:
-            x << y
+            x: int = 0
+            y: int = 0
+            res: int = x << y
 
         java:
-            x << y;
+            int x = 0;
+            int y = 0;
+            int res = x << y;
 
         c++:
-            x << y;
+            int x = 0;
+            int y = 0;
+            int res = x << y;
 
 
     case: BitwiseRightShiftOp
         python:
-            x >> y
+            x: int = 0
+            y: int = 0
+            res: int = x >> y
 
         java:
-            x >> y;
+            int x = 0;
+            int y = 0;
+            int res = x >> y;
 
         c++:
-            x >> y;
+            int x = 0;
+            int y = 0;
+            int res = x >> y;
 
 
     case: TernaryOp
@@ -549,6 +678,9 @@ group: SimpleExpressionsTest
         java:
             (x & y) == z;
 
+        c++:
+            (x & y) == z;
+
     case: DifferentPriorityOperators
         main c++:
             t = x & y == z;
@@ -559,79 +691,130 @@ group: SimpleExpressionsTest
 group: ComparisonsTest
     case: LessOp
         python:
-            (a < b)
+            a: int = 0
+            b: int = 0
+            res: bool = a < b
 
         java:
-            (a < b);
+            int a = 0;
+            int b = 0;
+            boolean res = a < b;
 
         c++:
-            (a < b);
+            int a = 0;
+            int b = 0;
+            bool res = a < b;
 
 
     case: LessEqualOp
         python:
-            a <= b
+            a: int = 0
+            b: int = 0
+            res: bool = a <= b
 
         java:
-            a <= b;
+            int a = 0;
+            int b = 0;
+            boolean res = a <= b;
 
         c++:
-            a <= b;
+            int a = 0;
+            int b = 0;
+            bool res = a <= b;
 
 
     case: GreaterEqualOp
         python:
-            a >= b
+            a: int = 0
+            b: int = 0
+            res: bool = a >= b
 
         java:
-            a >= b;
+            int a = 0;
+            int b = 0;
+            boolean res = a >= b;
 
         c++:
-            a >= b;
+            int a = 0;
+            int b = 0;
+            bool res = a >= b;
 
 
     case: GreaterOp
         python:
-            a > b
+            a: int = 0
+            b: int = 0
+            res: bool = a > b
 
         java:
-            a > b;
+            int a = 0;
+            int b = 0;
+            boolean res = a > b;
 
         c++:
-            a > b;
+            int a = 0;
+            int b = 0;
+            bool res = a > b;
 
 
     case: EqOp
         python:
-            a == b
+            a: int = 0
+            b: int = 0
+            res: bool = a == b
 
         java:
-            a == b;
+            int a = 0;
+            int b = 0;
+            boolean res = a == b;
 
         c++:
-            a == b;
+            int a = 0;
+            int b = 0;
+            bool res = a == b;
 
 
     case: NotEqOp
         python:
-            a != b
+            a: int = 0
+            b: int = 0
+            res: bool = a != b
 
         java:
-            a != b;
+            int a = 0;
+            int b = 0;
+            boolean res = a != b;
 
         c++:
-            a != b;
+            int a = 0;
+            int b = 0;
+            bool res = a != b;
 
 
     case: CompoundComparisonConvertationBetweenLanguages
         python:
-            (a < b < c and k <= m)
+            a: int = 0
+            b: int = 0
+            c: int = 0
+            k: int = 0
+            m: int = 0
+            res: bool = a < b < c and k <= m
 
         java:
-            (a < b && b < c && k <= m);
+            int a = 0;
+            int b = 0;
+            int c = 0;
+            int k = 0;
+            int m = 0;
+            boolean res = a < b && b < c && k <= m;
 
         c++:
-            (a < b && b < c && k <= m);
+            int a = 0;
+            int b = 0;
+            int c = 0;
+            int k = 0;
+            int m = 0;
+            bool res = a < b && b < c && k <= m;
 
 
 group: SimpleStatements
@@ -728,7 +911,7 @@ group: SimpleStatements
             std::vector<int> a = {1, 2, 3};
 
         java:
-            java.util.ArrayList<Integer> a = new java.util.ArrayList<Integer>(java.util.List.of(1, 2, 3));
+            java.util.ArrayList<Integer> a = new java.util.ArrayList<>(java.util.List.of(1, 2, 3));
 
         python:
             a: list[int] = [1, 2, 3]
@@ -762,7 +945,6 @@ group: SimpleStatements
         c++:
             if (a) {
             }
-    # TODO: Продумать как выполнять преобразование
 
 
     case: MultipleAssignment
@@ -770,43 +952,31 @@ group: SimpleStatements
             a, b = 3, 45
 
         java:
-            a = 3;
-            b = 45;
+            int a = 3, b = 45;
 
         c++:
-            a = 3;
-            b = 45;
-
-
-    case: VariableSwapping
-        python:
-            a, b = b, a
-
-        java:
-            Object _temp_a_b_ = a;
-            a = b;
-            b = t;
-
-        c++:
-            std::swap(&a, &b);
+            int a = 3, b = 45;
 
 
 group: Conditions
     case: IfElseCompound
         python:
+            k: int = 1
             if a > 0:
-                a += 1
+                a += 15
                 k = x + 1
 
         java:
+            int k = 1;
             if (a > 0) {
-                a++;
+                a += 15;
                 k = x + 1;
             }
 
-        c++:
+        isolated c++:
+            int k = 1;
             if (a > 0) {
-                a++;
+                a += 15;
                 k = x + 1;
             }
 
@@ -840,16 +1010,16 @@ group: Conditions
         java:
             if (a > 0) {
                 if (k) {
-                    print("a");
-                    print("b");
+                    System.out.println("a");
+                    System.out.println("b");
                 }
             }
 
         c++:
             if (a > 0) {
                 if (k) {
-                    print("a");
-                    print("b");
+                    std::cout << "a" << std::endl;
+                    std::cout << "b" << std::endl;
                 }
             }
 
@@ -863,12 +1033,14 @@ group: Conditions
 
         c++:
             if (a) {
-            } else if (b) {
+            }
+            else if (b) {
             }
 
         java:
             if (a) {
-            } else if (b) {
+            }
+            else if (b) {
             }
 
 
@@ -879,140 +1051,151 @@ group: Conditions
             elif b:
                 pass
             else:
-                c = k * 3
+                c: int = k * 3
 
         c++:
             if (a) {
-            } else if (b) {
-            } else {
-                c = k * 3;
+            }
+            else if (b) {
+            }
+            else {
+                int c = k * 3;
             }
 
         java:
             if (a) {
-            } else if (b) {
-            } else {
-                c = k * 3;
+            }
+            else if (b) {
+            }
+            else {
+                int c = k * 3;
             }
 
 
     case: TwoAlternativesWithElseCompound
         python:
+            b: int = 1
+            k: int = 20
             if a:
                 b = a * 3
-                x += 1
+                x += 15
             elif b:
                 b = m * 3
-                x += 1
+                x += 15
             elif c:
                 k = l * 3
-                x += 1
+                x += 15
             else:
                 d *= 5
-                x += 1
+                x += 15
 
         c++:
+            int b = 1;
+            int k = 20;
             if (a) {
                 b = a * 3;
-                x++;
+                x += 15;
             }
             else if (b) {
                 b = m * 3;
-                x++;
+                x += 15;
             }
             else if (c) {
                 k = l * 3;
-                x++;
+                x += 15;
             }
             else {
                 d *= 5;
-                x++;
+                x += 15;
             }
 
         java:
+            int b = 1;
+            int k = 20;
             if (a) {
                 b = a * 3;
-                x++;
+                x += 15;
             }
             else if (b) {
                 b = m * 3;
-                x++;
+                x += 15;
             }
             else if (c) {
                 k = l * 3;
-                x++;
+                x += 15;
             }
             else {
                 d *= 5;
-                x++;
+                x += 15;
             }
 
 
     case: NestedAlternativesCompound
         python:
             if a > b:
-                z += 1
+                z += 15
                 if x and y:
                     if x == 7:
-                        x += 1
-                    c += 1
-                c += 1
+                        x += 15
+                    c += 15
+                c += 15
             elif a < b:
-                x += 1
+                x += 15
                 if x > 5:
                     if x != 7:
                         print("alarm")
                     else:
-                        k += 1
-                    c += 1
-                y -= 1
+                        k += 15
+                    c += 15
+                y -= 15
 
         java:
             if (a > b) {
-                z += 1;
-                if (x and y) {
+                z += 15;
+                if (x && y) {
                     if (x == 7) {
-                        x += 1;
+                        x += 15;
                     }
-                    c += 1;
+                    c += 15;
                 }
-                c += 1;
+                c += 15;
             }
             else if (a < b) {
-                x += 1;
+                x += 15;
                 if (x > 5) {
                     if (x != 7) {
-                        print("alarm");
-                    } else {
-                        k += 1;
+                        System.out.println("alarm");
                     }
-                    c += 1;
+                    else {
+                        k += 15;
+                    }
+                    c += 15;
                 }
-                y -= 1;
+                y -= 15;
             }
 
         c++:
             if (a > b) {
-                z += 1;
-                if (x and y) {
+                z += 15;
+                if (x && y) {
                     if (x == 7) {
-                        x += 1;
+                        x += 15;
                     }
-                    c += 1;
+                    c += 15;
                 }
-                c += 1;
+                c += 15;
             }
             else if (a < b) {
-                x += 1;
+                x += 15;
                 if (x > 5) {
                     if (x != 7) {
-                        print("alarm");
+                        std::cout << "alarm" << std::endl;
                     } else {
-                        k += 1;
+                        k += 15;
                     }
-                    c += 1;
+                    c += 15;
                 }
-                y -= 1;
+                y -= 15;
             }
 
 
@@ -1034,17 +1217,19 @@ group: ForLoop
 
 
     case: RangeForLoopWithExpressions
-        python:
-            for v in range(a * b * c, dx - 1, 1):
+        isolated python:
+            v: float = a * b * c
+            while v < dx - 1:
                 func(a)
+                v += 1
 
         java:
-            for (int v = a * b * c; v < dx - 1; v++) {
+            for (double v = a * b * c; v < dx - 1; v++) {
                 func(a);
             }
 
         c++:
-            for (int v = a * b * c; v < dx - 1; v++) {
+            for (double v = a * b * c; v < dx - 1; v++) {
                 func(a);
             }
 
@@ -1055,7 +1240,7 @@ group: ForLoop
                 x += 4
 
         java:
-            for (var a : b) {
+            for (Object a : b) {
                 x += 4;
             }
 
@@ -1071,21 +1256,8 @@ group: ForLoop
                 func(a, b);
             }
 
-        python:
+        isolated python:
             a: int = x
-            while a != m:
-                func(a, b)
-                m = g()
-            del a
-
-
-    case: GeneralForWithMissingInitialization
-        java:
-            for (; a != m; m = g()) {
-                func(a, b);
-            }
-
-        python:
             while a != m:
                 func(a, b)
                 m = g()
@@ -1097,12 +1269,11 @@ group: ForLoop
                 func(a, b);
             }
 
-        python:
+        isolated python:
             a: int = x
             while True:
                 func(a, b)
                 m = g()
-            del a
 
 
     case: GeneralForWithMissingUpdate
@@ -1111,11 +1282,10 @@ group: ForLoop
                 func(a, b);
             }
 
-        python:
+        isolated python:
             a: int = x
             while a != m:
                 func(a, b)
-            del a
 
 
     case: GeneralForWithMissingUpdateWithContinue
@@ -1127,13 +1297,12 @@ group: ForLoop
                 }
             }
 
-        python:
+        isolated python:
             a: int = x
             while a != m:
                 func(a, b)
                 if a == k:
                     continue
-            del a
 
 
     case: GeneralForEmptyLoop
@@ -1141,7 +1310,7 @@ group: ForLoop
             for (;;) {
             }
 
-        python:
+        isolated python:
             while True:
                 pass
 
@@ -1156,8 +1325,8 @@ group: ForLoop
                 }
             }
 
-        python:
-            a = x
+        isolated python:
+            a: int = x
             while a != m:
                 func(a, b)
                 if a == m + 1:
@@ -1165,7 +1334,6 @@ group: ForLoop
                     m = g()
                     continue
                 m = g()
-            del a
 
 
 group: WhileLoop
@@ -1239,7 +1407,7 @@ group: WhileLoop
                 a += 1;
             } while (a != m);
 
-        python:
+        isolated python:
             while True:
                 a += 1
                 if a == m:
@@ -1252,10 +1420,10 @@ group: WhileLoop
                 a += 1;
             } while (!has_errors() && a < 35 && flag);
 
-        python:
+        isolated python:
             while True:
                 a += 1
-                if not (not has_errors() and a < 35 and flag):
+                if not (a < 35 and not has_errors() and flag):
                     break
 
 
@@ -1263,15 +1431,16 @@ group: WhileLoop
         java:
             do {} while (true);
 
-        python:
+        isolated python:
             while True:
-                if not True:
+                if False:
                     break
 
 
 group: SwitchStatement
     case: SimpleMatch
         python:
+            test: int = 0
             match a:
                 case t:
                     test += 1
@@ -1285,9 +1454,10 @@ group: SwitchStatement
                     test = 0
 
         java:
+            int test = 0;
             switch (a) {
                 case t:
-                    test += 1;
+                    test++;
                     break;
                 case a:
                     test += 3;
@@ -1304,9 +1474,10 @@ group: SwitchStatement
             }
 
         c++:
+            int test = 0;
             switch (a) {
                 case t:
-                    test += 1;
+                    test++;
                     break;
                 case a:
                     test += 3;
@@ -1315,7 +1486,7 @@ group: SwitchStatement
                     test += 4;
                     break;
                 case m:
-                    test += 5
+                    test += 5;
                     break;
                 default:
                     test = 0;
@@ -1333,32 +1504,36 @@ group: SwitchStatement
                 case _:
                     test = 0
 
-        java:
+        isolated java:
             switch (a) {
                 case t:
-                    test += 1;
+                    test++;
                     break;
-                case 345:
+                case 345: {
                     int a = 345;
                     test += a;
                     break;
-                case _:
-                    test = 0;
+                }
+                default: {
+                    int test = 0;
                     break;
+                }
             }
 
-        c++:
+        isolated c++:
             switch (a) {
                 case t:
-                    test += 1;
+                    test++;
                     break;
-                case 345:
+                case 345: {
                     int a = 345;
                     test += a;
                     break;
-                case _:
-                    test = 0;
+                }
+                default: {
+                    int test = 0;
                     break;
+                }
             }
 
 
@@ -1369,8 +1544,8 @@ group: Functions
                 return a + b
 
         java:
-            Object f(Object a, Object b) {
-                return a + b
+            public static Object f(Object a, Object b) {
+                return a + b;
             }
 
         c++:
@@ -1385,7 +1560,7 @@ group: Functions
                 return a + b
 
         java:
-            String concat(String a, String b) {
+            public static String concat(String a, String b) {
                 return a + b;
             }
 
@@ -1421,12 +1596,12 @@ group: Functions
                 return a + b
 
         java:
-            DataUnion concat(Data a, Data b) {
+            public static DataUnion join_data(Data a, Data b) {
                 return a + b;
             }
 
         c++:
-            DataUnion concat(Data a, Data b) {
+            DataUnion join_data(Data a, Data b) {
                 return a + b;
             }
 
@@ -1677,7 +1852,7 @@ group: StructuresOOP
 group: Other
     case: Import
         python:
-            import a.b.c
+            from a.b import c
 
         java:
             import a.b.c;
@@ -1740,7 +1915,7 @@ group: Other
         java:
             (MyClass) a;
         c++:
-            (int) a;
+            (MyClass) a;
         isolated python:
             MyClass(a)
 

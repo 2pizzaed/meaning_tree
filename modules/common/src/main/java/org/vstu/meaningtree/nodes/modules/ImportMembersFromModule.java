@@ -5,15 +5,15 @@ import org.vstu.meaningtree.nodes.expressions.Identifier;
 
 import java.util.List;
 
-public class ImportMembers extends Import {
+public class ImportMembersFromModule extends ImportModule {
     @TreeNode private List<Identifier> members;
 
-    public ImportMembers(Identifier scope, List<Identifier> members) {
-        super(scope);
+    public ImportMembersFromModule(Identifier moduleName, List<Identifier> members) {
+        super(moduleName);
         this.members = List.copyOf(members);
     }
 
-    public ImportMembers(Identifier scope, Identifier... members) {
+    public ImportMembersFromModule(Identifier scope, Identifier... members) {
         this(scope, List.of(members));
     }
 

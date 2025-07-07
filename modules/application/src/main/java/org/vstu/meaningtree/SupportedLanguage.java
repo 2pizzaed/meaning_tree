@@ -1,9 +1,6 @@
 package org.vstu.meaningtree;
 
-import org.vstu.meaningtree.languages.CppTranslator;
-import org.vstu.meaningtree.languages.JavaTranslator;
-import org.vstu.meaningtree.languages.LanguageTranslator;
-import org.vstu.meaningtree.languages.PythonTranslator;
+import org.vstu.meaningtree.languages.*;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;

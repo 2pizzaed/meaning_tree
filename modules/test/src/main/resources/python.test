@@ -594,11 +594,13 @@ group: SimpleStatements
 group: Conditions
     case: IfElseCompound
         python:
+            k: int = 10
             if a > 0:
                 a += 1
                 k = x + 1
 
         python:
+            k: int = 10
             if a > 0:
                 a += 1
                 k = x + 1
@@ -651,7 +653,7 @@ group: Conditions
             elif b:
                 pass
             else:
-                c = k * 3
+                c: int = k * 3
 
         python:
             if a:
@@ -659,11 +661,13 @@ group: Conditions
             elif b:
                 pass
             else:
-                c = k * 3
+                c: int = k * 3
 
 
     case: TwoAlternativesWithElseCompound
         python:
+            b: int = 1
+            k: int = 1
             if a:
                 b = a * 3
                 x += 1
@@ -678,6 +682,8 @@ group: Conditions
                 x += 1
 
         python:
+            b: int = 1
+            k: int = 1
             if a:
                 b = a * 3
                 x += 1
@@ -977,7 +983,7 @@ group: StructuresOOP
     case: FullClass
         python:
             class A(MyClass1, MyClass3):
-                field1 = 3
+                field1: int = 3
                 field2: str = "abcj"
 
                 def __init__(self):
@@ -995,7 +1001,7 @@ group: StructuresOOP
 
                 @staticmethod
                 def staticfunc():
-                    self = "a"
+                    self: str = "a"
                     self += "b"
                     return A.unknown.self()
 
@@ -1008,7 +1014,7 @@ group: StructuresOOP
                     return 1.0E31
         python:
             class A(MyClass1, MyClass3):
-                field1 = 3
+                field1: int = 3
                 field2: str = "abcj"
 
                 def __init__(self):
@@ -1026,7 +1032,7 @@ group: StructuresOOP
 
                 @staticmethod
                 def staticfunc():
-                    self = "a"
+                    self: str = "a"
                     self += "b"
                     return A.unknown.self()
 
@@ -1037,9 +1043,3 @@ group: StructuresOOP
                 @property
                 def my_prop(self):
                     return 1.0E31
-
-
-
-
-
-

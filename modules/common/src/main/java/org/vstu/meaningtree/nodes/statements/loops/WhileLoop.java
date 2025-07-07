@@ -5,7 +5,6 @@ import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.Loop;
-import org.vstu.meaningtree.utils.env.SymbolEnvironment;
 
 public class WhileLoop extends Loop {
     @TreeNode protected Expression condition;
@@ -26,9 +25,9 @@ public class WhileLoop extends Loop {
     }
 
     @Override
-    public CompoundStatement makeCompoundBody(SymbolEnvironment env) {
+    public CompoundStatement makeCompoundBody() {
         if (!(body instanceof CompoundStatement)) {
-            body = new CompoundStatement(new SymbolEnvironment(env), getBody());
+            body = new CompoundStatement(getBody());
         }
         return (CompoundStatement) body;
     }

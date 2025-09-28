@@ -24,6 +24,7 @@ import org.vstu.meaningtree.nodes.expressions.math.*;
 import org.vstu.meaningtree.nodes.expressions.other.*;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.nodes.statements.EmptyStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
@@ -112,6 +113,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             // Statements
             case AssignmentStatement stmt -> serialize(stmt);
             case VariableDeclaration stmt -> serialize(stmt);
+            case EmptyStatement stmt -> serialize(stmt);
             case CompoundStatement stmt -> serialize(stmt);
             case ExpressionStatement stmt -> serialize(stmt);
             case IfStatement stmt -> serialize(stmt);
@@ -685,6 +687,15 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
+    private JsonObject serialize(@NotNull EmptyStatement stmt) {
+        JsonObject json = new JsonObject();
+
+        json.addProperty("type", "empty_statement");
+
+        return json;
+    }
+
+    @NotNull
     private JsonObject serialize(@NotNull VariableDeclaration stmt) {
         JsonObject json = new JsonObject();
 
@@ -739,6 +750,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
 
         json.add("branches", branches);
+        json.add("elseBranch",  serialize(stmt.getElseBranch()));
         return json;
     }
 

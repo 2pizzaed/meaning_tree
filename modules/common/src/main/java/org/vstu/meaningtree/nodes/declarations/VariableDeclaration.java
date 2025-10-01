@@ -16,6 +16,7 @@ import java.util.Objects;
 public class VariableDeclaration extends Declaration implements HasInitialization {
     @TreeNode protected Type type;
     @TreeNode protected List<VariableDeclarator> variableDeclaratorList;
+    @TreeNode protected List<Annotation> annotations;
 
     public VariableDeclaration(Type type, SimpleIdentifier name) {
         this(type, name, null);
@@ -38,6 +39,14 @@ public class VariableDeclaration extends Declaration implements HasInitializatio
 
     public void setType(Type newType) {
         type = newType;
+    }
+
+    public void setAnnotations(List<Annotation> annotations) {
+        this.annotations = annotations;
+    }
+
+    public List<Annotation> getAnnotations() {
+        return List.copyOf(annotations);
     }
 
     public Type getType() {

@@ -23,6 +23,10 @@ public class SeparatedVariableDeclaration extends Declaration {
         declarations.addAll(List.of(decl));
     }
 
+    public List<VariableDeclaration> getDeclarations() {
+        return List.copyOf(declarations);
+    }
+
     public SeparatedVariableDeclaration(List<VariableDeclaration> decl) {
         if (decl == null || decl.isEmpty()) {
             throw new MeaningTreeException("Required at least one argument at separate variable declaration");

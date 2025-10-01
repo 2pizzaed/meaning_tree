@@ -5,11 +5,13 @@ import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Declaration;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Type;
+import org.vstu.meaningtree.nodes.declarations.Annotation;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.containers.ArrayType;
 import org.vstu.meaningtree.nodes.types.containers.DictionaryType;
 
+import java.util.List;
 import java.util.Objects;
 
 public class DeclarationArgument extends Declaration {
@@ -18,6 +20,7 @@ public class DeclarationArgument extends Declaration {
     private boolean isListUnpacking;
     private boolean isDictUnpacking;
 
+    @TreeNode private List<Annotation> annotations = List.of();
     @TreeNode private SimpleIdentifier name;
     @Nullable @TreeNode private Expression initial;
 
@@ -42,6 +45,14 @@ public class DeclarationArgument extends Declaration {
         this.type = type;
         this.name = name;
         this.initial = initial;
+    }
+
+    public void setAnnotations(List<Annotation> annotations) {
+        this.annotations = annotations;
+    }
+
+    public List<Annotation> getAnnotations() {
+        return List.copyOf(annotations);
     }
 
     public static DeclarationArgument dictUnpacking(Type type, SimpleIdentifier name) {

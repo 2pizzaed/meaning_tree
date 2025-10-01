@@ -17,10 +17,6 @@ import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
-import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
-import org.vstu.meaningtree.nodes.expressions.Identifier;
-import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
-import org.vstu.meaningtree.nodes.expressions.UnaryExpression;
 import org.vstu.meaningtree.nodes.expressions.*;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
@@ -117,7 +113,7 @@ public class CppLanguage extends LanguageParser {
                     .orElseThrow(() -> new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors)));
         }
 
-        Node node = fromTSNode(rootNode);
+        Node node = parseTSNode(rootNode);
         if (node instanceof AssignmentExpression expr) {
             node = expr.toStatement();
         }
@@ -134,7 +130,7 @@ public class CppLanguage extends LanguageParser {
     @Override
     public MeaningTree getMeaningTree(TSNode node, String code) {
         _code = code;
-        return new MeaningTree(fromTSNode(node));
+        return new MeaningTree(parseTSNode(node));
     }
 
     @Override
@@ -170,7 +166,7 @@ public class CppLanguage extends LanguageParser {
     }
 
     @NotNull
-    private Node fromTSNode(@NotNull TSNode node) {
+    protected Node fromTSNode(@NotNull TSNode node) {
         Objects.requireNonNull(node);
 
         if (node.isNull()) {
@@ -230,10 +226,10 @@ public class CppLanguage extends LanguageParser {
     }
 
     private ForEachLoop fromForRangeLoop(TSNode node) {
-        Type type = (Type) fromTSNode(node.getChildByFieldName("type"));
-        SimpleIdentifier iterVarId = (SimpleIdentifier) fromTSNode(node.getChildByFieldName("declarator"));
-        Expression iterable = (Expression) fromTSNode(node.getChildByFieldName("right"));
-        Statement body = (Statement) fromTSNode(node.getChildByFieldName("body"));
+        Type type = (Type) parseTSNode(node.getChildByFieldName("type"));
+        SimpleIdentifier iterVarId = (SimpleIdentifier) parseTSNode(node.getChildByFieldName("declarator"));
+        Expression iterable = (Expression) parseTSNode(node.getChildByFieldName("right"));
+        Statement body = (Statement) parseTSNode(node.getChildByFieldName("body"));
         VariableDeclaration varDecl = new VariableDeclaration(type, iterVarId);
         return new ForEachLoop(varDecl, iterable, body);
     }
@@ -241,7 +237,7 @@ public class CppLanguage extends LanguageParser {
     private ReturnStatement fromReturn(TSNode node) {
         if (node.getChildCount() == 0)
             return new ReturnStatement();
-        return new ReturnStatement((Expression) fromTSNode(node.getNamedChild(0)));
+        return new ReturnStatement((Expression) parseTSNode(node.getNamedChild(0)));
     }
 
     private FunctionDefinition fromFunction(TSNode node) {
@@ -308,19 +304,19 @@ public class CppLanguage extends LanguageParser {
     private CompoundStatement fromBlock(TSNode node) {
         var statements = new ArrayList<Node>();
         for (int i = 1; i < node.getChildCount() - 1; i++) {
-            statements.add(fromTSNode(node.getChild(i)));
+            statements.add(parseTSNode(node.getChild(i)));
         }
         return new CompoundStatement(statements);
     }
 
     private CaseBlock fromSwitchGroup(TSNode switchGroup) {
         Expression matchValue =
-                (Expression) fromTSNode(switchGroup.getNamedChild(0));
+                (Expression) parseTSNode(switchGroup.getNamedChild(0));
 
         var statements = new ArrayList<Node>();
 
         for (int i = 1; i < switchGroup.getNamedChildCount(); i++) {
-            statements.add(fromTSNode(switchGroup.getNamedChild(i)));
+            statements.add(parseTSNode(switchGroup.getNamedChild(i)));
         }
 
         CaseBlock caseBlock;
@@ -337,7 +333,7 @@ public class CppLanguage extends LanguageParser {
 
     private Node fromSwitchStatement(TSNode switchNode) {
         Expression matchValue =
-                (Expression) fromTSNode(switchNode.getChildByFieldName("condition").getNamedChild(0));
+                (Expression) parseTSNode(switchNode.getChildByFieldName("condition").getNamedChild(0));
 
         DefaultCaseBlock defaultCaseBlock = null;
         List<CaseBlock> cases = new ArrayList<>();
@@ -351,7 +347,7 @@ public class CppLanguage extends LanguageParser {
                 var statements = new ArrayList<Node>();
 
                 for (int j = 0; j < switchGroup.getNamedChildCount(); j++) {
-                    statements.add(fromTSNode(switchGroup.getNamedChild(j)));
+                    statements.add(parseTSNode(switchGroup.getNamedChild(j)));
                 }
 
                 if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
@@ -378,10 +374,10 @@ public class CppLanguage extends LanguageParser {
 
     private Loop fromWhile(TSNode node) {
         TSNode tsCond = node.getChildByFieldName("condition").getChild(1);
-        Expression mtCond = (Expression) fromTSNode(tsCond);
+        Expression mtCond = (Expression) parseTSNode(tsCond);
 
         TSNode tsBody = node.getChildByFieldName("body");
-        Statement mtBody = (Statement) fromTSNode(tsBody);
+        Statement mtBody = (Statement) parseTSNode(tsBody);
 
         if (mtCond instanceof BoolLiteral boolLiteral && boolLiteral.getValue()) {
             return new InfiniteLoop(mtBody, getLoopType(node));
@@ -408,13 +404,13 @@ public class CppLanguage extends LanguageParser {
             List<TSNode> assignments = getChildrenByFieldName(node, "initializer");
 
             if (assignments.size() == 1) {
-                init = (HasInitialization) fromTSNode(assignments.getFirst());
+                init = (HasInitialization) parseTSNode(assignments.getFirst());
             }
             else if (assignments.size() > 1) {
                 List<AssignmentStatement> assignmentStatements =
                         assignments.stream().map(
                                 tsNode ->
-                                        assignmentExpressionToStatement((AssignmentExpression) fromTSNode(tsNode))
+                                        assignmentExpressionToStatement((AssignmentExpression) parseTSNode(tsNode))
                         ).toList();
                 init = new MultipleAssignmentStatement(assignmentStatements);
             }
@@ -424,18 +420,18 @@ public class CppLanguage extends LanguageParser {
         }
 
         if (!node.getChildByFieldName("condition").isNull()) {
-            condition = (Expression) fromTSNode(node.getChildByFieldName("condition"));
+            condition = (Expression) parseTSNode(node.getChildByFieldName("condition"));
         }
 
         if (!node.getChildByFieldName("update").isNull()) {
             List<TSNode> updates = getChildrenByFieldName(node, "update");
 
             if (updates.size() == 1) {
-                update = (Expression) fromTSNode(updates.getFirst());
+                update = (Expression) parseTSNode(updates.getFirst());
             }
             else if (updates.size() > 1) {
                 List<Expression> updateExpressions =
-                        updates.stream().map(tsNode -> (Expression) fromTSNode(tsNode)).toList();
+                        updates.stream().map(tsNode -> (Expression) parseTSNode(tsNode)).toList();
                 update = new ExpressionSequence(updateExpressions);
             }
             else {
@@ -443,7 +439,7 @@ public class CppLanguage extends LanguageParser {
             }
         }
 
-        Statement body = (Statement) fromTSNode(node.getChildByFieldName("body"));
+        Statement body = (Statement) parseTSNode(node.getChildByFieldName("body"));
 
         if (init == null && condition == null && update == null) {
             return new InfiniteLoop(body, getLoopType(node));
@@ -558,15 +554,15 @@ public class CppLanguage extends LanguageParser {
     private Node fromIfStatement(TSNode node) {
         // Берем ребенка под индексом 1, чтобы избежать захвата скобок, а значит
         // неправильного парсинга (получаем выражение в скобках в качестве условия, а не просто выражение)
-        Expression condition = (Expression) fromTSNode(node.getChildByFieldName("condition").getChild(1));
-        Statement consequence = (Statement) fromTSNode(node.getChildByFieldName("consequence"));
+        Expression condition = (Expression) parseTSNode(node.getChildByFieldName("condition").getChild(1));
+        Statement consequence = (Statement) parseTSNode(node.getChildByFieldName("consequence"));
 
         TSNode alternativeNode = node.getChildByFieldName("alternative");
         if (alternativeNode.isNull()) {
             return new IfStatement(condition, consequence);
         }
 
-        Statement alternative = (Statement) fromTSNode(alternativeNode.getChild(1));
+        Statement alternative = (Statement) parseTSNode(alternativeNode.getChild(1));
         return new IfStatement(condition, consequence, alternative);
     }
 
@@ -588,8 +584,8 @@ public class CppLanguage extends LanguageParser {
     }
 
     private Node fromOffsetOf(TSNode node) {
-        return new FunctionCall(new SimpleIdentifier("offsetof"), (Expression) fromTSNode(node.getChildByFieldName("type").getChildByFieldName("type")),
-                (Expression) fromTSNode(node.getChildByFieldName("member")));
+        return new FunctionCall(new SimpleIdentifier("offsetof"), (Expression) parseTSNode(node.getChildByFieldName("type").getChildByFieldName("type")),
+                (Expression) parseTSNode(node.getChildByFieldName("member")));
     }
 
     private Node fromCharLiteral(TSNode node) {
@@ -599,14 +595,14 @@ public class CppLanguage extends LanguageParser {
     private Node fromInitializerList(TSNode node) {
         List<Expression> expressions = new ArrayList<>();
         for (int i = 0; i < node.getNamedChildCount(); i++) {
-            expressions.add((Expression) fromTSNode(node.getNamedChild(i)));
+            expressions.add((Expression) parseTSNode(node.getNamedChild(i)));
         }
         return new ArrayLiteral(expressions);
     }
 
     private Node fromPointerExpression(TSNode node) {
         String op = getCodePiece(node);
-        Expression argument = (Expression) fromTSNode(node.getChildByFieldName("argument"));
+        Expression argument = (Expression) parseTSNode(node.getChildByFieldName("argument"));
         if (op.startsWith("&")) {
             if (argument instanceof AddOp binOp) {
                 Expression leftmost = binOp.getLeft();
@@ -629,7 +625,7 @@ public class CppLanguage extends LanguageParser {
 
     private Node fromCastExpression(TSNode node) {
         Type type = fromType(node.getChildByFieldName("type"));
-        Expression value = (Expression) fromTSNode(node.getChildByFieldName("value"));
+        Expression value = (Expression) parseTSNode(node.getChildByFieldName("value"));
         if (value instanceof ParenthesizedExpression p && p.getExpression() instanceof DivOp div && type instanceof IntType) {
             return new FloorDivOp(div.getLeft(), div.getRight());
         }
@@ -638,7 +634,7 @@ public class CppLanguage extends LanguageParser {
 
     private Node fromDeleteExpression(TSNode node) {
         String line = getCodePiece(node);
-        return new DeleteExpression((Expression) fromTSNode(node.getNamedChild(0)), line.contains("[") && line.contains("]"));
+        return new DeleteExpression((Expression) parseTSNode(node.getNamedChild(0)), line.contains("[") && line.contains("]"));
     }
 
     private Node fromNewExpression(TSNode node) {
@@ -658,15 +654,15 @@ public class CppLanguage extends LanguageParser {
             List<Expression> initList = new ArrayList<>();
             if (!arguments.isNull()) {
                 for (int i = 0; i < arguments.getNamedChildCount(); i++) {
-                    initList.add((Expression) fromTSNode(arguments.getNamedChild(i)));
+                    initList.add((Expression) parseTSNode(arguments.getNamedChild(i)));
                 }
             }
             List<Expression> dimensions = new ArrayList<>();
-            dimensions.add((Expression) fromTSNode(declarator.getNamedChild(0)));
+            dimensions.add((Expression) parseTSNode(declarator.getNamedChild(0)));
             while (!declarator.getNamedChild(1).isNull()
                     && declarator.getNamedChild(1).getType().equals("new_declarator")) {
                 declarator = declarator.getNamedChild(1);
-                dimensions.add((Expression) fromTSNode(declarator.getNamedChild(0)));
+                dimensions.add((Expression) parseTSNode(declarator.getNamedChild(0)));
             }
             ArrayInitializer initializer = !initList.isEmpty() ? new ArrayInitializer(initList) : null;
             return new ArrayNewExpression(type, new Shape(dimensions.size(), dimensions.toArray(new Expression[0])), initializer);
@@ -674,7 +670,7 @@ public class CppLanguage extends LanguageParser {
             throw new UnsupportedParsingException("No arguments for new expression");
         }
         for (int i = 0; i < childSource.getNamedChildCount(); i++) {
-            args.add((Expression) fromTSNode(childSource.getNamedChild(i)));
+            args.add((Expression) parseTSNode(childSource.getNamedChild(i)));
         }
         if (childSource == placement) {
             return new PlacementNewExpression(type, args);
@@ -688,7 +684,7 @@ public class CppLanguage extends LanguageParser {
         if (inner.isNull()) {
             inner = node.getChildByFieldName("type");
         }
-        return new SizeofExpression((Expression) fromTSNode(inner));
+        return new SizeofExpression((Expression) parseTSNode(inner));
     }
 
     private Type fromTypeByString(String type) {
@@ -864,7 +860,7 @@ public class CppLanguage extends LanguageParser {
         var arguments = new ArrayList<Expression>();
         for (int i = 0; i < node.getNamedChildCount(); i++) {
             TSNode tsArgument = node.getNamedChild(i);
-            Expression argument = (Expression) fromTSNode(tsArgument);
+            Expression argument = (Expression) parseTSNode(tsArgument);
             arguments.add(argument);
         }
         return new ExpressionSequence(arguments);
@@ -872,7 +868,7 @@ public class CppLanguage extends LanguageParser {
 
     @NotNull
     private IndexExpression fromSubscriptExpression(@NotNull TSNode node) {
-        Expression argument = (Expression) fromTSNode(node.getChildByFieldName("argument"));
+        Expression argument = (Expression) parseTSNode(node.getChildByFieldName("argument"));
         ExpressionSequence indices = fromSubscriptArgumentList(node.getChildByFieldName("indices"));
         return new IndexExpression(argument, indices);
     }
@@ -882,25 +878,25 @@ public class CppLanguage extends LanguageParser {
         var expressions = new ArrayList<Expression>();
 
         TSNode tsLeft = node.getChildByFieldName("left");
-        expressions.add((Expression) fromTSNode(tsLeft));
+        expressions.add((Expression) parseTSNode(tsLeft));
 
         TSNode tsRight = node.getChildByFieldName("right");
         while (tsRight.getType().equals("comma_expression")) {
             tsLeft = tsRight.getChildByFieldName("left");
-            expressions.add((Expression) fromTSNode(tsLeft));
+            expressions.add((Expression) parseTSNode(tsLeft));
 
             tsRight = tsRight.getChildByFieldName("right");
         }
-        expressions.add((Expression) fromTSNode(tsRight));
+        expressions.add((Expression) parseTSNode(tsRight));
 
         return new CommaExpression(expressions);
     }
 
     @NotNull
     private TernaryOperator fromConditionalExpression(@NotNull TSNode node) {
-        Expression condition = (Expression) fromTSNode(node.getChildByFieldName("condition"));
-        Expression consequence = (Expression) fromTSNode(node.getChildByFieldName("consequence"));
-        Expression alternative = (Expression) fromTSNode(node.getChildByFieldName("alternative"));
+        Expression condition = (Expression) parseTSNode(node.getChildByFieldName("condition"));
+        Expression consequence = (Expression) parseTSNode(node.getChildByFieldName("consequence"));
+        Expression alternative = (Expression) parseTSNode(node.getChildByFieldName("alternative"));
         return new TernaryOperator(condition, consequence, alternative);
     }
 
@@ -913,14 +909,14 @@ public class CppLanguage extends LanguageParser {
 
     @NotNull
     private Node fromCallExpression(@NotNull TSNode node) {
-        Expression functionName = (Expression) fromTSNode(node.getChildByFieldName("function"));
+        Expression functionName = (Expression) parseTSNode(node.getChildByFieldName("function"));
         Expression clearFunctionName = sanitizeFromStd(functionName);
 
         TSNode tsArguments = node.getChildByFieldName("arguments");
         List<Expression> arguments = new ArrayList<>();
         for (int i = 0; i < tsArguments.getNamedChildCount(); i++) {
             TSNode tsArgument = tsArguments.getNamedChild(i);
-            Expression argument = (Expression) fromTSNode(tsArgument);
+            Expression argument = (Expression) parseTSNode(tsArgument);
             arguments.add(argument);
         }
 
@@ -1000,13 +996,13 @@ public class CppLanguage extends LanguageParser {
 
     @NotNull
     private ParenthesizedExpression fromParenthesizedExpression(@NotNull TSNode node) {
-        Expression expr = (Expression) fromTSNode(node.getChild(1));
+        Expression expr = (Expression) parseTSNode(node.getChild(1));
         return new ParenthesizedExpression(expr);
     }
 
     @NotNull
     private UnaryExpression fromUnaryExpression(@NotNull TSNode node) {
-        Expression argument = (Expression) fromTSNode(node.getChildByFieldName("argument"));
+        Expression argument = (Expression) parseTSNode(node.getChildByFieldName("argument"));
         return switch (getCodePiece(node.getChild(0))) {
             case "!", "not" -> new NotOp(argument);
             case "~" -> new InversionOp(argument);
@@ -1021,16 +1017,16 @@ public class CppLanguage extends LanguageParser {
         String code = getCodePiece(node);
 
         if (code.endsWith("++")) {
-            return new PostfixIncrementOp((Expression) fromTSNode(node.getChild(0)));
+            return new PostfixIncrementOp((Expression) parseTSNode(node.getChild(0)));
         }
         else if (code.startsWith("++")) {
-            return new PrefixIncrementOp((Expression) fromTSNode(node.getChild(1)));
+            return new PrefixIncrementOp((Expression) parseTSNode(node.getChild(1)));
         }
         else if (code.endsWith("--")) {
-            return new PostfixDecrementOp((Expression) fromTSNode(node.getChild(0)));
+            return new PostfixDecrementOp((Expression) parseTSNode(node.getChild(0)));
         }
         else if (code.startsWith("--")) {
-            return new PrefixDecrementOp((Expression) fromTSNode(node.getChild(1)));
+            return new PrefixDecrementOp((Expression) parseTSNode(node.getChild(1)));
         }
 
         throw new IllegalArgumentException();
@@ -1041,8 +1037,8 @@ public class CppLanguage extends LanguageParser {
         if (binaryRecursiveFlag == -1) {
             binaryRecursiveFlag = node.getEndByte();
         }
-        Expression left = (Expression) fromTSNode(node.getChildByFieldName("left"));
-        Expression right = (Expression) fromTSNode(node.getChildByFieldName("right"));
+        Expression left = (Expression) parseTSNode(node.getChildByFieldName("left"));
+        Expression right = (Expression) parseTSNode(node.getChildByFieldName("right"));
         TSNode operator = node.getChildByFieldName("operator");
         if (binaryRecursiveFlag == node.getEndByte()) {
             binaryRecursiveFlag = -1;
@@ -1157,14 +1153,14 @@ public class CppLanguage extends LanguageParser {
                 TSNode arrayDimension = tsDeclarator;
                 while (!arrayDimension.isNull() && arrayDimension.getType().equals("array_declarator")) {
                     if (!arrayDimension.getChildByFieldName("value").isNull()) {
-                        dimensions.add((Expression) fromTSNode(arrayDimension.getChildByFieldName("value")));
+                        dimensions.add((Expression) parseTSNode(arrayDimension.getChildByFieldName("value")));
                     } else {
                         dimensions.add(null);
                     }
                     arrayDimension = arrayDimension.getChildByFieldName("declarator");
                 }
                 mainType = new ArrayType(mainType, dimensions.size(), dimensions);
-                declarators.add(new VariableDeclaration(mainType, new VariableDeclarator((SimpleIdentifier) fromTSNode(arrayDimension))));
+                declarators.add(new VariableDeclaration(mainType, new VariableDeclarator((SimpleIdentifier) parseTSNode(arrayDimension))));
             } else if (tsDeclarator.getType().equals("init_declarator")) {
                 TSNode tsVariableName = tsDeclarator.getChildByFieldName("declarator");
                 Type type = mainType;
@@ -1188,7 +1184,7 @@ public class CppLanguage extends LanguageParser {
                     TSNode arrayDimension = tsVariableName;
                     while (!arrayDimension.isNull() && arrayDimension.getType().equals("array_declarator")) {
                         if (!arrayDimension.getChildByFieldName("value").isNull()) {
-                            dimensions.add((Expression) fromTSNode(arrayDimension.getChildByFieldName("value")));
+                            dimensions.add((Expression) parseTSNode(arrayDimension.getChildByFieldName("value")));
                         } else {
                             dimensions.add(null);
                         }
@@ -1199,8 +1195,8 @@ public class CppLanguage extends LanguageParser {
                 }
                 TSNode tsValue = tsDeclarator.getChildByFieldName("value");
 
-                SimpleIdentifier variableName = (SimpleIdentifier) fromTSNode(tsVariableName);
-                Expression value = (Expression) fromTSNode(tsValue);
+                SimpleIdentifier variableName = (SimpleIdentifier) parseTSNode(tsVariableName);
+                Expression value = (Expression) parseTSNode(tsValue);
                 if (value instanceof PlainCollectionLiteral col) {
                     if (mainType instanceof PlainCollectionType arrayType) {
                         col.setTypeHint(arrayType.getItemType());
@@ -1251,7 +1247,7 @@ public class CppLanguage extends LanguageParser {
             SimpleIdentifier left = (SimpleIdentifier) fromIdentifier(node.getChildByFieldName("scope"));
             return rightToLeftQualified(left, right);
         } else if (node.getType().equals("field_expression")) {
-            Node treeNode = fromTSNode(node.getChildByFieldName("argument"));
+            Node treeNode = parseTSNode(node.getChildByFieldName("argument"));
             boolean isPointer = node.getChild(1).getType().equals("->");
             if (treeNode instanceof SimpleIdentifier ident && !isPointer) {
                 return new MemberAccess(ident, (SimpleIdentifier) fromIdentifier(node.getChildByFieldName("field")));
@@ -1268,9 +1264,9 @@ public class CppLanguage extends LanguageParser {
                 return new ScopedIdentifier(identList).toMemberAccess();
             } else {
                 if (isPointer) {
-                    return new PointerMemberAccess((Expression) fromTSNode(node.getChildByFieldName("argument")), (SimpleIdentifier) fromTSNode(node.getChildByFieldName("field")));
+                    return new PointerMemberAccess((Expression) parseTSNode(node.getChildByFieldName("argument")), (SimpleIdentifier) parseTSNode(node.getChildByFieldName("field")));
                 }
-                return new MemberAccess((Expression) fromTSNode(node.getChildByFieldName("argument")), (SimpleIdentifier) fromTSNode(node.getChildByFieldName("field")));
+                return new MemberAccess((Expression) parseTSNode(node.getChildByFieldName("argument")), (SimpleIdentifier) parseTSNode(node.getChildByFieldName("field")));
             }
         } else {
             throw new UnsupportedParsingException("Unknown identifier: " + node.getType());
@@ -1279,8 +1275,8 @@ public class CppLanguage extends LanguageParser {
 
     @NotNull
     private Expression fromAssignmentExpression(@NotNull TSNode node) {
-        Expression left = (Expression) fromTSNode(node.getChildByFieldName("left"));
-        Expression right = (Expression) fromTSNode(node.getChildByFieldName("right"));
+        Expression left = (Expression) parseTSNode(node.getChildByFieldName("left"));
+        Expression right = (Expression) parseTSNode(node.getChildByFieldName("right"));
 
         String operatorType = node.getChildByFieldName("operator").getType();
         AugmentedAssignmentOperator augmentedAssignmentOperator = switch (operatorType) {
@@ -1332,7 +1328,7 @@ public class CppLanguage extends LanguageParser {
         List<Node> nodes = new ArrayList<>();
         for (int i = 0; i < node.getNamedChildCount(); i++) {
             TSNode currNode = node.getNamedChild(i);
-            Node n = fromTSNode(currNode);
+            Node n = parseTSNode(currNode);
             nodes.add(n);
             if (n instanceof FunctionDefinition functionDefinition
                     && functionDefinition.getName().toString().equals("main")) {
@@ -1348,7 +1344,7 @@ public class CppLanguage extends LanguageParser {
         if (node.getNamedChild(0).isNull()) {
             return new ExpressionStatement(null);
         }
-        Expression expr = (Expression) fromTSNode(node.getNamedChild(0));
+        Expression expr = (Expression) parseTSNode(node.getNamedChild(0));
         if (expr instanceof AssignmentExpression assignmentExpression) {
             return assignmentExpression.toStatement();
         }

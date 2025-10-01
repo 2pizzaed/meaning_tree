@@ -71,7 +71,6 @@ import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
 
 import java.util.*;
-import java.util.function.Function;
 
 public class JavaLanguage extends LanguageParser {
     private TSLanguage _language;
@@ -111,7 +110,7 @@ public class JavaLanguage extends LanguageParser {
             throw new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors));
         }
 
-        Node node = fromTSNode(rootNode);
+        Node node = parseTSNode(rootNode);
         if (node instanceof AssignmentExpression expr) {
             node = expr.toStatement();
         }
@@ -166,10 +165,10 @@ public class JavaLanguage extends LanguageParser {
     @Override
     public MeaningTree getMeaningTree(TSNode node, String code) {
         _code = code;
-        return new MeaningTree(fromTSNode(node));
+        return new MeaningTree(parseTSNode(node));
     }
 
-    private Node fromTSNode(TSNode node) {
+    protected Node fromTSNode(TSNode node) {
         Objects.requireNonNull(node);
 
         String nodeType = node.getType();
@@ -230,10 +229,10 @@ public class JavaLanguage extends LanguageParser {
     }
 
     private Node fromEnhancedForStatementTSNode(TSNode node) {
-        Type type = (Type) fromTSNode(node.getChildByFieldName("type"));
-        SimpleIdentifier iterVarId = (SimpleIdentifier) fromTSNode(node.getChildByFieldName("name"));
-        Expression iterable = (Expression) fromTSNode(node.getChildByFieldName("value"));
-        Statement body = (Statement) fromTSNode(node.getChildByFieldName("body"));
+        Type type = (Type) parseTSNode(node.getChildByFieldName("type"));
+        SimpleIdentifier iterVarId = (SimpleIdentifier) parseTSNode(node.getChildByFieldName("name"));
+        Expression iterable = (Expression) parseTSNode(node.getChildByFieldName("value"));
+        Statement body = (Statement) parseTSNode(node.getChildByFieldName("body"));
 
         VariableDeclaration varDecl = new VariableDeclaration(type, iterVarId);
 
@@ -245,12 +244,12 @@ public class JavaLanguage extends LanguageParser {
     }
 
     private Node fromInstanceOfTSNode(TSNode node) {
-        return new InstanceOfOp((Expression) fromTSNode(node.getChildByFieldName("left")), fromTypeTSNode(node.getChildByFieldName("right")));
+        return new InstanceOfOp((Expression) parseTSNode(node.getChildByFieldName("left")), fromTypeTSNode(node.getChildByFieldName("right")));
     }
 
     private Node fromDoStatementTSNode(TSNode node) {
-        Statement body = (Statement) fromTSNode(node.getChildByFieldName("body"));
-        Expression condition = (Expression) fromTSNode(node.getChildByFieldName("condition"));
+        Statement body = (Statement) parseTSNode(node.getChildByFieldName("body"));
+        Expression condition = (Expression) parseTSNode(node.getChildByFieldName("condition"));
         if (condition instanceof ParenthesizedExpression parenthesizedExpression) {
             condition = parenthesizedExpression.getExpression();
         }
@@ -282,9 +281,9 @@ public class JavaLanguage extends LanguageParser {
     }
 
     private Node fromTernaryExpressionTSNode(TSNode node) {
-        Expression condition = (Expression) fromTSNode(node.getChildByFieldName("condition"));
-        Expression consequence = (Expression) fromTSNode(node.getChildByFieldName("consequence"));
-        Expression alternative = (Expression) fromTSNode(node.getChildByFieldName("alternative"));
+        Expression condition = (Expression) parseTSNode(node.getChildByFieldName("condition"));
+        Expression consequence = (Expression) parseTSNode(node.getChildByFieldName("consequence"));
+        Expression alternative = (Expression) parseTSNode(node.getChildByFieldName("alternative"));
         return new TernaryOperator(condition, consequence, alternative);
     }
 
@@ -294,20 +293,20 @@ public class JavaLanguage extends LanguageParser {
         }
         ArrayList<Node> nodes = new ArrayList<>();
         for (int i = 0; i < node.getNamedChildCount(); i++) {
-            nodes.add(fromTSNode(node.getNamedChild(i)));
+            nodes.add(parseTSNode(node.getNamedChild(i)));
         }
         return nodes;
     }
 
     private Node fromArrayAccessTSNode(TSNode node) {
         Identifier arrayName = fromIdentifierTSNode(node.getChildByFieldName("array"));
-        Expression index = (Expression) fromTSNode(node.getChildByFieldName("index"));
+        Expression index = (Expression) parseTSNode(node.getChildByFieldName("index"));
         return new IndexExpression(arrayName, index);
     }
 
     private Node fromCastExpressionTSNode(TSNode node) {
         Type castType = fromTypeTSNode(node.getChildByFieldName("type"));
-        Expression value = (Expression) fromTSNode(node.getChildByFieldName("value"));
+        Expression value = (Expression) parseTSNode(node.getChildByFieldName("value"));
         if (castType instanceof IntType && value instanceof ParenthesizedExpression p
                 && p.getExpression() instanceof DivOp div) {
             return new FloorDivOp(div.getLeft(), div.getRight());
@@ -329,7 +328,7 @@ public class JavaLanguage extends LanguageParser {
             return new ReturnStatement();
         }
 
-        Expression expression = (Expression) fromTSNode(node.getNamedChild(0));
+        Expression expression = (Expression) parseTSNode(node.getNamedChild(0));
         return new ReturnStatement(expression);
     }
 
@@ -348,7 +347,7 @@ public class JavaLanguage extends LanguageParser {
 
             switch (dimension.getType()) {
                 case "dimensions_expr" -> {
-                    Expression dimensionExpr = (Expression) fromTSNode(dimension.getNamedChild(0));
+                    Expression dimensionExpr = (Expression) parseTSNode(dimension.getNamedChild(0));
                     dimensions.put(dimensionsCount, dimensionExpr);
                     dimensionsCount += 1;
                 }
@@ -373,7 +372,7 @@ public class JavaLanguage extends LanguageParser {
     private ArrayInitializer fromArrayInitializer(TSNode arrayInitializerNode) {
         List<Expression> values = new ArrayList<>();
         for (int i = 0; i < arrayInitializerNode.getNamedChildCount(); i++) {
-            Expression value = (Expression) fromTSNode(arrayInitializerNode.getNamedChild(i));
+            Expression value = (Expression) parseTSNode(arrayInitializerNode.getNamedChild(i));
             values.add(value);
         }
         return new ArrayInitializer(values);
@@ -390,7 +389,7 @@ public class JavaLanguage extends LanguageParser {
     }
 
     private MemberAccess fromFieldAccessTSNode(TSNode fieldAccess) {
-        Expression object = (Expression) fromTSNode(fieldAccess.getChildByFieldName("object"));
+        Expression object = (Expression) parseTSNode(fieldAccess.getChildByFieldName("object"));
         SimpleIdentifier member = (SimpleIdentifier) fromIdentifierTSNode(fieldAccess.getChildByFieldName("field"));
         return new MemberAccess(object, member);
     }
@@ -412,7 +411,7 @@ public class JavaLanguage extends LanguageParser {
         TSNode tsArguments = objectCreationNode.getChildByFieldName("arguments");
         for (int i = 0; i < tsArguments.getNamedChildCount(); i++) {
             TSNode tsArgument = tsArguments.getNamedChild(i);
-            Expression argument = (Expression) fromTSNode(tsArgument);
+            Expression argument = (Expression) parseTSNode(tsArgument);
             arguments.add(argument);
         }
 
@@ -485,7 +484,7 @@ public class JavaLanguage extends LanguageParser {
         List<Expression> arguments = new ArrayList<>();
         for (int i = 0; i < tsNodeArguments.getNamedChildCount(); i++) {
             TSNode tsArgument = tsNodeArguments.getNamedChild(i);
-            Expression argument = (Expression) fromTSNode(tsArgument);
+            Expression argument = (Expression) parseTSNode(tsArgument);
             arguments.add(argument);
         }
 
@@ -531,16 +530,16 @@ public class JavaLanguage extends LanguageParser {
             }
             if (objectName.equals("Math") && objectMethodName.equals("pow") && argumentsNode.getNamedChildCount() == 2) {
                 return new PowOp(
-                        (Expression) fromTSNode(argumentsNode.getNamedChild(0)),
-                        (Expression) fromTSNode(argumentsNode.getNamedChild(1))
+                        (Expression) parseTSNode(argumentsNode.getNamedChild(0)),
+                        (Expression) parseTSNode(argumentsNode.getNamedChild(1))
                 );
             }
         }
 
         if (objectNode.isNull() && objectMethodName.equals("pow") && argumentsNode.getNamedChildCount() == 2) {
             return new PowOp(
-                    (Expression) fromTSNode(argumentsNode.getNamedChild(0)),
-                    (Expression) fromTSNode(argumentsNode.getNamedChild(1))
+                    (Expression) parseTSNode(argumentsNode.getNamedChild(0)),
+                    (Expression) parseTSNode(argumentsNode.getNamedChild(1))
             );
         }
 
@@ -552,7 +551,7 @@ public class JavaLanguage extends LanguageParser {
         List<Expression> arguments = new ArrayList<>();
         for (int i = 0; i < argumentsNode.getNamedChildCount(); i++) {
             TSNode tsArgument = argumentsNode.getNamedChild(i);
-            Expression argument = (Expression) fromTSNode(tsArgument);
+            Expression argument = (Expression) parseTSNode(tsArgument);
             arguments.add(argument);
         }
 
@@ -560,7 +559,7 @@ public class JavaLanguage extends LanguageParser {
             return new FunctionCall(methodName, arguments);
         }
 
-        Expression object = (Expression) fromTSNode(objectNode);
+        Expression object = (Expression) parseTSNode(objectNode);
         return new MethodCall(object, (SimpleIdentifier) methodName, arguments);
     }
 
@@ -621,11 +620,11 @@ public class JavaLanguage extends LanguageParser {
 
     private CaseBlock fromSwitchGroupTSNode(TSNode switchGroup) {
         Expression matchValue =
-                (Expression) fromTSNode(switchGroup.getNamedChild(0).getNamedChild(0));
+                (Expression) parseTSNode(switchGroup.getNamedChild(0).getNamedChild(0));
 
         var statements = new ArrayList<Node>();
         for (int i = 1; i < switchGroup.getNamedChildCount(); i++) {
-            statements.add(fromTSNode(switchGroup.getNamedChild(i)));
+            statements.add(parseTSNode(switchGroup.getNamedChild(i)));
         }
 
         CaseBlock caseBlock;
@@ -647,7 +646,7 @@ public class JavaLanguage extends LanguageParser {
 
     private Node fromSwitchExpressionTSNode(TSNode switchNode) {
         Expression matchValue =
-                (Expression) fromTSNode(switchNode.getChildByFieldName("condition").getNamedChild(0));
+                (Expression) parseTSNode(switchNode.getChildByFieldName("condition").getNamedChild(0));
 
         DefaultCaseBlock defaultCaseBlock = null;
         List<CaseBlock> cases = new ArrayList<>();
@@ -665,7 +664,7 @@ public class JavaLanguage extends LanguageParser {
                         continue;
                     }
 
-                    statements.add(fromTSNode(switchGroup.getNamedChild(j)));
+                    statements.add(parseTSNode(switchGroup.getNamedChild(j)));
                 }
 
                 if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
@@ -849,16 +848,16 @@ public class JavaLanguage extends LanguageParser {
         String code = getCodePiece(node);
 
         if (code.endsWith("++")) {
-            return new PostfixIncrementOp((Expression) fromTSNode(node.getChild(0)));
+            return new PostfixIncrementOp((Expression) parseTSNode(node.getChild(0)));
         }
         else if (code.startsWith("++")) {
-            return new PrefixIncrementOp((Expression) fromTSNode(node.getChild(1)));
+            return new PrefixIncrementOp((Expression) parseTSNode(node.getChild(1)));
         }
         else if (code.endsWith("--")) {
-            return new PostfixDecrementOp((Expression) fromTSNode(node.getChild(0)));
+            return new PostfixDecrementOp((Expression) parseTSNode(node.getChild(0)));
         }
         else if (code.startsWith("--")) {
-            return new PrefixDecrementOp((Expression) fromTSNode(node.getChild(1)));
+            return new PrefixDecrementOp((Expression) parseTSNode(node.getChild(1)));
         }
 
         throw new IllegalArgumentException();
@@ -875,7 +874,7 @@ public class JavaLanguage extends LanguageParser {
     private AssignmentExpression fromAssignmentExpressionTSNode(TSNode node) {
         String variableName = getCodePiece(node.getChildByFieldName("left"));
         SimpleIdentifier identifier = new SimpleIdentifier(variableName);
-        Expression right = (Expression) fromTSNode(node.getChildByFieldName("right"));
+        Expression right = (Expression) parseTSNode(node.getChildByFieldName("right"));
 
         String operatorType = node.getChildByFieldName("operator").getType();
         AugmentedAssignmentOperator augmentedAssignmentOperator = switch (operatorType) {
@@ -1006,13 +1005,13 @@ public class JavaLanguage extends LanguageParser {
             List<TSNode> assignments = getChildrenByFieldName(node, "init");
 
             if (assignments.size() == 1) {
-                init = (HasInitialization) fromTSNode(assignments.getFirst());
+                init = (HasInitialization) parseTSNode(assignments.getFirst());
             }
             else if (assignments.size() > 1) {
                 List<AssignmentStatement> assignmentStatements =
                         assignments.stream().map(
                                 tsNode ->
-                                        assignmentExpressionToStatement((AssignmentExpression) fromTSNode(tsNode))
+                                        assignmentExpressionToStatement((AssignmentExpression) parseTSNode(tsNode))
                         ).toList();
                 init = new MultipleAssignmentStatement(assignmentStatements);
             }
@@ -1022,7 +1021,7 @@ public class JavaLanguage extends LanguageParser {
         }
 
         if (!node.getChildByFieldName("condition").isNull()) {
-            condition = (Expression) fromTSNode(node.getChildByFieldName("condition"));
+            condition = (Expression) parseTSNode(node.getChildByFieldName("condition"));
 
             if (condition instanceof ParenthesizedExpression parenthesizedExpression) {
                 condition = parenthesizedExpression.getExpression();
@@ -1033,11 +1032,11 @@ public class JavaLanguage extends LanguageParser {
             List<TSNode> updates = getChildrenByFieldName(node, "update");
 
             if (updates.size() == 1) {
-                update = (Expression) fromTSNode(updates.getFirst());
+                update = (Expression) parseTSNode(updates.getFirst());
             }
             else if (updates.size() > 1) {
                 List<Expression> updateExpressions =
-                        updates.stream().map(tsNode -> (Expression) fromTSNode(tsNode)).toList();
+                        updates.stream().map(tsNode -> (Expression) parseTSNode(tsNode)).toList();
                 update = new ExpressionSequence(updateExpressions);
             }
             else {
@@ -1045,7 +1044,7 @@ public class JavaLanguage extends LanguageParser {
             }
         }
 
-        Statement body = (Statement) fromTSNode(node.getChildByFieldName("body"));
+        Statement body = (Statement) parseTSNode(node.getChildByFieldName("body"));
 
         if (init == null && condition == null && update == null) {
             return new InfiniteLoop(body, getLoopType(node));
@@ -1073,7 +1072,7 @@ public class JavaLanguage extends LanguageParser {
         SimpleIdentifier ident = new SimpleIdentifier(name);
 
         if (!node.getChildByFieldName("value").isNull()) {
-            Expression value = (Expression) fromTSNode(node.getChildByFieldName("value"));
+            Expression value = (Expression) parseTSNode(node.getChildByFieldName("value"));
             if (value instanceof PlainCollectionLiteral col) {
                 col.setTypeHint(type);
             }
@@ -1192,7 +1191,7 @@ public class JavaLanguage extends LanguageParser {
             } else if (node.getNamedChild(i).getType().equals("type_identifier")){
                 idents.add(new SimpleIdentifier(getCodePiece(node.getNamedChild(i))));
             } else {
-                idents.add((SimpleIdentifier) fromTSNode(node.getNamedChild(i)));
+                idents.add((SimpleIdentifier) parseTSNode(node.getNamedChild(i)));
             }
         }
         return new ScopedIdentifier(idents);
@@ -1236,7 +1235,7 @@ public class JavaLanguage extends LanguageParser {
     private Node fromProgramTSNode(TSNode node) {
         var statements = new ArrayList<Node>();
         for (int i = 0; i < node.getNamedChildCount(); i++) {
-            statements.add(fromTSNode(node.getNamedChild(i)));
+            statements.add(parseTSNode(node.getNamedChild(i)));
         }
 
         ClassDefinition mainClass = null;
@@ -1282,13 +1281,13 @@ public class JavaLanguage extends LanguageParser {
 
     private Loop fromWhileTSNode(TSNode node) {
         TSNode tsCond = node.getChildByFieldName("condition");
-        Expression mtCond = (Expression) fromTSNode(tsCond);
+        Expression mtCond = (Expression) parseTSNode(tsCond);
         if (mtCond instanceof ParenthesizedExpression parenthesizedExpression) {
             mtCond = parenthesizedExpression.getExpression();
         }
 
         TSNode tsBody = node.getChildByFieldName("body");
-        Statement mtBody = (Statement) fromTSNode(tsBody);
+        Statement mtBody = (Statement) parseTSNode(tsBody);
 
         if (mtCond instanceof BoolLiteral boolLiteral && boolLiteral.getValue()) {
             return new InfiniteLoop(mtBody, getLoopType(node));
@@ -1300,27 +1299,27 @@ public class JavaLanguage extends LanguageParser {
     private CompoundStatement fromBlockTSNode(TSNode node) {
         var statements = new ArrayList<Node>();
         for (int i = 1; i < node.getChildCount() - 1; i++) {
-            statements.add(fromTSNode(node.getChild(i)));
+            statements.add(parseTSNode(node.getChild(i)));
         }
         return new CompoundStatement(statements);
     }
 
     private Node fromStatementTSNode(TSNode node) {
-        return fromTSNode(node.getChild(0));
+        return parseTSNode(node.getChild(0));
     }
 
     private IfStatement fromIfStatementTSNode(TSNode node) {
         // Берем ребенка под индексом 1, чтобы избежать захвата скобок, а значит
         // неправильного парсинга (получаем выражение в скобках в качестве условия, а не просто выражение)
-        Expression condition = (Expression) fromTSNode(node.getChildByFieldName("condition").getChild(1));
-        Statement consequence = (Statement) fromTSNode(node.getChildByFieldName("consequence"));
+        Expression condition = (Expression) parseTSNode(node.getChildByFieldName("condition").getChild(1));
+        Statement consequence = (Statement) parseTSNode(node.getChildByFieldName("consequence"));
 
         TSNode alternativeNode = node.getChildByFieldName("alternative");
         if (alternativeNode.isNull()) {
             return new IfStatement(condition, consequence);
         }
 
-        Statement alternative = (Statement) fromTSNode(alternativeNode);
+        Statement alternative = (Statement) parseTSNode(alternativeNode);
         return new IfStatement(condition, consequence, alternative);
     }
 
@@ -1328,11 +1327,11 @@ public class JavaLanguage extends LanguageParser {
         // TODO: Что-то сделать с этим...
         // У condition дети: '(', 'binary_expression', ')'
         // По имени binary_expression почему-то получить не удалось
-        return fromTSNode(node.getChild(1));
+        return parseTSNode(node.getChild(1));
     }
 
     private Statement fromExpressionStatementTSNode(TSNode node) {
-        Expression expr = (Expression) fromTSNode(node.getChild(0));
+        Expression expr = (Expression) parseTSNode(node.getChild(0));
         if (expr instanceof AssignmentExpression assignmentExpression) {
             return assignmentExpression.toStatement();
         }
@@ -1341,7 +1340,7 @@ public class JavaLanguage extends LanguageParser {
     }
 
     private ParenthesizedExpression fromParenthesizedExpressionTSNode(TSNode node) {
-        Expression expr = (Expression) fromTSNode(node.getChild(1));
+        Expression expr = (Expression) parseTSNode(node.getChild(1));
         return new ParenthesizedExpression(expr);
     }
 
@@ -1356,7 +1355,7 @@ public class JavaLanguage extends LanguageParser {
     }
 
     private UnaryExpression fromUnaryExpressionTSNode(TSNode node) {
-        Expression argument = (Expression) fromTSNode(node.getChildByFieldName("operand"));
+        Expression argument = (Expression) parseTSNode(node.getChildByFieldName("operand"));
         TSNode operation = node.getChildByFieldName("operator");
         return switch (getCodePiece(operation)) {
             case "!" -> new NotOp(argument);
@@ -1368,8 +1367,8 @@ public class JavaLanguage extends LanguageParser {
     }
 
     private BinaryExpression fromBinaryExpressionTSNode(TSNode node) {
-        Expression left = (Expression) fromTSNode(node.getChildByFieldName("left"));
-        Expression right = (Expression) fromTSNode(node.getChildByFieldName("right"));
+        Expression left = (Expression) parseTSNode(node.getChildByFieldName("left"));
+        Expression right = (Expression) parseTSNode(node.getChildByFieldName("right"));
         TSNode operator = node.getChildByFieldName("operator");
 
         return switch (getCodePiece(operator)) {

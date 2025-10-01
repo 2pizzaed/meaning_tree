@@ -6,6 +6,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.languages.configs.Config;
 import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.utils.Hook;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.*;
@@ -15,6 +16,8 @@ abstract public class LanguageParser {
     protected LanguageTranslator translator;
     protected Config _config;
     protected Map<int[], Object> _byteValueTags = new HashMap<>();
+
+    protected List<Hook<Node>> onNodeParsedHooks = new ArrayList<>();
 
     public abstract TSTree getTSTree();
 
@@ -77,4 +80,30 @@ abstract public class LanguageParser {
         }
     }
 
+    protected Node parseTSNode(TSNode node) {
+        var result = fromTSNode(node);
+
+        for (Hook<Node> hook : onNodeParsedHooks) {
+            if (hook.isTriggered(result)) {
+                hook.accept(result);
+            }
+        }
+
+        return result;
+    }
+
+    /***
+     * This method may be called only in `fromTSNode` method! In other places, use parseTSNode
+     * @param node raw Tree-sitter node
+     * @return Meaning Tree Node
+     */
+    protected abstract Node fromTSNode(TSNode node);
+
+    public void addOnNodeParsedHook(Hook<Node> hook) {
+        onNodeParsedHooks.add(hook);
+    }
+
+    public void removeOnNodeParsedHook(Hook<Node> hook) {
+        onNodeParsedHooks.remove(hook);
+    }
 }

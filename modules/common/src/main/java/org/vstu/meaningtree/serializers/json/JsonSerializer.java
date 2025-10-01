@@ -1103,10 +1103,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray parts = new JsonArray();
         for (var part : l.components()) parts.add(serialize(part));
         json.add("components", parts);
-        json.addProperty("type", switch (l.getStringType()) {
-            case RAW -> "raw";
-            default -> "none";
-        });
+        json.addProperty("type", enumToValue(l.getStringType()));
         return json;
     }
 

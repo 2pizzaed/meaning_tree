@@ -3,13 +3,11 @@ package org.vstu.meaningtree.nodes.types.builtin;
 import java.util.Objects;
 
 public class FloatType extends NumericType {
-    public final int size;
-
     /**
      * Создаёт тип числа с плавающей точкой размером 32 бита
      */
     public FloatType() {
-        size = 32;
+        super();
     }
 
     /**
@@ -17,7 +15,7 @@ public class FloatType extends NumericType {
      * @param bits количество бит
      * */
     public FloatType(int bits) {
-        size = bits;
+        super(bits);
     }
 
     @Override

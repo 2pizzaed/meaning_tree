@@ -1,17 +1,13 @@
 package org.vstu.meaningtree.nodes.types.builtin;
 
-import org.vstu.meaningtree.nodes.Type;
-
 import java.util.Objects;
 
-public class CharacterType extends Type {
-    public final int size;
-
+public class CharacterType extends NumericType {
     /**
      * Создаёт тип символ размером 8 бит
      */
     public CharacterType() {
-        size = 8;
+        super(8);
     }
 
     /**
@@ -19,7 +15,7 @@ public class CharacterType extends Type {
      * @param bits количество бит
      * */
     public CharacterType(int bits) {
-        size = bits;
+        super(bits);
     }
 
     @Override

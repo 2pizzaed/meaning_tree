@@ -4,7 +4,6 @@ import java.util.Objects;
 
 public class IntType extends NumericType {
     public final boolean isUnsigned;
-    public final int size;
 
     /**
      * Создаёт знаковый целочисленный тип размерностью 32
@@ -35,8 +34,8 @@ public class IntType extends NumericType {
      * @param size размер типа.
      */
     public IntType(int size, boolean isUnsigned) {
+        super(size);
         this.isUnsigned = isUnsigned;
-        this.size = size;
     }
 
     @Override

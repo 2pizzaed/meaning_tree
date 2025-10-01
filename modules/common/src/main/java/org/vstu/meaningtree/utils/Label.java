@@ -31,12 +31,24 @@ public class Label {
     /**
      * Зарезервированный номер. Применяется в случае, если метка была не распознана
      */
-    protected static final short UNKNOWN = Short.MAX_VALUE;
+    public static final short UNKNOWN = Short.MAX_VALUE;
 
     /**
      * Зарезервированный номер. Применяется, если владелец метки имеет ошибку
      */
-    protected static final short ERROR = Short.MIN_VALUE;
+    public static final short ERROR = Short.MIN_VALUE;
+
+
+    /**
+     * Пользователи библиотеки могут создавать собственные метки. Для этого выделен диапазон отрицательных id
+     * Представлено максимально возможное значение пользовательской метки
+     */
+    public static final short USER_TAG_MAX_ID = -1;
+    /**
+     * Пользователи библиотеки могут создавать собственные метки. Для этого выделен диапазон отрицательных id
+     * Представлено минимально возможное значение пользовательской метки
+     */
+    public static final short USER_TAG_MIN_ID = -16000;
 
 
     private short id;

@@ -9,35 +9,56 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.nodes.Comment;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
-import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
+import org.vstu.meaningtree.nodes.declarations.*;
+import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
+import org.vstu.meaningtree.nodes.definitions.*;
+import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
+import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
+import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
-import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
+import org.vstu.meaningtree.nodes.expressions.comprehensions.Comprehension;
+import org.vstu.meaningtree.nodes.expressions.comprehensions.ContainerBasedComprehension;
+import org.vstu.meaningtree.nodes.expressions.comprehensions.RangeBasedComprehension;
+import org.vstu.meaningtree.nodes.expressions.identifiers.*;
 import org.vstu.meaningtree.nodes.expressions.literals.*;
-import org.vstu.meaningtree.nodes.expressions.logical.NotOp;
-import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitAndOp;
-import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitOrOp;
+import org.vstu.meaningtree.nodes.expressions.logical.*;
 import org.vstu.meaningtree.nodes.expressions.math.*;
+import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
+import org.vstu.meaningtree.nodes.expressions.newexpr.PlacementNewExpression;
 import org.vstu.meaningtree.nodes.expressions.other.*;
+import org.vstu.meaningtree.nodes.expressions.pointers.PointerMemberAccess;
+import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
+import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
-import org.vstu.meaningtree.nodes.statements.CompoundStatement;
-import org.vstu.meaningtree.nodes.statements.EmptyStatement;
-import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
+import org.vstu.meaningtree.nodes.io.*;
+import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
+import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
+import org.vstu.meaningtree.nodes.modules.*;
+import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.CompoundAssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
+import org.vstu.meaningtree.nodes.statements.conditions.components.BasicCaseBlock;
 import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
-import org.vstu.meaningtree.nodes.statements.loops.DoWhileLoop;
-import org.vstu.meaningtree.nodes.statements.loops.GeneralForLoop;
-import org.vstu.meaningtree.nodes.statements.loops.RangeForLoop;
-import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
+import org.vstu.meaningtree.nodes.statements.conditions.components.DefaultCaseBlock;
+import org.vstu.meaningtree.nodes.statements.conditions.components.FallthroughCaseBlock;
+import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
+import org.vstu.meaningtree.nodes.types.*;
+import org.vstu.meaningtree.nodes.types.builtin.*;
+import org.vstu.meaningtree.nodes.types.containers.ArrayType;
+import org.vstu.meaningtree.nodes.types.containers.PlainCollectionType;
+import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.serializers.model.Serializer;
 import org.vstu.meaningtree.utils.Label;
+import org.vstu.meaningtree.utils.TransliterationUtils;
 
 import java.util.Collection;
 import java.util.Objects;
@@ -77,6 +98,10 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case NotEqOp op -> serialize(op);
             case ShortCircuitAndOp op -> serialize(op);
             case ShortCircuitOrOp op -> serialize(op);
+
+            case LongCircuitAndOp op -> serialize(op);
+            case LongCircuitOrOp op -> serialize(op);
+
             case PowOp op -> serialize(op);
             case NotOp op -> serialize(op);
             case PostfixIncrementOp inc -> serialize(inc);
@@ -101,14 +126,97 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case BoolLiteral l -> serialize(l);
             case CharacterLiteral l -> serialize(l);
 
+            case ArrayLiteral l -> serialize(l);
+            case ListLiteral l -> serialize(l);
+            case SetLiteral l -> serialize(l);
+            case UnmodifiableListLiteral l -> serialize(l);
+            case InterpolatedStringLiteral l -> serialize(l);
+
+            case PointerMemberAccess memAcc -> serialize(memAcc);
+            case PointerPackOp packOp -> serialize(packOp);
+            case PointerUnpackOp unpackOp -> serialize(unpackOp);
+
+            case ArrayInitializer arrInit -> serialize(arrInit);
+            case CastTypeExpression castType -> serialize(castType);
+            case CommaExpression comma -> serialize(comma);
+            case DeleteExpression del -> serialize(del);
+            case KeyValuePair kv -> serialize(kv);
+            case MemoryAllocationCall memAlloc -> serialize(memAlloc);
+            case MemoryFreeCall memFreeAlloc -> serialize(memFreeAlloc);
+            case SizeofExpression sizeofExpr -> serialize(sizeofExpr);
+            case MemberAccess memberAccess -> serialize(memberAccess);
+            case ExpressionSequence exprSeq -> serialize(exprSeq);
+            case ThreeWayComparisonOp threeWayComparisonOp -> serialize(threeWayComparisonOp);
+            case PlacementNewExpression plNew -> serialize(plNew);
+            case ObjectNewExpression newExpr -> serialize(newExpr);
+            case QualifiedIdentifier ident -> serialize(ident);
+            case ScopedIdentifier scopedIdentifier -> serialize(scopedIdentifier);
+            case SelfReference selfRef -> serialize(selfRef);
+            case SuperClassReference superClassRef -> serialize(superClassRef);
+            case Alias alias -> serialize(alias);
+            case SimpleIdentifier expr -> serialize(expr);
+            case ContainerBasedComprehension compPh -> serialize(compPh);
+            case RangeBasedComprehension compPh -> serialize(compPh);
+            case StaticImportAll staticImportAll -> serialize(staticImportAll);
+            case StaticImportMembersFromModule staticImportMembersFromModule -> serialize(staticImportMembersFromModule);
+            case ImportAllFromModule importAllFromModule -> serialize(importAllFromModule);
+            case ImportMembersFromModule importMembersFromModule -> serialize(importMembersFromModule);
+            case ImportModule importModule -> serialize(importModule);
+            case ImportModules importModules -> serialize(importModules);
+            case PackageDeclaration packageDeclaration -> serialize(packageDeclaration);
+            case ReturnStatement stmt -> serialize(stmt);
+            case CompoundAssignmentStatement stmt -> serialize(stmt);
+            case MultipleAssignmentStatement stmt -> serialize(stmt);
+
+            case BasicCaseBlock caseBlock -> serialize(caseBlock);
+            case DefaultCaseBlock defaultCaseBlock -> serialize(defaultCaseBlock);
+            case FallthroughCaseBlock fallthroughCaseBlock -> serialize(fallthroughCaseBlock);
+
             // Expressions
             case ParenthesizedExpression expr -> serialize(expr);
-            case SimpleIdentifier expr -> serialize(expr);
             case AssignmentExpression expr -> serialize(expr);
             case CompoundComparison cmp -> serialize(cmp);
+            case DeleteStatement del -> serialize(del);
+            case FormatInput input -> serialize(input);
+            case FormatPrint print -> serialize(print);
+            case PointerInputCommand command -> serialize(command);
+            case InputCommand command -> serialize(command);
+            case PrintValues printValues -> serialize(printValues);
+            case ConstructorCall call -> serialize(call);
+            case MethodCall call -> serialize(call);
             case FunctionCall funcCall -> serialize(funcCall);
             case IndexExpression indexExpression -> serialize(indexExpression);
             case Range range -> serialize(range);
+
+            case NumericType t -> serialize(t);
+            case PointerType t -> serialize(t);
+            case ArrayType t -> serialize(t);
+            case BooleanType t -> serialize(t);
+            case ReferenceType t -> serialize(t);
+            case StringType t -> serialize(t);
+            case Shape t -> serialize(t);
+            case PlainCollectionType t -> serialize(t);
+            case GenericInterface t -> serialize(t);
+            case GenericUserType t -> serialize(t);
+            case NoReturn t -> serialize(t);
+            case UnknownType t -> serialize(t);
+            case UserType t -> serialize(t);
+
+            case ClassDefinition cd -> serialize(cd);
+            case ObjectConstructorDefinition ocd -> serialize(ocd);
+            case ObjectDestructorDefinition ocdef -> serialize(ocdef);
+            case MethodDefinition md -> serialize(md);
+            case FunctionDefinition fd -> serialize(fd);
+            case DefinitionArgument defArg -> serialize(defArg);
+            case DeclarationArgument declarationArgument -> serialize(declarationArgument);
+            case Annotation anno -> serialize(anno);
+            case ClassDeclaration classDeclaration -> serialize(classDeclaration);
+            case ObjectConstructorDeclaration objectConstructorDefinition -> serialize(objectConstructorDefinition);
+            case ObjectDestructorDeclaration objectDestructorDefinition -> serialize(objectDestructorDefinition);
+            case SeparatedVariableDeclaration separatedVariableDeclaration -> serialize(separatedVariableDeclaration);
+            case FieldDeclaration fieldDeclaration -> serialize(fieldDeclaration);
+            case MethodDeclaration methodDeclaration -> serialize(methodDeclaration);
+            case FunctionDeclaration functionDeclaration -> serialize(functionDeclaration);
 
             // Statements
             case AssignmentStatement stmt -> serialize(stmt);
@@ -118,6 +226,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case ExpressionStatement stmt -> serialize(stmt);
             case IfStatement stmt -> serialize(stmt);
             case ConditionBranch stmt -> serialize(stmt);
+            case InfiniteLoop infLoop -> serialize(infLoop);
             case GeneralForLoop stmt -> serialize(stmt);
             case RangeForLoop rangeLoop -> serialize(rangeLoop);
             case WhileLoop whileLoop -> serialize(whileLoop);
@@ -699,7 +808,14 @@ public class JsonSerializer implements Serializer<JsonObject> {
     private JsonObject serialize(@NotNull VariableDeclaration stmt) {
         JsonObject json = new JsonObject();
 
-        json.addProperty("type", "variable_declaration");
+        if (stmt instanceof FieldDeclaration decl) {
+            json.addProperty("type", "field_declaration");
+            JsonArray modifiers = new JsonArray();
+            for (var t : decl.getModifiers()) modifiers.add(enumToValue(t));
+            json.add("modifiers", modifiers);
+        } else {
+            json.addProperty("type", "variable_declaration");
+        }
 
         JsonArray declarators = new JsonArray();
         for (VariableDeclarator varDecl : stmt.getDeclarators()) {
@@ -712,6 +828,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
 
         json.add("declarators", declarators);
+        JsonArray anno = new JsonArray();
+        for (var t : stmt.getAnnotations()) anno.add(serialize(t));
+        json.add("annotations", anno);
         return json;
     }
 
@@ -919,4 +1038,782 @@ public class JsonSerializer implements Serializer<JsonObject> {
         return json;
     }
 
+    @NotNull
+    private JsonObject serialize(@NotNull LongCircuitAndOp op) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "long_circuit_and_operator");
+        json.add("left_operand", serialize(op.getLeft()));
+        json.add("right_operand", serialize(op.getRight()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull LongCircuitOrOp op) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "long_circuit_or_operator");
+        json.add("left_operand", serialize(op.getLeft()));
+        json.add("right_operand", serialize(op.getRight()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ArrayLiteral l) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "array_literal");
+        JsonArray elements = new JsonArray();
+        for (var el : l.allChildren()) elements.add(serialize(el));
+        json.add("elements", elements);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ListLiteral l) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "list_literal");
+        JsonArray elements = new JsonArray();
+        for (var el : l.allChildren()) elements.add(serialize(el));
+        json.add("elements", elements);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull SetLiteral l) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "set_literal");
+        JsonArray elements = new JsonArray();
+        for (var el : l.allChildren()) elements.add(serialize(el));
+        json.add("elements", elements);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull UnmodifiableListLiteral l) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "unmodifiable_list_literal");
+        JsonArray elements = new JsonArray();
+        for (var el : l.allChildren()) elements.add(serialize(el));
+        json.add("elements", elements);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull InterpolatedStringLiteral l) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "interpolated_string_literal");
+        JsonArray parts = new JsonArray();
+        for (var part : l.components()) parts.add(serialize(part));
+        json.add("components", parts);
+        json.addProperty("type", switch (l.getStringType()) {
+            case RAW -> "raw";
+            default -> "none";
+        });
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull PointerMemberAccess expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "pointer_member_access");
+        json.add("expression", serialize(expr.getExpression()));
+        json.add("member", serialize(expr.getMember()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull PointerPackOp expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "pointer_pack");
+        json.add("operand", serialize(expr.getArgument()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull PointerUnpackOp expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "pointer_unpack");
+        json.add("operand", serialize(expr.getArgument()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ConstructorCall call) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "constructor_call");
+        JsonArray args = new JsonArray();
+        for (var arg : call.getArguments()) args.add(serialize(arg));
+        json.add("arguments", args);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull MethodCall call) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "method_call");
+        json.add("receiver", serialize(call.getObject()));
+        json.add("method_name", serialize(call.getFunction()));
+        JsonArray args = new JsonArray();
+        for (var arg : call.getArguments()) args.add(serialize(arg));
+        json.add("arguments", args);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ReturnStatement stmt) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "return_statement");
+        if (stmt.getExpression() != null) {
+            json.add("expression", serialize(stmt.getExpression()));
+        }
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull CompoundAssignmentStatement stmt) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "compound_assignment_statement");
+        JsonArray assignments = new JsonArray();
+        for (var t : stmt.getAssignments()) assignments.add(serialize(t));
+        json.add("assignments", assignments);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull MultipleAssignmentStatement stmt) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "multiple_assignment_statement");
+        JsonArray targets = new JsonArray();
+        for (var t : stmt.getStatements()) targets.add(serialize(t));
+        json.add("targets", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull BasicCaseBlock block) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "basic_case_block");
+        json.add("body", serialize(block.getBody()));
+        json.add("match_value", serialize(block.getMatchValue()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull DefaultCaseBlock block) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "default_case_block");
+        json.add("body", serialize(block.getBody()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull FallthroughCaseBlock block) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "fallthrough_case_block");
+        json.add("match_value", serialize(block.getMatchValue()));
+        json.add("body", serialize(block.getBody()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ArrayInitializer expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "array_initializer");
+        JsonArray targets = new JsonArray();
+        for (var t : expr.getValues()) targets.add(serialize(t));
+        json.add("elements", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull CastTypeExpression expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "cast_type_expression");
+        json.add("target_type", serialize(expr.getCastType()));
+        json.add("value", serialize(expr.getValue()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull CommaExpression expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "comma_expression");
+        JsonArray targets = new JsonArray();
+        for (var t : expr.getExpressions()) targets.add(serialize(t));
+        json.add("expressions", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull DeleteExpression expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "delete_expression");
+        json.add("expr", serialize(expr.getTarget()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull DeleteStatement expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "delete_statement");
+        json.add("expr", serialize(expr.getTarget()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull KeyValuePair expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "key_value_pair");
+        json.add("key", serialize(expr.key()));
+        json.add("value", serialize(expr.value()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull MemoryAllocationCall expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "memory_allocation_call");
+        json.addProperty("is_clear", expr.isClearAllocation());
+        json.add("function", serialize(expr.getFunction()));
+
+        JsonArray args = new JsonArray();
+        for (var arg : expr.getArguments()) {
+            args.add(serialize(arg));
+        }
+
+        json.add("arguments", args);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull MemoryFreeCall expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "memory_free_call");
+        json.add("value", serialize(expr.getArguments().getFirst()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull SizeofExpression expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "sizeof_expression");
+        json.add("value", serialize(expr.getExpression()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull MemberAccess expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "member_access");
+        json.add("expression", serialize(expr.getExpression()));
+        json.add("member", serialize(expr.getMember()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ExpressionSequence expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "expression_sequence");
+        JsonArray targets = new JsonArray();
+        for (var t : expr.getExpressions()) targets.add(serialize(t));
+        json.add("expressions", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ThreeWayComparisonOp expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "three_way_comparison");
+        json.add("left_operand", serialize(expr.getLeft()));
+        json.add("right_operand", serialize(expr.getRight()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull PlacementNewExpression expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "placement_new_expression");
+        json.add("target_type", serialize(expr.getType()));
+        JsonArray targets = new JsonArray();
+        for (var t : expr.getConstructorArguments()) targets.add(serialize(t));
+        json.add("arguments", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ObjectNewExpression expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "object_new_expression");
+        json.add("target_type", serialize(expr.getType()));
+        JsonArray targets = new JsonArray();
+        for (var t : expr.getConstructorArguments()) targets.add(serialize(t));
+        json.add("arguments", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull QualifiedIdentifier expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "qualified_identifier");
+        json.add("scope", serialize(expr.getScope()));
+        json.add("member", serialize(expr.getMember()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ScopedIdentifier expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "scoped_identifier");
+        JsonArray targets = new JsonArray();
+        for (var t : expr.getScopeResolution()) targets.add(serialize(t));
+        json.add("identifiers", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull SelfReference expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "self_reference");
+        json.addProperty("name", expr.getName());
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull SuperClassReference expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "super_class_reference");
+        json.addProperty("name", expr.getName());
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull Alias expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "alias");
+        json.add("realName", serialize(expr.getRealName()));
+        json.add("alias", serialize(expr.getAlias()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull Comprehension.ComprehensionItem expr) {
+        if (expr instanceof KeyValuePair) return serialize((KeyValuePair) expr);
+
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "%s_comprehension_item".formatted(switch (expr.getClass().getName()) {
+            case "SetItem"-> "set";
+            default -> "list";
+        }));
+        json.add("expression", serialize(expr));
+
+        return json;
+    }
+
+
+    @NotNull
+    private JsonObject serialize(@NotNull ContainerBasedComprehension expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "container_based_comprehension");
+        json.add("container_item", serialize(expr.getContainerItemDeclaration()));
+        json.add("container", serialize(expr.getContainerExpression()));
+        json.add("item", serialize(expr.getItem()));
+        return json;
+    }
+
+
+    @NotNull
+    private JsonObject serialize(@NotNull RangeBasedComprehension expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "range_based_comprehension");
+        json.add("item", serialize(expr.getItem()));
+        json.add("range", serialize(expr.getRange()));
+        json.add("identifier", serialize(expr.getRangeVariableIdentifier()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull FormatInput expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "format_input");
+        json.add("format_string", serialize(expr.getFormatString()));
+        JsonArray targets = new JsonArray();
+        for (var t : expr.getArguments()) targets.add(serialize(t));
+        json.add("arguments", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull FormatPrint expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "format_print");
+        json.add("format_string", serialize(expr.getFormatString()));
+        json.add("separator", serialize(expr.separator));
+        json.add("end", serialize(expr.end));
+        JsonArray targets = new JsonArray();
+        for (var t : expr.getArguments()) targets.add(serialize(t));
+        json.add("arguments", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull PointerInputCommand expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "pointer_input_command");
+        JsonArray targets = new JsonArray();
+        for (var t : expr.getArguments()) targets.add(serialize(t));
+        json.add("arguments", targets);
+        json.add("target", serialize(expr.getTargetString()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull InputCommand expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "input_command");
+        JsonArray targets = new JsonArray();
+        for (var t : expr.getArguments()) targets.add(serialize(t));
+        json.add("arguments", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull PrintValues expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "print_values");
+        json.add("separator", serialize(expr.separator));
+        json.add("end", serialize(expr.end));
+        JsonArray targets = new JsonArray();
+        for (var t : expr.getArguments()) targets.add(serialize(t));
+        json.add("arguments", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull NumericType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
+        json.addProperty("size", t.size);
+        if (t instanceof IntType intt) {
+            json.addProperty("unsigned", intt.isUnsigned);
+        }
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull BooleanType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "boolean_type");
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull PointerType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "pointer_type");
+        json.add("target_type", serialize(t.getTargetType()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ReferenceType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "reference_type");
+        json.add("target_type", serialize(t.getTargetType()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull StringType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "string_type");
+        json.addProperty("char_size", t.getCharSize());
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ArrayType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "array_type");
+        json.add("shape", serialize(t.getShape()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull PlainCollectionType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "plain_collection_type");
+        json.add("target_type", serialize(t.getItemType()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull Shape t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "shape");
+        json.addProperty("dimension_count", t.getDimensionCount());
+        JsonArray targets = new JsonArray();
+        for (var v : t.getDimensions()) targets.add(serialize(v));
+        json.add("dimensions", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull GenericUserType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
+        json.add("name", serialize(t.getName()));
+        JsonArray targets = new JsonArray();
+        for (var v : t.getTypeParameters()) targets.add(serialize(v));
+        json.add("templates", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull NoReturn t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "no_return");
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull UnknownType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "unknown_type");
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull UserType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
+        json.add("name", serialize(t.getName()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ClassDefinition def) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "class_definition");
+        json.add("declaration", serialize(def.getDeclaration()));
+        json.add("body", serialize(def.getBody()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ObjectConstructorDefinition def) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "object_constructor_definition");
+        json.add("declaration", serialize(def.getDeclaration()));
+        json.add("body", serialize(def.getBody()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ObjectDestructorDefinition def) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "object_destructor_definition");
+        json.add("declaration", serialize(def.getDeclaration()));
+        json.add("body", serialize(def.getBody()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull MethodDefinition def) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "method_definition");
+        json.add("declaration", serialize(def.getDeclaration()));
+        json.add("body", serialize(def.getBody()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull FunctionDefinition def) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "function_definition");
+        json.add("declaration", serialize(def.getDeclaration()));
+        json.add("body", serialize(def.getBody()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull DefinitionArgument arg) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "definition_argument");
+        json.addProperty("name", arg.getName().getName());
+        json.add("initial", serialize(arg.getInitialExpression()));
+        json.addProperty("is_dict_unpacking", arg.isDictUnpacking());
+        json.addProperty("is_list_unpacking", arg.isListUnpacking());
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull DeclarationArgument arg) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "declaration_argument");
+        json.add("target_type", serialize(arg.getElementType()));
+        json.addProperty("is_dict_unpacking", arg.isDictUnpacking());
+        json.addProperty("is_list_unpacking", arg.isListUnpacking());
+        json.addProperty("name", arg.getName().getName());
+        json.add("initial", serialize(arg.getInitialExpression()));
+        JsonArray anno = new JsonArray();
+        for (var t : arg.getAnnotations()) anno.add(serialize(t));
+        json.add("annotations", anno);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull Annotation anno) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "annotation");
+        json.add("function", serialize(anno.getFunctionExpression()));
+        JsonArray targets = new JsonArray();
+        for (var t : anno.getArguments()) targets.add(serialize(t));
+        json.add("arguments", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ClassDeclaration decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "class_declaration");
+        JsonArray targets = new JsonArray();
+        for (var t : decl.getModifiers()) targets.add(enumToValue(t));
+        json.add("modifiers", targets);
+        json.add("name", serialize(decl.getName()));
+        JsonArray parTypes = new JsonArray();
+        for (var t : decl.getParents()) parTypes.add(serialize(t));
+        json.add("parents", parTypes);
+        JsonArray genTypes = new JsonArray();
+        for (var t : decl.getTypeParameters()) genTypes.add(serialize(t));
+        json.add("generic_type_params", genTypes);
+        json.add("type_node", serialize(decl.getTypeNode()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull SeparatedVariableDeclaration decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "separated_variable_declaration");
+        JsonArray vars = new JsonArray();
+        for (var t : decl.getDeclarations()) vars.add(serialize(t));
+        json.add("declarations", vars);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull MethodDeclaration decl) {
+        JsonObject json = new JsonObject();
+        if (decl instanceof ObjectConstructorDeclaration) {
+            json.addProperty("type", "object_constructor_declaration");
+        } else if (decl instanceof ObjectDestructorDeclaration) {
+            json.addProperty("type", "object_destructor_declaration");
+        } else {
+            json.addProperty("type", "method_declaration");
+            json.add("return_type", serialize(decl.getReturnType()));
+        }
+        json.add("owner", serialize(decl.getOwner()));
+        json.add("name", serialize(decl.getName()));
+        JsonArray anno = new JsonArray();
+        for (var t : decl.getAnnotations()) anno.add(serialize(t));
+        json.add("annotations", anno);
+        JsonArray modifiers = new JsonArray();
+        for (var t : decl.getModifiers()) modifiers.add(enumToValue(t));
+        json.add("modifiers", modifiers);
+        JsonArray targets = new JsonArray();
+        for (var t : decl.getArguments()) targets.add(serialize(t));
+        json.add("arguments", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull FunctionDeclaration decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "function_declaration");
+        json.add("return_type", serialize(decl.getReturnType()));
+        json.add("name", serialize(decl.getName()));
+        JsonArray anno = new JsonArray();
+        for (var t : decl.getAnnotations()) anno.add(serialize(t));
+        json.add("annotations", anno);
+        JsonArray targets = new JsonArray();
+        for (var t : decl.getArguments()) targets.add(serialize(t));
+        json.add("arguments", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull StaticImportAll decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "static_import_all");
+        json.add("module_name", serialize(decl.getModuleName()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull StaticImportMembersFromModule decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "static_import_members_from_module");
+        json.add("module_name", serialize(decl.getModuleName()));
+        JsonArray targets = new JsonArray();
+        for (var t : decl.getMembers()) targets.add(serialize(t));
+        json.add("members", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ImportAllFromModule decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "import_all_from_module");
+        json.add("module_name", serialize(decl.getModuleName()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ImportMembersFromModule decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "import_members_from_module");
+        json.add("module_name", serialize(decl.getModuleName()));
+        JsonArray targets = new JsonArray();
+        for (var t : decl.getMembers()) targets.add(serialize(t));
+        json.add("members", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ImportModule decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "import_module");
+        json.add("module_name", serialize(decl.getModuleName()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull ImportModules decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "import_modules");
+        JsonArray targets = new JsonArray();
+        for (var t : decl.getModulesNames()) targets.add(serialize(t));
+        json.add("modules", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull PackageDeclaration decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "package_declaration");
+        json.add("name", serialize(decl.getPackageName()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serialize(@NotNull InfiniteLoop loop) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "infinite_loop");
+        json.add("body", serialize(loop.getBody()));
+        return json;
+    }
+
+    public static String enumToValue(Enum<?> e) {
+        if (e == null) {
+            return null;
+        }
+        return TransliterationUtils.camelToSnake(e.name());
+    }
 }

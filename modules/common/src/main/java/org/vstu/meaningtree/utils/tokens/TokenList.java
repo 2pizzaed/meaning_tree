@@ -2,8 +2,9 @@ package org.vstu.meaningtree.utils.tokens;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.vstu.meaningtree.utils.ObservableArrayList;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,12 +12,13 @@ import java.util.Map;
 /**
  * Нужен для представления последовательного представления списка токенов, а не выборки токенов
  */
-public class TokenList extends ArrayList<Token> {
+public class TokenList extends ObservableArrayList<Token> {
+
     public TokenList() {
         super();
     }
 
-    public TokenList(List<Token> tokens) {
+    public TokenList(Collection<? extends Token> tokens) {
         super(tokens);
     }
 
@@ -26,10 +28,10 @@ public class TokenList extends ArrayList<Token> {
         return copy;
     }
 
-    public TokenList replace(TokenGroup group, Token value) {
+    public TokenList replace(TokenGroup group, Token fillValue) {
         TokenList copy = clone();
         for (int i = group.start; i < group.stop; i++) {
-            copy.set(i, value);
+            copy.set(i, fillValue);
         }
         return copy;
     }

@@ -2,11 +2,14 @@ package org.vstu.meaningtree.languages;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.treesitter.TSException;
 import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.utils.Hook;
+import org.vstu.meaningtree.utils.ListModificationType;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 import org.vstu.meaningtree.utils.tokens.*;
 
@@ -22,18 +25,22 @@ public abstract class LanguageTokenizer {
 
     protected abstract Token recognizeToken(TSNode node);
 
-
-    public TokenList tokenize(String code, boolean noPrepare) {
+    public TokenList tokenize(String code, boolean noPrepare,
+                              Hook<Triple<Integer, Token, ListModificationType>>... newTokenHooks) {
         this.code = noPrepare ? code : translator.prepareCode(code);
         parser.getMeaningTree(this.code);
         TokenList list = new TokenList();
+        for (var hook : newTokenHooks) {
+            list.registerHook(hook);
+        }
         collectTokens(parser.getRootNode(), list, true, null);
         return list;
     }
 
-    public Pair<Boolean, TokenList> tryTokenize(String code, boolean noPrepare) {
+    public Pair<Boolean, TokenList> tryTokenize(String code, boolean noPrepare,
+                                                Hook<Triple<Integer, Token, ListModificationType>>... newTokenHooks) {
         try {
-            return ImmutablePair.of(true, tokenize(code, noPrepare));
+            return ImmutablePair.of(true, tokenize(code, noPrepare, newTokenHooks));
         } catch (TSException | MeaningTreeException | IllegalArgumentException | ClassCastException e) {
             return ImmutablePair.of(false, null);
         }

@@ -231,7 +231,10 @@ public class JavaTokenizer extends LanguageTokenizer {
             tokenType = TokenType.CONST;
         } else if (type.equals(",")) {
             tokenType = TokenType.COMMA;
-        } else {
+        } else if (type.equals(TreeSitterUtils.getCodePiece(code, node))) {
+            tokenType = TokenType.KEYWORD;
+        }
+        else {
             tokenType = TokenType.UNKNOWN;
         }
 

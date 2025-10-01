@@ -212,6 +212,8 @@ public class PythonTokenizer extends LanguageTokenizer {
             tokenType = TokenType.INITIALIZER_LIST_OPENING_BRACE;
         } else if (type.equals("]") && parent.getType().equals("list")) {
             tokenType = TokenType.INITIALIZER_LIST_CLOSING_BRACE;
+        } else if (type.equals(TreeSitterUtils.getCodePiece(code, node))) {
+            tokenType = TokenType.KEYWORD;
         } else {
             tokenType = TokenType.UNKNOWN;
         }

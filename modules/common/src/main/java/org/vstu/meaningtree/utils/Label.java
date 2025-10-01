@@ -48,7 +48,7 @@ public class Label {
      * Пользователи библиотеки могут создавать собственные метки. Для этого выделен диапазон отрицательных id
      * Представлено минимально возможное значение пользовательской метки
      */
-    public static final short USER_TAG_MIN_ID = -16000;
+    public static final short USER_TAG_MIN_ID = -32000;
 
 
     private short id;

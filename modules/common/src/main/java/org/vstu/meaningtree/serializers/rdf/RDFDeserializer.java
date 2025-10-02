@@ -1,11 +1,15 @@
 package org.vstu.meaningtree.serializers.rdf;
 
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.jena.datatypes.xsd.XSDDatatype;
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.vocabulary.RDF;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.serializers.model.*;
+import org.vstu.meaningtree.utils.SourceMap;
+import org.vstu.meaningtree.utils.tokens.Token;
+import org.vstu.meaningtree.utils.tokens.TokenList;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,5 +86,20 @@ public class RDFDeserializer implements Deserializer<Model> {
         return new UniversalDeserializer().deserializeTree(deserialize(serialized,
                 serialized.getResource(NS + "MeaningTree").getPropertyResourceValue(serialized.createProperty(NS, "hasField")))
         );
+    }
+
+    @Override
+    public SourceMap deserializeSourceMap(Model serialized) {
+        throw new NotImplementedException();
+    }
+
+    @Override
+    public TokenList deserializeTokens(Model serialized) {
+        throw new NotImplementedException();
+    }
+
+    @Override
+    public Token deserializeToken(Token token) {
+        throw new NotImplementedException();
     }
 }

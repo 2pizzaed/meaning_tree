@@ -58,7 +58,9 @@ import org.vstu.meaningtree.nodes.types.containers.PlainCollectionType;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.serializers.model.Serializer;
 import org.vstu.meaningtree.utils.Label;
+import org.vstu.meaningtree.utils.SourceMap;
 import org.vstu.meaningtree.utils.TransliterationUtils;
+import org.vstu.meaningtree.utils.tokens.*;
 
 import java.util.Collection;
 import java.util.Objects;
@@ -67,6 +69,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     @Override
     public JsonObject serialize(MeaningTree mt) {
         JsonObject root = new JsonObject();
+        root.addProperty("type", "meaning_tree");
         root.add("rootNode", serialize(mt.getRootNode()));
         var allLabels = mt.getAllLabels();
         if (!allLabels.isEmpty()) {
@@ -75,9 +78,80 @@ public class JsonSerializer implements Serializer<JsonObject> {
         return root;
     }
 
+    @Override
+    public JsonObject serialize(SourceMap sourceMap) {
+        JsonObject root = new JsonObject();
+        root.addProperty("type", "source_map");
+        root.add("origin", serialize(sourceMap.root()));
+        root.addProperty("sourceCode", sourceMap.code());
+        JsonObject map = new JsonObject();
+        for (var entry : sourceMap.map().entrySet()) {
+            var pair = new JsonArray();
+            pair.add(entry.getValue().getLeft());
+            pair.add(entry.getValue().getRight());
+            map.add(entry.getKey().toString(), pair);
+        }
+        root.add("map", map);
+        return root;
+    }
+
+    @Override
+    public JsonObject serialize(TokenList tokenList) {
+        JsonObject root = new JsonObject();
+        root.addProperty("type", "tokens");
+        JsonArray array = new JsonArray();
+        for (Token t : tokenList) {
+            array.add(serialize(t));
+        }
+        root.add("items", array);
+        return root;
+    }
+
+    @Override
+    public JsonObject serialize(Token token) {
+        if (token == null) {
+            return null;
+        }
+        JsonObject root = new JsonObject();
+        root.addProperty("type", TransliterationUtils.camelToSnake(token.getClass().getSimpleName()));
+        root.addProperty("is_pseudo", token instanceof PseudoToken);
+        if (token instanceof PseudoToken p) {
+            root.add("metadata", gson.toJsonTree(p.getAttribute()));
+        }
+        if (token instanceof ComplexOperatorToken complexOperatorToken) {
+            root.addProperty("token_position", complexOperatorToken.positionOfToken);
+            JsonArray tokenValues = new JsonArray();
+            for (var t : complexOperatorToken.complexTokenValues) {tokenValues.add(t);}
+            root.add("token_values",  tokenValues);
+        }
+
+        if (token instanceof OperatorToken operator) {
+            root.addProperty("precedence", operator.precedence);
+            root.addProperty("associativity", enumToValue(operator.assoc));
+            root.addProperty("arity", enumToValue(operator.arity));
+            root.addProperty("is_strict_order", operator.isStrictOrder);
+            root.addProperty("first_evaluated_operand", enumToValue(operator.getFirstOperandToEvaluation()));
+            root.addProperty("optype_metadata", enumToValue(operator.additionalOpType));
+        }
+
+        if (token instanceof OperandToken operand) {
+            root.addProperty("operand_of", operand.operandOf() != null ? operand.operandOf().getId() : null);
+            root.addProperty("operand_pos", enumToValue(operand.operandPosition()));
+        }
+
+        root.addProperty("type", enumToValue(token.type));
+        root.addProperty("value", token.value);
+        root.addProperty("id", token.getId());
+        root.addProperty("assigned_label", gson.toJson(token.getAssignedValue()));
+        root.addProperty("belongs_to", token.belongsTo() != null ? token.belongsTo.getId() : null);
+        return root;
+    }
 
     @Override
     public JsonObject serialize(Node node) {
+        if (node == null) {
+            return null;
+        }
         var json = switch (node) {
             // Operators
             case AddOp op -> serialize(op);
@@ -241,6 +315,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             default -> throw new IllegalStateException("Unexpected value: " + node);
         };
 
+        json.addProperty("type", "meaning_tree_node");
         json.addProperty("id", node.getId());
         var labels = node.getAllLabels();
         if (!labels.isEmpty()) {

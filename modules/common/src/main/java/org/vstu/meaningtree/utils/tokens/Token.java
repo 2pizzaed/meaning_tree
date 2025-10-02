@@ -2,9 +2,10 @@ package org.vstu.meaningtree.utils.tokens;
 
 import org.jetbrains.annotations.Nullable;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public class Token {
+public class Token implements Serializable {
     public final String value;
     public final TokenType type;
 

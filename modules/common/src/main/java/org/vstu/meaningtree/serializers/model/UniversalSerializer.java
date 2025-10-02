@@ -1,5 +1,6 @@
 package org.vstu.meaningtree.serializers.model;
 
+import org.apache.commons.lang3.NotImplementedException;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.iterators.utils.ArrayFieldDescriptor;
@@ -37,6 +38,9 @@ import org.vstu.meaningtree.nodes.types.user.*;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.Enum;
 import org.vstu.meaningtree.utils.Label;
+import org.vstu.meaningtree.utils.SourceMap;
+import org.vstu.meaningtree.utils.tokens.Token;
+import org.vstu.meaningtree.utils.tokens.TokenList;
 
 import java.util.*;
 
@@ -82,6 +86,21 @@ public class UniversalSerializer implements Serializer<AbstractSerializedNode> {
             put("rootNode", serialize(mt.getRootNode()));
             put("labels", serialize(mt.getAllLabels()));
         }});
+    }
+
+    @Override
+    public AbstractSerializedNode serialize(SourceMap map) {
+        throw new NotImplementedException();
+    }
+
+    @Override
+    public AbstractSerializedNode serialize(TokenList tokenList) {
+        throw new NotImplementedException();
+    }
+
+    @Override
+    public AbstractSerializedNode serialize(Token token) {
+        throw new NotImplementedException();
     }
 
     public SerializedNode serialize(DefinitionArgument defArg) {

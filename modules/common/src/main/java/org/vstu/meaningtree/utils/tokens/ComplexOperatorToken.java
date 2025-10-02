@@ -5,7 +5,7 @@ import java.util.Objects;
 
 public class ComplexOperatorToken extends OperatorToken {
     public final int positionOfToken;
-    protected final List<String> complexTokenValues;
+    public final List<String> complexTokenValues;
 
     ComplexOperatorToken(int positionOfToken, String value,
                          TokenType type,

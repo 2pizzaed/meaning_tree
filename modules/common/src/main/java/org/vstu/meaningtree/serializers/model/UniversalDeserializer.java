@@ -1,5 +1,6 @@
 package org.vstu.meaningtree.serializers.model;
 
+import org.apache.commons.lang3.NotImplementedException;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.nodes.Expression;
@@ -40,6 +41,9 @@ import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
 import org.vstu.meaningtree.nodes.types.user.Structure;
+import org.vstu.meaningtree.utils.SourceMap;
+import org.vstu.meaningtree.utils.tokens.Token;
+import org.vstu.meaningtree.utils.tokens.TokenList;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
@@ -123,6 +127,21 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
         } else {
             return new MeaningTree(deserialize(serialized));
         }
+    }
+
+    @Override
+    public SourceMap deserializeSourceMap(AbstractSerializedNode serialized) {
+        throw new NotImplementedException();
+    }
+
+    @Override
+    public TokenList deserializeTokens(AbstractSerializedNode serialized) {
+        throw new NotImplementedException();
+    }
+
+    @Override
+    public Token deserializeToken(Token token) {
+        throw new NotImplementedException();
     }
 
     private Node deserializeDefArg(SerializedNode serialized) {

@@ -1,11 +1,15 @@
 package org.vstu.meaningtree.serializers.rdf;
 
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.jena.datatypes.xsd.XSDDatatype;
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.vocabulary.RDF;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.serializers.model.*;
+import org.vstu.meaningtree.utils.SourceMap;
+import org.vstu.meaningtree.utils.tokens.Token;
+import org.vstu.meaningtree.utils.tokens.TokenList;
 
 public class RDFSerializer implements Serializer<Model> {
     public static final String NS = "http://vstu.ru/poas/code#";
@@ -87,6 +91,21 @@ public class RDFSerializer implements Serializer<Model> {
     @Override
     public Model serialize(MeaningTree mt) {
         return serialize(new UniversalSerializer().serialize(mt));
+    }
+
+    @Override
+    public Model serialize(SourceMap map) {
+        throw new NotImplementedException();
+    }
+
+    @Override
+    public Model serialize(TokenList tokenList) {
+        throw new NotImplementedException();
+    }
+
+    @Override
+    public Model serialize(Token token) {
+        throw new NotImplementedException();
     }
 }
 

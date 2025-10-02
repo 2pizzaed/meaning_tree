@@ -46,7 +46,7 @@ public class VariableDeclaration extends Declaration implements HasInitializatio
     }
 
     public List<Annotation> getAnnotations() {
-        return List.copyOf(annotations);
+        return annotations == null ? List.of() : List.copyOf(annotations);
     }
 
     public Type getType() {

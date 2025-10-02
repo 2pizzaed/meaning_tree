@@ -944,7 +944,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
 
         json.add("branches", branches);
-        json.add("elseBranch",  serialize(stmt.getElseBranch()));
+        if (stmt.hasElseBranch()) {
+            json.add("elseBranch", serialize(stmt.getElseBranch()));
+        }
         return json;
     }
 

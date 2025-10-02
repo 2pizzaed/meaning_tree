@@ -5,10 +5,12 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.treesitter.TSException;
 import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
-import org.vstu.meaningtree.languages.configs.*;
-import org.vstu.meaningtree.languages.configs.params.*;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
+import org.vstu.meaningtree.languages.configs.Config;
+import org.vstu.meaningtree.languages.configs.ConfigBuilder;
+import org.vstu.meaningtree.languages.configs.ConfigScope;
 import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
+import org.vstu.meaningtree.languages.configs.params.*;
 import org.vstu.meaningtree.languages.configs.parser.ConfigMapping;
 import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
 import org.vstu.meaningtree.nodes.Node;
@@ -23,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-public abstract class LanguageTranslator {
+public abstract class LanguageTranslator implements Cloneable {
     protected LanguageParser _language;
     protected LanguageViewer _viewer;
     protected Config _config = new Config();
@@ -242,4 +244,11 @@ public abstract class LanguageTranslator {
     public abstract String prepareCode(String code);
 
     public abstract TokenList prepareCode(TokenList list);
+
+    @Override
+    public abstract LanguageTranslator clone();
+
+    protected Config getConfig() {
+        return _config;
+    }
 }

@@ -66,4 +66,11 @@ public class CppTranslator extends LanguageTranslator {
         return list;
     }
 
+    @Override
+    public LanguageTranslator clone() {
+        var clone = new CppTranslator();
+        clone._config = this.getConfig();
+        return clone;
+    }
+
 }

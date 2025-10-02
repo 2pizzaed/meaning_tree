@@ -49,7 +49,10 @@ import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
-import org.vstu.meaningtree.nodes.statements.conditions.components.*;
+import org.vstu.meaningtree.nodes.statements.conditions.components.BasicCaseBlock;
+import org.vstu.meaningtree.nodes.statements.conditions.components.CaseBlock;
+import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
+import org.vstu.meaningtree.nodes.statements.conditions.components.FallthroughCaseBlock;
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
@@ -76,7 +79,7 @@ public class PythonViewer extends LanguageViewer {
     }
 
     @Override
-    public String toString(Node node) {
+    public String formString(Node node) {
         // Для dummy узлов ничего не выводим
         if (node.hasLabel(Label.DUMMY)) {
             return "";

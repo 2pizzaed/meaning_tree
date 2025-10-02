@@ -68,4 +68,12 @@ public class JavaTranslator extends LanguageTranslator {
 
         return list;
     }
+
+    @Override
+    public LanguageTranslator clone() {
+        var clone = new JavaTranslator();
+        clone._config = this.getConfig();
+        return clone;
+    }
+
 }

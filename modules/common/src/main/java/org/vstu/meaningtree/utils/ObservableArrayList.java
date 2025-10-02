@@ -40,6 +40,30 @@ public class ObservableArrayList<T> extends ArrayList<T> {
         triggerHook(index, element, ListModificationType.ADD);
     }
 
+    public boolean addSilent(T element) {
+        return super.add(element);
+    }
+
+    public void addSilent(int index, T element) {
+        super.add(index, element);
+    }
+
+    public boolean addAllSilent(Collection<? extends T> c) {
+        return super.addAll(c);
+    }
+
+    public boolean addAllSilent(int index, Collection<? extends T> c) {
+        return super.addAll(index, c);
+    }
+
+    public void removeSilent(Object o) {
+        super.remove(o);
+    }
+
+    public void removeSilent(int index) {
+        super.remove(index);
+    }
+
     @Override
     public boolean add(T t) {
         var val = super.add(t);
@@ -79,11 +103,6 @@ public class ObservableArrayList<T> extends ArrayList<T> {
         boolean val = super.remove(o);
         triggerHook(index, element, ListModificationType.REMOVE);
         return val;
-    }
-
-    @Override
-    public boolean removeAll(Collection<?> c) {
-        return super.removeAll(c);
     }
 
     @Override

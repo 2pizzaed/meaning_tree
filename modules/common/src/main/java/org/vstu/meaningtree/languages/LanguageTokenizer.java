@@ -13,6 +13,7 @@ import org.vstu.meaningtree.utils.ListModificationType;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 import org.vstu.meaningtree.utils.tokens.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,24 +24,42 @@ public abstract class LanguageTokenizer {
     protected LanguageParser parser;
     protected LanguageViewer viewer;
 
+    private List<Hook<Triple<Integer, Token, ListModificationType>>>
+            tokenListModificationsHooks = new ArrayList<>();
+    private List<Hook<Pair<TSNode, TokenList>>> tokenParsePositionHooks = new ArrayList<>();
+
     protected abstract Token recognizeToken(TSNode node);
 
-    public TokenList tokenize(String code, boolean noPrepare,
-                              Hook<Triple<Integer, Token, ListModificationType>>... newTokenHooks) {
+    public TokenList tokenize(String code, boolean noPrepare) {
         this.code = noPrepare ? code : translator.prepareCode(code);
         parser.getMeaningTree(this.code);
         TokenList list = new TokenList();
-        for (var hook : newTokenHooks) {
+        for (var hook : tokenListModificationsHooks) {
             list.registerHook(hook);
         }
         collectTokens(parser.getRootNode(), list, true, null);
         return list;
     }
 
-    public Pair<Boolean, TokenList> tryTokenize(String code, boolean noPrepare,
-                                                Hook<Triple<Integer, Token, ListModificationType>>... newTokenHooks) {
+    public boolean registerOnTokenListModificationHook(Hook<Triple<Integer, Token, ListModificationType>> hook) {
+        return tokenListModificationsHooks.add(hook);
+    }
+
+    public boolean removeOnTokenListModificationHook(Hook<Triple<Integer, Token, ListModificationType>> hook) {
+        return tokenListModificationsHooks.remove(hook);
+    }
+
+    public boolean registerOnTokenPositionHook(Hook<Pair<TSNode, TokenList>> hook) {
+        return tokenParsePositionHooks.add(hook);
+    }
+
+    public boolean removeOnTokenPositionHook(Hook<Pair<TSNode, TokenList>> hook) {
+        return tokenParsePositionHooks.remove(hook);
+    }
+
+    public Pair<Boolean, TokenList> tryTokenize(String code, boolean noPrepare) {
         try {
-            return ImmutablePair.of(true, tokenize(code, noPrepare, newTokenHooks));
+            return ImmutablePair.of(true, tokenize(code, noPrepare));
         } catch (TSException | MeaningTreeException | IllegalArgumentException | ClassCastException e) {
             return ImmutablePair.of(false, null);
         }
@@ -117,6 +136,12 @@ public abstract class LanguageTokenizer {
     }
 
     protected TokenGroup collectTokens(TSNode node, TokenList tokens, boolean detectOperator, Map<OperandPosition, TokenGroup> parent) {
+        for (var hook : tokenParsePositionHooks) {
+            var pair = Pair.of(node, tokens);
+            if (hook.isTriggered(pair)) {
+                hook.accept(pair);
+            }
+        }
         int start = tokens.size();
         boolean skipChildren = false;
         if (node.getChildCount() == 0 || getStopNodes().contains(node.getType())) {

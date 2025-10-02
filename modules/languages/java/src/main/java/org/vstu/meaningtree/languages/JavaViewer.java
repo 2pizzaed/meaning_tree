@@ -5,8 +5,6 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.configs.params.EnforceEntryPoint;
-import org.vstu.meaningtree.nodes.statements.EmptyStatement;
-import org.vstu.meaningtree.utils.type_inference.*;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -19,10 +17,6 @@ import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.*;
-import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
-import org.vstu.meaningtree.nodes.expressions.Identifier;
-import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
-import org.vstu.meaningtree.nodes.expressions.UnaryExpression;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
@@ -52,6 +46,7 @@ import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.modules.*;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.nodes.statements.EmptyStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.ReturnStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
@@ -71,6 +66,8 @@ import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
+import org.vstu.meaningtree.utils.type_inference.HindleyMilner;
+import org.vstu.meaningtree.utils.type_inference.TypeScope;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -122,7 +119,7 @@ public class JavaViewer extends LanguageViewer {
     }
 
     @Override
-    public String toString(Node node) {
+    public String formString(Node node) {
         if (node instanceof UnaryExpression expr) {
             node = parenFiller.process(expr);
         }

@@ -1,5 +1,6 @@
 package org.vstu.meaningtree.languages;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.treesitter.TSNode;
 import org.treesitter.TSTree;
 import org.vstu.meaningtree.MeaningTree;
@@ -17,7 +18,7 @@ abstract public class LanguageParser {
     protected Config _config;
     protected Map<int[], Object> _byteValueTags = new HashMap<>();
 
-    protected List<Hook<Node>> onNodeParsedHooks = new ArrayList<>();
+    protected List<Hook<Pair<TSNode, Node>>> onNodeParsedHooks = new ArrayList<>();
 
     public abstract TSTree getTSTree();
 
@@ -80,12 +81,13 @@ abstract public class LanguageParser {
         }
     }
 
-    protected Node parseTSNode(TSNode node) {
+    protected final Node parseTSNode(TSNode node) {
         var result = fromTSNode(node);
 
-        for (Hook<Node> hook : onNodeParsedHooks) {
-            if (hook.isTriggered(result)) {
-                hook.accept(result);
+        for (Hook<Pair<TSNode, Node>> hook : onNodeParsedHooks) {
+            var pair = Pair.of(node, result);
+            if (hook.isTriggered(pair)) {
+                hook.accept(pair);
             }
         }
 
@@ -99,11 +101,11 @@ abstract public class LanguageParser {
      */
     protected abstract Node fromTSNode(TSNode node);
 
-    public void addOnNodeParsedHook(Hook<Node> hook) {
-        onNodeParsedHooks.add(hook);
+    public boolean registerOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
+        return onNodeParsedHooks.add(hook);
     }
 
-    public void removeOnNodeParsedHook(Hook<Node> hook) {
-        onNodeParsedHooks.remove(hook);
+    public boolean removeOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
+        return onNodeParsedHooks.remove(hook);
     }
 }

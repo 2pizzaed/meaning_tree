@@ -45,4 +45,12 @@ public class PythonTranslator extends LanguageTranslator {
     protected Config getDeclaredConfig() {
         return new Config(new DisableCompoundComparisonConversion(false, ConfigScope.TRANSLATOR));
     }
+
+    @Override
+    public LanguageTranslator clone() {
+        var clone = new PythonTranslator();
+        clone._config = this.getConfig();
+        return clone;
+    }
+
 }

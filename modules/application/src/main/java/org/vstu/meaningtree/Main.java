@@ -6,8 +6,8 @@ import com.beust.jcommander.Parameters;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import org.apache.jena.rdf.model.Model;
-import org.vstu.meaningtree.languages.*;
-
+import org.vstu.meaningtree.languages.LanguageTranslator;
+import org.vstu.meaningtree.languages.SourceMapGenerator;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.serializers.json.JsonSerializer;
 import org.vstu.meaningtree.serializers.model.IOAlias;
@@ -18,12 +18,21 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 public class Main {
 
     @Parameters(commandDescription = "Translate code between programming languages")
     public static class TranslateCommand {
+        @Parameter(names = "--prettify", description = "Prettify serializer output")
+        private boolean prettify = false;
+
+        @Parameter(names = "--source-map", description = "Output source map instead code")
+        private boolean outputSourceMap = false;
+
+        @Parameter(names = "--start-node-id", description = "Start id for nodes")
+        private long startNodeId = 0;
+
         @Parameter(names = "--from", description = "Source language", required = true)
         private String fromLanguage;
 
@@ -63,12 +72,16 @@ public class Main {
     public static Map<String, Class<? extends LanguageTranslator>> translators =
             SupportedLanguage.getStringMap();
 
-    private static final IOAliases<Function<Node, String>> serializers = new IOAliases<>(List.of(
-            new IOAlias<>("json", node -> {
+    private static final IOAliases<BiFunction<Serializable, Boolean, String>> serializers = new IOAliases<>(List.of(
+            new IOAlias<>("json", (node, pretty) -> {
                 JsonObject json = new JsonSerializer().serialize(node);
-                return new GsonBuilder().setPrettyPrinting().create().toJson(json);
+                var builder = new GsonBuilder();
+                if (pretty) {
+                    builder = builder.setPrettyPrinting();
+                }
+                return builder.create().toJson(json);
             }),
-            new IOAlias<>("rdf", node -> {
+            new IOAlias<>("rdf", (node, pretty) -> {
                 Model model = new RDFSerializer().serialize(node);
                 StringWriter writer = new StringWriter();
                 model.write(writer, "RDF/XML");
@@ -102,6 +115,8 @@ public class Main {
     }
 
     private static void runTranslation(TranslateCommand cmd) throws Exception {
+        Node.setupId(cmd.startNodeId);
+
         String fromLanguage = cmd.getFromLanguage().toLowerCase();
         String toLanguage = cmd.getToLanguage();
         String inputFilePath = cmd.getInputFile();
@@ -135,7 +150,7 @@ public class Main {
 
         // Handle serialization if requested
         if (serializeFormat != null) {
-            serializers.apply(serializeFormat, function -> function.apply(rootNode))
+            serializers.apply(serializeFormat, function -> function.apply(rootNode, cmd.prettify))
                     .ifPresentOrElse(
                             result -> writeOutput(result, outputFilePath),
                             () -> System.err.println("Unknown serialization format: " + serializeFormat + ". " + serializers.getSupportedFormatsMessage())
@@ -147,9 +162,19 @@ public class Main {
         if (toLanguage != null) {
             LanguageTranslator toTranslator =
                     translators.get(toLanguage.toLowerCase()).getDeclaredConstructor().newInstance();
-            String translatedCode = toTranslator.getCode(meaningTree);
-            
-            writeOutput(translatedCode, outputFilePath);
+
+            if (cmd.outputSourceMap) {
+                SourceMapGenerator srcMapGen = new SourceMapGenerator(toTranslator);
+                var srcMap = srcMapGen.process(meaningTree);
+                serializers.apply("json", function -> function.apply(srcMap, cmd.prettify))
+                        .ifPresentOrElse(
+                                result -> writeOutput(result, outputFilePath),
+                                () -> System.err.println("Unknown serialization error")
+                        );
+            } else {
+                String translatedCode = toTranslator.getCode(meaningTree);
+                writeOutput(translatedCode, outputFilePath);
+            }
         }
     }
 

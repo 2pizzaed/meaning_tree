@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class Token implements Serializable {
     public final String value;
@@ -11,14 +12,28 @@ public class Token implements Serializable {
 
     public Token belongsTo = null;
 
+    protected static AtomicLong _id_generator = new AtomicLong();
     protected static int idCounter = 0;
 
     protected Object assignedValue = null;
-    private int id = ++idCounter;
+    private long id = _id_generator.incrementAndGet();
 
     public Token(String value, TokenType type) {
         this.value = value;
         this.type = type;
+    }
+
+    /**
+     * Внимание! После вызова этого метода, все новые узлы дерева начнут нумерацию своего id с нуля.
+     * Это может привести к конфликтам. Убедитесь, что новые узлы не будут сравниваться по id с предыдущими узлами
+     */
+    public static void resetIdCounter() {
+        System.err.println("Warning! Node counter was reset. It may cause conflicts");
+        _id_generator = new AtomicLong();
+    }
+
+    public static void setupId(long startId) {
+        _id_generator = new AtomicLong(startId);
     }
 
     @Override
@@ -74,7 +89,7 @@ public class Token implements Serializable {
         return this.belongsTo;
     }
 
-    public int getId() {
+    public long getId() {
         return id;
     }
 

@@ -11,5 +11,5 @@ public interface Deserializer<T> {
     MeaningTree deserializeTree(T serialized);
     SourceMap deserializeSourceMap(T serialized);
     TokenList deserializeTokens(T serialized);
-    Token deserializeToken(Token token);
+    Token deserializeToken(T token);
 }

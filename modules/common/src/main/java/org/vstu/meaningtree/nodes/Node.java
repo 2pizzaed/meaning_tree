@@ -26,6 +26,10 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         _id_generator = new AtomicLong();
     }
 
+    public static void setupId(long startId) {
+        _id_generator = new AtomicLong(startId);
+    }
+
     @Override
     public @NotNull Iterator<NodeInfo> iterator() {
         return new DFSNodeIterator(this, false);

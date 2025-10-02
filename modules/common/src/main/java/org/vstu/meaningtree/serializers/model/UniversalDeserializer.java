@@ -140,7 +140,7 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
     }
 
     @Override
-    public Token deserializeToken(Token token) {
+    public Token deserializeToken(AbstractSerializedNode token) {
         throw new NotImplementedException();
     }
 

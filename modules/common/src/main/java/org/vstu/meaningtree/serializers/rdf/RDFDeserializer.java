@@ -99,7 +99,7 @@ public class RDFDeserializer implements Deserializer<Model> {
     }
 
     @Override
-    public Token deserializeToken(Token token) {
+    public Token deserializeToken(Model token) {
         throw new NotImplementedException();
     }
 }

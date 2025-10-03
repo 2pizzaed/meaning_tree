@@ -13,6 +13,7 @@ import org.vstu.meaningtree.utils.ListModificationType;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 import org.vstu.meaningtree.utils.tokens.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +24,7 @@ public abstract class LanguageTokenizer {
     protected LanguageTranslator translator;
     protected LanguageParser parser;
     protected LanguageViewer viewer;
+    protected boolean navigablePseudoTokens = false;
 
     private List<Hook<Triple<Integer, Token, ListModificationType>>>
             tokenListModificationsHooks = new ArrayList<>();
@@ -133,6 +135,10 @@ public abstract class LanguageTokenizer {
         this.translator = translator;
         this.parser = translator._language;
         this.viewer = translator._viewer;
+    }
+
+    public void setEnabledNavigablePseudoTokens(boolean enabled) {
+        navigablePseudoTokens = enabled;
     }
 
     protected TokenGroup collectTokens(TSNode node, TokenList tokens, boolean detectOperator, Map<OperandPosition, TokenGroup> parent) {
@@ -259,11 +265,30 @@ public abstract class LanguageTokenizer {
             }
             skipChildren = true;
         }
+        TSNode prev = null;
         for (int i = 0; i < node.getChildCount() && !skipChildren; i++) {
+            if (prev != null && navigablePseudoTokens) {
+                int prevEndUtf16 = byteOffsetToCharIndex(code, prev.getEndByte());
+                int currStartUtf16 = byteOffsetToCharIndex(code, node.getChild(i).getStartByte());
+                String between = code.substring(prevEndUtf16, currStartUtf16);
+                String whites = between.replaceAll("[^ \t\n]", "");
+                if (!whites.isEmpty() && (whites.contains("\t") || whites.contains("\n"))) {
+                    tokens.add(new Whitespace(whites, TokenType.UNKNOWN));
+                }
+            }
             collectTokens(node.getChild(i), tokens, true, null);
+            if (node.getChild(i) != null) prev = node.getChild(i);
         }
         int stop = tokens.size();
         return new TokenGroup(start, stop, tokens);
 
+    }
+
+    private static int byteOffsetToCharIndex(String code, int byteOffset) {
+        // кодируем в UTF-8, а потом обратно считаем длину
+        byte[] utf8 = code.getBytes(StandardCharsets.UTF_8);
+        // обрезаем до нужного места
+        String sub = new String(utf8, 0, byteOffset, StandardCharsets.UTF_8);
+        return sub.length(); // количество UTF-16 code units = индекс в Java String
     }
 }

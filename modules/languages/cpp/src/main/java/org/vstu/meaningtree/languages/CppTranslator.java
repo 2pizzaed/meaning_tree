@@ -27,6 +27,11 @@ public class CppTranslator extends LanguageTranslator {
     }
 
     @Override
+    public String getLanguageName() {
+        return "c++";
+    }
+
+    @Override
     public LanguageTokenizer getTokenizer() {
         return new CppTokenizer(this);
     }

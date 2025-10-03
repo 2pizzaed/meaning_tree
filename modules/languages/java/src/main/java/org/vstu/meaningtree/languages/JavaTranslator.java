@@ -27,6 +27,11 @@ public class JavaTranslator extends LanguageTranslator {
     }
 
     @Override
+    public String getLanguageName() {
+        return "java";
+    }
+
+    @Override
     public LanguageTokenizer getTokenizer() {
         return new JavaTokenizer(this);
     }

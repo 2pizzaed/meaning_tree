@@ -27,6 +27,11 @@ public class PythonTranslator extends LanguageTranslator {
     }
 
     @Override
+    public String getLanguageName() {
+        return "python";
+    }
+
+    @Override
     public LanguageTokenizer getTokenizer() {
         return new PythonTokenizer(this);
     }

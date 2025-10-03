@@ -41,6 +41,8 @@ public abstract class LanguageTranslator implements Cloneable {
 
     public abstract int getLanguageId();
 
+    public abstract String getLanguageName();
+
     protected Config getDeclaredConfig() { return new Config(); }
 
     protected ConfigParser configParser = defaultConfigParser();

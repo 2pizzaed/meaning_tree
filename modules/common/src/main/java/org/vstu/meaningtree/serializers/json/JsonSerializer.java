@@ -315,7 +315,6 @@ public class JsonSerializer implements Serializer<JsonObject> {
             default -> throw new IllegalStateException("Unexpected value: " + node);
         };
 
-        json.addProperty("type", "meaning_tree_node");
         json.addProperty("id", node.getId());
         var labels = node.getAllLabels();
         if (!labels.isEmpty()) {

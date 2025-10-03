@@ -46,7 +46,7 @@ public class Main {
         @Parameter(names = "--tokenize", description = "Tokenize target source code / meaning tree")
         private boolean performTokenize = false;
 
-        @Parameter(names = "--serialize", description = "Serialization format: json or rdf")
+        @Parameter(names = "--serialize", description = "Serialization format: json, rdf, rdf-turtle")
         private String serializeFormat;
 
         @Parameter(description = "<input_file> [output_file]", required = true, arity = 1)
@@ -83,6 +83,13 @@ public class Main {
     public static Map<String, Class<? extends LanguageTranslator>> translators =
             SupportedLanguage.getStringMap();
 
+    private static String serializeRdf(Serializable node, String format) {
+        Model model = new RDFSerializer().serialize(node);
+        StringWriter writer = new StringWriter();
+        model.write(writer, format);
+        return writer.toString();
+    }
+
     private static final IOAliases<BiFunction<Serializable, Boolean, String>> serializers = new IOAliases<>(List.of(
             new IOAlias<>("json", (node, pretty) -> {
                 JsonObject json = new JsonSerializer().serialize(node);
@@ -92,12 +99,8 @@ public class Main {
                 }
                 return builder.create().toJson(json);
             }),
-            new IOAlias<>("rdf", (node, pretty) -> {
-                Model model = new RDFSerializer().serialize(node);
-                StringWriter writer = new StringWriter();
-                model.write(writer, "RDF/XML");
-                return writer.toString();
-            })
+            new IOAlias<>("rdf", (node, pretty) -> serializeRdf(node, "RDF/XML")),
+            new IOAlias<>("rdf-turtle", (node, pretty) -> serializeRdf(node, "TTL"))
     ));
 
     public static void main(String[] args) throws Exception {

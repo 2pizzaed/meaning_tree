@@ -99,7 +99,7 @@ public class SourceMapGenerator {
 
         cleanCode.append(instrumentedCode.substring(lastEnd));
 
-        return new SourceMap(cleanCode.toString(), root, result);
+        return new SourceMap(cleanCode.toString(), root, result, translator.getLanguageName());
     }
 
     /**

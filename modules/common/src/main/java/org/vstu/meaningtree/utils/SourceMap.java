@@ -6,4 +6,7 @@ import org.vstu.meaningtree.iterators.utils.NodeIterable;
 import java.io.Serializable;
 import java.util.Map;
 
-public record SourceMap(String code, NodeIterable root, Map<Long, Pair<Integer, Integer>> map) implements Serializable {}
+public record SourceMap(String code, NodeIterable root,
+                        Map<Long, Pair<Integer, Integer>> map,
+                        String language)
+        implements Serializable {}

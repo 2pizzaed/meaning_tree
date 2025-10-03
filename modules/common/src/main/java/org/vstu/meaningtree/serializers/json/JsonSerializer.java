@@ -84,6 +84,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         root.addProperty("type", "source_map");
         root.add("origin", serialize(sourceMap.root()));
         root.addProperty("sourceCode", sourceMap.code());
+        root.addProperty("language", sourceMap.language());
         JsonObject map = new JsonObject();
         for (var entry : sourceMap.map().entrySet()) {
             var pair = new JsonArray();
@@ -117,6 +118,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         root.addProperty("is_pseudo", token instanceof PseudoToken);
         if (token instanceof PseudoToken p) {
             root.add("metadata", gson.toJsonTree(p.getAttribute()));
+            if (token instanceof Whitespace wp) {
+                root.addProperty("has_newlines", wp.hasNewLines());
+            }
         }
         if (token instanceof ComplexOperatorToken complexOperatorToken) {
             root.addProperty("token_position", complexOperatorToken.positionOfToken);
@@ -139,7 +143,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             root.addProperty("operand_pos", enumToValue(operand.operandPosition()));
         }
 
-        root.addProperty("type", enumToValue(token.type));
+        root.addProperty("token_type", enumToValue(token.type));
         root.addProperty("value", token.value);
         root.addProperty("id", token.getId());
         root.addProperty("assigned_label", gson.toJson(token.getAssignedValue()));

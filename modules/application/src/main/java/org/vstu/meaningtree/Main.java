@@ -13,6 +13,7 @@ import org.vstu.meaningtree.serializers.json.JsonSerializer;
 import org.vstu.meaningtree.serializers.model.IOAlias;
 import org.vstu.meaningtree.serializers.model.IOAliases;
 import org.vstu.meaningtree.serializers.rdf.RDFSerializer;
+import org.vstu.meaningtree.utils.tokens.Token;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -32,6 +33,9 @@ public class Main {
 
         @Parameter(names = "--start-node-id", description = "Start id for nodes")
         private long startNodeId = 0;
+
+        @Parameter(names = "--start-token-id", description = "Start id for tokens")
+        private long startTokenId = 0;
 
         @Parameter(names = "--from", description = "Source language", required = true)
         private String fromLanguage;
@@ -183,6 +187,7 @@ public class Main {
                                 () -> System.err.println("Unknown serialization error")
                         );
             } else if (cmd.performTokenize) {
+                Token.setupId(cmd.startTokenId);
                 var tokens = toTranslator.getCodeAsTokens(meaningTree);
                 serializers.apply(serializeFormat == null ? "json" : serializeFormat, function -> function.apply(tokens, cmd.prettify))
                         .ifPresentOrElse(

@@ -39,6 +39,9 @@ public class Main {
         @Parameter(names = "--to", description = "Target language")
         private String toLanguage;
 
+        @Parameter(names = "--tokenize", description = "Tokenize target source code / meaning tree")
+        private boolean performTokenize = false;
+
         @Parameter(names = "--serialize", description = "Serialization format: json or rdf")
         private String serializeFormat;
 
@@ -55,6 +58,10 @@ public class Main {
 
         public String getSerializeFormat() {
             return serializeFormat;
+        }
+
+        public boolean performTokenize() {
+            return performTokenize;
         }
 
         public String getInputFile() {
@@ -163,6 +170,10 @@ public class Main {
             LanguageTranslator toTranslator =
                     translators.get(toLanguage.toLowerCase()).getDeclaredConstructor().newInstance();
 
+            if (cmd.outputSourceMap && cmd.performTokenize) {
+                System.err.println("Source map building and tokenizing are both required. Defaulting to using only `outputSourceMap`");
+            }
+
             if (cmd.outputSourceMap) {
                 SourceMapGenerator srcMapGen = new SourceMapGenerator(toTranslator);
                 var srcMap = srcMapGen.process(meaningTree);
@@ -170,6 +181,13 @@ public class Main {
                         .ifPresentOrElse(
                                 result -> writeOutput(result, outputFilePath),
                                 () -> System.err.println("Unknown serialization error")
+                        );
+            } else if (cmd.performTokenize) {
+                var tokens = toTranslator.getCodeAsTokens(meaningTree);
+                serializers.apply(serializeFormat == null ? "json" : serializeFormat, function -> function.apply(tokens, cmd.prettify))
+                        .ifPresentOrElse(
+                                result -> writeOutput(result, outputFilePath),
+                                () -> System.err.println("Unknown serialization format: " + serializeFormat + ". " + serializers.getSupportedFormatsMessage())
                         );
             } else {
                 String translatedCode = toTranslator.getCode(meaningTree);

@@ -1,10 +1,14 @@
 package org.vstu.meaningtree;
 
-import org.vstu.meaningtree.languages.*;
+import org.vstu.meaningtree.languages.CppTranslator;
+import org.vstu.meaningtree.languages.JavaTranslator;
+import org.vstu.meaningtree.languages.LanguageTranslator;
+import org.vstu.meaningtree.languages.PythonTranslator;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public enum SupportedLanguage {
     JAVA("java", JavaTranslator.ID),
@@ -66,12 +70,30 @@ public enum SupportedLanguage {
         return map;
     }
 
-    public LanguageTranslator createTranslator() throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+    public LanguageTranslator createTranslatorOrThrow() throws NoSuchMethodException, InvocationTargetException,
+            InstantiationException, IllegalAccessException {
         return translators.get(this).getConstructor().newInstance();
     }
 
-    public LanguageTranslator createTranslator(Map<String, String> config) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+    public LanguageTranslator createTranslatorOrThrow(Map<String, String> config) throws NoSuchMethodException, InvocationTargetException,
+            InstantiationException, IllegalAccessException {
         return translators.get(this).getConstructor(Map.class).newInstance(config);
+    }
+
+    public Optional<LanguageTranslator> createTranslator() {
+        try {
+            return Optional.of(translators.get(this).getConstructor().newInstance());
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            return Optional.empty();
+        }
+    }
+
+    public Optional<LanguageTranslator> createTranslator(Map<String, String> config) {
+        try {
+            return Optional.of(translators.get(this).getConstructor(Map.class).newInstance(config));
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            return Optional.empty();
+        }
     }
 
     public Class<? extends LanguageTranslator> getTranslatorClass() {

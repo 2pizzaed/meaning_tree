@@ -46,6 +46,9 @@ public class Main {
         @Parameter(names = "--tokenize", description = "Tokenize target source code / meaning tree")
         private boolean performTokenize = false;
 
+        @Parameter(names = "--tokenize-noconvert", description = "Tokenize target source code / meaning tree without convertation to other language")
+        private boolean performOriginTokenize = false;
+
         @Parameter(names = "--serialize", description = "Serialization format: json, rdf, rdf-turtle")
         private String serializeFormat;
 
@@ -172,8 +175,18 @@ public class Main {
             return;
         }
 
+
+
         // Instantiate target-language translator and generate code
-        if (toLanguage != null) {
+        if (cmd.performOriginTokenize) {
+            Token.setupId(cmd.startTokenId);
+            var tokens = fromTranslator.getCodeAsTokens(meaningTree);
+            serializers.apply(serializeFormat == null ? "json" : serializeFormat, function -> function.apply(tokens, cmd.prettify))
+                    .ifPresentOrElse(
+                            result -> writeOutput(result, outputFilePath),
+                            () -> System.err.println("Unknown serialization format: " + serializeFormat + ". " + serializers.getSupportedFormatsMessage())
+                    );
+        } else if (toLanguage != null) {
             LanguageTranslator toTranslator =
                     translators.get(toLanguage.toLowerCase()).getDeclaredConstructor().newInstance();
 

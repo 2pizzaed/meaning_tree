@@ -49,7 +49,7 @@ public class Main {
         @Parameter(names = "--serialize", description = "Serialization format: json, rdf, rdf-turtle")
         private String serializeFormat;
 
-        @Parameter(description = "<input_file> [output_file]", required = true, arity = 1)
+        @Parameter(description = "<input_file> [output_file]", required = true)
         private java.util.List<String> positionalParams;
 
         public String getFromLanguage() {

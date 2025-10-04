@@ -141,7 +141,7 @@ public class Main {
         String serializeFormat = cmd.getSerializeFormat();
 
         // Validate that either --to or --serialize is specified
-        if (toLanguage == null && serializeFormat == null) {
+        if (toLanguage == null && serializeFormat == null && !cmd.performOriginTokenize) {
             System.err.println("Either --to (target language) or --serialize (format) must be specified");
             return;
         }

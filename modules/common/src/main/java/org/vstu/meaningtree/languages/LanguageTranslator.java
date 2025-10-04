@@ -236,7 +236,7 @@ public abstract class LanguageTranslator implements Cloneable {
     }
 
     public TokenList getCodeAsTokens(MeaningTree mt) {
-        return getTokenizer().tokenizeExtended(mt);
+        return getTokenizer().setEnabledNavigablePseudoTokens(true).tokenizeExtended(mt);
     }
 
     protected <P, T extends ConfigScopedParameter<P>> Optional<P> getConfigParameter(Class<T> configClass) {

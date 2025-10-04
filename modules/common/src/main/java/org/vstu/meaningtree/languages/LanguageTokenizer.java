@@ -137,8 +137,9 @@ public abstract class LanguageTokenizer {
         this.viewer = translator._viewer;
     }
 
-    public void setEnabledNavigablePseudoTokens(boolean enabled) {
+    public LanguageTokenizer setEnabledNavigablePseudoTokens(boolean enabled) {
         navigablePseudoTokens = enabled;
+        return this;
     }
 
     protected TokenGroup collectTokens(TSNode node, TokenList tokens, boolean detectOperator, Map<OperandPosition, TokenGroup> parent) {

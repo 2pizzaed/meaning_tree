@@ -83,7 +83,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject root = new JsonObject();
         root.addProperty("type", "source_map");
         root.add("origin", serialize(sourceMap.root()));
-        root.addProperty("sourceCode", sourceMap.code());
+        root.addProperty("source_code", sourceMap.code());
         root.addProperty("language", sourceMap.language());
         JsonObject map = new JsonObject();
         for (var entry : sourceMap.map().entrySet()) {

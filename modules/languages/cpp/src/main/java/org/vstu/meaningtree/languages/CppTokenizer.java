@@ -310,6 +310,8 @@ public class CppTokenizer extends LanguageTokenizer {
             }
         } else if (List.of("number_literal", "char_literal", "string_literal", "true", "false", "null", "user_defined_literal").contains(type)) {
             tokenType = TokenType.CONST;
+        } else if (type.equals("comment")) {
+            tokenType = TokenType.COMMENT;
         } else if (type.equals(TreeSitterUtils.getCodePiece(code, node))) {
             tokenType = TokenType.KEYWORD;
         } else {

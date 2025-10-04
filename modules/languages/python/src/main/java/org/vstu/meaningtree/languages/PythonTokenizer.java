@@ -190,6 +190,8 @@ public class PythonTokenizer extends LanguageTokenizer {
             tokenType = TokenType.OPENING_BRACE;
         } else if (type.equals(")")) {
             tokenType = TokenType.CLOSING_BRACE;
+        } else if (type.equals("comment")) {
+            tokenType = TokenType.COMMENT;
         } else if (List.of(";", ":").contains(type)) {
             tokenType = TokenType.SEPARATOR;
         } else if (List.of("type_identifier", "identifier",

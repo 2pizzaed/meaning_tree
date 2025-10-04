@@ -233,8 +233,9 @@ public class JavaTokenizer extends LanguageTokenizer {
             tokenType = TokenType.COMMA;
         } else if (type.equals(TreeSitterUtils.getCodePiece(code, node))) {
             tokenType = TokenType.KEYWORD;
-        }
-        else {
+        } else if (List.of("line_comment", "block_comment").contains(type)) {
+            tokenType = TokenType.COMMENT;
+        } else {
             tokenType = TokenType.UNKNOWN;
         }
 

@@ -12,6 +12,7 @@ public enum TokenType {
     IDENTIFIER,
     KEYWORD,
     CAST,
+    COMMENT,
 
     OPENING_BRACE,
     CLOSING_BRACE,

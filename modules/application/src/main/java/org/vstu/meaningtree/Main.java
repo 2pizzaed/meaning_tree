@@ -10,6 +10,7 @@ import org.vstu.meaningtree.languages.LanguageTranslator;
 import org.vstu.meaningtree.languages.SourceMapGenerator;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.serializers.json.JsonSerializer;
+import org.vstu.meaningtree.serializers.json.JsonTypeHierarchyBuilder;
 import org.vstu.meaningtree.serializers.model.IOAlias;
 import org.vstu.meaningtree.serializers.model.IOAliases;
 import org.vstu.meaningtree.serializers.rdf.RDFSerializer;
@@ -83,6 +84,12 @@ public class Main {
     @Parameters(commandDescription = "List all supported languages")
     public static class ListLangsCommand {}
 
+    @Parameters(commandDescription = "List all supported nodes and their parents")
+    public static class NodeHierarchyCommand {
+        @Parameter(names = "--prettify", description = "Prettify output")
+        private boolean prettify = false;
+    }
+
     public static Map<String, Class<? extends LanguageTranslator>> translators =
             SupportedLanguage.getStringMap();
 
@@ -109,10 +116,12 @@ public class Main {
     public static void main(String[] args) throws Exception {
         TranslateCommand translateCommand = new TranslateCommand();
         ListLangsCommand listLangsCommand = new ListLangsCommand();
+        NodeHierarchyCommand nodeHierarchyCommand = new NodeHierarchyCommand();
 
         JCommander jc = JCommander.newBuilder()
                 .addCommand("translate", translateCommand)
                 .addCommand("list-langs", listLangsCommand)
+                .addCommand("node-hierarchy", nodeHierarchyCommand)
                 .build();
 
         jc.parse(args);
@@ -122,9 +131,19 @@ public class Main {
             listSupportedLanguages();
         } else if ("translate".equals(parsed)) {
             runTranslation(translateCommand);
+        } else if ("node-hierarchy".equals(parsed)) {
+            viewHierarchy(nodeHierarchyCommand);
         } else {
             jc.usage();
         }
+    }
+
+    private static void viewHierarchy(NodeHierarchyCommand nodeHierarchyCommand) {
+        var builder = new GsonBuilder();
+        if (nodeHierarchyCommand.prettify) {
+            builder = builder.setPrettyPrinting();
+        }
+        writeOutput(builder.create().toJson(JsonTypeHierarchyBuilder.generateHierarchyJsonObject()), "-");
     }
 
     private static void listSupportedLanguages() {

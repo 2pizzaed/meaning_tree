@@ -70,7 +70,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     public JsonObject serialize(MeaningTree mt) {
         JsonObject root = new JsonObject();
         root.addProperty("type", "meaning_tree");
-        root.add("rootNode", serialize(mt.getRootNode()));
+        root.add("root_node", serialize(mt.getRootNode()));
         var allLabels = mt.getAllLabels();
         if (!allLabels.isEmpty()) {
             root.add("labels", serializeLabels(allLabels));

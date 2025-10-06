@@ -812,7 +812,6 @@ public class JsonSerializer implements Serializer<JsonObject> {
         return json;
     }
 
-    // TODO: Я думаю это не работает но сейчас 2 часа ночи...
     @NotNull
     private JsonObject serialize(@NotNull CompoundComparison cmp) {
         JsonObject json = new JsonObject();
@@ -822,7 +821,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         for (var comparison : cmp.getComparisons()) {
             JsonObject jsonComparison = new JsonObject();
             jsonComparison.add("left", serialize(comparison.getLeft()));
-            jsonComparison.addProperty("operator", comparison.getClass().getSimpleName());
+            jsonComparison.addProperty("operator", JsonNodeTypeClassMapper.getTypeForNode(comparison));
             jsonComparison.add("right", serialize(comparison.getRight()));
         }
 
@@ -975,11 +974,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
 
-        /*
         if (stmt.getInitializer() != null) {
-            json.add("initializer", serialize(stmt.getInitializer()));
+            json.add("initializer", serialize((Node) stmt.getInitializer()));
         }
-         */
 
         if (stmt.getCondition() != null) {
             json.add("condition", serialize(stmt.getCondition()));

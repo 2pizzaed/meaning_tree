@@ -155,8 +155,25 @@ public class CppViewer extends LanguageViewer {
             case ParenthesizedExpression parenthesizedExpression -> toStringParenthesizedExpression(parenthesizedExpression);
             case AssignmentExpression assignmentExpression -> toStringAssignmentExpression(assignmentExpression);
             case AssignmentStatement assignmentStatement -> toStringAssignmentStatement(assignmentStatement);
+            case IntType intType -> toStringIntType(intType);
+            case FloatType floatType -> toStringFloatType(floatType);
+            case CharacterType characterType -> toStringCharacterType(characterType);
+            case PointerType pointerType -> toStringType(pointerType);
+            case ReferenceType referenceType -> toStringType(referenceType);
+            case DictionaryType dictionaryType -> toStringType(dictionaryType);
+            case ArrayType arrayType -> toStringType(arrayType);
+            case UnmodifiableListType unmodifiableListType -> toStringType(unmodifiableListType);
+            case SetType setType -> toStringType(setType);
+            case PlainCollectionType plainCollectionType -> toStringType(plainCollectionType);
+            case GenericUserType genericUserType -> toStringType(genericUserType);
+            case UserType userType -> toStringType(userType);
             case Type type -> toStringType(type);
+            case SimpleIdentifier simpleIdentifier -> simpleIdentifier.getName();
+            case ScopedIdentifier scopedIdentifier -> toStringIdentifier(scopedIdentifier);
+            case QualifiedIdentifier qualifiedIdentifier -> toStringIdentifier(qualifiedIdentifier);
             case Identifier identifier -> toStringIdentifier(identifier);
+            case FloatLiteral floatLiteral -> floatLiteral.getStringValue(true);
+            case IntegerLiteral integerLiteral -> toStringNumericLiteral(integerLiteral);
             case NumericLiteral numericLiteral -> toStringNumericLiteral(numericLiteral);
             case FloorDivOp floorDivOp -> toStringFloorDiv(floorDivOp);
             case UnaryExpression unaryExpression -> toStringUnaryExpression(unaryExpression);
@@ -178,25 +195,33 @@ public class CppViewer extends LanguageViewer {
             case Comment cmnt -> toStringComment(cmnt);
             case InterpolatedStringLiteral interpolatedStringLiteral -> fromInterpolatedString(interpolatedStringLiteral);
             case MultipleAssignmentStatement mas -> fromMultipleAssignmentStatement(mas);
-            case IfStatement ifStatement -> toString(ifStatement);
-            case CompoundStatement compoundStatement -> toString(compoundStatement);
-            case RangeForLoop rangeForLoop -> toString(rangeForLoop);
-            case GeneralForLoop generalForLoop -> toString(generalForLoop);
-            case WhileLoop whileLoop -> toString(whileLoop);
-            case InfiniteLoop infiniteLoop -> toString(infiniteLoop);
-            case SwitchStatement switchStatement -> toString(switchStatement);
-            case FunctionDefinition functionDefinition -> toString(functionDefinition);
-            case ArrayInitializer arrayInitializer -> toString(arrayInitializer);
-            case ReturnStatement returnStatement -> toString(returnStatement);
-            case EmptyStatement emptyStatement -> toString(emptyStatement);
-            case BreakStatement stmt -> toString(stmt);
-            case ContinueStatement stmt -> toString(stmt);
-            case ForEachLoop forEachLoop -> toString(forEachLoop);
+            case IfStatement ifStatement -> toStringIfStatement(ifStatement);
+            case CompoundStatement compoundStatement -> toStringCompoundStatement(compoundStatement);
+            case RangeForLoop rangeForLoop -> toStringRangeForLoop(rangeForLoop);
+            case GeneralForLoop generalForLoop -> toStringGeneralForLoop(generalForLoop);
+            case WhileLoop whileLoop -> toStringWhileLoop(whileLoop);
+            case InfiniteLoop infiniteLoop -> toStringInfiniteLoop(infiniteLoop);
+            case SwitchStatement switchStatement -> toStringSwitchStatement(switchStatement);
+            case FunctionDefinition functionDefinition -> toStringFunctionDefinition(functionDefinition);
+            case FunctionDeclaration functionDeclaration -> toStringFunctionDeclaration(functionDeclaration);
+            case DeclarationArgument declarationArgument -> toStringDeclarationArgument(declarationArgument);
+            case ArrayInitializer arrayInitializer -> toStringArrayInitializer(arrayInitializer);
+            case ReturnStatement returnStatement -> toStringReturnStatement(returnStatement);
+            case EmptyStatement emptyStatement -> "";
+            case BreakStatement stmt -> "break;";
+            case ContinueStatement stmt -> "continue;";
+            case ForEachLoop forEachLoop -> toStringForEachLoop(forEachLoop);
+            case VariableDeclarator variableDeclarator -> toStringVariableDeclarator(variableDeclarator, new UnknownType());
+            case Shape shape -> toStringShape(shape);
+            case ConditionBranch conditionBranch -> toStringConditionBranch(conditionBranch);
+            case MatchValueCaseBlock matchValueCaseBlock -> toStringCaseBlock(matchValueCaseBlock);
+            case DefaultCaseBlock defaultCaseBlock -> toStringCaseBlock(defaultCaseBlock);
+            case CaseBlock caseBlock -> toStringCaseBlock(caseBlock);
             default -> throw new UnsupportedViewingException("Unexpected value: " + node);
         };
     }
 
-    private String toString(ForEachLoop forEachLoop) {
+    private String toStringForEachLoop(ForEachLoop forEachLoop) {
         var type = toString(forEachLoop.getItem().getType());
         var iterVarId = toString(forEachLoop.getItem().getDeclarators()[0].getIdentifier());
         var iterable = toString(forEachLoop.getExpression());
@@ -217,13 +242,13 @@ public class CppViewer extends LanguageViewer {
                 .toString();
     }
 
-    private String toString(EmptyStatement emptyStatement) {
+    private String toStringEmptyStatement(EmptyStatement emptyStatement) {
         return "";
     }
 
     /*******************************************************************/
     /* Перевод return */
-    private String toString(ReturnStatement returnStatement) {
+    private String toStringReturnStatement(ReturnStatement returnStatement) {
         StringBuilder builder = new StringBuilder();
         builder.append("return");
 
@@ -236,7 +261,7 @@ public class CppViewer extends LanguageViewer {
 
     /*******************************************************************/
     /* Перевод инициализатора массива */
-    private String toString(ArrayInitializer arrayInitializer) {
+    private String toStringArrayInitializer(ArrayInitializer arrayInitializer) {
         StringBuilder builder = new StringBuilder();
         builder.append("{");
 
@@ -266,7 +291,7 @@ public class CppViewer extends LanguageViewer {
 
     /*******************************************************************/
     /* Перевод определения функции */
-    private String toString(FunctionDefinition functionDefinition) {
+    private String toStringFunctionDefinition(FunctionDefinition functionDefinition) {
         StringBuilder builder = new StringBuilder();
 
         // Преобразование типа нужно, чтобы избежать вызова toString(Node node)
@@ -284,7 +309,7 @@ public class CppViewer extends LanguageViewer {
         return builder.toString();
     }
 
-    private String toString(FunctionDeclaration functionDeclaration) {
+    private String toStringFunctionDeclaration(FunctionDeclaration functionDeclaration) {
         StringBuilder builder = new StringBuilder();
 
         String returnType = toString(functionDeclaration.getReturnType());
@@ -299,7 +324,7 @@ public class CppViewer extends LanguageViewer {
         return builder.toString();
     }
 
-    private String toString(DeclarationArgument parameter) {
+    private String toStringDeclarationArgument(DeclarationArgument parameter) {
         String type = toString(parameter.getType());
         String name = toString(parameter.getName());
         return "%s %s".formatted(type, name);
@@ -403,7 +428,7 @@ public class CppViewer extends LanguageViewer {
         return builder.toString();
     }
 
-    private String toString(SwitchStatement switchStatement) {
+    private String toStringSwitchStatement(SwitchStatement switchStatement) {
         StringBuilder builder = new StringBuilder();
 
         builder.append("switch (");
@@ -437,7 +462,7 @@ public class CppViewer extends LanguageViewer {
 
     /*******************************************************************/
     /* Перевод бесконечного цикла */
-    private String toString(InfiniteLoop infiniteLoop) {
+    private String toStringInfiniteLoop(InfiniteLoop infiniteLoop) {
         StringBuilder builder = new StringBuilder();
 
         builder.append(indent("while (true)"));
@@ -465,17 +490,17 @@ public class CppViewer extends LanguageViewer {
 
     /*******************************************************************/
     /* Перевод операторов управления циклов */
-    private String toString(ContinueStatement stmt) {
+    private String toStringContinueStatement(ContinueStatement stmt) {
         return "continue;";
     }
 
-    private String toString(BreakStatement stmt) {
+    private String toStringBreakStatement(BreakStatement stmt) {
         return "break;";
     }
 
     /*******************************************************************/
     /* Перевод цикла while */
-    public String toString(WhileLoop whileLoop) {
+    public String toStringWhileLoop(WhileLoop whileLoop) {
         String header = "while (" + toString(whileLoop.getCondition()) + ")";
 
         Statement body = whileLoop.getBody();
@@ -490,62 +515,7 @@ public class CppViewer extends LanguageViewer {
         }
     }
 
-    /*******************************************************************/
-    /* Перевод объявления переменных и их типов */
-    public String toString(SetType type) {
-        // Используем std::unordered_set для неупорядоченных множеств
-        return String.format("std::unordered_set<%s>", toString(type.getItemType()));
-    }
-
-    public String toString(PlainCollectionType type) {
-        return String.format("std::vector<%s>", toString(type.getItemType()));
-    }
-
-    public String toString(DictionaryType type) {
-        // std::map для ассоциативного массива (отсортированный по ключу)
-        return String.format("std::map<%s, %s>",
-                toString(type.getKeyType()),
-                toString(type.getValueType()));
-    }
-
-    private String toString(FloatType type) {
-        // float/double в зависимости от размера
-        return type.size == 64 ? "double" : "float";
-    }
-
-    private String toString(IntType type) {
-        // short/int/long в зависимости от размера
-        if (type.size == 16) {
-            return "short";
-        } else if (type.size == 32) {
-            return "int";
-        } else {
-            return "long";
-        }
-    }
-
-    private String toString(BooleanType type) {
-        return "bool";
-    }
-
-    private String toString(StringType type) {
-        return "std::string";
-    }
-
-    private String toString(NoReturn type) {
-        return "void";
-    }
-
-    private String toString(UnknownType type) {
-        // auto для неизвестных типов
-        return "auto";
-    }
-
-    private String toString(CharacterType type) {
-        return "char";
-    }
-
-    private String toString(Shape shape) {
+    private String toStringShape(Shape shape) {
         // размерность массива: [dim][dim]...
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < shape.getDimensionCount(); i++) {
@@ -559,64 +529,6 @@ public class CppViewer extends LanguageViewer {
         return builder.toString();
     }
 
-    private String toString(ArrayType type) {
-        // базовый тип + размерности
-        String base = toString(type.getItemType());
-        return base + toString(type.getShape());
-    }
-
-    private String toString(VariableDeclarator varDecl, Type type) {
-        StringBuilder builder = new StringBuilder();
-
-        SimpleIdentifier identifier = varDecl.getIdentifier();
-        Type variableType = new UnknownType();
-        Expression rValue = varDecl.getRValue();
-        if (rValue != null) {
-            // TODO: починить хиндли-милнера
-            // variableType = HindleyMilner.inference(rValue, _typeScope);
-        }
-
-        // TODO: починить хиндли-милнера и тайп-скоупы
-        // addVariableToCurrentScope(identifier, variableType);
-
-        String identifierName = toString(identifier);
-        builder.append(identifierName);
-
-        if (rValue instanceof ArrayLiteral arr && type instanceof ListType) {
-            rValue = new ListLiteral(arr.getList());
-            ((ListLiteral) rValue).setTypeHint(arr.getTypeHint());
-        }
-
-        if (rValue != null) {
-            builder.append(" = ").append(toString(rValue));
-        }
-
-        return builder.toString();
-    }
-
-    public String toString(VariableDeclaration stmt) {
-        StringBuilder builder = new StringBuilder();
-
-        // const перед типом, если константа
-        if (stmt.getType().isConst()) {
-            builder.append("const ");
-        }
-        // сам тип
-        builder.append(toString(stmt.getType())).append(" ");
-
-        // перечисляем переменные через запятую
-        for (VariableDeclarator vd : stmt.getDeclarators()) {
-            builder.append(toString(vd, stmt.getType())).append(", ");
-        }
-        // убираем лишнюю ", "
-        if (builder.length() >= 2) {
-            builder.setLength(builder.length() - 2);
-        }
-        builder.append(";");
-
-        return builder.toString();
-    }
-
     /*******************************************************************/
     /* Перевод узла оператора присвоения */
     private String toStringAssignmentStatement(AssignmentStatement assignmentStatement) {
@@ -625,14 +537,14 @@ public class CppViewer extends LanguageViewer {
 
     /*******************************************************************/
     /* Перевод узла цикла фор общего и по диапазону */
-    public String toString(GeneralForLoop generalForLoop) {
+    public String toStringGeneralForLoop(GeneralForLoop generalForLoop) {
         StringBuilder builder = new StringBuilder();
 
         builder.append("for (");
 
         boolean addSemi = true;
         if (generalForLoop.hasInitializer()) {
-            String init = toString(generalForLoop.getInitializer());
+            String init = toStringHasInitialization(generalForLoop.getInitializer());
             if (init.stripTrailing().endsWith(";")) {
                 addSemi = false;
             }
@@ -680,7 +592,7 @@ public class CppViewer extends LanguageViewer {
         return builder.toString();
     }
 
-    private String toString(HasInitialization init) {
+    private String toStringHasInitialization(HasInitialization init) {
         return switch (init) {
             case AssignmentExpression expr -> toStringAssignmentExpression(expr);
             case AssignmentStatement stmt -> toStringAssignmentStatement(stmt);
@@ -777,7 +689,7 @@ public class CppViewer extends LanguageViewer {
         throw new UnsupportedViewingException("Can't determine range type in for loop");
     }
 
-    public String toString(RangeForLoop forRangeLoop) {
+    public String toStringRangeForLoop(RangeForLoop forRangeLoop) {
         StringBuilder builder = new StringBuilder();
 
         String header = "for (" + getForRangeHeader(forRangeLoop) + ")";
@@ -805,7 +717,7 @@ public class CppViewer extends LanguageViewer {
 
     /*******************************************************************/
     /* Перевод узла блочного оператора  */
-    public String toString(CompoundStatement stmt) {
+    public String toStringCompoundStatement(CompoundStatement stmt) {
         StringBuilder builder = new StringBuilder();
         builder.append("{\n");
         increaseIndentLevel();
@@ -828,7 +740,7 @@ public class CppViewer extends LanguageViewer {
 
     /*******************************************************************/
     /* Перевод узла ветвления  */
-    public String toString(IfStatement stmt) {
+    public String toStringIfStatement(IfStatement stmt) {
         StringBuilder builder = new StringBuilder();
 
         builder.append("if ");
@@ -882,7 +794,7 @@ public class CppViewer extends LanguageViewer {
     }
 
     /* Перевод одной ветки условия  */
-    private String toString(ConditionBranch branch) {
+    private String toStringConditionBranch(ConditionBranch branch) {
         StringBuilder builder = new StringBuilder();
 
         String cond = toString(branch.getCondition());

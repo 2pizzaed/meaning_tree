@@ -16,7 +16,6 @@ public class FunctionDeclaration extends Declaration {
     @TreeNode private List<DeclarationArgument> arguments;
     @TreeNode private Identifier name;
     @TreeNode private Type returnType;
-    @TreeNode private List<Annotation> annotations;
 
     public FunctionDeclaration(Identifier name, Type returnType, List<Annotation> annotations, DeclarationArgument... arguments) {
         this(name, returnType, annotations, List.of(arguments));
@@ -53,13 +52,5 @@ public class FunctionDeclaration extends Declaration {
     @Override
     public String generateDot() {
         throw new UnsupportedOperationException();
-    }
-
-    public List<Annotation> getAnnotations() {
-        return new ArrayList<>(annotations);
-    }
-
-    public boolean hasAnnotations() {
-        return !annotations.isEmpty();
     }
 }

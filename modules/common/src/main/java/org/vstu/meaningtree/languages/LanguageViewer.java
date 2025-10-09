@@ -40,12 +40,16 @@ abstract public class LanguageViewer {
 
     protected abstract String formString(Node node);
 
-    public final String toString(Node node) {
-        var result = formString(node);
+    protected String applyHooks(Node node, String result) {
         for (var function : postProcessFunctions) {
             result = function.apply(node, result);
         }
         return result;
+    }
+
+    public final String toString(Node node) {
+        var result = formString(node);
+        return applyHooks(node, result);
     }
 
     public abstract OperatorToken mapToToken(Expression expr);

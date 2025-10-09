@@ -43,6 +43,7 @@ import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 import org.vstu.meaningtree.nodes.io.*;
 import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
+import org.vstu.meaningtree.nodes.modules.Include;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.Loop;
@@ -67,6 +68,7 @@ import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
+import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.*;
 
@@ -198,6 +200,9 @@ public class CppLanguage extends LanguageParser {
             case "true" -> new BoolLiteral(true);
             case "concatenated_string" -> fromConcatenatedString(node);
             case "false" -> new BoolLiteral(false);
+            case "system_lib_string" -> StringLiteral.fromEscaped(
+                    TreeSitterUtils.getCodePiece( _code, node), StringLiteral.Type.NONE
+            );
             case "initializer_list" -> fromInitializerList(node);
             case "primitive_type", "template_function", "placeholder_type_specifier", "sized_type_specifier", "type_descriptor" -> fromType(node);
             case "sizeof_expression" -> fromSizeOf(node);
@@ -210,6 +215,7 @@ public class CppLanguage extends LanguageParser {
             case "offsetof_expression" -> fromOffsetOf(node);
             case "preproc_defined" -> new FunctionCall(new SimpleIdentifier("defined"), (Expression)
                     fromTSNode(node.getNamedChild(0)));
+            case "preproc_include" -> fromPreprocInclude(node);
             case "comment" -> fromComment(node);
             case "if_statement" -> fromIfStatement(node);
             case "for_statement" -> fromForStatement(node);
@@ -223,6 +229,15 @@ public class CppLanguage extends LanguageParser {
         };
         assignValue(node, createdNode);
         return createdNode;
+    }
+
+    private Node fromPreprocInclude(@NotNull TSNode node) {
+        TSNode path = node.getChildByFieldName("path");
+        Include.IncludeType type = Include.IncludeType.QUOTED_FORM;
+        if (path.getType().equals("system_lib_string")) {
+            type = Include.IncludeType.POINTY_BRACKETS_FORM;
+        }
+        return new Include((StringLiteral) fromTSNode(path), type);
     }
 
     private ForEachLoop fromForRangeLoop(TSNode node) {
@@ -579,8 +594,8 @@ public class CppLanguage extends LanguageParser {
     }
 
     private Comment fromComment(TSNode node) {
-        return Comment.fromUnescaped(getCodePiece(node).replaceFirst("/*", "")
-                .replaceFirst("//", "").replace("*/", "").trim());
+        return Comment.fromUnescaped(getCodePiece(node).replaceFirst("/\\*", "")
+                .replaceFirst("//", "").replace("*/", ""));
     }
 
     private Node fromOffsetOf(TSNode node) {

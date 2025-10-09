@@ -69,6 +69,7 @@ import org.vstu.meaningtree.nodes.types.containers.SetType;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
+import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.*;
 
@@ -269,15 +270,18 @@ public class JavaLanguage extends LanguageParser {
 
     private Node fromConstructorDeclarationTSNode(TSNode node) {
         List<DeclarationModifier> modifiers;
+        List<Annotation> annotations = new ArrayList<>();
         if (node.getNamedChild(0).getType().equals("modifiers"))
-            { modifiers = fromModifiers(node.getNamedChild(0)); }
+            { modifiers = fromModifiers(annotations, node.getNamedChild(0)); }
         else
             { modifiers = List.of(); }
         Identifier name = fromIdentifierTSNode(node.getChildByFieldName("name"));
         List<DeclarationArgument> parameters = fromMethodParameters(node.getChildByFieldName("parameters"));
         CompoundStatement body = fromBlockTSNode(node.getChildByFieldName("body"));
         // TODO: определение класса, к которому принадлежит метод и считывание аннотаций
-        return new ObjectConstructorDefinition(null, name, List.of(), modifiers, parameters, body);
+        var result = new ObjectConstructorDefinition(null, name, List.of(), modifiers, parameters, body);
+        result.getDeclaration().setAnnotations(annotations);
+        return result;
     }
 
     private Node fromTernaryExpressionTSNode(TSNode node) {
@@ -684,8 +688,9 @@ public class JavaLanguage extends LanguageParser {
 
     private Definition fromMethodDeclarationTSNode(TSNode node) {
         List<DeclarationModifier> modifiers = new ArrayList<>();
+        List<Annotation> annotations = new ArrayList<>();
         if (node.getChild(0).getType().equals("modifiers")) {
-            modifiers.addAll(fromModifiers(node.getChild(0)));
+            modifiers.addAll(fromModifiers(annotations, node.getChild(0)));
         }
 
         Type returnType = fromTypeTSNode(node.getChildByFieldName("type"));
@@ -702,7 +707,7 @@ public class JavaLanguage extends LanguageParser {
             var functionDeclaration = new FunctionDeclaration(
                     identifier,
                     returnType,
-                    List.of(),
+                    annotations,
                     parameters
             );
             definition = new FunctionDefinition(functionDeclaration, body);
@@ -713,7 +718,7 @@ public class JavaLanguage extends LanguageParser {
                     null,
                     identifier,
                     returnType,
-                    List.of(),
+                    annotations,
                     modifiers,
                     parameters
             );
@@ -768,22 +773,32 @@ public class JavaLanguage extends LanguageParser {
     private FieldDeclaration fromFieldDeclarationTSNode(TSNode node) {
         int currentChildIndex = 0;
 
+        List<Annotation> annotations = new ArrayList<>();
         List<DeclarationModifier> modifiers = new ArrayList<>();
         if (node.getChild(currentChildIndex).getType().equals("modifiers")) {
-            modifiers.addAll(fromModifiers(node.getChild(currentChildIndex)));
+            modifiers.addAll(fromModifiers(annotations, node.getChild(currentChildIndex)));
         }
 
         VariableDeclaration declaration = fromVariableDeclarationTSNode(node);
-        return new FieldDeclaration(declaration.getType(), modifiers, declaration.getDeclarators());
+        var result = new FieldDeclaration(declaration.getType(), modifiers, declaration.getDeclarators());
+        result.setAnnotations(annotations);
+        return result;
     }
 
-    private List<DeclarationModifier> fromModifiers(TSNode node) {
+    private List<DeclarationModifier> fromModifiers(List<Annotation> annotations, TSNode node) {
         // Внутри происходит считывание лишь модификаторов области видимости,
         // причем допускается всего лишь 1 или 0 идентификаторов (несмотря на список).
         // Должно ли так быть - неизвестно, нужно разобраться...
         List<DeclarationModifier> modifiers = new ArrayList<>();
 
         for (int i = 0; i < node.getChildCount(); i++) {
+            if (node.getChild(i).getType().equals("marker_annotation")) {
+                annotations.add(new Annotation(
+                        StringLiteral.fromUnescaped(TreeSitterUtils.getCodePiece(_code, node.getChild(i)), StringLiteral.Type.NONE))
+                );
+                continue;
+            }
+
             modifiers.add(
                     switch (node.getChild(i).getType()) {
                         case "public" -> DeclarationModifier.PUBLIC;
@@ -804,8 +819,9 @@ public class JavaLanguage extends LanguageParser {
         int currentChildIndex = 0;
 
         List<DeclarationModifier> modifiers = new ArrayList<>();
+        List<Annotation> annotations = new ArrayList<>();
         if (node.getChild(currentChildIndex).getType().equals("modifiers")) {
-            modifiers.addAll(fromModifiers(node.getChild(currentChildIndex)));
+            modifiers.addAll(fromModifiers(annotations, node.getChild(currentChildIndex)));
             currentChildIndex++;
         }
 
@@ -822,6 +838,7 @@ public class JavaLanguage extends LanguageParser {
         ClassDeclaration decl = new ClassDeclaration(modifiers, className);
         // TODO: нужно поменять getNodes() у CompoundStatement, чтобы он не массив возвращал
         ClassDefinition def = new ClassDefinition(decl, classBody);
+        def.getDeclaration().setAnnotations(annotations);
         return def;
     }
 
@@ -1199,9 +1216,10 @@ public class JavaLanguage extends LanguageParser {
 
     private VariableDeclaration fromVariableDeclarationTSNode(TSNode node) {
         List<DeclarationModifier> modifiers = new ArrayList<>();
+        List<Annotation> annotations = new ArrayList<>();
         TSNode possibleModifiers = node.getChild(0);
         if (possibleModifiers.getType().equals("modifiers")) {
-            modifiers.addAll(fromModifiers(possibleModifiers));
+            modifiers.addAll(fromModifiers(annotations, possibleModifiers));
         }
 
         Type type = fromTypeTSNode(node.getChildByFieldName("type"));
@@ -1226,10 +1244,14 @@ public class JavaLanguage extends LanguageParser {
         //}
 
         if (!modifiers.isEmpty()) {
-            return new FieldDeclaration(type, modifiers, declarators);
+            var result = new FieldDeclaration(type, modifiers, declarators);
+            result.setAnnotations(annotations);
+            return result;
         }
 
-        return new VariableDeclaration(type, declarators);
+        var decl = new VariableDeclaration(type, declarators);
+        decl.setAnnotations(annotations);
+        return decl;
     }
 
     private Node fromProgramTSNode(TSNode node) {

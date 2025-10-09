@@ -14,10 +14,11 @@ public class Include extends Node {
         POINTY_BRACKETS_FORM,
     }
 
-    private final IncludeType _includeType;
+    private final IncludeType includeType;
 
     public Include(StringLiteral filename, IncludeType includeType) {
-        _includeType = includeType;
+        this.filename = filename;
+        this.includeType = includeType;
     }
 
     public StringLiteral getFileName() {
@@ -25,6 +26,6 @@ public class Include extends Node {
     }
 
     public IncludeType getIncludeType() {
-        return _includeType;
+        return includeType;
     }
 }

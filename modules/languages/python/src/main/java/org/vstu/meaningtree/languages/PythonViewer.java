@@ -66,10 +66,7 @@ import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -80,6 +77,8 @@ public class PythonViewer extends LanguageViewer {
 
     @Override
     public String formString(Node node) {
+        Objects.requireNonNull(node);
+
         // Для dummy узлов ничего не выводим
         if (node.hasLabel(Label.DUMMY)) {
             return "";
@@ -108,8 +107,8 @@ public class PythonViewer extends LanguageViewer {
             case BinaryComparison cmpNode -> comparisonToString(cmpNode);
             case BinaryExpression binaryExpression -> binaryOpToString(binaryExpression);
             case IfStatement ifStatement -> conditionToString(ifStatement, tab);
-            case PointerPackOp ptr -> toString(ptr);
-            case PointerUnpackOp ptr -> toString(ptr);
+            case PointerPackOp ptr -> pointerPackToString(ptr);
+            case PointerUnpackOp ptr -> pointerUnpackToString(ptr);
             case UnaryExpression exprNode -> unaryToString(exprNode);
             case CompoundStatement exprNode -> blockToString(exprNode, tab);
             case CompoundComparison compound -> compoundComparisonToString(compound);
@@ -161,7 +160,7 @@ public class PythonViewer extends LanguageViewer {
             case ReturnStatement returnStmt -> returnToString(returnStmt);
             case ArrayInitializer arrayInit -> arrayInitializerToString(arrayInit);
             case DefinitionArgument arg -> definitionArgumentToString(arg);
-            case Include incl -> String.format("import %s", toString(incl.getFileName()));
+            case Include incl -> String.format("import %s", incl.getFileName().getUnescapedValue());
             case PackageDeclaration packageDecl -> String.format("import %s", toString(packageDecl.getPackageName()));
             case CommaExpression ignored -> throw new UnsupportedViewingException("Comma is unsupported in this language");
             case ExpressionSequence exprSeq -> String.join(", ", exprSeq.getExpressions().stream().map((Expression nd) -> toString(nd, tab)).toList().toArray(new String[0]));
@@ -190,11 +189,11 @@ public class PythonViewer extends LanguageViewer {
         }
     }
 
-    public String toString(PointerPackOp ptr) {
+    public String pointerPackToString(PointerPackOp ptr) {
         return toString(ptr.getArgument());
     }
 
-    public String toString(PointerUnpackOp ptr) {
+    public String pointerUnpackToString(PointerUnpackOp ptr) {
         if (ptr.getArgument() instanceof SubOp) {
             throw new UnsupportedViewingException("Subtraction of pointers cannot be converted to indexing");
         }
@@ -299,9 +298,9 @@ public class PythonViewer extends LanguageViewer {
 
     private String functionDeclarationToString(FunctionDeclaration decl, Tab tab) {
         if (decl instanceof MethodDeclaration method) {
-            return functionToString(new MethodDefinition(method, new CompoundStatement()), tab);
+            return toString(new MethodDefinition(method, new CompoundStatement()), tab);
         }
-        return functionToString(new FunctionDefinition(decl, new CompoundStatement()), tab);
+        return toString(new FunctionDefinition(decl, new CompoundStatement()), tab);
     }
 
     private String classToString(ClassDefinition def, Tab tab) {
@@ -352,18 +351,18 @@ public class PythonViewer extends LanguageViewer {
                     && !arg.isListUnpacking()
                     && !arg.isDictUnpacking()) {
                 function.append(": ");
-                function.append(typeToString(arg.getType()));
+                function.append(toString(arg.getType()));
             }
             if (!(arg.getElementType() instanceof UnknownType) && (arg.isListUnpacking() || arg.isDictUnpacking())) {
                 function.append(": ");
-                function.append(typeToString(arg.getElementType()));
+                function.append(toString(arg.getElementType()));
             }
         }
         function.append(")");
         if (decl.getReturnType() != null && !(decl.getReturnType() instanceof UnknownType)
                 && !(decl instanceof ObjectConstructorDeclaration || decl instanceof ObjectDestructorDeclaration)) {
             function.append(" -> ");
-            function.append(typeToString(decl.getReturnType()));
+            function.append(toString(decl.getReturnType()));
         }
         function.append(":\n");
         if (func instanceof MethodDefinition methodDef) {
@@ -518,7 +517,7 @@ public class PythonViewer extends LanguageViewer {
             // UPDATE: хинты о типах не добавляются в случае, если много переменных,
             // т.к. это синтаксическая ошибка
             if (decls.length == 1 && varDecl.getType() != null && !(varDecl.getType() instanceof UnknownType)) {
-                 lValues.append(String.format(": %s", typeToString(varDecl.getType())));
+                 lValues.append(String.format(": %s", toString(varDecl.getType())));
             }
             if (decls[i].hasInitialization() && decls[i].getRValue() != null) {
                 rValues.append(toString(decls[i].getRValue()));
@@ -546,7 +545,7 @@ public class PythonViewer extends LanguageViewer {
             return "float";
         } else if (type instanceof DictionaryType dictType) {
             if (dictType.getKeyType() != null && dictType.getValueType() != null) {
-                return String.format("dict[%s, %s]", typeToString(dictType.getKeyType()), typeToString(dictType.getValueType()));
+                return String.format("dict[%s, %s]", toString(dictType.getKeyType()), toString(dictType.getValueType()));
             }
             return "dict";
         } else if (type instanceof StringType) {
@@ -555,22 +554,22 @@ public class PythonViewer extends LanguageViewer {
             return "bool";
         } else if (type instanceof ListType listType) {
             if (listType.getItemType() != null) {
-                return String.format("list[%s]",  typeToString(listType.getItemType()));
+                return String.format("list[%s]",  toString(listType.getItemType()));
             }
             return "list";
         } else if (type instanceof ArrayType listType) {
             if (listType.getItemType() != null) {
-                return String.format("list[%s]",  typeToString(listType.getItemType()));
+                return String.format("list[%s]",  toString(listType.getItemType()));
             }
             return "list";
         } else if (type instanceof SetType setType) {
             if (setType.getItemType() != null) {
-                return String.format("set[%s]",  typeToString(setType.getItemType()));
+                return String.format("set[%s]",  toString(setType.getItemType()));
             }
             return "set";
         } else if (type instanceof UnmodifiableListType tupleType) {
             if (tupleType.getItemType() != null) {
-                return String.format("tuple[%s]",  typeToString(tupleType.getItemType()));
+                return String.format("tuple[%s]",  toString(tupleType.getItemType()));
             }
             return "tuple";
         } else if (type instanceof GenericUserType generic) {
@@ -580,9 +579,9 @@ public class PythonViewer extends LanguageViewer {
         } else if (type instanceof NoReturn) {
             return "None";
         } else if (type instanceof PointerType ptr) {
-            return typeToString(ptr.getTargetType());
+            return toString(ptr.getTargetType());
         } else if (type instanceof ReferenceType ref) {
-            return typeToString(ref.getTargetType());
+            return toString(ref.getTargetType());
         }
         return "object";
     }
@@ -718,7 +717,7 @@ public class PythonViewer extends LanguageViewer {
         if (comment.isMultiline()) {
             return String.format("\"\"\"%s\"\"\"", comment.getUnescapedContent());
         } else {
-            return String.format("# %s", comment.getUnescapedContent());
+            return String.format("#%s", comment.getUnescapedContent());
         }
     }
 
@@ -820,7 +819,7 @@ public class PythonViewer extends LanguageViewer {
         switch (node) {
             case ArrayNewExpression newExpr -> {
                 if (newExpr.getInitializer() != null) {
-                    return arrayInitializerToString(newExpr.getInitializer());
+                    return toString(newExpr.getInitializer());
                 } else {
                     Shape shape = newExpr.getShape();
                     String result = _getListComprehensionByDimension(1,
@@ -837,7 +836,7 @@ public class PythonViewer extends LanguageViewer {
             }
             case MethodCall funcCall -> {
                 MemberAccess memAcc = parenFiller.process(new MemberAccess(funcCall.getObject(),
-                        (SimpleIdentifier) funcCall.getFunctionName()));
+                        funcCall.getFunctionName()));
                 return String.format("%s(%s)", toString(memAcc), argumentsToString(funcCall.getArguments()));
             }
             case FunctionCall funcCall -> {

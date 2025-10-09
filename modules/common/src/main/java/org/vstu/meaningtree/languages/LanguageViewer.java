@@ -13,6 +13,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+/**
+ * ПРЕДУПРЕЖДЕНИЕ: Не используйте в реализациях языков перегрузку toString для добавления отображения каждого узла
+ * Это сломает многие фичи, т.к. toString(Node node) не только перенаправляет запросы к специальному методу,
+ * но и добавляет логику хуков!
+ */
 abstract public class LanguageViewer {
     private Config _config;
     protected MeaningTree origin;

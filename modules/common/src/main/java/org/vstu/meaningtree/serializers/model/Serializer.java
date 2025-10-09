@@ -9,7 +9,13 @@ import org.vstu.meaningtree.utils.tokens.TokenList;
 
 import java.io.Serializable;
 
+/**
+ * ПРЕДУПРЕЖДЕНИЕ: Не используйте перегрузку serialize для добавления сериализации каждого узла
+ * Это сломает многие фичи, т.к. serialize(Node node) не только перенаправляет запросы к специальному методу,
+ * но и может добавлять свою логику
+ */
 public interface Serializer<T> {
+
     T serialize(Node node);
     T serialize(MeaningTree mt);
     T serialize(SourceMap map);

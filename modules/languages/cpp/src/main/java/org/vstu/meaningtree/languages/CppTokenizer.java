@@ -256,6 +256,10 @@ public class CppTokenizer extends LanguageTokenizer {
             }
         }
 
+        if (tokenValue.equals("{") || tokenValue.equals("}")) {
+            return null;
+        }
+
         OperatorToken tok = operators.getOrDefault(tokenValue, null);
         return tok == null ? null : tok.clone();
     }

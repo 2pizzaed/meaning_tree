@@ -174,7 +174,9 @@ public class PythonTokenizer extends LanguageTokenizer {
         TokenType tokenType;
 
         if (recognizedOperator != null
-                && !((type.equals("[") || type.equals("]")) && parent.getType().equals("list"))) {
+                && !(List.of("[", "]").contains(type) && parent.getType().equals("list"))
+                && !(List.of("if", "else").contains(type) && !parent.getType().equals("conditional_expression"))
+        ) {
             return recognizedOperator;
         }
 
@@ -206,8 +208,6 @@ public class PythonTokenizer extends LanguageTokenizer {
             tokenType = TokenType.CONST;
         } else if (type.equals(",")) {
             tokenType = TokenType.COMMA;
-        } else if (List.of("lambda", "if", "else").contains(type)) {
-            tokenType = TokenType.KEYWORD;
         } else if (List.of("=", "+=", "-=", "*=", "/=", "//=", "%=", "&=", "|=", "^=", ">>=", "<<=").contains(type)) {
             tokenType = TokenType.STATEMENT_TOKEN;
         } else if (type.equals("[") && parent.getType().equals("list")) {

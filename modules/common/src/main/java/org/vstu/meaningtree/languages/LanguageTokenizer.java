@@ -273,8 +273,21 @@ public abstract class LanguageTokenizer {
                 int currStartUtf16 = byteOffsetToCharIndex(code, node.getChild(i).getStartByte());
                 String between = code.substring(prevEndUtf16, currStartUtf16);
                 String whites = between.replaceAll("[^ \t\n]", "");
-                if (!whites.isEmpty() && (whites.contains("\t") || whites.contains("\n"))) {
-                    tokens.add(new Whitespace(whites, TokenType.UNKNOWN));
+                StringBuilder buffer = new StringBuilder();
+                for (int k = 0; k < whites.length(); k++) {
+                    char white = whites.charAt(k);
+                    if (white == '\n') {
+                        if (buffer.length() > 0 && !buffer.toString().equals(" ")) {
+                            tokens.add(new Whitespace(buffer.toString(), TokenType.UNKNOWN));
+                            buffer.delete(0, buffer.length());
+                        }
+                        tokens.add(new Whitespace("\n", TokenType.SEPARATOR));
+                    } else {
+                        buffer.append(white);
+                    }
+                }
+                if (buffer.length() > 0 && !buffer.toString().equals(" ")) {
+                    tokens.add(new Whitespace(buffer.toString(), TokenType.UNKNOWN));
                 }
             }
             collectTokens(node.getChild(i), tokens, true, null);

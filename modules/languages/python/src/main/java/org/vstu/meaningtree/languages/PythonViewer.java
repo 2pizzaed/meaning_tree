@@ -101,7 +101,7 @@ public class PythonViewer extends LanguageViewer {
     }
 
     public String toString(Node node, Tab tab) {
-        return switch (node) {
+        String result = switch (node) {
             case ProgramEntryPoint programEntryPoint -> entryPointToString(programEntryPoint, tab);
             case AssignmentExpression assignmentExpr -> assignmentExpressionToString(assignmentExpr);
             case BinaryComparison cmpNode -> comparisonToString(cmpNode);
@@ -171,6 +171,8 @@ public class PythonViewer extends LanguageViewer {
             case null -> throw new MeaningTreeException("Null node detected");
             default -> throw new UnsupportedViewingException("Unsupported tree element: " + node.getClass().getName());
         };
+        result = this.applyHooks(node, result);
+        return result;
     }
 
     private String emptyStatementToString(EmptyStatement emptyStatement) {
@@ -960,9 +962,11 @@ public class PythonViewer extends LanguageViewer {
             builder.append(tab);
             if (child instanceof CompoundStatement) {
                 // Схлопываем лишний таб, так как блоки как самостоятельная сущность в Python не поддерживаются
-                builder.append(toString(child, tab.down().down()));
+                var result = toString(child, tab.down().down());
+                builder.append(result);
             } else {
-                builder.append(toString(child, tab));
+                var result = toString(child, tab);
+                builder.append(result);
             }
             builder.append('\n');
         }

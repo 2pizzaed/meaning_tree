@@ -7,10 +7,7 @@ import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.SourceMap;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -26,8 +23,13 @@ public class SourceMapGenerator {
     private static final String START_TAG = "\u2060AST_START_"; // \u2060 = word joiner (невидимый)
     private static final String END_TAG = "\u2060AST_END";
 
+    private static final Set<Long> watermarked = new HashSet<>();
+
     private static final BiFunction<Node, String, String> watermarkingHook = (node, string) -> {
         long id = node.getId(); // допустим, у Node есть getId()
+        if (watermarked.contains(id)) {
+            return string;
+        }
         var stringBuffer = new StringBuilder();
         stringBuffer.append(START_TAG);
         stringBuffer.append(id);
@@ -37,6 +39,7 @@ public class SourceMapGenerator {
         stringBuffer.append('/');
         stringBuffer.append(id);
         stringBuffer.append(END_TAG);
+        watermarked.add(id);
         return stringBuffer.toString();
     };
 
@@ -47,11 +50,13 @@ public class SourceMapGenerator {
 
     public SourceMap process(MeaningTree meaningTree) {
         String code = translator.getCode(meaningTree);
+        watermarked.clear();
         return buildSourceMap(meaningTree, code);
     }
 
     public SourceMap process(Node root) {
         String code = translator.getCode(root);
+        watermarked.clear();
         return buildSourceMap(root, code);
     }
 

@@ -158,163 +158,163 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
         var json = switch (node) {
             // Operators
-            case AddOp op -> serialize(op);
-            case SubOp op -> serialize(op);
-            case MulOp op -> serialize(op);
-            case DivOp op -> serialize(op);
-            case ModOp op -> serialize(op);
-            case MatMulOp op -> serialize(op);
-            case FloorDivOp op -> serialize(op);
-            case EqOp op -> serialize(op);
-            case GeOp op -> serialize(op);
-            case GtOp op -> serialize(op);
-            case LeOp op -> serialize(op);
-            case LtOp op -> serialize(op);
-            case UnaryMinusOp unaryMinusOp -> serialize(unaryMinusOp);
-            case UnaryPlusOp unaryPlusOp -> serialize(unaryPlusOp);
-            case InstanceOfOp op -> serialize(op);
-            case NotEqOp op -> serialize(op);
-            case ShortCircuitAndOp op -> serialize(op);
-            case ShortCircuitOrOp op -> serialize(op);
+            case AddOp op -> serializeAddOp(op);
+            case SubOp op -> serializeSubOp(op);
+            case MulOp op -> serializeMulOp(op);
+            case DivOp op -> serializeDivOp(op);
+            case ModOp op -> serializeModOp(op);
+            case MatMulOp op -> serializeMatMulOp(op);
+            case FloorDivOp op -> serializeFloorDivOp(op);
+            case EqOp op -> serializeEqOp(op);
+            case GeOp op -> serializeGeOp(op);
+            case GtOp op -> serializeGtOp(op);
+            case LeOp op -> serializeLeOp(op);
+            case LtOp op -> serializeLtOp(op);
+            case UnaryMinusOp unaryMinusOp -> serializeUnaryMinusOp(unaryMinusOp);
+            case UnaryPlusOp unaryPlusOp -> serializeUnaryPlusOp(unaryPlusOp);
+            case InstanceOfOp op -> serializeInstanceOfOp(op);
+            case NotEqOp op -> serializeNotEqOp(op);
+            case ShortCircuitAndOp op -> serializeShortCircuitAndOp(op);
+            case ShortCircuitOrOp op -> serializeShortCircuitOrOp(op);
 
-            case LongCircuitAndOp op -> serialize(op);
-            case LongCircuitOrOp op -> serialize(op);
+            case LongCircuitAndOp op -> serializeLongCircuitAndOp(op);
+            case LongCircuitOrOp op -> serializeLongCircuitOrOp(op);
 
-            case PowOp op -> serialize(op);
-            case NotOp op -> serialize(op);
-            case PostfixIncrementOp inc -> serialize(inc);
-            case PostfixDecrementOp dec -> serialize(dec);
-            case PrefixIncrementOp inc -> serialize(inc);
-            case PrefixDecrementOp dec -> serialize(dec);
-            case BitwiseAndOp bitwiseAndOp -> serialize(bitwiseAndOp);
-            case BitwiseOrOp bitwiseOrOp -> serialize(bitwiseOrOp);
-            case XorOp xorOp -> serialize(xorOp);
-            case InversionOp inversionOp -> serialize(inversionOp);
-            case LeftShiftOp leftShiftOp -> serialize(leftShiftOp);
-            case RightShiftOp rightShiftOp -> serialize(rightShiftOp);
-            case ContainsOp op -> serialize(op);
-            case ReferenceEqOp op -> serialize(op);
-            case TernaryOperator ternaryOperator -> serialize(ternaryOperator);
+            case PowOp op -> serializePowOp(op);
+            case NotOp op -> serializeNotOp(op);
+            case PostfixIncrementOp inc -> serializePostfixIncrementOp(inc);
+            case PostfixDecrementOp dec -> serializePostfixDecrementOp(dec);
+            case PrefixIncrementOp inc -> serializePrefixIncrementOp(inc);
+            case PrefixDecrementOp dec -> serializePrefixDecrementOp(dec);
+            case BitwiseAndOp bitwiseAndOp -> serializeBitwiseAndOp(bitwiseAndOp);
+            case BitwiseOrOp bitwiseOrOp -> serializeBitwiseOrOp(bitwiseOrOp);
+            case XorOp xorOp -> serializeXorOp(xorOp);
+            case InversionOp inversionOp -> serializeInversionOp(inversionOp);
+            case LeftShiftOp leftShiftOp -> serializeLeftShiftOp(leftShiftOp);
+            case RightShiftOp rightShiftOp -> serializeRightShiftOp(rightShiftOp);
+            case ContainsOp op -> serializeContainsOp(op);
+            case ReferenceEqOp op -> serializeReferenceEqOp(op);
+            case TernaryOperator ternaryOperator -> serializeTernaryOperator(ternaryOperator);
 
             // Literals
-            case FloatLiteral l -> serialize(l);
-            case IntegerLiteral l -> serialize(l);
-            case StringLiteral l -> serialize(l);
-            case NullLiteral l -> serialize(l);
-            case BoolLiteral l -> serialize(l);
-            case CharacterLiteral l -> serialize(l);
+            case FloatLiteral l -> serializeFloatLiteral(l);
+            case IntegerLiteral l -> serializeIntegerLiteral(l);
+            case StringLiteral l -> serializeStringLiteral(l);
+            case NullLiteral l -> serializeNullLiteral(l);
+            case BoolLiteral l -> serializeBoolLiteral(l);
+            case CharacterLiteral l -> serializeCharacterLiteral(l);
 
-            case ArrayLiteral l -> serialize(l);
-            case ListLiteral l -> serialize(l);
-            case SetLiteral l -> serialize(l);
-            case UnmodifiableListLiteral l -> serialize(l);
-            case InterpolatedStringLiteral l -> serialize(l);
+            case ArrayLiteral l -> serializeArrayLiteral(l);
+            case ListLiteral l -> serializeListLiteral(l);
+            case SetLiteral l -> serializeSetLiteral(l);
+            case UnmodifiableListLiteral l -> serializeUnmodifiableListLiteral(l);
+            case InterpolatedStringLiteral l -> serializeInterpolatedStringLiteral(l);
 
-            case PointerMemberAccess memAcc -> serialize(memAcc);
-            case PointerPackOp packOp -> serialize(packOp);
-            case PointerUnpackOp unpackOp -> serialize(unpackOp);
+            case PointerMemberAccess memAcc -> serializePointerMemberAccess(memAcc);
+            case PointerPackOp packOp -> serializePointerPackOp(packOp);
+            case PointerUnpackOp unpackOp -> serializePointerUnpackOp(unpackOp);
 
-            case ArrayInitializer arrInit -> serialize(arrInit);
-            case CastTypeExpression castType -> serialize(castType);
-            case CommaExpression comma -> serialize(comma);
-            case DeleteExpression del -> serialize(del);
-            case KeyValuePair kv -> serialize(kv);
-            case MemoryAllocationCall memAlloc -> serialize(memAlloc);
-            case MemoryFreeCall memFreeAlloc -> serialize(memFreeAlloc);
-            case SizeofExpression sizeofExpr -> serialize(sizeofExpr);
-            case MemberAccess memberAccess -> serialize(memberAccess);
-            case ExpressionSequence exprSeq -> serialize(exprSeq);
-            case ThreeWayComparisonOp threeWayComparisonOp -> serialize(threeWayComparisonOp);
-            case PlacementNewExpression plNew -> serialize(plNew);
-            case ObjectNewExpression newExpr -> serialize(newExpr);
-            case QualifiedIdentifier ident -> serialize(ident);
-            case ScopedIdentifier scopedIdentifier -> serialize(scopedIdentifier);
-            case SelfReference selfRef -> serialize(selfRef);
-            case SuperClassReference superClassRef -> serialize(superClassRef);
-            case Alias alias -> serialize(alias);
-            case SimpleIdentifier expr -> serialize(expr);
-            case ContainerBasedComprehension compPh -> serialize(compPh);
-            case RangeBasedComprehension compPh -> serialize(compPh);
-            case StaticImportAll staticImportAll -> serialize(staticImportAll);
-            case StaticImportMembersFromModule staticImportMembersFromModule -> serialize(staticImportMembersFromModule);
-            case ImportAllFromModule importAllFromModule -> serialize(importAllFromModule);
-            case ImportMembersFromModule importMembersFromModule -> serialize(importMembersFromModule);
-            case ImportModule importModule -> serialize(importModule);
-            case ImportModules importModules -> serialize(importModules);
-            case PackageDeclaration packageDeclaration -> serialize(packageDeclaration);
-            case ReturnStatement stmt -> serialize(stmt);
-            case CompoundAssignmentStatement stmt -> serialize(stmt);
-            case MultipleAssignmentStatement stmt -> serialize(stmt);
+            case ArrayInitializer arrInit -> serializeArrayInitializer(arrInit);
+            case CastTypeExpression castType -> serializeCastTypeExpression(castType);
+            case CommaExpression comma -> serializeCommaExpression(comma);
+            case DeleteExpression del -> serializeDeleteExpression(del);
+            case KeyValuePair kv -> serializeKeyValuePair(kv);
+            case MemoryAllocationCall memAlloc -> serializeMemoryAllocationCall(memAlloc);
+            case MemoryFreeCall memFreeAlloc -> serializeMemoryFreeCall(memFreeAlloc);
+            case SizeofExpression sizeofExpr -> serializeSizeofExpression(sizeofExpr);
+            case MemberAccess memberAccess -> serializeMemberAccess(memberAccess);
+            case ExpressionSequence exprSeq -> serializeExpressionSequence(exprSeq);
+            case ThreeWayComparisonOp threeWayComparisonOp -> serializeThreeWayComparisonOp(threeWayComparisonOp);
+            case PlacementNewExpression plNew -> serializePlacementNewExpression(plNew);
+            case ObjectNewExpression newExpr -> serializeObjectNewExpression(newExpr);
+            case QualifiedIdentifier ident -> serializeQualifiedIdentifier(ident);
+            case ScopedIdentifier scopedIdentifier -> serializeScopedIdentifier(scopedIdentifier);
+            case SelfReference selfRef -> serializeSelfReference(selfRef);
+            case SuperClassReference superClassRef -> serializeSuperClassReference(superClassRef);
+            case Alias alias -> serializeAlias(alias);
+            case SimpleIdentifier expr -> serializeSimpleIdentifier(expr);
+            case ContainerBasedComprehension compPh -> serializeContainerBasedComprehension(compPh);
+            case RangeBasedComprehension compPh -> serializeRangeBasedComprehension(compPh);
+            case StaticImportAll staticImportAll -> serializeStaticImportAll(staticImportAll);
+            case StaticImportMembersFromModule staticImportMembersFromModule -> serializeStaticImportMembersFromModule(staticImportMembersFromModule);
+            case ImportAllFromModule importAllFromModule -> serializeImportAllFromModule(importAllFromModule);
+            case ImportMembersFromModule importMembersFromModule -> serializeImportMembersFromModule(importMembersFromModule);
+            case ImportModule importModule -> serializeImportModule(importModule);
+            case ImportModules importModules -> serializeImportModules(importModules);
+            case PackageDeclaration packageDeclaration -> serializePackageDeclaration(packageDeclaration);
+            case ReturnStatement stmt -> serializeReturnStatement(stmt);
+            case CompoundAssignmentStatement stmt -> serializeCompoundAssignmentStatement(stmt);
+            case MultipleAssignmentStatement stmt -> serializeMultipleAssignmentStatement(stmt);
 
-            case BasicCaseBlock caseBlock -> serialize(caseBlock);
-            case DefaultCaseBlock defaultCaseBlock -> serialize(defaultCaseBlock);
-            case FallthroughCaseBlock fallthroughCaseBlock -> serialize(fallthroughCaseBlock);
+            case BasicCaseBlock caseBlock -> serializeBasicCaseBlock(caseBlock);
+            case DefaultCaseBlock defaultCaseBlock -> serializeDefaultCaseBlock(defaultCaseBlock);
+            case FallthroughCaseBlock fallthroughCaseBlock -> serializeFallthroughCaseBlock(fallthroughCaseBlock);
 
             // Expressions
-            case ParenthesizedExpression expr -> serialize(expr);
-            case AssignmentExpression expr -> serialize(expr);
-            case CompoundComparison cmp -> serialize(cmp);
-            case DeleteStatement del -> serialize(del);
-            case FormatInput input -> serialize(input);
-            case FormatPrint print -> serialize(print);
-            case PointerInputCommand command -> serialize(command);
-            case InputCommand command -> serialize(command);
-            case PrintValues printValues -> serialize(printValues);
-            case ConstructorCall call -> serialize(call);
-            case MethodCall call -> serialize(call);
-            case FunctionCall funcCall -> serialize(funcCall);
-            case IndexExpression indexExpression -> serialize(indexExpression);
-            case Range range -> serialize(range);
+            case ParenthesizedExpression expr -> serializeParenthesizedExpression(expr);
+            case AssignmentExpression expr -> serializeAssignmentExpression(expr);
+            case CompoundComparison cmp -> serializeCompoundComparison(cmp);
+            case DeleteStatement del -> serializeDeleteStatement(del);
+            case FormatInput input -> serializeFormatInput(input);
+            case FormatPrint print -> serializeFormatPrint(print);
+            case PointerInputCommand command -> serializePointerInputCommand(command);
+            case InputCommand command -> serializeInputCommand(command);
+            case PrintValues printValues -> serializePrintValues(printValues);
+            case ConstructorCall call -> serializeConstructorCall(call);
+            case MethodCall call -> serializeMethodCall(call);
+            case FunctionCall funcCall -> serializeFunctionCall(funcCall);
+            case IndexExpression indexExpression -> serializeIndexExpression(indexExpression);
+            case Range range -> serializeRange(range);
 
-            case NumericType t -> serialize(t);
-            case PointerType t -> serialize(t);
-            case ArrayType t -> serialize(t);
-            case BooleanType t -> serialize(t);
-            case ReferenceType t -> serialize(t);
-            case StringType t -> serialize(t);
-            case Shape t -> serialize(t);
-            case PlainCollectionType t -> serialize(t);
-            case GenericInterface t -> serialize(t);
-            case GenericUserType t -> serialize(t);
-            case NoReturn t -> serialize(t);
-            case UnknownType t -> serialize(t);
-            case UserType t -> serialize(t);
+            case NumericType t -> serializeNumericType(t);
+            case PointerType t -> serializePointerType(t);
+            case ArrayType t -> serializeArrayType(t);
+            case BooleanType t -> serializeBooleanType(t);
+            case ReferenceType t -> serializeReferenceType(t);
+            case StringType t -> serializeStringType(t);
+            case Shape t -> serializeShape(t);
+            case PlainCollectionType t -> serializePlainCollectionType(t);
+            case GenericInterface t -> serializeGenericUserType(t);
+            case GenericUserType t -> serializeGenericUserType(t);
+            case NoReturn t -> serializeNoReturn(t);
+            case UnknownType t -> serializeUnknownType(t);
+            case UserType t -> serializeUserType(t);
 
-            case ClassDefinition cd -> serialize(cd);
-            case ObjectConstructorDefinition ocd -> serialize(ocd);
-            case ObjectDestructorDefinition ocdef -> serialize(ocdef);
-            case MethodDefinition md -> serialize(md);
-            case FunctionDefinition fd -> serialize(fd);
-            case DefinitionArgument defArg -> serialize(defArg);
-            case DeclarationArgument declarationArgument -> serialize(declarationArgument);
-            case Annotation anno -> serialize(anno);
-            case ClassDeclaration classDeclaration -> serialize(classDeclaration);
-            case ObjectConstructorDeclaration objectConstructorDefinition -> serialize(objectConstructorDefinition);
-            case ObjectDestructorDeclaration objectDestructorDefinition -> serialize(objectDestructorDefinition);
-            case SeparatedVariableDeclaration separatedVariableDeclaration -> serialize(separatedVariableDeclaration);
-            case FieldDeclaration fieldDeclaration -> serialize(fieldDeclaration);
-            case MethodDeclaration methodDeclaration -> serialize(methodDeclaration);
-            case FunctionDeclaration functionDeclaration -> serialize(functionDeclaration);
+            case ClassDefinition cd -> serializeClassDefinition(cd);
+            case ObjectConstructorDefinition ocd -> serializeObjectConstructorDefinition(ocd);
+            case ObjectDestructorDefinition ocdef -> serializeObjectDestructorDefinition(ocdef);
+            case MethodDefinition md -> serializeMethodDefinition(md);
+            case FunctionDefinition fd -> serializeFunctionDefinition(fd);
+            case DefinitionArgument defArg -> serializeDefinitionArgument(defArg);
+            case DeclarationArgument declarationArgument -> serializeDeclarationArgument(declarationArgument);
+            case Annotation anno -> serializeAnnotation(anno);
+            case ClassDeclaration classDeclaration -> serializeClassDeclaration(classDeclaration);
+            case ObjectConstructorDeclaration objectConstructorDefinition -> serializeMethodDeclaration(objectConstructorDefinition);
+            case ObjectDestructorDeclaration objectDestructorDefinition -> serializeMethodDeclaration(objectDestructorDefinition);
+            case SeparatedVariableDeclaration separatedVariableDeclaration -> serializeSeparatedVariableDeclaration(separatedVariableDeclaration);
+            case FieldDeclaration fieldDeclaration -> serializeVariableDeclaration(fieldDeclaration);
+            case MethodDeclaration methodDeclaration -> serializeMethodDeclaration(methodDeclaration);
+            case FunctionDeclaration functionDeclaration -> serializeFunctionDeclaration(functionDeclaration);
 
             // Statements
-            case AssignmentStatement stmt -> serialize(stmt);
-            case VariableDeclaration stmt -> serialize(stmt);
-            case EmptyStatement stmt -> serialize(stmt);
-            case CompoundStatement stmt -> serialize(stmt);
-            case ExpressionStatement stmt -> serialize(stmt);
-            case IfStatement stmt -> serialize(stmt);
-            case ConditionBranch stmt -> serialize(stmt);
-            case InfiniteLoop infLoop -> serialize(infLoop);
-            case GeneralForLoop stmt -> serialize(stmt);
-            case RangeForLoop rangeLoop -> serialize(rangeLoop);
-            case WhileLoop whileLoop -> serialize(whileLoop);
-            case BreakStatement stmt -> serialize(stmt);
-            case ContinueStatement stmt -> serialize(stmt);
-            case SwitchStatement switchStatement -> serialize(switchStatement);
-            case DoWhileLoop doWhileLoop -> serialize(doWhileLoop);
+            case AssignmentStatement stmt -> serializeAssignmentStatement(stmt);
+            case VariableDeclaration stmt -> serializeVariableDeclaration(stmt);
+            case EmptyStatement stmt -> serializeEmptyStatement(stmt);
+            case CompoundStatement stmt -> serializeCompoundStatement(stmt);
+            case ExpressionStatement stmt -> serializeExpressionStatement(stmt);
+            case IfStatement stmt -> serializeIfStatement(stmt);
+            case ConditionBranch stmt -> serializeConditionBranch(stmt);
+            case InfiniteLoop infLoop -> serializeInfiniteLoop(infLoop);
+            case GeneralForLoop stmt -> serializeGeneralForLoop(stmt);
+            case RangeForLoop rangeLoop -> serializeRangeForLoop(rangeLoop);
+            case WhileLoop whileLoop -> serializeWhileLoop(whileLoop);
+            case BreakStatement stmt -> serializeBreakStatement(stmt);
+            case ContinueStatement stmt -> serializeContinueStatement(stmt);
+            case SwitchStatement switchStatement -> serializeSwitchStatement(switchStatement);
+            case DoWhileLoop doWhileLoop -> serializeDoWhileLoop(doWhileLoop);
 
-            case ProgramEntryPoint entryPoint -> serialize(entryPoint);
-            case Comment comment -> serialize(comment);
+            case ProgramEntryPoint entryPoint -> serializeProgramEntryPoint(entryPoint);
+            case Comment comment -> serializeComment(comment);
 
             default -> throw new IllegalStateException("Unexpected value: " + node);
         };
@@ -357,7 +357,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     ------------------------------ */
 
     @NotNull
-    private JsonObject serialize(@NotNull AddOp op) {
+    private JsonObject serializeAddOp(@NotNull AddOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -368,7 +368,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull SubOp op) {
+    private JsonObject serializeSubOp(@NotNull SubOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -379,7 +379,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull MulOp op) {
+    private JsonObject serializeMulOp(@NotNull MulOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -390,7 +390,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull DivOp op) {
+    private JsonObject serializeDivOp(@NotNull DivOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -401,7 +401,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ModOp op) {
+    private JsonObject serializeModOp(@NotNull ModOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -412,7 +412,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull MatMulOp op) {
+    private JsonObject serializeMatMulOp(@NotNull MatMulOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -423,7 +423,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull FloorDivOp op) {
+    private JsonObject serializeFloorDivOp(@NotNull FloorDivOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -434,7 +434,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PowOp op) {
+    private JsonObject serializePowOp(@NotNull PowOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -445,7 +445,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull EqOp op) {
+    private JsonObject serializeEqOp(@NotNull EqOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -456,7 +456,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull GeOp op) {
+    private JsonObject serializeGeOp(@NotNull GeOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -467,7 +467,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull GtOp op) {
+    private JsonObject serializeGtOp(@NotNull GtOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -478,7 +478,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull LeOp op) {
+    private JsonObject serializeLeOp(@NotNull LeOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -489,7 +489,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull LtOp op) {
+    private JsonObject serializeLtOp(@NotNull LtOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -500,7 +500,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull NotEqOp op) {
+    private JsonObject serializeNotEqOp(@NotNull NotEqOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -511,7 +511,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ReferenceEqOp op) {
+    private JsonObject serializeReferenceEqOp(@NotNull ReferenceEqOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -522,7 +522,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ShortCircuitAndOp op) {
+    private JsonObject serializeShortCircuitAndOp(@NotNull ShortCircuitAndOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -533,7 +533,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ShortCircuitOrOp op) {
+    private JsonObject serializeShortCircuitOrOp(@NotNull ShortCircuitOrOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -544,7 +544,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull NotOp op) {
+    private JsonObject serializeNotOp(@NotNull NotOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -554,7 +554,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull UnaryMinusOp op) {
+    private JsonObject serializeUnaryMinusOp(@NotNull UnaryMinusOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -563,17 +563,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull UnaryPlusOp op) {
-        JsonObject json = new JsonObject();
-
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
-        json.add("operand", serialize(op.getArgument()));
-
-        return json;
-    }
-
-    @NotNull
-    private JsonObject serialize(@NotNull PostfixIncrementOp op) {
+    private JsonObject serializeUnaryPlusOp(@NotNull UnaryPlusOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -583,7 +573,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PostfixDecrementOp op) {
+    private JsonObject serializePostfixIncrementOp(@NotNull PostfixIncrementOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -593,7 +583,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PrefixIncrementOp op) {
+    private JsonObject serializePostfixDecrementOp(@NotNull PostfixDecrementOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -603,7 +593,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PrefixDecrementOp op) {
+    private JsonObject serializePrefixIncrementOp(@NotNull PrefixIncrementOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -613,7 +603,17 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull BitwiseAndOp op) {
+    private JsonObject serializePrefixDecrementOp(@NotNull PrefixDecrementOp op) {
+        JsonObject json = new JsonObject();
+
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
+        json.add("operand", serialize(op.getArgument()));
+
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeBitwiseAndOp(@NotNull BitwiseAndOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -624,7 +624,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull BitwiseOrOp op) {
+    private JsonObject serializeBitwiseOrOp(@NotNull BitwiseOrOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -635,7 +635,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull XorOp op) {
+    private JsonObject serializeXorOp(@NotNull XorOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -646,7 +646,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull InversionOp op) {
+    private JsonObject serializeInversionOp(@NotNull InversionOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -656,7 +656,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull LeftShiftOp op) {
+    private JsonObject serializeLeftShiftOp(@NotNull LeftShiftOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -667,7 +667,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull RightShiftOp op) {
+    private JsonObject serializeRightShiftOp(@NotNull RightShiftOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -678,7 +678,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull InstanceOfOp op) {
+    private JsonObject serializeInstanceOfOp(@NotNull InstanceOfOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -689,7 +689,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ContainsOp op) {
+    private JsonObject serializeContainsOp(@NotNull ContainsOp op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -700,7 +700,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull TernaryOperator op) {
+    private JsonObject serializeTernaryOperator(@NotNull TernaryOperator op) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
@@ -716,7 +716,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     ------------------------------ */
 
     @NotNull
-    private JsonObject serialize(@NotNull FloatLiteral floatLiteral) {
+    private JsonObject serializeFloatLiteral(@NotNull FloatLiteral floatLiteral) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(floatLiteral));
@@ -727,7 +727,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull IntegerLiteral integerLiteral) {
+    private JsonObject serializeIntegerLiteral(@NotNull IntegerLiteral integerLiteral) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(integerLiteral));
@@ -738,7 +738,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull StringLiteral stringLiteral) {
+    private JsonObject serializeStringLiteral(@NotNull StringLiteral stringLiteral) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stringLiteral));
@@ -748,7 +748,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull NullLiteral nullLiteral) {
+    private JsonObject serializeNullLiteral(@NotNull NullLiteral nullLiteral) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(nullLiteral));
@@ -757,7 +757,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull BoolLiteral boolLiteral) {
+    private JsonObject serializeBoolLiteral(@NotNull BoolLiteral boolLiteral) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(boolLiteral));
@@ -767,7 +767,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull CharacterLiteral characterLiteral) {
+    private JsonObject serializeCharacterLiteral(@NotNull CharacterLiteral characterLiteral) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(characterLiteral));
@@ -782,7 +782,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     ------------------------------ */
 
     @NotNull
-    private JsonObject serialize(@NotNull ParenthesizedExpression expr) {
+    private JsonObject serializeParenthesizedExpression(@NotNull ParenthesizedExpression expr) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
@@ -792,7 +792,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull SimpleIdentifier expr) {
+    private JsonObject serializeSimpleIdentifier(@NotNull SimpleIdentifier expr) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
@@ -802,7 +802,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull AssignmentExpression expr) {
+    private JsonObject serializeAssignmentExpression(@NotNull AssignmentExpression expr) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
@@ -813,7 +813,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull CompoundComparison cmp) {
+    private JsonObject serializeCompoundComparison(@NotNull CompoundComparison cmp) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(cmp));
 
@@ -830,7 +830,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull FunctionCall funcCall) {
+    private JsonObject serializeFunctionCall(@NotNull FunctionCall funcCall) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(funcCall));
@@ -846,7 +846,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull IndexExpression indexExpression) {
+    private JsonObject serializeIndexExpression(@NotNull IndexExpression indexExpression) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(indexExpression));
@@ -862,7 +862,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     ------------------------------ */
 
     @NotNull
-    private JsonObject serialize(@NotNull AssignmentStatement stmt) {
+    private JsonObject serializeAssignmentStatement(@NotNull AssignmentStatement stmt) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
@@ -873,7 +873,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull EmptyStatement stmt) {
+    private JsonObject serializeEmptyStatement(@NotNull EmptyStatement stmt) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
@@ -882,7 +882,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull VariableDeclaration stmt) {
+    private JsonObject serializeVariableDeclaration(@NotNull VariableDeclaration stmt) {
         JsonObject json = new JsonObject();
 
         if (stmt instanceof FieldDeclaration decl) {
@@ -912,7 +912,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull CompoundStatement stmt) {
+    private JsonObject serializeCompoundStatement(@NotNull CompoundStatement stmt) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
 
@@ -926,7 +926,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ExpressionStatement stmt) {
+    private JsonObject serializeExpressionStatement(@NotNull ExpressionStatement stmt) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
@@ -936,7 +936,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull IfStatement stmt) {
+    private JsonObject serializeIfStatement(@NotNull IfStatement stmt) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
 
@@ -953,7 +953,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ConditionBranch branch) {
+    private JsonObject serializeConditionBranch(@NotNull ConditionBranch branch) {
         JsonObject branchJson = new JsonObject();
 
         if (branch.getCondition() != null) {
@@ -970,7 +970,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
     // TODO: сделать это как таковое
     @NotNull
-    private JsonObject serialize(@NotNull GeneralForLoop stmt) {
+    private JsonObject serializeGeneralForLoop(@NotNull GeneralForLoop stmt) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
 
@@ -992,7 +992,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull Range range) {
+    private JsonObject serializeRange(@NotNull Range range) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(range));
@@ -1010,7 +1010,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull RangeForLoop stmt) {
+    private JsonObject serializeRangeForLoop(@NotNull RangeForLoop stmt) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
@@ -1023,7 +1023,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull WhileLoop stmt) {
+    private JsonObject serializeWhileLoop(@NotNull WhileLoop stmt) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
@@ -1035,7 +1035,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull BreakStatement stmt) {
+    private JsonObject serializeBreakStatement(@NotNull BreakStatement stmt) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
@@ -1044,7 +1044,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ContinueStatement stmt) {
+    private JsonObject serializeContinueStatement(@NotNull ContinueStatement stmt) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
@@ -1053,7 +1053,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull SwitchStatement stmt) {
+    private JsonObject serializeSwitchStatement(@NotNull SwitchStatement stmt) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
         json.add("expression", serialize(stmt.getTargetExpression()));
@@ -1072,7 +1072,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull DoWhileLoop stmt) {
+    private JsonObject serializeDoWhileLoop(@NotNull DoWhileLoop stmt) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
@@ -1089,7 +1089,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     ------------------------------ */
 
     @NotNull
-    private JsonObject serialize(@NotNull ProgramEntryPoint entryPoint) {
+    private JsonObject serializeProgramEntryPoint(@NotNull ProgramEntryPoint entryPoint) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(entryPoint));
@@ -1105,7 +1105,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull Comment comment) {
+    private JsonObject serializeComment(@NotNull Comment comment) {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(comment));
@@ -1116,7 +1116,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull LongCircuitAndOp op) {
+    private JsonObject serializeLongCircuitAndOp(@NotNull LongCircuitAndOp op) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
         json.add("left_operand", serialize(op.getLeft()));
@@ -1125,7 +1125,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull LongCircuitOrOp op) {
+    private JsonObject serializeLongCircuitOrOp(@NotNull LongCircuitOrOp op) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
         json.add("left_operand", serialize(op.getLeft()));
@@ -1134,7 +1134,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ArrayLiteral l) {
+    private JsonObject serializeArrayLiteral(@NotNull ArrayLiteral l) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(l));
         JsonArray elements = new JsonArray();
@@ -1144,7 +1144,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ListLiteral l) {
+    private JsonObject serializeListLiteral(@NotNull ListLiteral l) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(l));
         JsonArray elements = new JsonArray();
@@ -1154,7 +1154,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull SetLiteral l) {
+    private JsonObject serializeSetLiteral(@NotNull SetLiteral l) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(l));
         JsonArray elements = new JsonArray();
@@ -1164,7 +1164,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull UnmodifiableListLiteral l) {
+    private JsonObject serializeUnmodifiableListLiteral(@NotNull UnmodifiableListLiteral l) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(l));
         JsonArray elements = new JsonArray();
@@ -1174,7 +1174,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull InterpolatedStringLiteral l) {
+    private JsonObject serializeInterpolatedStringLiteral(@NotNull InterpolatedStringLiteral l) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(l));
         JsonArray parts = new JsonArray();
@@ -1185,7 +1185,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PointerMemberAccess expr) {
+    private JsonObject serializePointerMemberAccess(@NotNull PointerMemberAccess expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("expression", serialize(expr.getExpression()));
@@ -1194,7 +1194,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PointerPackOp expr) {
+    private JsonObject serializePointerPackOp(@NotNull PointerPackOp expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("operand", serialize(expr.getArgument()));
@@ -1202,7 +1202,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PointerUnpackOp expr) {
+    private JsonObject serializePointerUnpackOp(@NotNull PointerUnpackOp expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("operand", serialize(expr.getArgument()));
@@ -1210,7 +1210,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ConstructorCall call) {
+    private JsonObject serializeConstructorCall(@NotNull ConstructorCall call) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(call));
         JsonArray args = new JsonArray();
@@ -1220,7 +1220,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull MethodCall call) {
+    private JsonObject serializeMethodCall(@NotNull MethodCall call) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(call));
         json.add("receiver", serialize(call.getObject()));
@@ -1232,7 +1232,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ReturnStatement stmt) {
+    private JsonObject serializeReturnStatement(@NotNull ReturnStatement stmt) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
         if (stmt.getExpression() != null) {
@@ -1242,7 +1242,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull CompoundAssignmentStatement stmt) {
+    private JsonObject serializeCompoundAssignmentStatement(@NotNull CompoundAssignmentStatement stmt) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
         JsonArray assignments = new JsonArray();
@@ -1252,7 +1252,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull MultipleAssignmentStatement stmt) {
+    private JsonObject serializeMultipleAssignmentStatement(@NotNull MultipleAssignmentStatement stmt) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
         JsonArray targets = new JsonArray();
@@ -1262,7 +1262,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull BasicCaseBlock block) {
+    private JsonObject serializeBasicCaseBlock(@NotNull BasicCaseBlock block) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(block));
         json.add("body", serialize(block.getBody()));
@@ -1271,7 +1271,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull DefaultCaseBlock block) {
+    private JsonObject serializeDefaultCaseBlock(@NotNull DefaultCaseBlock block) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(block));
         json.add("body", serialize(block.getBody()));
@@ -1279,7 +1279,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull FallthroughCaseBlock block) {
+    private JsonObject serializeFallthroughCaseBlock(@NotNull FallthroughCaseBlock block) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(block));
         json.add("match_value", serialize(block.getMatchValue()));
@@ -1288,7 +1288,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ArrayInitializer expr) {
+    private JsonObject serializeArrayInitializer(@NotNull ArrayInitializer expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         JsonArray targets = new JsonArray();
@@ -1298,7 +1298,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull CastTypeExpression expr) {
+    private JsonObject serializeCastTypeExpression(@NotNull CastTypeExpression expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("target_type", serialize(expr.getCastType()));
@@ -1307,7 +1307,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull CommaExpression expr) {
+    private JsonObject serializeCommaExpression(@NotNull CommaExpression expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         JsonArray targets = new JsonArray();
@@ -1317,7 +1317,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull DeleteExpression expr) {
+    private JsonObject serializeDeleteExpression(@NotNull DeleteExpression expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("expr", serialize(expr.getTarget()));
@@ -1325,7 +1325,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull DeleteStatement expr) {
+    private JsonObject serializeDeleteStatement(@NotNull DeleteStatement expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("expr", serialize(expr.getTarget()));
@@ -1333,7 +1333,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull KeyValuePair expr) {
+    private JsonObject serializeKeyValuePair(@NotNull KeyValuePair expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("key", serialize(expr.key()));
@@ -1342,7 +1342,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull MemoryAllocationCall expr) {
+    private JsonObject serializeMemoryAllocationCall(@NotNull MemoryAllocationCall expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.addProperty("is_clear", expr.isClearAllocation());
@@ -1358,7 +1358,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull MemoryFreeCall expr) {
+    private JsonObject serializeMemoryFreeCall(@NotNull MemoryFreeCall expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("value", serialize(expr.getArguments().getFirst()));
@@ -1366,7 +1366,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull SizeofExpression expr) {
+    private JsonObject serializeSizeofExpression(@NotNull SizeofExpression expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("value", serialize(expr.getExpression()));
@@ -1374,7 +1374,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull MemberAccess expr) {
+    private JsonObject serializeMemberAccess(@NotNull MemberAccess expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("expression", serialize(expr.getExpression()));
@@ -1383,7 +1383,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ExpressionSequence expr) {
+    private JsonObject serializeExpressionSequence(@NotNull ExpressionSequence expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         JsonArray targets = new JsonArray();
@@ -1393,7 +1393,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ThreeWayComparisonOp expr) {
+    private JsonObject serializeThreeWayComparisonOp(@NotNull ThreeWayComparisonOp expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("left_operand", serialize(expr.getLeft()));
@@ -1402,7 +1402,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PlacementNewExpression expr) {
+    private JsonObject serializePlacementNewExpression(@NotNull PlacementNewExpression expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("target_type", serialize(expr.getType()));
@@ -1413,7 +1413,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ObjectNewExpression expr) {
+    private JsonObject serializeObjectNewExpression(@NotNull ObjectNewExpression expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("target_type", serialize(expr.getType()));
@@ -1424,7 +1424,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull QualifiedIdentifier expr) {
+    private JsonObject serializeQualifiedIdentifier(@NotNull QualifiedIdentifier expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("scope", serialize(expr.getScope()));
@@ -1433,7 +1433,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ScopedIdentifier expr) {
+    private JsonObject serializeScopedIdentifier(@NotNull ScopedIdentifier expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         JsonArray targets = new JsonArray();
@@ -1443,7 +1443,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull SelfReference expr) {
+    private JsonObject serializeSelfReference(@NotNull SelfReference expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.addProperty("name", expr.getName());
@@ -1451,7 +1451,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull SuperClassReference expr) {
+    private JsonObject serializeSuperClassReference(@NotNull SuperClassReference expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.addProperty("name", expr.getName());
@@ -1459,7 +1459,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull Alias expr) {
+    private JsonObject serializeAlias(@NotNull Alias expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("realName", serialize(expr.getRealName()));
@@ -1468,7 +1468,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull Comprehension.ComprehensionItem expr) {
+    private JsonObject serializeComprehensionItem(@NotNull Comprehension.ComprehensionItem expr) {
         if (expr instanceof KeyValuePair) return serialize((KeyValuePair) expr);
 
         JsonObject json = new JsonObject();
@@ -1476,35 +1476,39 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case "SetItem"-> "set";
             default -> "list";
         }));
-        json.add("expression", serialize(expr));
+        if (expr instanceof Comprehension.ListItem item) {
+            json.add("expression", serialize(item.value()));
+        } else if (expr instanceof Comprehension.SetItem item) {
+            json.add("expression", serialize(item.value()));
+        }
 
         return json;
     }
 
 
     @NotNull
-    private JsonObject serialize(@NotNull ContainerBasedComprehension expr) {
+    private JsonObject serializeContainerBasedComprehension(@NotNull ContainerBasedComprehension expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("container_item", serialize(expr.getContainerItemDeclaration()));
         json.add("container", serialize(expr.getContainerExpression()));
-        json.add("item", serialize(expr.getItem()));
+        json.add("item", serializeComprehensionItem(expr.getItem()));
         return json;
     }
 
 
     @NotNull
-    private JsonObject serialize(@NotNull RangeBasedComprehension expr) {
+    private JsonObject serializeRangeBasedComprehension(@NotNull RangeBasedComprehension expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
-        json.add("item", serialize(expr.getItem()));
+        json.add("item", serializeComprehensionItem(expr.getItem()));
         json.add("range", serialize(expr.getRange()));
         json.add("identifier", serialize(expr.getRangeVariableIdentifier()));
         return json;
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull FormatInput expr) {
+    private JsonObject serializeFormatInput(@NotNull FormatInput expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("format_string", serialize(expr.getFormatString()));
@@ -1515,7 +1519,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull FormatPrint expr) {
+    private JsonObject serializeFormatPrint(@NotNull FormatPrint expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("format_string", serialize(expr.getFormatString()));
@@ -1528,7 +1532,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PointerInputCommand expr) {
+    private JsonObject serializePointerInputCommand(@NotNull PointerInputCommand expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         JsonArray targets = new JsonArray();
@@ -1539,7 +1543,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull InputCommand expr) {
+    private JsonObject serializeInputCommand(@NotNull InputCommand expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         JsonArray targets = new JsonArray();
@@ -1549,7 +1553,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PrintValues expr) {
+    private JsonObject serializePrintValues(@NotNull PrintValues expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("separator", serialize(expr.separator));
@@ -1561,7 +1565,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull NumericType t) {
+    private JsonObject serializeNumericType(@NotNull NumericType t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
         json.addProperty("size", t.size);
@@ -1572,22 +1576,14 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull BooleanType t) {
+    private JsonObject serializeBooleanType(@NotNull BooleanType t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         return json;
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PointerType t) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
-        json.add("target_type", serialize(t.getTargetType()));
-        return json;
-    }
-
-    @NotNull
-    private JsonObject serialize(@NotNull ReferenceType t) {
+    private JsonObject serializePointerType(@NotNull PointerType t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         json.add("target_type", serialize(t.getTargetType()));
@@ -1595,7 +1591,15 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull StringType t) {
+    private JsonObject serializeReferenceType(@NotNull ReferenceType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
+        json.add("target_type", serialize(t.getTargetType()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeStringType(@NotNull StringType t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         json.addProperty("char_size", t.getCharSize());
@@ -1603,7 +1607,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ArrayType t) {
+    private JsonObject serializeArrayType(@NotNull ArrayType t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         json.add("shape", serialize(t.getShape()));
@@ -1611,7 +1615,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PlainCollectionType t) {
+    private JsonObject serializePlainCollectionType(@NotNull PlainCollectionType t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         json.add("target_type", serialize(t.getItemType()));
@@ -1619,7 +1623,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull Shape t) {
+    private JsonObject serializeShape(@NotNull Shape t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         json.addProperty("dimension_count", t.getDimensionCount());
@@ -1630,7 +1634,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull GenericUserType t) {
+    private JsonObject serializeGenericUserType(@NotNull GenericUserType t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
         json.add("name", serialize(t.getName()));
@@ -1641,21 +1645,21 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull NoReturn t) {
+    private JsonObject serializeNoReturn(@NotNull NoReturn t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         return json;
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull UnknownType t) {
+    private JsonObject serializeUnknownType(@NotNull UnknownType t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         return json;
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull UserType t) {
+    private JsonObject serializeUserType(@NotNull UserType t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
         json.add("name", serialize(t.getName()));
@@ -1663,7 +1667,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ClassDefinition def) {
+    private JsonObject serializeClassDefinition(@NotNull ClassDefinition def) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(def));
         json.add("declaration", serialize(def.getDeclaration()));
@@ -1672,7 +1676,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ObjectConstructorDefinition def) {
+    private JsonObject serializeObjectConstructorDefinition(@NotNull ObjectConstructorDefinition def) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(def));
         json.add("declaration", serialize(def.getDeclaration()));
@@ -1681,7 +1685,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ObjectDestructorDefinition def) {
+    private JsonObject serializeObjectDestructorDefinition(@NotNull ObjectDestructorDefinition def) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(def));
         json.add("declaration", serialize(def.getDeclaration()));
@@ -1690,7 +1694,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull MethodDefinition def) {
+    private JsonObject serializeMethodDefinition(@NotNull MethodDefinition def) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(def));
         json.add("declaration", serialize(def.getDeclaration()));
@@ -1699,7 +1703,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull FunctionDefinition def) {
+    private JsonObject serializeFunctionDefinition(@NotNull FunctionDefinition def) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(def));
         json.add("declaration", serialize(def.getDeclaration()));
@@ -1708,7 +1712,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull DefinitionArgument arg) {
+    private JsonObject serializeDefinitionArgument(@NotNull DefinitionArgument arg) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(arg));
         json.addProperty("name", arg.getName().getName());
@@ -1719,7 +1723,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull DeclarationArgument arg) {
+    private JsonObject serializeDeclarationArgument(@NotNull DeclarationArgument arg) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(arg));
         json.add("target_type", serialize(arg.getElementType()));
@@ -1734,7 +1738,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull Annotation anno) {
+    private JsonObject serializeAnnotation(@NotNull Annotation anno) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(anno));
         json.add("function", serialize(anno.getFunctionExpression()));
@@ -1745,7 +1749,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ClassDeclaration decl) {
+    private JsonObject serializeClassDeclaration(@NotNull ClassDeclaration decl) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
         JsonArray targets = new JsonArray();
@@ -1759,11 +1763,14 @@ public class JsonSerializer implements Serializer<JsonObject> {
         for (var t : decl.getTypeParameters()) genTypes.add(serialize(t));
         json.add("generic_type_params", genTypes);
         json.add("type_node", serialize(decl.getTypeNode()));
+        JsonArray anno = new JsonArray();
+        for (var t : decl.getAnnotations()) anno.add(serialize(t));
+        json.add("annotations", anno);
         return json;
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull SeparatedVariableDeclaration decl) {
+    private JsonObject serializeSeparatedVariableDeclaration(@NotNull SeparatedVariableDeclaration decl) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
         JsonArray vars = new JsonArray();
@@ -1773,7 +1780,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull MethodDeclaration decl) {
+    private JsonObject serializeMethodDeclaration(@NotNull MethodDeclaration decl) {
         JsonObject json = new JsonObject();
         if (decl instanceof ObjectConstructorDeclaration) {
             json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
@@ -1798,7 +1805,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull FunctionDeclaration decl) {
+    private JsonObject serializeFunctionDeclaration(@NotNull FunctionDeclaration decl) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
         json.add("return_type", serialize(decl.getReturnType()));
@@ -1813,7 +1820,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull StaticImportAll decl) {
+    private JsonObject serializeStaticImportAll(@NotNull StaticImportAll decl) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
         json.add("module_name", serialize(decl.getModuleName()));
@@ -1821,26 +1828,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull StaticImportMembersFromModule decl) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
-        json.add("module_name", serialize(decl.getModuleName()));
-        JsonArray targets = new JsonArray();
-        for (var t : decl.getMembers()) targets.add(serialize(t));
-        json.add("members", targets);
-        return json;
-    }
-
-    @NotNull
-    private JsonObject serialize(@NotNull ImportAllFromModule decl) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
-        json.add("module_name", serialize(decl.getModuleName()));
-        return json;
-    }
-
-    @NotNull
-    private JsonObject serialize(@NotNull ImportMembersFromModule decl) {
+    private JsonObject serializeStaticImportMembersFromModule(@NotNull StaticImportMembersFromModule decl) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
         json.add("module_name", serialize(decl.getModuleName()));
@@ -1851,7 +1839,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ImportModule decl) {
+    private JsonObject serializeImportAllFromModule(@NotNull ImportAllFromModule decl) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
         json.add("module_name", serialize(decl.getModuleName()));
@@ -1859,7 +1847,26 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull ImportModules decl) {
+    private JsonObject serializeImportMembersFromModule(@NotNull ImportMembersFromModule decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
+        json.add("module_name", serialize(decl.getModuleName()));
+        JsonArray targets = new JsonArray();
+        for (var t : decl.getMembers()) targets.add(serialize(t));
+        json.add("members", targets);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeImportModule(@NotNull ImportModule decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
+        json.add("module_name", serialize(decl.getModuleName()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeImportModules(@NotNull ImportModules decl) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
         JsonArray targets = new JsonArray();
@@ -1869,7 +1876,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull PackageDeclaration decl) {
+    private JsonObject serializePackageDeclaration(@NotNull PackageDeclaration decl) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
         json.add("name", serialize(decl.getPackageName()));
@@ -1877,7 +1884,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serialize(@NotNull InfiniteLoop loop) {
+    private JsonObject serializeInfiniteLoop(@NotNull InfiniteLoop loop) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(loop));
         json.add("body", serialize(loop.getBody()));

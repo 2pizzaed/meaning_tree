@@ -205,6 +205,7 @@ public class JavaLanguage extends LanguageParser {
             case "import_declaration" -> fromImportDeclarationTSNode(node);
             case "method_invocation" -> fromMethodInvocation(node);
             case "object_creation_expression" -> fromObjectCreationExpressionTSNode(node);
+            case "integral_type", "floating_point_type", "array_type", "generic_type" -> fromTypeTSNode(node);
             case "true", "false" -> fromBooleanValueTSNode(node);
             case "field_access" -> fromFieldAccessTSNode(node);
             case "array_creation_expression" -> fromArrayCreationExpressionTSNode(node);

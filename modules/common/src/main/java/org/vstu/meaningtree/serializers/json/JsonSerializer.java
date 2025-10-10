@@ -968,21 +968,20 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
 
-    // TODO: сделать это как таковое
     @NotNull
     private JsonObject serializeGeneralForLoop(@NotNull GeneralForLoop stmt) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
 
-        if (stmt.getInitializer() != null) {
+        if (stmt.hasInitializer()) {
             json.add("initializer", serialize((Node) stmt.getInitializer()));
         }
 
-        if (stmt.getCondition() != null) {
+        if (stmt.hasCondition()) {
             json.add("condition", serialize(stmt.getCondition()));
         }
 
-        if (stmt.getUpdate() != null) {
+        if (stmt.hasUpdate()) {
             json.add("update", serialize(stmt.getUpdate()));
         }
 

@@ -1006,7 +1006,19 @@ public class JavaLanguage extends LanguageParser {
         }
 
         if (start != null && stop != null && step != null && loopVariable != null) {
-            Range range = new Range(start, stop, step, false, isExcludingEnd, Range.Type.UNKNOWN);
+            Range.Type type = Range.Type.UNKNOWN;
+            if (step instanceof IntegerLiteral integer) {
+                if (integer.getLongValue() > 0) {
+                    type = Range.Type.UP;
+                } else {
+                    type = Range.Type.DOWN;
+                }
+            } else if (step instanceof UnaryPlusOp) {
+                type = Range.Type.UP;
+            } else if (step instanceof UnaryMinusOp) {
+                type = Range.Type.DOWN;
+            }
+            Range range = new Range(start, stop, step, false, isExcludingEnd, type);
             return new RangeForLoop(range, loopVariable, body);
         }
 

@@ -307,6 +307,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case InfiniteLoop infLoop -> serializeInfiniteLoop(infLoop);
             case GeneralForLoop stmt -> serializeGeneralForLoop(stmt);
             case RangeForLoop rangeLoop -> serializeRangeForLoop(rangeLoop);
+            case ForEachLoop forEachLoop -> serializeForEachLoop(forEachLoop);
             case WhileLoop whileLoop -> serializeWhileLoop(whileLoop);
             case BreakStatement stmt -> serializeBreakStatement(stmt);
             case ContinueStatement stmt -> serializeContinueStatement(stmt);
@@ -1018,6 +1019,18 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("body", serialize(stmt.getBody()));
 
         json.addProperty("id", stmt.getId());
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeForEachLoop(@NotNull ForEachLoop stmt) {
+        JsonObject json = new JsonObject();
+
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
+        json.add("item", serialize(stmt.getItem()));
+        json.add("container", serialize(stmt.getExpression()));
+        json.add("body", serialize(stmt.getBody()));
+
         return json;
     }
 

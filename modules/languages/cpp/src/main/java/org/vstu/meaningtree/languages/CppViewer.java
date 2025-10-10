@@ -75,7 +75,7 @@ public class CppViewer extends LanguageViewer {
         super(tokenizer);
         _indentation = "    ";
         _indentLevel = 0;
-        _openBracketOnSameLine = true;
+        _openBracketOnSameLine = false;
         _bracketsAroundCaseBranches = false;
         _autoVariableDeclaration = false;
     }
@@ -99,7 +99,7 @@ public class CppViewer extends LanguageViewer {
     }
 
     public CppViewer() {
-        this(4, true, false, false);
+        this(4, false, false, false);
     }
 
     /*******************************************************************/

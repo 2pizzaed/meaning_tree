@@ -1809,7 +1809,7 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringHasInitialization(HasInitialization init) {
-        return switch (init) {
+        String result = switch (init) {
             case AssignmentExpression expr -> toStringAssignmentExpression(expr);
             case AssignmentStatement stmt -> toStringAssignmentStatement(stmt);
             case VariableDeclaration decl -> toStringVariableDeclaration(decl);
@@ -1839,6 +1839,8 @@ public class JavaViewer extends LanguageViewer {
             }
             default -> throw new IllegalStateException("Unexpected value: " + init);
         };
+        result = this.applyHooks((Node) init, result);
+        return result;
     }
 
     public String toStringGeneralForLoop(GeneralForLoop generalForLoop) {
@@ -1935,7 +1937,7 @@ public class JavaViewer extends LanguageViewer {
         if (forRangeLoop.getRange().getType() == Range.Type.UP) {
             String header = "int %s = %s; %s %s %s; %s";
             String compOperator = forRangeLoop.isExcludingStop() ? "<" : "<=";
-            return header.formatted(
+            String result = header.formatted(
                     toString(forRangeLoop.getIdentifier()),
                     toString(forRangeLoop.getStart()),
                     toString(forRangeLoop.getIdentifier()),
@@ -1943,11 +1945,13 @@ public class JavaViewer extends LanguageViewer {
                     toString(forRangeLoop.getStop()),
                     getForRangeUpdate(forRangeLoop)
             );
+            result = this.applyHooks(forRangeLoop.getRange(), result);
+            return result;
         }
         else if (forRangeLoop.getRange().getType() == Range.Type.DOWN) {
             String header = "int %s = %s; %s %s %s; %s";
             String compOperator = forRangeLoop.isExcludingStop() ? ">" : ">=";
-            return header.formatted(
+            String result = header.formatted(
                     toString(forRangeLoop.getIdentifier()),
                     toString(forRangeLoop.getStart()),
                     toString(forRangeLoop.getIdentifier()),
@@ -1955,6 +1959,8 @@ public class JavaViewer extends LanguageViewer {
                     toString(forRangeLoop.getStop()),
                     getForRangeUpdate(forRangeLoop)
             );
+            result = this.applyHooks(forRangeLoop.getRange(), result);
+            return result;
         }
 
         throw new UnsupportedViewingException("Can't determine range type in for loop");

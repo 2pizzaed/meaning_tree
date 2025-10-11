@@ -775,7 +775,9 @@ public class PythonViewer extends LanguageViewer {
             start = new IntegerLiteral(0);
         }
 
-        return String.format("range(%s, %s, %s)", toString(start), toString(stop), toString(step));
+        var result = String.format("range(%s, %s, %s)", toString(start), toString(stop), toString(step));
+        result = this.applyHooks(range, result);
+        return result;
     }
 
     private String binaryOpToString(BinaryExpression node) {

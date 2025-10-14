@@ -1851,7 +1851,7 @@ public class JavaViewer extends LanguageViewer {
         boolean addSemi = true;
         if (generalForLoop.hasInitializer()) {
             String init = toStringHasInitialization(generalForLoop.getInitializer());
-            if (init.stripTrailing().endsWith(";")) {
+            if (generalForLoop.getInitializer() instanceof VariableDeclaration) {
                 addSemi = false;
             }
             builder.append(init);

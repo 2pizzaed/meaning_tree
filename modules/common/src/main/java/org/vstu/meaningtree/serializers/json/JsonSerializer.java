@@ -906,6 +906,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
 
         json.add("declarators", declarators);
+        json.add("var_type", serialize(stmt.getType()));
         JsonArray anno = new JsonArray();
         for (var t : stmt.getAnnotations()) anno.add(serialize(t));
         json.add("annotations", anno);

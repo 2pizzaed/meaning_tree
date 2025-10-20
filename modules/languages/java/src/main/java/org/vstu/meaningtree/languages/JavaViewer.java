@@ -509,7 +509,7 @@ public class JavaViewer extends LanguageViewer {
             builder.deleteCharAt(builder.length() - 1);
             builder.deleteCharAt(builder.length() - 1);
 
-            if (!printValues.addsNewLine() && printValues.end != null && !printValues.end.getUnescapedValue().isEmpty()) {
+            if (!printValues.addsNewLine() && printValues.end != null && !((StringLiteral)printValues.end).getUnescapedValue().isEmpty()) {
                 builder.append(", ");
                 builder.append(toString(printValues.end));
             }

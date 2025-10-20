@@ -344,10 +344,22 @@ public class PythonLanguage extends LanguageParser {
 
         List<Expression> exprs = new ArrayList<>();
         TSNode arguments = node.getChildByFieldName("arguments");
+        Expression printSep = StringLiteral.fromUnescaped(" ", StringLiteral.Type.NONE);
+        Expression printEnd = StringLiteral.fromUnescaped("\n", StringLiteral.Type.NONE);
+
         for (int i = 0; i < arguments.getNamedChildCount(); i++) {
             String tsNodeChildType = arguments.getNamedChild(i).getType();
             if (tsNodeChildType.equals("(") || tsNodeChildType.equals(")") || tsNodeChildType.equals(",") || tsNodeChildType.equals("comment")) {
                 continue;
+            }
+            if (getCodePiece(tsNode).equals("print") && tsNodeChildType.equals("keyword_argument")) {
+                if (getCodePiece(arguments.getNamedChild(i).getChildByFieldName("name")).equals("sep")) {
+                    printSep = (Expression) parseTSNode(arguments.getNamedChild(i).getChildByFieldName("value"));
+                    continue;
+                } else if (getCodePiece(arguments.getNamedChild(i).getChildByFieldName("name")).equals("end")) {
+                    printEnd = (Expression) parseTSNode(arguments.getNamedChild(i).getChildByFieldName("value"));
+                    continue;
+                }
             }
             Expression expr = (Expression) parseTSNode(arguments.getNamedChild(i));
             exprs.add(expr);
@@ -355,8 +367,8 @@ public class PythonLanguage extends LanguageParser {
 
         if (getCodePiece(tsNode).equals("print")) {
             return new PrintValues.PrintValuesBuilder()
-                    .endWithNewline()
-                    .separateBySpace()
+                    .endWith(printEnd)
+                    .separateBy(printSep)
                     .setValues(exprs)
                     .build();
         }

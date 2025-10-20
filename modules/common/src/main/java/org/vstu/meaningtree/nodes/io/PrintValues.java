@@ -10,15 +10,15 @@ import java.util.Objects;
 
 public class PrintValues extends PrintCommand {
     @Nullable
-    public final StringLiteral separator;
+    public final Expression separator;
 
     @Nullable
-    public final StringLiteral end;
+    public final Expression end;
 
     public PrintValues(
             @NotNull List<Expression> values,
-            @Nullable StringLiteral separator,
-            @Nullable StringLiteral end
+            @Nullable Expression separator,
+            @Nullable Expression end
     ) {
         super(values);
         this.separator = separator;
@@ -26,7 +26,7 @@ public class PrintValues extends PrintCommand {
     }
 
     public boolean addsNewLine() {
-        return end != null && end.getUnescapedValue().equals("\n");
+        return end != null && end instanceof StringLiteral && ((StringLiteral)end).getUnescapedValue().equals("\n");
     }
 
     public int valuesCount() {
@@ -52,13 +52,18 @@ public class PrintValues extends PrintCommand {
 
     public static class PrintValuesBuilder {
         @Nullable
-        private StringLiteral _separator = null;
+        private Expression _separator = null;
 
         @Nullable
-        private StringLiteral _end = null;
+        private Expression _end = null;
 
         @Nullable
         private List<Expression> _values;
+
+        public PrintValuesBuilder separateBy(Expression separator) {
+            _separator = separator;
+            return this;
+        }
 
         public PrintValuesBuilder separateBy(StringLiteral separator) {
             _separator = separator;
@@ -71,6 +76,11 @@ public class PrintValues extends PrintCommand {
 
         public PrintValuesBuilder separateBySpace() {
             return separateBy(" ");
+        }
+
+        public PrintValuesBuilder endWith(Expression end) {
+            _end = end;
+            return this;
         }
 
         public PrintValuesBuilder endWith(StringLiteral end) {

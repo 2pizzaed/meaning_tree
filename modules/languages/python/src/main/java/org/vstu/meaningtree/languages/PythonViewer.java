@@ -41,6 +41,7 @@ import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
 import org.vstu.meaningtree.nodes.io.FormatInput;
 import org.vstu.meaningtree.nodes.io.FormatPrint;
+import org.vstu.meaningtree.nodes.io.PrintValues;
 import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.modules.*;
@@ -844,8 +845,28 @@ public class PythonViewer extends LanguageViewer {
                 return String.format("%s(%s)", toString(memAcc), argumentsToString(funcCall.getArguments()));
             }
             case FunctionCall funcCall -> {
+                StringBuilder builder = new StringBuilder();
                 funcCall = parenFiller.processForPython(funcCall);
-                return String.format("%s(%s)", toString(PythonSpecificFeatures.getFunctionExpression(funcCall)), argumentsToString(funcCall.getArguments()));
+                builder.append(String.format("%s(%s)", toString(PythonSpecificFeatures.getFunctionExpression(funcCall)), argumentsToString(funcCall.getArguments())));
+                if (funcCall instanceof PrintValues) {
+                    builder.deleteCharAt(builder.length() - 1);
+                    if (((PrintValues)funcCall).separator == null) {
+                        builder.append(", sep=\"\"");
+                    } else if (!(((PrintValues)funcCall).separator instanceof StringLiteral && ((StringLiteral)((PrintValues)funcCall).separator).getUnescapedValue().equals(" "))) {
+                        builder
+                                .append(", sep=")
+                                .append(toString(((PrintValues)funcCall).separator));
+                    }
+                    if (((PrintValues)funcCall).end == null) {
+                        builder.append(", end=\"\"");
+                    } else if (!((PrintValues)funcCall).addsNewLine()) {
+                        builder
+                                .append(", end=")
+                                .append(toString(((PrintValues)funcCall).end));
+                    }
+                    builder.append(")");
+                }
+                return builder.toString();
             }
             case CastTypeExpression cast -> {
                 FunctionCall call = new FunctionCall(cast.getCastType(), cast.getValue());

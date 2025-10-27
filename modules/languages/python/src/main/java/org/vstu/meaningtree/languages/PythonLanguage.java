@@ -696,6 +696,9 @@ public class PythonLanguage extends LanguageParser {
     }
 
     private Node fromString(TSNode node) {
+        if (node.getNamedChildCount() <= 2) {
+            return StringLiteral.fromUnescaped("", StringLiteral.Type.NONE);
+        }
         TSNode content = node.getChild(1);
         if (getCodePiece(node.getChild(0)).equals("\"\"\"")
                 && node.getParent().getType().equals("expression_statement")

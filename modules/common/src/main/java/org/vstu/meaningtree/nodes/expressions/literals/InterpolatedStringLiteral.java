@@ -3,6 +3,7 @@ package org.vstu.meaningtree.nodes.expressions.literals;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.expressions.Literal;
+import org.vstu.meaningtree.nodes.expressions.other.StringFormat;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,11 @@ public class InterpolatedStringLiteral extends Literal {
 
     public StringLiteral.Type getStringType() {
         return type;
+    }
+
+    public StringFormat toStringFormat() {
+        // TODO: needs implementation
+        return null;
     }
 
     public List<Expression> components() {return components;}

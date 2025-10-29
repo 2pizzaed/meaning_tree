@@ -1,6 +1,9 @@
 package org.vstu.meaningtree.languages;
 
+import org.vstu.meaningtree.languages.configs.params.CLanguageMode;
 import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
+import org.vstu.meaningtree.languages.configs.parser.ConfigMapping;
+import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
 import org.vstu.meaningtree.utils.tokens.Token;
 import org.vstu.meaningtree.utils.tokens.TokenList;
 import org.vstu.meaningtree.utils.tokens.TokenType;
@@ -19,6 +22,16 @@ public class CppTranslator extends LanguageTranslator {
     public CppTranslator() {
         super(new CppLanguage(), null, new HashMap<>());
         this.setViewer(new CppViewer(this.getTokenizer()));
+    }
+
+    @Override
+    protected ConfigParser defaultConfigParser() {
+        return ConfigParser.fromParser(super.defaultConfigParser(),
+                new ConfigMapping<>(
+                        "preferC",
+                        CLanguageMode::parse,
+                        CLanguageMode::new
+                ));
     }
 
     @Override

@@ -1743,7 +1743,6 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("is_dict_unpacking", arg.isDictUnpacking());
         json.addProperty("is_list_unpacking", arg.isListUnpacking());
         json.addProperty("name", arg.getName().getName());
-        json.add("initial", serialize(arg.getInitialExpression()));
         JsonArray anno = new JsonArray();
         for (var t : arg.getAnnotations()) anno.add(serialize(t));
         json.add("annotations", anno);

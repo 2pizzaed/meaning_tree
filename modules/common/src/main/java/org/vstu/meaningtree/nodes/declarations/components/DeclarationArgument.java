@@ -57,7 +57,7 @@ public class DeclarationArgument extends Declaration {
     }
 
     public Expression getInitialExpression() {
-        return Objects.requireNonNull(initial, "Initial expression isn't present");
+        return initial;
     }
 
     public boolean hasInitialExpression() {

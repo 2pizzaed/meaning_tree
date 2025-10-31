@@ -1740,6 +1740,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(arg));
         json.add("target_type", serialize(arg.getElementType()));
+        json.add("initial", serialize(arg.getInitialExpression()));
         json.addProperty("is_dict_unpacking", arg.isDictUnpacking());
         json.addProperty("is_list_unpacking", arg.isListUnpacking());
         json.addProperty("name", arg.getName().getName());

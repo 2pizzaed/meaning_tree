@@ -46,4 +46,11 @@ public class VariableDeclarator extends Node {
     public int hashCode() {
         return Objects.hash(super.hashCode(), identifier, rvalue);
     }
+
+    public VariableDeclarator clone() {
+        var clone = (VariableDeclarator) super.clone();
+        clone.identifier = identifier.clone();
+        clone.rvalue = rvalue.clone();
+        return clone;
+    }
 }

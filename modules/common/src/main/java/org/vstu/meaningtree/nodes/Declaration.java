@@ -17,6 +17,10 @@ public abstract class Declaration extends Node {
         return !annotations.isEmpty();
     }
 
+    public Declaration clone() {
+        return (Declaration) super.clone();
+    }
+
     public List<Annotation> getAnnotations() {
         return annotations == null ? List.of() : List.copyOf(annotations);
     }

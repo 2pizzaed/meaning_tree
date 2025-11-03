@@ -6,6 +6,7 @@ import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 
 import java.util.List;
+import java.util.Objects;
 
 public class Annotation extends Declaration {
     @TreeNode private List<Expression> arguments;
@@ -35,5 +36,23 @@ public class Annotation extends Declaration {
     @Override
     public String generateDot() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof Annotation nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(arguments, nodeInfos.arguments) && Objects.equals(function, nodeInfos.function);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), arguments, function);
+    }
+
+    public Annotation clone() {
+        var clone = (Annotation) super.clone();
+        clone.arguments = arguments.stream().map(Expression::clone).toList();
+        return clone;
     }
 }

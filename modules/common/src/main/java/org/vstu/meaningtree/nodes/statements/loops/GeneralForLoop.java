@@ -4,9 +4,12 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
+import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+
+import java.util.Objects;
 
 public class GeneralForLoop extends ForLoop {
     @TreeNode @Nullable private HasInitialization initializer;
@@ -70,6 +73,25 @@ public class GeneralForLoop extends ForLoop {
 
     public Statement getBody() {
         return body;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof GeneralForLoop nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(initializer, nodeInfos.initializer) && Objects.equals(condition, nodeInfos.condition) && Objects.equals(update, nodeInfos.update) && Objects.equals(body, nodeInfos.body);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), initializer, condition, update, body);
+    }
+
+    public GeneralForLoop clone() {
+        var clone = (GeneralForLoop) super.clone();
+        clone.initializer = (HasInitialization) ((Node)initializer).clone();
+        clone.condition = condition.clone();
+        return clone;
     }
 
     @Override

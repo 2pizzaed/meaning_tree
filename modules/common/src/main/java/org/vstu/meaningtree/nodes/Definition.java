@@ -12,4 +12,8 @@ public abstract class Definition extends Node {
     public Declaration getDeclaration() {
         return _decl;
     }
+
+    public Definition clone() {
+        return (Definition) super.clone();
+    }
 }

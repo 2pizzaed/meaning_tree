@@ -7,6 +7,8 @@ import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.expressions.other.Range;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 
+import java.util.Objects;
+
 /**
  * Цикл по диапазону целых чисел (начало и конец являются частью диапазона) с заданным шагом.
  */
@@ -109,5 +111,25 @@ public class RangeForLoop extends ForLoop {
         builder.append(String.format("%s -- %s [label=\"%s\"];\n", _id, body.getId(), "body"));
 
         return builder.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof RangeForLoop nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(range, nodeInfos.range) && Objects.equals(identifier, nodeInfos.identifier) && Objects.equals(body, nodeInfos.body);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), range, identifier, body);
+    }
+
+    public RangeForLoop clone() {
+        var clone = (RangeForLoop) super.clone();
+        clone.body = body.clone();
+        clone.identifier = identifier.clone();
+        clone.range = range.clone();
+        return clone;
     }
 }

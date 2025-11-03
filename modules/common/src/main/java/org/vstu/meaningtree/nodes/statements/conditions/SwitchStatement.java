@@ -11,6 +11,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.FallthroughCa
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 public class SwitchStatement extends Statement {
@@ -89,5 +90,24 @@ public class SwitchStatement extends Statement {
         for (CaseBlock branch : cases) {
             branch.makeCompoundBody();
         }
+    }
+
+    public SwitchStatement clone() {
+        var clone = (SwitchStatement) super.clone();
+        clone.targetExpression = targetExpression.clone();
+        clone.cases = new ArrayList<>(cases.stream().map(CaseBlock::clone).toList());
+        return clone;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof SwitchStatement nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(targetExpression, nodeInfos.targetExpression) && Objects.equals(cases, nodeInfos.cases) && Objects.equals(defaultCase, nodeInfos.defaultCase);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), targetExpression, cases, defaultCase);
     }
 }

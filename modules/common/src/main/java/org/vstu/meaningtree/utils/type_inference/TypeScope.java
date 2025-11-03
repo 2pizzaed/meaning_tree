@@ -1,9 +1,6 @@
 package org.vstu.meaningtree.utils.type_inference;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.vstu.meaningtree.nodes.Type;
-import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 
 /**
  * {@code TypeScope} управляет стеком областей видимости типов,
@@ -59,38 +56,8 @@ public class TypeScope {
         }
     }
 
-    /** Делегирует добавление переменной текущей области. */
-    public void addVariable(@NotNull SimpleIdentifier name, @NotNull Type type) {
-        current.addVariable(name, type);
-    }
-
-    /** Делегирует добавление метода текущей области. */
-    public void addMethod(@NotNull SimpleIdentifier name, @NotNull Type returnType) {
-        current.addMethod(name, returnType);
-    }
-
-    /** Делегирует поиск типа переменной. */
-    @Nullable
-    public Type getVariableType(@NotNull SimpleIdentifier name) {
-        return current.getVariableType(name);
-    }
-
-    /** Делегирует изменение типа переменной. */
-    public void changeVariableType(@NotNull SimpleIdentifier name,
-                                   @NotNull Type type,
-                                   boolean createIfNotExists) {
-        current.changeVariableType(name, type, createIfNotExists);
-    }
-
-    /** Делегирует изменение или создание переменной. */
-    public void changeVariableType(@NotNull SimpleIdentifier name, @NotNull Type type) {
-        current.changeVariableType(name, type);
-    }
-
-    /** Делегирует поиск возвращаемого типа метода. */
-    @NotNull
-    public Type getMethodReturnType(@NotNull SimpleIdentifier name) {
-        return current.getMethodReturnType(name);
+    public TypedEntities scope() {
+        return current;
     }
 
     @Override

@@ -9,6 +9,8 @@ import org.vstu.meaningtree.nodes.expressions.newexpr.NewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 
+import java.util.Objects;
+
 public class MemoryAllocationCall extends FunctionCall {
     private final boolean isClear;
 
@@ -35,5 +37,17 @@ public class MemoryAllocationCall extends FunctionCall {
 
     public Expression getCount() {
         return getArguments().get(1);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof MemoryAllocationCall nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return isClear == nodeInfos.isClear;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), isClear);
     }
 }

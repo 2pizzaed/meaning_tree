@@ -16,6 +16,7 @@ import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Experimental;
 import org.vstu.meaningtree.utils.Label;
+import org.vstu.meaningtree.utils.TranslatorComponent;
 import org.vstu.meaningtree.utils.tokens.Token;
 import org.vstu.meaningtree.utils.tokens.TokenGroup;
 import org.vstu.meaningtree.utils.tokens.TokenList;
@@ -25,7 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-public abstract class LanguageTranslator implements Cloneable {
+public abstract class LanguageTranslator extends TranslatorComponent implements Cloneable {
     protected LanguageParser _language;
     protected LanguageViewer _viewer;
     protected Config _config = new Config();
@@ -91,7 +92,10 @@ public abstract class LanguageTranslator implements Cloneable {
 
         // Загрузка конфигов, специфических для конкретного языка
         for (var entry : rawConfig.entrySet()) {
-            configBuilder.add(configParser.parse(entry.getKey(), entry.getValue()));
+            var parsed = configParser.parse(entry.getKey(), entry.getValue());
+            if (parsed != null) {
+                configBuilder.add(parsed);
+            }
         }
 
         _config = _config.merge(getPredefinedCommonConfig(), getDeclaredConfig(), configBuilder.toConfig());

@@ -69,4 +69,12 @@ public class VariableDeclaration extends Declaration implements HasInitializatio
     public int hashCode() {
         return Objects.hash(super.hashCode(), type, variableDeclaratorList);
     }
+
+    public VariableDeclaration clone() {
+        VariableDeclaration clone = (VariableDeclaration) super.clone();
+        clone.type = type.clone();
+        clone.variableDeclaratorList = List.copyOf(variableDeclaratorList.stream().map(VariableDeclarator::clone).toList());
+        return clone;
+    }
+
 }

@@ -92,4 +92,23 @@ public class IfStatement extends Statement {
             branch.makeCompoundBody();
         }
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof IfStatement nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(branches, nodeInfos.branches) && Objects.equals(_elseBranch, nodeInfos._elseBranch);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), branches, _elseBranch);
+    }
+
+    public IfStatement clone() {
+        var clone = (IfStatement) super.clone();
+        clone.branches = new ArrayList<>(branches.stream().map(ConditionBranch::clone).toList());
+        clone._elseBranch = _elseBranch.clone();
+        return clone;
+    }
 }

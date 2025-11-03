@@ -10,6 +10,7 @@ import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Hook;
 import org.vstu.meaningtree.utils.ListModificationType;
+import org.vstu.meaningtree.utils.TranslatorComponent;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 import org.vstu.meaningtree.utils.tokens.*;
 
@@ -19,7 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public abstract class LanguageTokenizer {
+public abstract class LanguageTokenizer extends TranslatorComponent {
     protected String code;
     protected LanguageTranslator translator;
     protected LanguageParser parser;

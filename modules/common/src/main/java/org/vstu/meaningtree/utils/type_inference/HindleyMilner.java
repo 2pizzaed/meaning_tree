@@ -29,6 +29,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
+import org.vstu.meaningtree.utils.scopes.TypeScope;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -168,10 +168,10 @@ public class HindleyMilner {
     }
 
     @NotNull
-    public static Type inference(
+    public static Type inferenceVar(
             @NotNull SimpleIdentifier identifier,
             @NotNull ScopeTable scope) {
-        Type inferredType = scope.getVariableType(identifier);
+        Type inferredType = scope.scope().getVariableType(identifier);
         if (inferredType == null) {
             return new UnknownType();
         }
@@ -239,15 +239,15 @@ public class HindleyMilner {
         for (Expression childExpression : children) {
 
             if (childExpression instanceof SimpleIdentifier identifier) {
-                Type possibleType = scope.getVariableType(identifier);
+                Type possibleType = scope.scope().getVariableType(identifier);
 
                 if (possibleType == null || possibleType instanceof UnknownType) {
-                    scope.changeVariableType(identifier, type);
+                    scope.scope().changeVariableType(identifier, type);
                 }
                 // Добавить что-то про обобщение типов
                 else if (possibleType instanceof IntType
                         && type instanceof FloatType) {
-                    scope.changeVariableType(identifier, type);
+                    scope.scope().changeVariableType(identifier, type);
                 }
             }
             else {
@@ -472,7 +472,7 @@ public class HindleyMilner {
         for (var variableDeclarator : variableDeclaration.getDeclarators()) {
             inference(variableDeclarator, scope);
 
-            var varType = scope.getVariableType(variableDeclarator.getIdentifier());
+            var varType = scope.scope().getVariableType(variableDeclarator.getIdentifier());
             if (varType != null) {
                 types.add(varType);
             }
@@ -509,7 +509,7 @@ public class HindleyMilner {
             }
         }
 
-        scope.changeVariableType(declarationArgument.getName(), type);
+        scope.scope().changeVariableType(declarationArgument.getName(), type);
     }
 
     public static void inference(@NotNull List<Node> nodes, @NotNull ScopeTable scope) {

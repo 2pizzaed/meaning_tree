@@ -60,7 +60,7 @@ import org.vstu.meaningtree.nodes.types.containers.ListType;
 import org.vstu.meaningtree.nodes.types.containers.SetType;
 import org.vstu.meaningtree.nodes.types.containers.UnmodifiableListType;
 import org.vstu.meaningtree.nodes.types.user.Class;
-import org.vstu.meaningtree.utils.scopes.TypeScope;
+import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.type_inference.HindleyMilner;
 
 import java.lang.reflect.InvocationTargetException;
@@ -74,7 +74,7 @@ public class PythonLanguage extends LanguageParser {
     private TSLanguage _language;
     private TSParser _parser;
 
-    private TypeScope scope = new TypeScope();
+    private ScopeTable scope = new ScopeTable();
 
     public PythonLanguage(LanguageTranslator translator) {
         super(translator);
@@ -96,7 +96,7 @@ public class PythonLanguage extends LanguageParser {
 
     @Override
     public synchronized MeaningTree getMeaningTree(String code) {
-        scope = new TypeScope();
+        scope = new ScopeTable();
         _code = code;
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);

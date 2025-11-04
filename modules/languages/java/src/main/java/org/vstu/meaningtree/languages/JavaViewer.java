@@ -492,34 +492,43 @@ public class JavaViewer extends LanguageViewer {
         builder.append(printValues.addsNewLine() ? "println" : "print");
         builder.append("(");
 
-        if (printValues.valuesCount() > 1) {
-            builder.append("String.join(");
-
-            if (printValues.separator != null) {
-                builder
-                        .append(toString(printValues.separator))
-                        .append(", ");
-            }
-
-            for (Expression value : printValues.getArguments()) {
-                builder
-                        .append(toString(value))
-                        .append(", ");
-            }
-            builder.deleteCharAt(builder.length() - 1);
-            builder.deleteCharAt(builder.length() - 1);
-
-            if (!printValues.addsNewLine() && printValues.end != null && !((StringLiteral)printValues.end).getUnescapedValue().isEmpty()) {
-                builder.append(", ");
-                builder.append(toString(printValues.end));
-            }
-
-            builder.append(")");
+        if (printValues.valuesCount() > 0) {
+            builder.append(toString(printValues.getArguments().getFirst()));
         }
-        else if (printValues.valuesCount() == 1) {
-            builder.append(
-                    toString(printValues.getArguments().getFirst())
-            );
+        if (printValues.valuesCount() > 1) {
+            builder.append(" + \"\"");
+
+            for (Expression value : printValues.getArguments().subList(1, printValues.getArguments().size())) {
+                if (printValues.separator != null) {
+                    builder.append(" + ");
+                    if (!printValues.separator.allChildren().isEmpty()) {
+                        builder.append("(");
+                    }
+                    builder.append(toString(printValues.separator));
+                    if (!printValues.separator.allChildren().isEmpty()) {
+                        builder.append(")");
+                    }
+                }
+                builder.append(" + ");
+                if (!value.allChildren().isEmpty()) {
+                    builder.append("(");
+                }
+                builder.append(toString(value));
+                if (!value.allChildren().isEmpty()) {
+                    builder.append(")");
+                }
+            }
+        }
+
+        if (printValues.end != null && !printValues.addsNewLine()) {
+            builder.append(" + ");
+            if (!printValues.end.allChildren().isEmpty()) {
+                builder.append("(");
+            }
+            builder.append(toString(printValues.end));
+            if (!printValues.end.allChildren().isEmpty()) {
+                builder.append(")");
+            }
         }
 
         builder.append(")");

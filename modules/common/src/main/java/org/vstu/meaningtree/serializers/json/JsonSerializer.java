@@ -1114,6 +1114,10 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
         json.add("body", body);
         json.addProperty("id", entryPoint.getId());
+        if (entryPoint.hasMainClass()) json.addProperty("main_class_id",
+                entryPoint.getMainClass().getId());
+        if (entryPoint.hasEntryPoint()) json.addProperty("entry_point_node_id",
+                entryPoint.getEntryPoint().getId());
         return json;
     }
 

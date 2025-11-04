@@ -10,7 +10,6 @@ import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Hook;
 import org.vstu.meaningtree.utils.ListModificationType;
-import org.vstu.meaningtree.utils.TranslatorComponent;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 import org.vstu.meaningtree.utils.tokens.*;
 
@@ -22,7 +21,6 @@ import java.util.Map;
 
 public abstract class LanguageTokenizer extends TranslatorComponent {
     protected String code;
-    protected LanguageTranslator translator;
     protected LanguageParser parser;
     protected LanguageViewer viewer;
     protected boolean navigablePseudoTokens = false;
@@ -133,7 +131,7 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
     public abstract OperatorToken getOperatorByTokenName(String tokenName);
 
     public LanguageTokenizer(LanguageTranslator translator) {
-        this.translator = translator;
+        super(translator);
         this.parser = translator._language;
         this.viewer = translator._viewer;
     }

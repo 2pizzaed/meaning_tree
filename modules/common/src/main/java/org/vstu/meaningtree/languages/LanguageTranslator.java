@@ -16,7 +16,6 @@ import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Experimental;
 import org.vstu.meaningtree.utils.Label;
-import org.vstu.meaningtree.utils.TranslatorComponent;
 import org.vstu.meaningtree.utils.tokens.Token;
 import org.vstu.meaningtree.utils.tokens.TokenGroup;
 import org.vstu.meaningtree.utils.tokens.TokenList;
@@ -26,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-public abstract class LanguageTranslator extends TranslatorComponent implements Cloneable {
+public abstract class LanguageTranslator implements Cloneable {
     protected LanguageParser _language;
     protected LanguageViewer _viewer;
     protected Config _config = new Config();
@@ -80,13 +79,11 @@ public abstract class LanguageTranslator extends TranslatorComponent implements 
 
     /**
      * Создает транслятор языка
-     * @param language - parser языка
-     * @param viewer - viewer языка
+     * Требует дальнейшей инициализации методом init(parser, viewer)
      * @param rawConfig - конфигурация в формате "название - значение" в виде строки (тип будет выведен автоматически из строки)
      */
-    protected LanguageTranslator(LanguageParser language, LanguageViewer viewer, Map<String, String> rawConfig) {
-        _language = language;
-        _viewer = viewer;
+    protected LanguageTranslator(Map<String, String> rawConfig) {
+
 
         var configBuilder = new ConfigBuilder();
 
@@ -99,18 +96,6 @@ public abstract class LanguageTranslator extends TranslatorComponent implements 
         }
 
         _config = _config.merge(getPredefinedCommonConfig(), getDeclaredConfig(), configBuilder.toConfig());
-
-        if (language != null) {
-            _language.setConfig(
-                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR))
-            );
-        }
-
-        if (viewer != null) {
-            _viewer.setConfig(
-                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR))
-            );
-        }
     }
 
     public MeaningTree getMeaningTree(String code) {
@@ -119,12 +104,19 @@ public abstract class LanguageTranslator extends TranslatorComponent implements 
         return mt;
     }
 
-    protected void setViewer(LanguageViewer viewer) {
+    protected void init(LanguageParser parser, LanguageViewer viewer) {
+        _language = parser;
         _viewer = viewer;
 
-        if (_viewer != null) {
+        if (parser != null) {
+            _language.setConfig(
+                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR))
+            );
+        }
+
+        if (viewer != null) {
             _viewer.setConfig(
-                    getDeclaredConfig().subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR))
+                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR))
             );
         }
     }

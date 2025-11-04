@@ -71,8 +71,8 @@ import java.util.stream.Collectors;
 
 
 public class PythonViewer extends LanguageViewer {
-    public PythonViewer(LanguageTokenizer tokenizer) {
-        super(tokenizer);
+    public PythonViewer(LanguageTranslator translator) {
+        super(translator);
     }
 
     @Override
@@ -1107,6 +1107,6 @@ public class PythonViewer extends LanguageViewer {
             case PrefixDecrementOp op -> "-=";
             default -> null;
         };
-        return tokenizer.getOperatorByTokenName(tok);
+        return ctx.requireTokenizer().getOperatorByTokenName(tok);
     }
 }

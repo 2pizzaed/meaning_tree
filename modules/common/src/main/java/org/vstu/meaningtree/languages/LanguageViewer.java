@@ -4,7 +4,6 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.ParenthesesFiller;
-import org.vstu.meaningtree.utils.TranslatorComponent;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
 import java.util.ArrayList;
@@ -18,14 +17,11 @@ import java.util.function.BiFunction;
  */
 abstract public class LanguageViewer extends TranslatorComponent {
     protected MeaningTree origin;
+    protected ParenthesesFiller parenFiller;
     private List<BiFunction<Node, String, String>> postProcessFunctions = new ArrayList<>();
 
-    public LanguageViewer() {
-        this.parenFiller = new ParenthesesFiller(this::mapToToken);
-    }
-
-    public LanguageViewer(LanguageTokenizer tokenizer) {
-        this.tokenizer = tokenizer;
+    public LanguageViewer(LanguageTranslator translator) {
+        super(translator);
         this.parenFiller = new ParenthesesFiller(this::mapToToken);
     }
 
@@ -36,9 +32,6 @@ abstract public class LanguageViewer extends TranslatorComponent {
     public boolean removePostprocessFunction(BiFunction<Node, String, String> function) {
         return this.postProcessFunctions.remove(function);
     }
-
-    protected LanguageTokenizer tokenizer;
-    protected ParenthesesFiller parenFiller;
 
     protected abstract String formString(Node node);
 

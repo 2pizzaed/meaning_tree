@@ -6,7 +6,6 @@ import org.treesitter.TSTree;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Hook;
-import org.vstu.meaningtree.utils.TranslatorComponent;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.ArrayList;
@@ -16,10 +15,13 @@ import java.util.Map;
 
 abstract public class LanguageParser extends TranslatorComponent {
     protected String _code = "";
-    protected LanguageTranslator translator;
     protected Map<int[], Object> _byteValueTags = new HashMap<>();
 
     protected List<Hook<Pair<TSNode, Node>>> onNodeParsedHooks = new ArrayList<>();
+
+    public LanguageParser(LanguageTranslator translator) {
+        super(translator);
+    }
 
     public abstract TSTree getTSTree();
 

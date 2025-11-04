@@ -71,8 +71,8 @@ import java.util.stream.Collectors;
 import static org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator.POW;
 
 public class CppViewer extends LanguageViewer {
-    public CppViewer(LanguageTokenizer tokenizer) {
-        super(tokenizer);
+    public CppViewer(LanguageTranslator translator) {
+        super(translator);
         _indentation = "    ";
         _indentLevel = 0;
         _openBracketOnSameLine = false;
@@ -86,21 +86,6 @@ public class CppViewer extends LanguageViewer {
     private final boolean _bracketsAroundCaseBranches;
     private final boolean _autoVariableDeclaration;
 
-    public CppViewer(int indentSpaceCount,
-                      boolean openBracketOnSameLine,
-                      boolean bracketsAroundCaseBranches,
-                      boolean autoVariableDeclaration
-    ) {
-        _indentation = " ".repeat(indentSpaceCount);
-        _indentLevel = 0;
-        _openBracketOnSameLine = openBracketOnSameLine;
-        _bracketsAroundCaseBranches = bracketsAroundCaseBranches;
-        _autoVariableDeclaration = autoVariableDeclaration;
-    }
-
-    public CppViewer() {
-        this(4, false, false, false);
-    }
 
     /*******************************************************************/
     /* Все, что касается индетации для блоков */
@@ -1451,6 +1436,6 @@ public class CppViewer extends LanguageViewer {
             case PointerUnpackOp op -> "POINTER_*";
             default -> null;
         };
-        return tokenizer.getOperatorByTokenName(tok);
+        return ctx.requireTokenizer().getOperatorByTokenName(tok);
     }
 }

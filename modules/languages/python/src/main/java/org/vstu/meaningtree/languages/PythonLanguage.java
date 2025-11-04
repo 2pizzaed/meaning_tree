@@ -76,17 +76,13 @@ public class PythonLanguage extends LanguageParser {
 
     private TypeScope scope = new TypeScope();
 
+    public PythonLanguage(LanguageTranslator translator) {
+        super(translator);
+    }
+
     @Override
     public TSTree getTSTree() {
         _initBackend();
-
-        /*
-        TODO: only for test
-        try {
-            tree.printDotGraphs(new File("TSTree.dot"));
-        } catch (IOException e) { }
-        */
-
         return _parser.parseString(null, _code);
     }
 

@@ -944,7 +944,7 @@ public class PythonViewer extends LanguageViewer {
         if (node.getNodes().length == 0) {
             return tab.toString().concat("pass");
         }
-        for (Node child : node.getNodes()) {
+        for (Node child : ctx.iterateBody(node)) {
             builder.append(tab);
             if (child instanceof CompoundStatement) {
                 // Схлопываем лишний таб, так как блоки как самостоятельная сущность в Python не поддерживаются
@@ -962,7 +962,7 @@ public class PythonViewer extends LanguageViewer {
         if (nodes.isEmpty()) {
             return "pass";
         }
-        for (Node child : nodes) {
+        for (Node child : ctx.iterateBody(nodes)) {
             builder.append(tab);
             if (child instanceof CompoundStatement) {
                 // Схлопываем лишний таб, так как блоки как самостоятельная сущность в Python не поддерживаются

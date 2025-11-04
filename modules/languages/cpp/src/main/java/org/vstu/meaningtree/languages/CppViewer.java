@@ -714,7 +714,7 @@ public class CppViewer extends LanguageViewer {
         increaseIndentLevel();
         
         // Use direct list of nodes instead of DFS traversal to maintain order
-        for (Node node : stmt.getNodes()) {
+        for (Node node : ctx.iterateBody(stmt)) {
             String s = toString(node);
             if (s.isEmpty()) {
                 continue;
@@ -990,7 +990,7 @@ public class CppViewer extends LanguageViewer {
     private String toStringEntryPoint(ProgramEntryPoint entryPoint) {
         // TODO: required main function creation or expression mode
         StringBuilder builder = new StringBuilder();
-        for (Node node : entryPoint.getBody()) {
+        for (Node node : ctx.iterateBody(entryPoint)) {
             builder.append(toString(node));
             builder.append("\n");
         }

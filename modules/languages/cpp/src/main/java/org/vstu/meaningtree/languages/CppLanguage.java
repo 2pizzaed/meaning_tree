@@ -62,7 +62,6 @@ import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.nodes.types.GenericUserType;
 import org.vstu.meaningtree.nodes.types.NoReturn;
 import org.vstu.meaningtree.nodes.types.UnknownType;
-import org.vstu.meaningtree.nodes.types.UserType;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
@@ -70,18 +69,17 @@ import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 public class CppLanguage extends LanguageParser {
     private TSLanguage _language;
     private TSParser _parser;
-    private final Map<String, UserType> _userTypes;
-
     private int binaryRecursiveFlag = -1;
 
     public CppLanguage(LanguageTranslator translator) {
         super(translator);
-        _userTypes = new HashMap<>();
     }
 
     private void _initBackend() {
@@ -95,14 +93,7 @@ public class CppLanguage extends LanguageParser {
     @Override
     public TSTree getTSTree() {
         _initBackend();
-        TSTree tree = _parser.parseString(null, _code);
-        /*
-        TODO: only for test
-        try {
-            tree.printDotGraphs(new File("TSTree.dot"));
-        } catch (IOException e) { }
-        */
-        return tree;
+        return _parser.parseString(null, _code);
     }
 
     @NotNull
@@ -318,11 +309,11 @@ public class CppLanguage extends LanguageParser {
     }
 
     private CompoundStatement fromBlock(TSNode node) {
-        var statements = new ArrayList<Node>();
+        var statements = ctx.createNodeBody(true);
         for (int i = 1; i < node.getChildCount() - 1; i++) {
             statements.add(parseTSNode(node.getChild(i)));
         }
-        return new CompoundStatement(statements);
+        return statements.build();
     }
 
     private CaseBlock fromSwitchGroup(TSNode switchGroup) {

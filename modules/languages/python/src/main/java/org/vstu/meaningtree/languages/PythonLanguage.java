@@ -60,7 +60,6 @@ import org.vstu.meaningtree.nodes.types.containers.ListType;
 import org.vstu.meaningtree.nodes.types.containers.SetType;
 import org.vstu.meaningtree.nodes.types.containers.UnmodifiableListType;
 import org.vstu.meaningtree.nodes.types.user.Class;
-import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.typeinference.SimpleTypeInferrer;
 
 import java.lang.reflect.InvocationTargetException;
@@ -73,8 +72,6 @@ import java.util.stream.Stream;
 public class PythonLanguage extends LanguageParser {
     private TSLanguage _language;
     private TSParser _parser;
-
-    private ScopeTable scope = new ScopeTable();
 
     public PythonLanguage(LanguageTranslator translator) {
         super(translator);
@@ -96,7 +93,6 @@ public class PythonLanguage extends LanguageParser {
 
     @Override
     public synchronized MeaningTree getMeaningTree(String code) {
-        scope = new ScopeTable();
         _code = code;
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
@@ -114,7 +110,7 @@ public class PythonLanguage extends LanguageParser {
         Node createdNode = switch (nodeType) {
             case "ERROR" -> fromTSNode(node.getChild(0));
             case "module" -> createEntryPoint(node);
-            case "block" -> fromCompoundTSNode(node);
+            case "block" -> fromCompoundTSNode(node, false);
             case "if_statement" -> fromIfStatementTSNode(node);
             case "expression_statement", "expression_list", "tuple_pattern" -> fromExpressionSequencesTSNode(node);
             case "parenthesized_expression" -> fromParenthesizedExpressionTSNode(node);
@@ -176,10 +172,6 @@ public class PythonLanguage extends LanguageParser {
     private Node fromAssertTSNode(TSNode node) {
         return new FunctionCall(new SimpleIdentifier("assert"), (Expression)
                 parseTSNode(node.getNamedChild(0)));
-    }
-
-    private void rollbackContext() {
-        scope.leave();
     }
 
     private EmptyStatement fromPassStatementOrEllipsis(TSNode node) {
@@ -246,7 +238,7 @@ public class PythonLanguage extends LanguageParser {
             } else if (alternative.getNamedChild(0).getNamedChild(0).getType().equals("as_pattern")) {
                 condition = (Expression) parseTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(0).getNamedChild(0));
                 SimpleIdentifier ident = (SimpleIdentifier) parseTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(1));
-                Type variableType = SimpleTypeInferrer.inference(condition, scope);
+                Type variableType = SimpleTypeInferrer.inference(condition, ctx.getVisibilityScope());
                 newDecl = new VariableDeclaration(variableType, ident, condition);
             } else {
                 condition = (Expression) parseTSNode(alternative.getNamedChild(0).getNamedChild(0));
@@ -412,11 +404,9 @@ public class PythonLanguage extends LanguageParser {
         }
         Type returnType = determineType(node.getChildByFieldName("return_type"));
 
-        scope.enter();
-        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"));
+        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"), true);
 
         assert body != null;
-        rollbackContext();
         return new FunctionDefinition(new FunctionDeclaration(name, returnType, anno, arguments.toArray(new DeclarationArgument[0])), body);
     }
 
@@ -470,8 +460,7 @@ public class PythonLanguage extends LanguageParser {
         );
         UserType type = new Class((SimpleIdentifier) classDecl.getName());
 
-        scope.enter();
-        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"));
+        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"), true);
 
         Node[] bodyNodes = body.getNodes();
         for (int i = 0; i < body.getLength(); i++) {
@@ -505,9 +494,6 @@ public class PythonLanguage extends LanguageParser {
         }
 
         ClassDefinition def = new ClassDefinition(classDecl, body);
-        // TODO: кто такой владелец контекста и зачем он нужен?
-        // currentContext.setOwner(def);
-        scope.leave();
 
         return def;
     }
@@ -634,10 +620,9 @@ public class PythonLanguage extends LanguageParser {
 
     private Node createEntryPoint(TSNode node) {
         // detect if __name__ == __main__ construction
-        scope.enter();
-        CompoundStatement compound = fromCompoundTSNode(node);
+        CompoundStatement compound = fromCompoundTSNode(node, false);
 
-        SimpleTypeInferrer.inference(List.of(compound.getNodes()), scope);
+        SimpleTypeInferrer.inference(List.of(compound.getNodes()), ctx.getVisibilityScope());
 
         Node entryPointNode = null;
         IfStatement entryPointIf = null;
@@ -767,14 +752,15 @@ public class PythonLanguage extends LanguageParser {
         Expression right = (Expression) parseTSNode(node.getChildByFieldName("value"));
 
         if (left instanceof SimpleIdentifier variableName && right != null) {
-            var leftType = scope.getVariableType(variableName);
-            var rightType = SimpleTypeInferrer.inference(right, scope);
+            var scopeTable = ctx.getVisibilityScope();
+            var leftType = scopeTable.scope().getVariableType(variableName);
+            var rightType = SimpleTypeInferrer.inference(right, scopeTable);
 
             if (leftType == null) {
-                scope.changeVariableType(variableName, rightType);
+                scopeTable.scope().changeVariableType(variableName, rightType);
             }
             else {
-                scope.changeVariableType(
+                scopeTable.scope().changeVariableType(
                         variableName,
                         SimpleTypeInferrer.chooseGeneralType(leftType, rightType)
                 );
@@ -853,11 +839,11 @@ public class PythonLanguage extends LanguageParser {
             }
 
             boolean allNew = augOp == AugmentedAssignmentOperator.NONE
-                    && idents.stream().allMatch(id -> scope.getVariableType((SimpleIdentifier) id) == null);
+                    && idents.stream().allMatch(id -> ctx.getVisibilityScope().scope().getVariableType((SimpleIdentifier) id) == null);
 
             if (allNew) {
                 // Вычисляем общий тип по всем выражениям
-                var evaluatedTypes = exprs.stream().map(expr -> SimpleTypeInferrer.inference(expr, scope)).toList();
+                var evaluatedTypes = exprs.stream().map(expr -> SimpleTypeInferrer.inference(expr, ctx.getVisibilityScope())).toList();
                 Type commonType = SimpleTypeInferrer.chooseGeneralType(evaluatedTypes);
 
                 // Регистрируем все переменные и создаём декларатор-ы
@@ -865,7 +851,7 @@ public class PythonLanguage extends LanguageParser {
                 for (int i = 0; i < idents.size(); i++) {
                     Identifier id = idents.get(i);
                     Expression init = exprs.get(i);
-                    scope.changeVariableType((SimpleIdentifier) id, commonType);
+                    ctx.getVisibilityScope().scope().changeVariableType((SimpleIdentifier) id, commonType);
                     decls.add(new VariableDeclarator((SimpleIdentifier) id, init));
                 }
                 return new VariableDeclaration(commonType, decls);
@@ -889,20 +875,20 @@ public class PythonLanguage extends LanguageParser {
         if (leftExpr instanceof SimpleIdentifier variableName
                 && rightExpr != null
                 && augOp == AugmentedAssignmentOperator.NONE) {
-            Type leftType = scope.getVariableType(variableName);
-            Type rightType = SimpleTypeInferrer.inference(rightExpr, scope);
+            var scopeTable = ctx.getVisibilityScope();
+            Type leftType = scopeTable.scope().getVariableType(variableName);
+            Type rightType = SimpleTypeInferrer.inference(rightExpr, scopeTable);
 
             if (leftType == null) {
-                scope.changeVariableType(variableName, rightType);
+                scopeTable.scope().changeVariableType(variableName, rightType);
                 return new VariableDeclaration(rightType, variableName, rightExpr);
             } else {
-                scope.changeVariableType(
+                scopeTable.scope().changeVariableType(
                         variableName,
                         SimpleTypeInferrer.chooseGeneralType(leftType, rightType)
                 );
             }
         }
-
         return new AssignmentStatement(leftExpr, rightExpr, augOp);
     }
 
@@ -920,12 +906,12 @@ public class PythonLanguage extends LanguageParser {
         };
     }
 
-    private CompoundStatement fromCompoundTSNode(TSNode node) {
-        var nodes = new ArrayList<Node>();
+    private CompoundStatement fromCompoundTSNode(TSNode node, boolean newScope) {
+        var nodes = ctx.createNodeBody(newScope);
         for (int i = 0; i < node.getChildCount(); i++) {
             nodes.add(parseTSNode(node.getChild(i)));
         }
-        return new CompoundStatement(nodes);
+        return nodes.build();
     }
 
     private IfStatement fromIfStatementTSNode(TSNode node) {

@@ -61,7 +61,7 @@ import org.vstu.meaningtree.nodes.types.containers.SetType;
 import org.vstu.meaningtree.nodes.types.containers.UnmodifiableListType;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
-import org.vstu.meaningtree.utils.type_inference.HindleyMilner;
+import org.vstu.meaningtree.utils.typeinference.SimpleTypeInferrer;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayDeque;
@@ -246,7 +246,7 @@ public class PythonLanguage extends LanguageParser {
             } else if (alternative.getNamedChild(0).getNamedChild(0).getType().equals("as_pattern")) {
                 condition = (Expression) parseTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(0).getNamedChild(0));
                 SimpleIdentifier ident = (SimpleIdentifier) parseTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(1));
-                Type variableType = HindleyMilner.inference(condition, scope);
+                Type variableType = SimpleTypeInferrer.inference(condition, scope);
                 newDecl = new VariableDeclaration(variableType, ident, condition);
             } else {
                 condition = (Expression) parseTSNode(alternative.getNamedChild(0).getNamedChild(0));
@@ -637,7 +637,7 @@ public class PythonLanguage extends LanguageParser {
         scope.enter();
         CompoundStatement compound = fromCompoundTSNode(node);
 
-        HindleyMilner.inference(List.of(compound.getNodes()), scope);
+        SimpleTypeInferrer.inference(List.of(compound.getNodes()), scope);
 
         Node entryPointNode = null;
         IfStatement entryPointIf = null;
@@ -768,7 +768,7 @@ public class PythonLanguage extends LanguageParser {
 
         if (left instanceof SimpleIdentifier variableName && right != null) {
             var leftType = scope.getVariableType(variableName);
-            var rightType = HindleyMilner.inference(right, scope);
+            var rightType = SimpleTypeInferrer.inference(right, scope);
 
             if (leftType == null) {
                 scope.changeVariableType(variableName, rightType);
@@ -776,7 +776,7 @@ public class PythonLanguage extends LanguageParser {
             else {
                 scope.changeVariableType(
                         variableName,
-                        HindleyMilner.chooseGeneralType(leftType, rightType)
+                        SimpleTypeInferrer.chooseGeneralType(leftType, rightType)
                 );
             }
         }
@@ -857,8 +857,8 @@ public class PythonLanguage extends LanguageParser {
 
             if (allNew) {
                 // Вычисляем общий тип по всем выражениям
-                var evaluatedTypes = exprs.stream().map(expr -> HindleyMilner.inference(expr, scope)).toList();
-                Type commonType = HindleyMilner.chooseGeneralType(evaluatedTypes);
+                var evaluatedTypes = exprs.stream().map(expr -> SimpleTypeInferrer.inference(expr, scope)).toList();
+                Type commonType = SimpleTypeInferrer.chooseGeneralType(evaluatedTypes);
 
                 // Регистрируем все переменные и создаём декларатор-ы
                 List<VariableDeclarator> decls = new ArrayList<>();
@@ -890,7 +890,7 @@ public class PythonLanguage extends LanguageParser {
                 && rightExpr != null
                 && augOp == AugmentedAssignmentOperator.NONE) {
             Type leftType = scope.getVariableType(variableName);
-            Type rightType = HindleyMilner.inference(rightExpr, scope);
+            Type rightType = SimpleTypeInferrer.inference(rightExpr, scope);
 
             if (leftType == null) {
                 scope.changeVariableType(variableName, rightType);
@@ -898,7 +898,7 @@ public class PythonLanguage extends LanguageParser {
             } else {
                 scope.changeVariableType(
                         variableName,
-                        HindleyMilner.chooseGeneralType(leftType, rightType)
+                        SimpleTypeInferrer.chooseGeneralType(leftType, rightType)
                 );
             }
         }

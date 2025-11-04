@@ -14,7 +14,7 @@ import org.vstu.meaningtree.nodes.modules.Import;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
-import org.vstu.meaningtree.utils.type_inference.HindleyMilner;
+import org.vstu.meaningtree.utils.typeinference.SimpleTypeInferrer;
 
 import java.lang.reflect.Method;
 import java.util.*;
@@ -50,7 +50,7 @@ public class TranslatorContext {
     }
 
     public Type inferType(Expression expr) {
-        return HindleyMilner.inference(expr);
+        return SimpleTypeInferrer.inference(expr);
     }
 
     boolean isBodyFinished() {

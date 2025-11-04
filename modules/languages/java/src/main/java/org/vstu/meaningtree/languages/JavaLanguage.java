@@ -78,7 +78,8 @@ public class JavaLanguage extends LanguageParser {
     private TSParser _parser;
     private final Map<String, UserType> _userTypes;
 
-    public JavaLanguage() {
+    public JavaLanguage(LanguageTranslator translator) {
+        super(translator);
         _userTypes = new HashMap<>();
     }
 
@@ -93,14 +94,7 @@ public class JavaLanguage extends LanguageParser {
     @Override
     public TSTree getTSTree() {
         _initBackend();
-        TSTree tree = _parser.parseString(null, _code);
-        /*
-        TODO: only for test
-        try {
-            tree.printDotGraphs(new File("TSTree.dot"));
-        } catch (IOException e) { }
-        */
-        return tree;
+        return _parser.parseString(null, _code);
     }
 
     public synchronized MeaningTree getMeaningTree(String code) {
@@ -123,7 +117,7 @@ public class JavaLanguage extends LanguageParser {
     public TSNode getRootNode() {
         TSNode result = super.getRootNode();
 
-        Optional<Boolean> maybeExpressionMode = _config.get(ExpressionMode.class);
+        Optional<Boolean> maybeExpressionMode = getConfigParameter(ExpressionMode.class);
 
         if (maybeExpressionMode.orElse(false)) {
             // В режиме выражений в код перед парсингом подставляется заглушка в виде точки входа

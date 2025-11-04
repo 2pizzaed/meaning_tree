@@ -1,6 +1,5 @@
 package org.vstu.meaningtree.languages;
 
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
@@ -67,7 +66,6 @@ import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 import org.vstu.meaningtree.utils.type_inference.HindleyMilner;
-import org.vstu.meaningtree.utils.type_inference.TypeScope;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -82,40 +80,23 @@ public class JavaViewer extends LanguageViewer {
     private final boolean _bracketsAroundCaseBranches;
     private final boolean _autoVariableDeclaration;
 
-    private TypeScope _currentScope;
-    private TypeScope _typeScope;
-
     private Type _methodReturnType = null;
 
-    private void addVariableToCurrentScope(@NotNull SimpleIdentifier variableName, Type type) {
-        _currentScope.addVariable(variableName, type);
-    }
-
-    private void addMethodToCurrentScope(@NotNull SimpleIdentifier methodName, Type returnType) {
-        _currentScope.addMethod(methodName, returnType);
-    }
-
-    public JavaViewer() {
-        this(0, false, true, false);
-    }
-
-    public JavaViewer(int indentSpaceCount,
+    public JavaViewer(LanguageTranslator translator, int indentSpaceCount,
                       boolean openBracketOnSameLine,
                       boolean bracketsAroundCaseBranches,
                       boolean autoVariableDeclaration
     ) {
+        super(translator);
         _indentation = " ".repeat(indentSpaceCount);
         _indentLevel = 0;
         _openBracketOnSameLine = openBracketOnSameLine;
         _bracketsAroundCaseBranches = bracketsAroundCaseBranches;
-        _currentScope = new TypeScope();
-        _typeScope = new TypeScope();
         _autoVariableDeclaration = autoVariableDeclaration;
     }
 
-    public JavaViewer(LanguageTokenizer tokenizer) {
-        this(4, true, false, false);
-        this.tokenizer = tokenizer;
+    public JavaViewer(LanguageTranslator translator) {
+        this(translator, 4, true, true, false);
     }
 
     @Override

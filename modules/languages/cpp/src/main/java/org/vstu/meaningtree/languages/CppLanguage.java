@@ -79,7 +79,8 @@ public class CppLanguage extends LanguageParser {
 
     private int binaryRecursiveFlag = -1;
 
-    public CppLanguage() {
+    public CppLanguage(LanguageTranslator translator) {
+        super(translator);
         _userTypes = new HashMap<>();
     }
 
@@ -139,7 +140,7 @@ public class CppLanguage extends LanguageParser {
     public TSNode getRootNode() {
         TSNode result = super.getRootNode();
 
-        boolean expressionMode = _config.get(ExpressionMode.class).orElse(false);
+        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
 
         if (expressionMode) {
             // В режиме выражений в код перед парсингом подставляется заглушка в виде точки входа

@@ -15,13 +15,13 @@ public class CppTranslator extends LanguageTranslator {
     public static final int ID = 0;
 
     public CppTranslator(Map<String, String> rawConfig) {
-        super(new CppLanguage(), null, rawConfig);
-        this.setViewer(new CppViewer(this.getTokenizer()));
+        super(rawConfig);
+        this.init(new CppLanguage(this), new CppViewer(this));
     }
 
     public CppTranslator() {
-        super(new CppLanguage(), null, new HashMap<>());
-        this.setViewer(new CppViewer(this.getTokenizer()));
+        super(new HashMap<>());
+        this.init(new CppLanguage(this), new CppViewer(this));
     }
 
     @Override

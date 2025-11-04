@@ -292,7 +292,7 @@ public class JavaViewer extends LanguageViewer {
                         .append("new Scanner(System.in).");
             }
 
-            Type exprType = SimpleTypeInferrer.inference(stringPart, _currentScope);
+            Type exprType = SimpleTypeInferrer.inference(stringPart, ctx.getVisibilityScope());
             switch (exprType) {
                 case StringType stringType -> {
                     builder.append("next()");
@@ -325,7 +325,7 @@ public class JavaViewer extends LanguageViewer {
         }
 
         for (Expression stringPart : formatInput.getArguments()) {
-            Type exprType = SimpleTypeInferrer.inference(stringPart, _typeScope);
+            Type exprType = SimpleTypeInferrer.inference(stringPart, ctx.getVisibilityScope());
             switch (exprType) {
                 case StringType stringType -> {
                     builder.append("next()");
@@ -431,7 +431,7 @@ public class JavaViewer extends LanguageViewer {
 
         builder.append("String.format(\"");
         for (Expression stringPart : interpolatedStringLiteral.components()) {
-            Type exprType = SimpleTypeInferrer.inference(stringPart, _typeScope);
+            Type exprType = SimpleTypeInferrer.inference(stringPart, ctx.getVisibilityScope());
             switch (exprType) {
                 case StringType stringType -> {
                     var string = toString(stringPart);
@@ -1272,7 +1272,7 @@ public class JavaViewer extends LanguageViewer {
             case PrefixDecrementOp op -> "--U";
             default -> null;
         };
-        return tokenizer.getOperatorByTokenName(tok);
+        return ctx.requireTokenizer().getOperatorByTokenName(tok);
     }
 
     public String toStringAddOp(AddOp op) {
@@ -1431,16 +1431,14 @@ public class JavaViewer extends LanguageViewer {
 
         if (leftValue instanceof SimpleIdentifier identifier
                 && assignmentOperator == AugmentedAssignmentOperator.NONE) {
-            Type variableType = _currentScope.getVariableType(identifier);
+            Type variableType = ctx.getVisibilityScope().scope().getVariableType(identifier);
             // Objects.requireNonNull(variableType);
 
             if (variableType == null && _autoVariableDeclaration) {
-                variableType = _typeScope.getVariableType(identifier);
-                Objects.requireNonNull(variableType); // Никогда не будет null...
+                variableType = ctx.getVisibilityScope().scope().findType(identifier).orElseThrow();
 
                 String typeName = toString(variableType);
                 String variableName = toString(identifier);
-                addVariableToCurrentScope(identifier, variableType);
                 return "%s %s = %s;".formatted(typeName, variableName, toString(rightValue));
             }
         }
@@ -1550,13 +1548,13 @@ public class JavaViewer extends LanguageViewer {
         Type variableType = new UnknownType();
         Expression rValue = varDecl.getRValue();
         if (rValue != null) {
-            variableType = SimpleTypeInferrer.inference(rValue, _currentScope);
+            variableType = SimpleTypeInferrer.inference(rValue, ctx.getVisibilityScope());
         }
 
         if (variableType instanceof UnknownType)
             variableType = type;
 
-        addVariableToCurrentScope(
+        ctx.getVisibilityScope().scope().changeVariableType(
                 identifier,
                 SimpleTypeInferrer.chooseGeneralType(variableType, type)
         );
@@ -1628,7 +1626,7 @@ public class JavaViewer extends LanguageViewer {
         StringBuilder builder = new StringBuilder();
         builder.append("{\n");
         increaseIndentLevel();
-        for (Node node : stmt.getNodes()) {
+        for (Node node : ctx.iterateBody(stmt)) {
             String s = toString(node);
             if (s.isEmpty()) {
                 continue;
@@ -2086,7 +2084,7 @@ public class JavaViewer extends LanguageViewer {
         }
 
         StringBuilder builder = new StringBuilder();
-        for (Node node : nodes) {
+        for (Node node : ctx.iterateBody(entryPoint)) {
             builder.append("%s\n".formatted(toString(node)));
         }
 

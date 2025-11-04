@@ -1246,9 +1246,6 @@ public class JavaLanguage extends LanguageParser {
             VariableDeclarator decl = fromVariableDeclarator(capture.getNode(), type);
             declarators.add(decl);
         }
-        //while (cursor.nextMatch(match)) {
-        //    System.out.println(match.getCaptures());
-        //}
 
         if (!modifiers.isEmpty()) {
             var result = new FieldDeclaration(type, modifiers, declarators);
@@ -1262,7 +1259,7 @@ public class JavaLanguage extends LanguageParser {
     }
 
     private Node fromProgramTSNode(TSNode node) {
-        var statements = new ArrayList<Node>();
+        var statements = ctx.createNodeBody(false);
         for (int i = 0; i < node.getNamedChildCount(); i++) {
             statements.add(parseTSNode(node.getNamedChild(i)));
         }
@@ -1302,7 +1299,7 @@ public class JavaLanguage extends LanguageParser {
         if (mainMethod != null) {
             body = Arrays.asList(mainMethod.getBody().getNodes());
         } else if (getConfigParameter(EnforceEntryPoint.class).orElse(false)) {
-            body = statements;
+            body = statements.getNodes();
         }
 
         return new ProgramEntryPoint(body, mainClass, mainMethod);
@@ -1326,11 +1323,11 @@ public class JavaLanguage extends LanguageParser {
     }
 
     private CompoundStatement fromBlockTSNode(TSNode node) {
-        var statements = new ArrayList<Node>();
+        var statements = ctx.createNodeBody(true);
         for (int i = 1; i < node.getChildCount() - 1; i++) {
             statements.add(parseTSNode(node.getChild(i)));
         }
-        return new CompoundStatement(statements);
+        return statements.build();
     }
 
     private Node fromStatementTSNode(TSNode node) {

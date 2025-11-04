@@ -77,7 +77,6 @@ public class TranslatorContext {
         ctxVariables.remove(name);
     }
 
-
     public Optional<Type> lookupType(Identifier typeName) {
         return lookupType(typeName, false);
     }
@@ -189,6 +188,18 @@ public class TranslatorContext {
         visibilityScope.leave();
     }
 
+    public BodyConstructor iterateBody(CompoundStatement compoundStatement) {
+        return iterateBody(compoundStatement.allChildren());
+    }
+
+    public BodyConstructor iterateBody(ProgramEntryPoint entryPoint) {
+        return iterateBody(entryPoint.allChildren());
+    }
+
+    public BodyConstructor iterateBody(List<Node> entryPoint) {
+        return BodyConstructor.createFrom(this, false, entryPoint);
+    }
+
     public BodyConstructor startWalkCompoundStatement(CompoundStatement compoundStatement, boolean newScope) {
         var res = new BodyConstructor(this, newScope);
         res.nodes = new ArrayList<>(List.of(compoundStatement.getNodes()));
@@ -237,6 +248,12 @@ public class TranslatorContext {
             if (newScope) {
                 ctx.leaveScope();
             }
+        }
+
+        public static BodyConstructor createFrom(TranslatorContext ctx, boolean newScope, List<Node> nodes) {
+            var result = new BodyConstructor(ctx, newScope);
+            result.nodes = new ArrayList<>(nodes);
+            return result;
         }
 
         private void setNodeHook(Node node) {

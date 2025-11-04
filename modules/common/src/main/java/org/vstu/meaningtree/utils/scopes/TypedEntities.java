@@ -1,4 +1,4 @@
-package org.vstu.meaningtree.utils.type_inference;
+package org.vstu.meaningtree.utils.scopes;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

@@ -12,9 +12,9 @@ import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.modules.Import;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.utils.scopes.TypeScope;
+import org.vstu.meaningtree.utils.scopes.TypedEntities;
 import org.vstu.meaningtree.utils.type_inference.HindleyMilner;
-import org.vstu.meaningtree.utils.type_inference.TypeScope;
-import org.vstu.meaningtree.utils.type_inference.TypedEntities;
 
 import java.lang.reflect.Method;
 import java.util.*;

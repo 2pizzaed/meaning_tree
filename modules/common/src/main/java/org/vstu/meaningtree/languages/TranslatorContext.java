@@ -12,8 +12,8 @@ import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.modules.Import;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
-import org.vstu.meaningtree.utils.scopes.TypeScope;
-import org.vstu.meaningtree.utils.scopes.TypedEntities;
+import org.vstu.meaningtree.utils.scopes.ScopeTable;
+import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 import org.vstu.meaningtree.utils.type_inference.HindleyMilner;
 
 import java.lang.reflect.Method;
@@ -24,8 +24,8 @@ public class TranslatorContext {
     private LanguageTranslator translator;
     private LanguageTokenizer tokenizer = null;
 
-    private TypeScope globalScope;
-    private TypeScope visibilityScope;
+    private ScopeTable globalScope;
+    private ScopeTable visibilityScope;
 
     private Deque<BodyConstructor> activeBodyConstructors = new ArrayDeque<>();
     private Map<String, Object> ctxVariables = new HashMap<>();
@@ -34,7 +34,7 @@ public class TranslatorContext {
     TranslatorContext(TranslatorComponent component, LanguageTranslator translator) {
         this.owner = component;
         this.translator = translator;
-        this.globalScope = new TypeScope();
+        this.globalScope = new ScopeTable();
         this.visibilityScope = globalScope;
     }
 
@@ -155,11 +155,11 @@ public class TranslatorContext {
         return translatingNodes;
     }
 
-    public TypeScope getGlobalScope() {
+    public ScopeTable getGlobalScope() {
         return globalScope;
     }
 
-    public TypeScope getVisibilityScope() {
+    public ScopeTable getVisibilityScope() {
         return visibilityScope;
     }
 
@@ -198,7 +198,7 @@ public class TranslatorContext {
     public static class BodyConstructor implements Iterable<Node> {
         private TranslatorContext ctx;
         private boolean newScope;
-        private TypedEntities scope;
+        private ScopeTableElement scope;
         private List<Node> nodes = new ArrayList<>();
 
         public BodyConstructor(TranslatorContext ctx, boolean newScope) {

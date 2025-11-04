@@ -27,12 +27,12 @@ import java.util.Optional;
  * включая переменные и методы с хранящимся возвращаемым типом.
  * Поддерживает вложенные области через ссылку на родительский {@code TypedEntities}.
  */
-public class TypedEntities {
+public class ScopeTableElement {
     /**
      * Родительская коллекция сущностей, соответствующая вышестоящей области видимости.
      */
     @Nullable
-    private final TypedEntities parent;
+    private final ScopeTableElement parent;
 
     @Nullable
     private Node owner;
@@ -74,7 +74,7 @@ public class TypedEntities {
      * @param parent родительский набор сущностей или {@code null} для корневого
      * @param owner для какого узла вводится данная область
      */
-    public TypedEntities(@Nullable TypedEntities parent, @Nullable Node owner) {
+    public ScopeTableElement(@Nullable ScopeTableElement parent, @Nullable Node owner) {
         this.parent = parent;
         this.owner = owner;
         this.variables = new HashMap<>();
@@ -90,7 +90,7 @@ public class TypedEntities {
      *
      * @param parent родительский набор сущностей или {@code null} для корневого
      */
-    public TypedEntities(@Nullable TypedEntities parent) {
+    public ScopeTableElement(@Nullable ScopeTableElement parent) {
         this(parent, null);
     }
 
@@ -330,7 +330,7 @@ public class TypedEntities {
      * @return родитель или {@code null} для корня
      */
     @Nullable
-    public TypedEntities getParent() {
+    public ScopeTableElement getParent() {
         return parent;
     }
 

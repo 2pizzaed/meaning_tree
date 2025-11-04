@@ -4,27 +4,27 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * {@code TypeScope} управляет стеком областей видимости типов,
- * поддерживая операции входа и выхода из областей {@link TypedEntities}.
+ * поддерживая операции входа и выхода из областей {@link ScopeTableElement}.
  */
-public class TypeScope {
+public class ScopeTable {
     /**
      * Текущая область сущностей.
      */
     @NotNull
-    private TypedEntities current;
+    private ScopeTableElement current;
 
     /**
      * Создаёт менеджер областей видимости с корневой областью.
      */
-    public TypeScope() {
-        this.current = new TypedEntities(null);
+    public ScopeTable() {
+        this.current = new ScopeTableElement(null);
     }
 
     /**
      * Входит в новую область видимости.
      */
     public void enter() {
-        current = new TypedEntities(current);
+        current = new ScopeTableElement(current);
     }
 
     /**
@@ -45,7 +45,7 @@ public class TypeScope {
      *                           области видимости не существует
      */
     public void leave(boolean rootScopeMustExist) {
-        TypedEntities parent = current.getParent();
+        ScopeTableElement parent = current.getParent();
         if (parent != null) {
             current = parent;
             return;
@@ -56,7 +56,7 @@ public class TypeScope {
         }
     }
 
-    public TypedEntities scope() {
+    public ScopeTableElement scope() {
         return current;
     }
 

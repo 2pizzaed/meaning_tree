@@ -1,4 +1,4 @@
-package org.vstu.meaningtree.utils.type_inference;
+package org.vstu.meaningtree.utils.typeinference;
 
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.nodes.*;
@@ -34,7 +34,8 @@ import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class HindleyMilner {
+public class SimpleTypeInferrer {
+    // Simple type inferrer based on Hindley-Milner (??)
 
     @NotNull
     public static NumericType inference(@NotNull NumericLiteral numericLiteral) {
@@ -163,7 +164,7 @@ public class HindleyMilner {
     private static List<Type> inference(@NotNull List<Expression> expressions) {
         return expressions
                 .stream()
-                .map(HindleyMilner::inference)
+                .map(SimpleTypeInferrer::inference)
                 .toList();
     }
 

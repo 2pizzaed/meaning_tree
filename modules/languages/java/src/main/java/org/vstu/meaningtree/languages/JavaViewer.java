@@ -65,7 +65,7 @@ import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
-import org.vstu.meaningtree.utils.type_inference.HindleyMilner;
+import org.vstu.meaningtree.utils.typeinference.SimpleTypeInferrer;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -292,7 +292,7 @@ public class JavaViewer extends LanguageViewer {
                         .append("new Scanner(System.in).");
             }
 
-            Type exprType = HindleyMilner.inference(stringPart, _currentScope);
+            Type exprType = SimpleTypeInferrer.inference(stringPart, _currentScope);
             switch (exprType) {
                 case StringType stringType -> {
                     builder.append("next()");
@@ -325,7 +325,7 @@ public class JavaViewer extends LanguageViewer {
         }
 
         for (Expression stringPart : formatInput.getArguments()) {
-            Type exprType = HindleyMilner.inference(stringPart, _typeScope);
+            Type exprType = SimpleTypeInferrer.inference(stringPart, _typeScope);
             switch (exprType) {
                 case StringType stringType -> {
                     builder.append("next()");
@@ -431,7 +431,7 @@ public class JavaViewer extends LanguageViewer {
 
         builder.append("String.format(\"");
         for (Expression stringPart : interpolatedStringLiteral.components()) {
-            Type exprType = HindleyMilner.inference(stringPart, _typeScope);
+            Type exprType = SimpleTypeInferrer.inference(stringPart, _typeScope);
             switch (exprType) {
                 case StringType stringType -> {
                     var string = toString(stringPart);
@@ -1550,7 +1550,7 @@ public class JavaViewer extends LanguageViewer {
         Type variableType = new UnknownType();
         Expression rValue = varDecl.getRValue();
         if (rValue != null) {
-            variableType = HindleyMilner.inference(rValue, _currentScope);
+            variableType = SimpleTypeInferrer.inference(rValue, _currentScope);
         }
 
         if (variableType instanceof UnknownType)
@@ -1558,7 +1558,7 @@ public class JavaViewer extends LanguageViewer {
 
         addVariableToCurrentScope(
                 identifier,
-                HindleyMilner.chooseGeneralType(variableType, type)
+                SimpleTypeInferrer.chooseGeneralType(variableType, type)
         );
 
         String identifierName = toString(identifier);

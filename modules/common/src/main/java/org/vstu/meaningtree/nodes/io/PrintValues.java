@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.expressions.literals.StringLiteral;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -35,6 +36,25 @@ public class PrintValues extends PrintCommand {
 
     public boolean hasAnyValues() {
         return valuesCount() > 0;
+    }
+
+    public List<Expression> getCompleteValues() {
+        List<Expression> complete = new ArrayList<>();
+
+        for (Expression value : this.getArguments()) {
+            complete.add(value);
+            if (separator != null) {
+                complete.add(separator);
+            }
+        }
+        if (separator != null) {
+            complete.removeLast();
+        }
+        if (end != null) {
+            complete.add(end);
+        }
+
+        return complete;
     }
 
     @Override

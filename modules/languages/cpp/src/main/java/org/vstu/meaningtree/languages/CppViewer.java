@@ -859,12 +859,15 @@ public class CppViewer extends LanguageViewer {
                 return String.format("printf(%s)", toString(fmt.getFormatString()));
             }
             return String.format("printf(%s, %s)", toString(fmt.getFormatString()), toStringFunctionCallArgumentsList(fmt.getArguments()));
+        } else if (print instanceof PrintValues pVal) {
+            List<Expression> complete = pVal.getCompleteValues();
+            if (pVal.addsNewLine() || (pVal.end != null && toString(pVal.end).equals("\"\""))) {
+                complete.removeLast();
+            }
+            return String.format("std::cout << %s", complete.stream().map(this::toString).collect(Collectors.joining(" << "))) + (pVal.addsNewLine() ? " << std::endl" : "");
+        } else {
+            return String.format("std::cout << %s", print.getArguments().stream().map(this::toString).collect(Collectors.joining(" << ")));
         }
-        String res = String.format("std::cout << %s", print.getArguments().stream().map(this::toString).collect(Collectors.joining(" << ")));
-        if (print instanceof PrintValues pVal) {
-            res += pVal.addsNewLine() ? " << std::endl" : "";
-        }
-        return res;
     }
 
     private String toStringCharLiteral(CharacterLiteral cl) {

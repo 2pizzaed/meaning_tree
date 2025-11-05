@@ -492,47 +492,31 @@ public class JavaViewer extends LanguageViewer {
         builder.append(printValues.addsNewLine() ? "println" : "print");
         builder.append("(");
 
-        if (printValues.valuesCount() > 0) {
+        if (printValues.valuesCount() == 1) {
             builder.append(toString(printValues.getArguments().getFirst()));
-        }
-        if (printValues.valuesCount() > 1) {
-            builder.append(" + \"\"");
+            if (printValues.end != null && (!printValues.addsNewLine() || !toString(printValues.end).equals("\"\""))) {
+                builder
+                        .append(" + ")
+                        .append(!printValues.end.allChildren().isEmpty() ? "(" : "")
+                        .append(toString(printValues.end))
+                        .append(!printValues.end.allChildren().isEmpty() ? ")" : "");
+            }
+        } else if (printValues.valuesCount() > 1) {
+            List<Expression> complete = printValues.getCompleteValues();
+            if (printValues.addsNewLine() || (printValues.end != null && toString(printValues.end).equals("\"\""))) {
+                complete.removeLast();
+            }
 
-            for (Expression value : printValues.getArguments().subList(1, printValues.getArguments().size())) {
-                if (printValues.separator != null) {
-                    builder.append(" + ");
-                    if (!printValues.separator.allChildren().isEmpty()) {
-                        builder.append("(");
-                    }
-                    builder.append(toString(printValues.separator));
-                    if (!printValues.separator.allChildren().isEmpty()) {
-                        builder.append(")");
-                    }
-                }
-                builder.append(" + ");
-                if (!value.allChildren().isEmpty()) {
-                    builder.append("(");
-                }
-                builder.append(toString(value));
-                if (!value.allChildren().isEmpty()) {
-                    builder.append(")");
-                }
+            builder.append("\"\"");
+            for (Expression value : complete) {
+                builder
+                        .append(" + ")
+                        .append(!value.allChildren().isEmpty() ? "(" : "")
+                        .append(toString(value))
+                        .append(!value.allChildren().isEmpty() ? ")" : "");
             }
         }
-
-        if (printValues.end != null && !printValues.addsNewLine()) {
-            builder.append(" + ");
-            if (!printValues.end.allChildren().isEmpty()) {
-                builder.append("(");
-            }
-            builder.append(toString(printValues.end));
-            if (!printValues.end.allChildren().isEmpty()) {
-                builder.append(")");
-            }
-        }
-
         builder.append(")");
-
         return builder.toString();
     }
 

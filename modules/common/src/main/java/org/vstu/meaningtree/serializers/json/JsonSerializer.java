@@ -70,6 +70,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     public JsonObject serialize(MeaningTree mt) {
         JsonObject root = new JsonObject();
         root.addProperty("type", "meaning_tree");
+        root.addProperty("unique_hash", mt.hashCode());
         root.add("root_node", serialize(mt.getRootNode()));
         var allLabels = mt.getAllLabels();
         if (!allLabels.isEmpty()) {
@@ -321,6 +322,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         };
 
         json.addProperty("id", node.getId());
+        json.addProperty("unique_hash", node.hashCode());
         var labels = node.getAllLabels();
         if (!labels.isEmpty()) {
             json.add("labels", serializeLabels(labels));

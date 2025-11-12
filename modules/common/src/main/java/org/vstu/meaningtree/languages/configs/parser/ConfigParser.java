@@ -28,7 +28,7 @@ public class ConfigParser {
         for (var mapping : mappings) {
             list.add(mapping);
         }
-        return new ConfigParser(mappings);
+        return new ConfigParser(list);
     }
 
     public ConfigParameter<?> parse(String key, String value) {

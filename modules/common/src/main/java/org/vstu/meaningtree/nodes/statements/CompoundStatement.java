@@ -38,6 +38,10 @@ public class CompoundStatement extends Statement {
         return nodes.toArray(new Node[0]);
     }
 
+    public List<Node> getNodeList() {
+        return List.copyOf(nodes);
+    }
+
     public void substitute(int index, Node node) {
         nodes.set(index, node);
     }

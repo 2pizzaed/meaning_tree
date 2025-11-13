@@ -11,7 +11,7 @@ public abstract class TranslatorComponent {
     protected LanguageTranslator translator;
 
     public void setConfig(Config config) {
-        config = config;
+        this.config = config;
     }
 
     public TranslatorComponent(LanguageTranslator translator) {

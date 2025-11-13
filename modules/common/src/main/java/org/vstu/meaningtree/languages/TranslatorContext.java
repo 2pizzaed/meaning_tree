@@ -202,11 +202,11 @@ public class TranslatorContext {
     }
 
     public BodyConstructor iterateBody(CompoundStatement compoundStatement) {
-        return iterateBody(compoundStatement.allChildren());
+        return iterateBody(compoundStatement.getNodeList());
     }
 
     public BodyConstructor iterateBody(ProgramEntryPoint entryPoint) {
-        return iterateBody(entryPoint.allChildren());
+        return iterateBody(entryPoint.getBody());
     }
 
     public BodyConstructor iterateBody(List<Node> entryPoint) {
@@ -297,7 +297,7 @@ public class TranslatorContext {
 
         public List<Node> getNodes() {
             postprocess();
-            return nodes;
+            return List.copyOf(nodes);
         }
 
         class BodyConstructorIterator implements Iterator<Node> {

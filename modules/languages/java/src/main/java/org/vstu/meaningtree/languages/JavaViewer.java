@@ -292,7 +292,7 @@ public class JavaViewer extends LanguageViewer {
                         .append("new Scanner(System.in).");
             }
 
-            Type exprType = SimpleTypeInferrer.inference(stringPart, ctx.getVisibilityScope());
+            Type exprType = ctx.inferType(stringPart);
             switch (exprType) {
                 case StringType stringType -> {
                     builder.append("next()");
@@ -325,7 +325,7 @@ public class JavaViewer extends LanguageViewer {
         }
 
         for (Expression stringPart : formatInput.getArguments()) {
-            Type exprType = SimpleTypeInferrer.inference(stringPart, ctx.getVisibilityScope());
+            Type exprType = ctx.inferType(stringPart);
             switch (exprType) {
                 case StringType stringType -> {
                     builder.append("next()");
@@ -431,7 +431,7 @@ public class JavaViewer extends LanguageViewer {
 
         builder.append("String.format(\"");
         for (Expression stringPart : interpolatedStringLiteral.components()) {
-            Type exprType = SimpleTypeInferrer.inference(stringPart, ctx.getVisibilityScope());
+            Type exprType = ctx.inferType(stringPart);
             switch (exprType) {
                 case StringType stringType -> {
                     var string = toString(stringPart);
@@ -1548,7 +1548,7 @@ public class JavaViewer extends LanguageViewer {
         Type variableType = new UnknownType();
         Expression rValue = varDecl.getRValue();
         if (rValue != null) {
-            variableType = SimpleTypeInferrer.inference(rValue, ctx.getVisibilityScope());
+            variableType = ctx.inferType(rValue);
         }
 
         if (variableType instanceof UnknownType)

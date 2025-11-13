@@ -60,7 +60,7 @@ import org.vstu.meaningtree.nodes.types.containers.ListType;
 import org.vstu.meaningtree.nodes.types.containers.SetType;
 import org.vstu.meaningtree.nodes.types.containers.UnmodifiableListType;
 import org.vstu.meaningtree.nodes.types.user.Class;
-import org.vstu.meaningtree.utils.typeinference.SimpleTypeInferrer;
+import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayDeque;

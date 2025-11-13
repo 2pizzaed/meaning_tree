@@ -64,8 +64,8 @@ import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.utils.Label;
+import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
-import org.vstu.meaningtree.utils.typeinference.SimpleTypeInferrer;
 
 import java.util.*;
 import java.util.stream.Collectors;

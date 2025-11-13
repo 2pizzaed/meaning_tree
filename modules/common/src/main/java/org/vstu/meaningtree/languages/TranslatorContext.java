@@ -49,8 +49,21 @@ public class TranslatorContext {
         return activeBodyConstructors.getLast();
     }
 
-    public Type inferType(Expression expr) {
-        return SimpleTypeInferrer.inference(expr);
+    /**
+     * Вывести тип из выражения и вернуть его
+     * @param expression данное выражение
+     * @return выведенный тип
+     */
+    public Type inferType(Expression expression) {
+        return SimpleTypeInferrer.inference(expression, visibilityScope);
+    }
+
+    /**
+     * Выполнить выведение типа для узла. Может установить тип в узлах в качестве побочного эффекта
+     * @param node данный узел
+     */
+    public void processInfer(Node node) {
+        SimpleTypeInferrer.inference(node, visibilityScope);
     }
 
     boolean isBodyFinished() {
@@ -257,6 +270,7 @@ public class TranslatorContext {
         }
 
         private void setNodeHook(Node node) {
+            ctx.processInfer(node);
             if (node instanceof ClassDefinition def) {
                 ctx.visibilityScope.scope().registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
             } else if (node instanceof FunctionDefinition def) {

@@ -3,6 +3,7 @@ package org.vstu.meaningtree.utils.scopes;
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.Annotation;
+import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
@@ -168,7 +169,7 @@ public class SimpleTypeInferrer {
     }
 
     @NotNull
-    public static Type inferenceVar(
+    public static Type inference(
             @NotNull SimpleIdentifier identifier,
             @NotNull ScopeTable scope) {
         Type inferredType = scope.scope().getVariableType(identifier);
@@ -490,7 +491,14 @@ public class SimpleTypeInferrer {
             case VariableDeclaration variableDeclaration -> inference(variableDeclaration, scope);
             case DeclarationArgument declarationArgument -> inference(declarationArgument, scope);
             case Annotation annotation -> inference(List.of(annotation.getArguments()), scope);
+            case SeparatedVariableDeclaration separatedVariableDeclaration -> inference(separatedVariableDeclaration, scope);
             default -> throw new IllegalStateException("Unexpected declaration type: " + declaration.getClass());
+        }
+    }
+
+    public static void inference(@NotNull SeparatedVariableDeclaration varDecl, @NotNull ScopeTable scope) {
+        for (var variableDeclaration : varDecl.getDeclarations()) {
+            inference(variableDeclaration, scope);
         }
     }
 
@@ -512,30 +520,34 @@ public class SimpleTypeInferrer {
         scope.scope().changeVariableType(declarationArgument.getName(), type);
     }
 
-    public static void inference(@NotNull List<Node> nodes, @NotNull ScopeTable scope) {
-        for (var node: nodes) {
-            switch (node) {
-                case ExpressionStatement expressionStatement -> inference(expressionStatement.getExpression(), scope);
-                case AssignmentStatement assignmentStatement -> inference(assignmentStatement, scope);
-                case CompoundStatement compoundStatement -> inference(compoundStatement, scope);
-                case IfStatement ifStatement -> inference(ifStatement, scope);
-                case SwitchStatement switchStatement -> inference(switchStatement, scope);
-                case VariableDeclaration variableDeclaration -> inference(variableDeclaration, scope);
-                case VariableDeclarator variableDeclarator -> inference(variableDeclarator, scope);
-                case Expression expression -> inference(expression, scope);
-                case HasBodyStatement hasBodyStatement -> {
-                    if (hasBodyStatement.getBody() instanceof CompoundStatement compoundStatement) {
-                        for (var possibleStatement: compoundStatement.getNodes()) {
-                            if (possibleStatement instanceof Statement statement) {
-                                inference(statement, scope);
-                            }
+    public static void inference(@NotNull Node node, @NotNull ScopeTable scope) {
+        switch (node) {
+            case ExpressionStatement expressionStatement -> inference(expressionStatement.getExpression(), scope);
+            case AssignmentStatement assignmentStatement -> inference(assignmentStatement, scope);
+            case CompoundStatement compoundStatement -> inference(compoundStatement, scope);
+            case IfStatement ifStatement -> inference(ifStatement, scope);
+            case SwitchStatement switchStatement -> inference(switchStatement, scope);
+            case Declaration variableDeclaration -> inference(variableDeclaration, scope);
+            case VariableDeclarator variableDeclarator -> inference(variableDeclarator, scope);
+            case Expression expression -> inference(expression, scope);
+            case HasBodyStatement hasBodyStatement -> {
+                if (hasBodyStatement.getBody() instanceof CompoundStatement compoundStatement) {
+                    for (var possibleStatement: compoundStatement.getNodes()) {
+                        if (possibleStatement instanceof Statement statement) {
+                            inference(statement, scope);
                         }
                     }
                 }
-                default -> {
-                    /* TODO: проанализировать, какие еще есть варианты для обобщения... */
-                }
             }
+            default -> {
+                /* TODO: проанализировать, какие еще есть варианты для обобщения... */
+            }
+        }
+    }
+
+    public static void inference(@NotNull List<Node> nodes, @NotNull ScopeTable scope) {
+        for (var node: nodes) {
+            inference(node, scope);
         }
     }
 }

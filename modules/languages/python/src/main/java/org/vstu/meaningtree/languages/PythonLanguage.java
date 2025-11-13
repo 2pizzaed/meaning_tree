@@ -238,7 +238,7 @@ public class PythonLanguage extends LanguageParser {
             } else if (alternative.getNamedChild(0).getNamedChild(0).getType().equals("as_pattern")) {
                 condition = (Expression) parseTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(0).getNamedChild(0));
                 SimpleIdentifier ident = (SimpleIdentifier) parseTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(1));
-                Type variableType = SimpleTypeInferrer.inference(condition, ctx.getVisibilityScope());
+                Type variableType = ctx.inferType(condition);
                 newDecl = new VariableDeclaration(variableType, ident, condition);
             } else {
                 condition = (Expression) parseTSNode(alternative.getNamedChild(0).getNamedChild(0));
@@ -622,8 +622,6 @@ public class PythonLanguage extends LanguageParser {
         // detect if __name__ == __main__ construction
         CompoundStatement compound = fromCompoundTSNode(node, false);
 
-        SimpleTypeInferrer.inference(List.of(compound.getNodes()), ctx.getVisibilityScope());
-
         Node entryPointNode = null;
         IfStatement entryPointIf = null;
         for (Node programNode : compound.getNodes()) {
@@ -754,9 +752,9 @@ public class PythonLanguage extends LanguageParser {
         if (left instanceof SimpleIdentifier variableName && right != null) {
             var scopeTable = ctx.getVisibilityScope();
             var leftType = scopeTable.scope().getVariableType(variableName);
-            var rightType = SimpleTypeInferrer.inference(right, scopeTable);
+            var rightType = ctx.inferType(right); // already uses scopeTable by default
 
-            if (leftType == null) {
+            if (leftType == null || leftType instanceof UnknownType) {
                 scopeTable.scope().changeVariableType(variableName, rightType);
             }
             else {
@@ -843,7 +841,7 @@ public class PythonLanguage extends LanguageParser {
 
             if (allNew) {
                 // Вычисляем общий тип по всем выражениям
-                var evaluatedTypes = exprs.stream().map(expr -> SimpleTypeInferrer.inference(expr, ctx.getVisibilityScope())).toList();
+                var evaluatedTypes = exprs.stream().map(expr -> ctx.inferType(expr)).toList();
                 Type commonType = SimpleTypeInferrer.chooseGeneralType(evaluatedTypes);
 
                 // Регистрируем все переменные и создаём декларатор-ы
@@ -877,7 +875,7 @@ public class PythonLanguage extends LanguageParser {
                 && augOp == AugmentedAssignmentOperator.NONE) {
             var scopeTable = ctx.getVisibilityScope();
             Type leftType = scopeTable.scope().getVariableType(variableName);
-            Type rightType = SimpleTypeInferrer.inference(rightExpr, scopeTable);
+            Type rightType = ctx.inferType(rightExpr); // already uses scopeTable by default
 
             if (leftType == null) {
                 scopeTable.scope().changeVariableType(variableName, rightType);

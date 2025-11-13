@@ -20,6 +20,7 @@ import org.vstu.meaningtree.nodes.expressions.logical.*;
 import org.vstu.meaningtree.nodes.expressions.math.AddOp;
 import org.vstu.meaningtree.nodes.expressions.math.DivOp;
 import org.vstu.meaningtree.nodes.expressions.other.*;
+import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
 import org.vstu.meaningtree.nodes.interfaces.HasBodyStatement;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
@@ -335,16 +336,21 @@ public class SimpleTypeInferrer {
                 || unaryExpression instanceof UnaryMinusOp
                 || unaryExpression instanceof UnaryPlusOp
                 || unaryExpression instanceof InversionOp
+                || unaryExpression instanceof PointerUnpackOp
         ) {
             if (operandType instanceof UnknownType) {
-                Type expressionType = new FloatType();
+                Type expressionType = switch (unaryExpression) {
+                    case PointerUnpackOp op -> new PointerType(new UnknownType());
+                    case InversionOp op -> new IntType();
+                    default -> new FloatType();
+                };
                 backwardVariableTypeSet(argument, scope, expressionType);
                 return expressionType;
             }
             return operandType;
         }
 
-        throw new IllegalArgumentException("Unsupported unary expression type: " + unaryExpression.getClass());
+        return new UnknownType();
     }
 
     @NotNull

@@ -83,8 +83,6 @@ public abstract class LanguageTranslator implements Cloneable {
      * @param rawConfig - конфигурация в формате "название - значение" в виде строки (тип будет выведен автоматически из строки)
      */
     protected LanguageTranslator(Map<String, String> rawConfig) {
-
-
         var configBuilder = new ConfigBuilder();
 
         // Загрузка конфигов, специфических для конкретного языка
@@ -101,6 +99,7 @@ public abstract class LanguageTranslator implements Cloneable {
     public MeaningTree getMeaningTree(String code) {
         MeaningTree mt = _language.getMeaningTree(prepareCode(code));
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
+        _language.rollbackContext();
         return mt;
     }
 
@@ -134,6 +133,7 @@ public abstract class LanguageTranslator implements Cloneable {
     public MeaningTree getMeaningTree(TSNode node, String code) {
         MeaningTree mt = _language.getMeaningTree(node, code);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
+        _language.rollbackContext();
         return mt;
     }
 
@@ -157,6 +157,7 @@ public abstract class LanguageTranslator implements Cloneable {
     protected MeaningTree getMeaningTree(String code, HashMap<int[], Object> values) {
         MeaningTree mt = _language.getMeaningTree(prepareCode(code), values);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
+        _language.rollbackContext();
         return mt;
     }
 
@@ -206,7 +207,9 @@ public abstract class LanguageTranslator implements Cloneable {
     public abstract LanguageTokenizer getTokenizer();
 
     public String getCode(MeaningTree mt) {
-        return _viewer.toString(mt);
+        var result = _viewer.toString(mt);
+        _viewer.rollbackContext();
+        return result;
     }
 
     public Pair<Boolean, String> tryGetCode(MeaningTree mt) {
@@ -228,7 +231,9 @@ public abstract class LanguageTranslator implements Cloneable {
     }
 
     public String getCode(Node node) {
-        return _viewer.toString(node);
+        var result = _viewer.toString(node);
+        _viewer.rollbackContext();
+        return result;
     }
 
     public TokenList getCodeAsTokens(MeaningTree mt) {

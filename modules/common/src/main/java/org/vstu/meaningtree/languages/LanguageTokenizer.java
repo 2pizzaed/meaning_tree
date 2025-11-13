@@ -39,6 +39,7 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
             list.registerHook(hook);
         }
         collectTokens(parser.getRootNode(), list, true, null);
+        rollbackContext();
         return list;
     }
 
@@ -92,7 +93,9 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
      * @return
      */
     public TokenList tokenizeExtended(MeaningTree mt) {
-        return tokenizeExtended(mt.getRootNode());
+        var tokens = tokenizeExtended(mt.getRootNode());
+        rollbackContext();
+        return tokens;
     }
 
     public Pair<Boolean, TokenList> tryTokenizeExtended(MeaningTree mt) {

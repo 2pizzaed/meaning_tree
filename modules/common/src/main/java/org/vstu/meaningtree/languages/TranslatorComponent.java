@@ -19,6 +19,10 @@ public abstract class TranslatorComponent {
         this.ctx = new TranslatorContext(this, translator);
     }
 
+    public void rollbackContext() {
+        this.ctx = new TranslatorContext(this, translator);
+    }
+
     protected <P, T extends ConfigScopedParameter<P>> Optional<P> getConfigParameter(Class<T> configClass) {
         return Optional.ofNullable(config).flatMap(config -> config.get(configClass));
     }

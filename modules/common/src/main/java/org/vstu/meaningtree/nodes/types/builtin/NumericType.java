@@ -13,6 +13,10 @@ public abstract class NumericType extends Type {
         this.size = 32;
     }
 
+    public int getBitsize() {
+        return size;
+    }
+
     @Override
     public String generateDot() {
         throw new UnsupportedOperationException();

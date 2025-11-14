@@ -91,7 +91,10 @@ public abstract class LanguageTranslator implements Cloneable {
 
         // Загрузка конфигов, специфических для конкретного языка
         for (var entry : rawConfig.entrySet()) {
-            configBuilder.add(configParser.parse(entry.getKey(), entry.getValue()));
+            var parsed = configParser.parse(entry.getKey(), entry.getValue());
+            if (parsed != null) {
+                configBuilder.add(parsed);
+            }
         }
 
         _config = _config.merge(getPredefinedCommonConfig(), getDeclaredConfig(), configBuilder.toConfig());

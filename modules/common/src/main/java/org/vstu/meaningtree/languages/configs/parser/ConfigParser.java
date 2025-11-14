@@ -1,6 +1,5 @@
 package org.vstu.meaningtree.languages.configs.parser;
 
-import org.vstu.meaningtree.exceptions.UnsupportedConfigParameterException;
 import org.vstu.meaningtree.languages.configs.ConfigParameter;
 
 import java.util.ArrayList;
@@ -35,7 +34,7 @@ public class ConfigParser {
         var mapping = configMappings.get(key);
 
         if (mapping == null) {
-            throw new UnsupportedConfigParameterException("Parameter '" + key + "' is not supported");
+            return null;
         }
 
         return mapping.createParameter(value);

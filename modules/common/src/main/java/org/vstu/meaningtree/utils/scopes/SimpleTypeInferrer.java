@@ -186,12 +186,12 @@ public class SimpleTypeInferrer {
         if (first instanceof UnknownType || second instanceof UnknownType) {
             return new UnknownType();
         }
-        else if (first instanceof NumericType && second instanceof NumericType) {
+        else if (first instanceof NumericType fn && second instanceof NumericType sn) {
             if (first instanceof FloatType || second instanceof FloatType) {
-                return new FloatType();
+                return new FloatType(Math.max(fn.getBitsize(), sn.getBitsize()));
             }
 
-            return new IntType();
+            return new IntType(Math.max(fn.getBitsize(), sn.getBitsize()));
         }
         else if (first instanceof StringType || second instanceof StringType) {
             return new StringType();

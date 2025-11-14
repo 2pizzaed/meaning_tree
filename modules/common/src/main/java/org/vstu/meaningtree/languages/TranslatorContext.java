@@ -270,7 +270,6 @@ public class TranslatorContext {
         }
 
         private void setNodeHook(Node node) {
-            ctx.processInfer(node);
             if (node instanceof ClassDefinition def) {
                 ctx.visibilityScope.scope().registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
             } else if (node instanceof FunctionDefinition def) {
@@ -284,6 +283,7 @@ public class TranslatorContext {
             } if (node instanceof EnumDeclaration decl) {
                 ctx.visibilityScope.scope().registerDeclaration(decl.getName().getSimpleIdentifierOrThrow(), decl);
             }
+            ctx.processInfer(node);
         }
 
         public CompoundStatement build() {

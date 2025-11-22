@@ -1,14 +1,14 @@
 package org.vstu.meaningtree.nodes.declarations;
 
 import org.vstu.meaningtree.iterators.utils.TreeNode;
-import org.vstu.meaningtree.nodes.Declaration;
 import org.vstu.meaningtree.nodes.Expression;
+import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 
 import java.util.List;
 import java.util.Objects;
 
-public class Annotation extends Declaration {
+public class Annotation extends Node {
     @TreeNode private List<Expression> arguments;
     @TreeNode private final Expression function;
 

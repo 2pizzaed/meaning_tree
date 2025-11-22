@@ -19,7 +19,7 @@ public class MethodDefinition extends FunctionDefinition {
     }
 
     public SimpleIdentifier getName() {
-        MethodDeclaration methodDeclaration = (MethodDeclaration) getDeclaration();
+        MethodDeclaration methodDeclaration = getDeclaration();
         return methodDeclaration.getName();
     }
 }

@@ -496,7 +496,6 @@ public class SimpleTypeInferrer {
         switch (declaration) {
             case VariableDeclaration variableDeclaration -> inference(variableDeclaration, scope);
             case DeclarationArgument declarationArgument -> inference(declarationArgument, scope);
-            case Annotation annotation -> inference(List.of(annotation.getArguments()), scope);
             case SeparatedVariableDeclaration separatedVariableDeclaration -> inference(separatedVariableDeclaration, scope);
             default -> throw new IllegalStateException("Unexpected declaration type: " + declaration.getClass());
         }
@@ -530,6 +529,7 @@ public class SimpleTypeInferrer {
         switch (node) {
             case ExpressionStatement expressionStatement -> inference(expressionStatement.getExpression(), scope);
             case AssignmentStatement assignmentStatement -> inference(assignmentStatement, scope);
+            case Annotation annotation -> inference(List.of(annotation.getArguments()), scope);
             case CompoundStatement compoundStatement -> inference(compoundStatement, scope);
             case IfStatement ifStatement -> inference(ifStatement, scope);
             case SwitchStatement switchStatement -> inference(switchStatement, scope);

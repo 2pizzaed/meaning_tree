@@ -6,20 +6,20 @@ import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 public class FieldDeclaration extends VariableDeclaration {
-    private List<DeclarationModifier> modifiers;
 
     public FieldDeclaration(Type type, SimpleIdentifier name, List<DeclarationModifier> modifiers) {
         super(type, name);
-        this.modifiers = List.copyOf(modifiers);
+        this.modifiers = new ArrayList<>(modifiers);
     }
 
     public FieldDeclaration(Type type, SimpleIdentifier name, Expression value, List<DeclarationModifier> modifiers) {
         super(type, name, value);
-        this.modifiers = List.copyOf(modifiers);
+        this.modifiers = new ArrayList<>(modifiers);
     }
 
     public FieldDeclaration(Type type, List<DeclarationModifier> modifiers, VariableDeclarator... declarators) {
@@ -28,7 +28,7 @@ public class FieldDeclaration extends VariableDeclaration {
 
     public FieldDeclaration(Type type, List<DeclarationModifier> modifiers, List<VariableDeclarator> declarators) {
         super(type, declarators);
-        this.modifiers = List.copyOf(modifiers);
+        this.modifiers = new ArrayList<>(modifiers);
     }
 
     public FieldDeclaration(Type type, SimpleIdentifier name) {
@@ -44,9 +44,6 @@ public class FieldDeclaration extends VariableDeclaration {
         this(type, List.of(), fields);
     }
 
-    public List<DeclarationModifier> getModifiers() {
-        return modifiers;
-    }
 
     @Override
     public boolean equals(Object o) {

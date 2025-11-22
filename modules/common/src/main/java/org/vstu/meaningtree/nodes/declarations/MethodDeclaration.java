@@ -12,7 +12,6 @@ import java.util.Objects;
 
 public class MethodDeclaration extends FunctionDeclaration {
     @TreeNode private UserType owner;
-    private List<DeclarationModifier> modifiers;
 
     public MethodDeclaration(UserType owner,
                              Identifier name,
@@ -38,10 +37,6 @@ public class MethodDeclaration extends FunctionDeclaration {
 
     public UserType getOwner() {
         return owner;
-    }
-
-    public List<DeclarationModifier> getModifiers() {
-        return modifiers;
     }
 
     @Override

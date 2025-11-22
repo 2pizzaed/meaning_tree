@@ -1973,7 +1973,7 @@ group: Other
 
         python:
             class A:
-                def a(t: T, *args: int) -> int:
+                def a(self, t: T, *args: int) -> int:
                     return t + sum(args)
 
 

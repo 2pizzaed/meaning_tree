@@ -725,15 +725,8 @@ public class JavaLanguage extends LanguageParser {
     private List<DeclarationArgument> fromMethodParameters(TSNode node) {
         List<DeclarationArgument> parameters = new ArrayList<>();
 
-        for (int i = 0; i < node.getChildCount(); i++) {
-            // TODO: может быть можно как-то более эффективно извлекать извлечь параметры...
-            // Такие сложности из-за того, что в детях также будет скобки, запятые и другие
-            // синтаксические артефакты.
-            TSNode child = node.getChild(i);
-            if (!child.getType().equals("formal_parameter")) {
-                continue;
-            }
-
+        for (int i = 0; i < node.getNamedChildCount(); i++) {
+            TSNode child = node.getNamedChild(i);
             DeclarationArgument parameter = fromFormalParameter(child);
             parameters.add(parameter);
         }

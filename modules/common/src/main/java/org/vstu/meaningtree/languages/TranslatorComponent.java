@@ -20,6 +20,7 @@ public abstract class TranslatorComponent {
     }
 
     public void rollbackContext() {
+        translator._latestScopeTable = ctx.getGlobalScope();
         this.ctx = new TranslatorContext(this, translator);
     }
 

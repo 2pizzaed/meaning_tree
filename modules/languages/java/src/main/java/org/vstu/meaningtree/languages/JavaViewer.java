@@ -112,16 +112,6 @@ public class JavaViewer extends LanguageViewer {
             return "";
         }
 
-        /*
-        TODO: temporarily disabled
-        if (node instanceof Expression expression) {
-            HindleyMilner.inference(expression, _typeScope);
-        }
-        else if (node instanceof Statement statement) {
-            HindleyMilner.inference(statement, _typeScope);
-        }
-        */
-
         return switch (node) {
             case ListLiteral listLiteral -> toStringListLiteral(listLiteral);
             case SetLiteral setLiteral -> toStringSetLiteral(setLiteral);
@@ -165,6 +155,7 @@ public class JavaViewer extends LanguageViewer {
             case VariableDeclaration stmt -> toStringVariableDeclaration(stmt);
             case CompoundStatement stmt -> toStringCompoundStatement(stmt);
             case ExpressionStatement stmt -> toStringExpressionStatement(stmt);
+            case MethodDeclaration stmt -> toStringMethodDeclaration(stmt);
             case SimpleIdentifier expr -> toStringSimpleIdentifier(expr);
             case IfStatement stmt -> toStringIfStatement(stmt);
             case GeneralForLoop stmt -> toStringGeneralForLoop(stmt);
@@ -224,6 +215,7 @@ public class JavaViewer extends LanguageViewer {
             case PointerPackOp ptr -> toStringPointerPackOp(ptr);
             case DefinitionArgument defArg ->toString(defArg.getInitialExpression());
             case PointerUnpackOp ptr -> toStringPointerUnpackOp(ptr);
+            case Annotation annotation -> toStringAnnotation(annotation);
             case ContainsOp op -> toStringContainsOp(op);
             case ReferenceEqOp op -> toStringReferenceEqOp(op);
             case FunctionDefinition functionDefinition -> toStringFunctionDefinition(functionDefinition);
@@ -258,6 +250,7 @@ public class JavaViewer extends LanguageViewer {
 
     private String toStringFunctionDeclaration(FunctionDeclaration functionDeclaration) {
         StringBuilder builder = new StringBuilder();
+        builder.append(toStringAnnotations(functionDeclaration.getAnnotations()));
 
         // Считаем каждую функцию доступной извне
         builder.append("public static ");
@@ -361,6 +354,24 @@ public class JavaViewer extends LanguageViewer {
         return toString(ptr.getArgument());
     }
 
+    public String toStringAnnotation(Annotation annotation) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("@");
+        builder.append(toString(annotation.getName()));
+        if (annotation.getArguments().length > 0) {
+            builder.append("(");
+            for (Expression arg : annotation.getArguments()) {
+                builder.append(toString(arg));
+                builder.append(", ");
+            }
+            if (builder.substring(builder.length() - 2, builder.length()) == ", ") {
+                builder.replace(builder.length() - 2, builder.length(), "");
+            }
+            builder.append(")");
+        }
+        return builder.toString();
+    }
+
     public String toStringPointerUnpackOp(PointerUnpackOp ptr) {
         if (ptr.getArgument() instanceof SubOp) {
             throw new UnsupportedViewingException("Subtraction of pointers cannot be converted to indexing");
@@ -370,8 +381,6 @@ public class JavaViewer extends LanguageViewer {
 
     public String toStringListLiteral(ListLiteral list) {
         var builder = new StringBuilder();
-        // FIX: уби
-        // String typeHint = "list.getTypeHint() == null ? "" : toString(list.getTypeHint());"
         String typeHint = "";
         builder.append(String.format("new java.util.ArrayList<%s>(java.util.List.of(", typeHint));
         for (Expression expression : list.getList()) {
@@ -656,10 +665,10 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringObjectConstructorDefinition(ObjectConstructorDefinition objectConstructor) {
-        MethodDeclaration constructorDeclaration =
-                (MethodDeclaration) objectConstructor.getDeclaration();
+        MethodDeclaration constructorDeclaration = objectConstructor.getDeclaration();
 
         StringBuilder builder = new StringBuilder();
+        builder.append(toStringAnnotations(constructorDeclaration.getAnnotations()));
 
         String modifiers = toString(constructorDeclaration.getModifiers());
         if (!modifiers.isEmpty()) {
@@ -1050,6 +1059,7 @@ public class JavaViewer extends LanguageViewer {
 
     private String toStringMethodDeclaration(MethodDeclaration methodDeclaration) {
         StringBuilder builder = new StringBuilder();
+        builder.append(toStringAnnotations(methodDeclaration.getAnnotations()));
 
         String modifiersList = toString(methodDeclaration.getModifiers());
         if (!modifiersList.isEmpty()) {
@@ -1072,10 +1082,10 @@ public class JavaViewer extends LanguageViewer {
         StringBuilder builder = new StringBuilder();
 
         // Нужен для отслеживания необходимости в return
-        _methodReturnType = ((MethodDeclaration) methodDefinition.getDeclaration()).getReturnType();
+        _methodReturnType = methodDefinition.getDeclaration().getReturnType();
 
         // Преобразование типа нужно, чтобы избежать вызова toString(Node node)
-        String methodDeclaration = toString((MethodDeclaration) methodDefinition.getDeclaration());
+        String methodDeclaration = toString(methodDefinition.getDeclaration());
         builder.append(methodDeclaration);
 
         String body = toString(methodDefinition.getBody());
@@ -1155,8 +1165,18 @@ public class JavaViewer extends LanguageViewer {
         return modifiers + "class " + toString(decl.getName());
     }
 
+    private String toStringAnnotations(List<Annotation> annotations) {
+        StringBuilder builder = new StringBuilder();
+        for (Annotation annotation : annotations) {
+            builder.append(toString(annotation));
+            builder.append("\n");
+        }
+        return builder.toString();
+    }
+
     private String toStringClassDefinition(ClassDefinition def) {
         StringBuilder builder = new StringBuilder();
+        builder.append(toStringAnnotations(def.getDeclaration().getAnnotations()));
 
         String declaration = toString(def.getDeclaration());
         builder.append(declaration);

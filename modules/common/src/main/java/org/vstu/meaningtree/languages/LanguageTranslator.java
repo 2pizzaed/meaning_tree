@@ -2,6 +2,7 @@ package org.vstu.meaningtree.languages;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.Nullable;
 import org.treesitter.TSException;
 import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
@@ -16,6 +17,7 @@ import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Experimental;
 import org.vstu.meaningtree.utils.Label;
+import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.tokens.Token;
 import org.vstu.meaningtree.utils.tokens.TokenGroup;
 import org.vstu.meaningtree.utils.tokens.TokenList;
@@ -29,6 +31,7 @@ public abstract class LanguageTranslator implements Cloneable {
     protected LanguageParser _language;
     protected LanguageViewer _viewer;
     protected Config _config = new Config();
+    protected ScopeTable _latestScopeTable = null;
 
     public static Config getPredefinedCommonConfig() {
         return new Config(

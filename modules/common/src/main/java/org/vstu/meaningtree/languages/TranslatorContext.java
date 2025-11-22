@@ -82,6 +82,12 @@ public class TranslatorContext {
         return Optional.of((T) value);
     }
 
+    public boolean check(String name, Object value) {
+        var ctxVar = get(name, value.getClass());
+        if (ctxVar.isEmpty()) return false;
+        return ctxVar.get().equals(value);
+    }
+
     public void set(String name, Object value) {
         ctxVariables.put(name, value);
     }
@@ -130,7 +136,7 @@ public class TranslatorContext {
         return visibilityScope.scope().findDeclaration(new SimpleIdentifier(declarationName), type);
     }
 
-    public List<Class<? extends Node>> getTranslatingNodeHierarchy() {
+    public List<Class<? extends Node>> getTranslatingNodeTypeHierarchy() {
         List<Class<? extends Node>> translatingNodes = new ArrayList<>();
 
         StackTraceElement[] stack = Thread.currentThread().getStackTrace();
@@ -147,12 +153,12 @@ public class TranslatorContext {
                         if (m.getName().equals(methodName)) {
                             if (LanguageParser.class.isAssignableFrom(cls)) {
                                 Class<?> returnType = m.getReturnType();
-                                if (Node.class.isAssignableFrom(returnType)) {
+                                if (Node.class.isAssignableFrom(returnType) && !returnType.equals(Node.class)) {
                                     translatingNodes.add(returnType.asSubclass(Node.class));
                                 }
                             } else if (LanguageViewer.class.isAssignableFrom(cls)) {
                                 Class<?>[] params = m.getParameterTypes();
-                                if (params.length > 0 && Node.class.isAssignableFrom(params[0])) {
+                                if (params.length > 0 && Node.class.isAssignableFrom(params[0]) && !params[0].equals(Node.class)) {
                                     translatingNodes.add(params[0].asSubclass(Node.class));
                                 }
                             }
@@ -165,6 +171,12 @@ public class TranslatorContext {
             }
         }
         return translatingNodes;
+    }
+
+    // Проверяет, что текущая функция парсера/viewer обрабатывается внутри заданного типа узла
+    public boolean isInNode(Class<? extends Node> nodeType) {
+        var h = getTranslatingNodeTypeHierarchy();
+        return h.stream().anyMatch(x -> nodeType.isAssignableFrom(x));
     }
 
     public ScopeTable getGlobalScope() {

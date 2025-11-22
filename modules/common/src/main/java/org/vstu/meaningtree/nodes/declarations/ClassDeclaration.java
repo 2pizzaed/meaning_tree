@@ -14,7 +14,6 @@ import java.util.Objects;
 
 
 public class ClassDeclaration extends Declaration {
-    protected List<DeclarationModifier> modifiers;
     @TreeNode protected Identifier name;
     @TreeNode protected List<Type> parentTypes;
     @TreeNode protected List<Type> typeParameters; // for generic type
@@ -36,10 +35,6 @@ public class ClassDeclaration extends Declaration {
 
     public ClassDeclaration(Identifier name) {
         this(List.of(), name);
-    }
-
-    public List<DeclarationModifier> getModifiers() {
-        return modifiers;
     }
 
     public List<Type> getParents() {

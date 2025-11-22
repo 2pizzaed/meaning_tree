@@ -1,5 +1,6 @@
 package org.vstu.meaningtree.nodes.declarations;
 
+import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Declaration;
 import org.vstu.meaningtree.nodes.Expression;
@@ -50,6 +51,11 @@ public class VariableDeclaration extends Declaration implements HasInitializatio
 
     public VariableDeclarator[] getDeclarators() {
         return variableDeclaratorList.toArray(new VariableDeclarator[0]);
+    }
+
+    @Nullable
+    public VariableDeclarator getFirstDeclarator() {
+        return variableDeclaratorList.isEmpty() ? null : variableDeclaratorList.get(0);
     }
 
     @Override

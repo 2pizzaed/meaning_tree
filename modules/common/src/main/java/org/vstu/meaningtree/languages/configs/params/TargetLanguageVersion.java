@@ -6,14 +6,13 @@ import org.vstu.meaningtree.languages.configs.parser.BooleanParser;
 
 import java.util.Optional;
 
-public class CLanguageMode extends ConfigScopedParameter<Boolean> {
-    public CLanguageMode(Boolean value, ConfigScope scope) {
+public class TargetLanguageVersion extends ConfigScopedParameter<String> {
+    public TargetLanguageVersion(String value, ConfigScope scope) {
         super(value, scope);
-        setConflictingParameter(TargetLanguageVersion.class);
     }
 
-    public CLanguageMode(Boolean value) {
-        super(value, ConfigScope.VIEWER);
+    public TargetLanguageVersion(String value) {
+        super(value, ConfigScope.TRANSLATOR);
     }
 
     public static Optional<Boolean> parse(String value) { return BooleanParser.parse(value); }

@@ -1,8 +1,7 @@
 package org.vstu.meaningtree.languages.configs.params;
 
-import org.vstu.meaningtree.languages.configs.ConfigParameter;
-import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
 import org.vstu.meaningtree.languages.configs.ConfigScope;
+import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
 import org.vstu.meaningtree.languages.configs.parser.BooleanParser;
 
 import java.util.Optional;

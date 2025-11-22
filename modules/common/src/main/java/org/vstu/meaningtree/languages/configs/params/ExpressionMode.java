@@ -1,7 +1,7 @@
 package org.vstu.meaningtree.languages.configs.params;
 
-import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
 import org.vstu.meaningtree.languages.configs.ConfigScope;
+import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
 import org.vstu.meaningtree.languages.configs.parser.BooleanParser;
 
 import java.util.Optional;
@@ -16,10 +16,13 @@ import java.util.Optional;
 public class ExpressionMode extends ConfigScopedParameter<Boolean> {
     public ExpressionMode(Boolean value, ConfigScope scope) {
         super(value, scope);
+        if (value.booleanValue()) {
+            setConflictingParameter(TranslationUnitMode.class);
+        }
     }
 
     public ExpressionMode(Boolean value) {
-        this(value, ConfigScope.ANY);
+        this(value, ConfigScope.TRANSLATOR);
     }
 
     public static Optional<Boolean> parse(String value) { return BooleanParser.parse(value); }

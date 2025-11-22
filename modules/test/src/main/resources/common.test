@@ -943,7 +943,8 @@ group: SimpleStatements
             }
 
         c++:
-            if (a) {
+            if (a)
+            {
             }
 
 
@@ -975,7 +976,8 @@ group: Conditions
 
         isolated c++:
             int k = 1;
-            if (a > 0) {
+            if (a > 0)
+            {
                 a += 15;
                 k = x + 1;
             }
@@ -994,7 +996,8 @@ group: Conditions
             }
 
         c++:
-            if (a >= 0) {
+            if (a >= 0)
+            {
                 t();
                 x();
             }
@@ -1016,8 +1019,10 @@ group: Conditions
             }
 
         c++:
-            if (a > 0) {
-                if (k) {
+            if (a > 0)
+            {
+                if (k)
+                {
                     std::cout << "a" << std::endl;
                     std::cout << "b" << std::endl;
                 }
@@ -1032,9 +1037,11 @@ group: Conditions
                 pass
 
         c++:
-            if (a) {
+            if (a)
+            {
             }
-            else if (b) {
+            else if (b)
+            {
             }
 
         java:
@@ -1054,11 +1061,14 @@ group: Conditions
                 c: int = k * 3
 
         c++:
-            if (a) {
+            if (a)
+            {
             }
-            else if (b) {
+            else if (b)
+            {
             }
-            else {
+            else
+            {
                 int c = k * 3;
             }
 
@@ -1092,19 +1102,23 @@ group: Conditions
         c++:
             int b = 1;
             int k = 20;
-            if (a) {
+            if (a)
+            {
                 b = a * 3;
                 x += 15;
             }
-            else if (b) {
+            else if (b)
+            {
                 b = m * 3;
                 x += 15;
             }
-            else if (c) {
+            else if (c)
+            {
                 k = l * 3;
                 x += 15;
             }
-            else {
+            else
+            {
                 d *= 5;
                 x += 15;
             }
@@ -1175,22 +1189,29 @@ group: Conditions
             }
 
         c++:
-            if (a > b) {
+            if (a > b)
+            {
                 z += 15;
-                if (x && y) {
-                    if (x == 7) {
+                if (x && y)
+                {
+                    if (x == 7)
+                    {
                         x += 15;
                     }
                     c += 15;
                 }
                 c += 15;
             }
-            else if (a < b) {
+            else if (a < b)
+            {
                 x += 15;
-                if (x > 5) {
-                    if (x != 7) {
+                if (x > 5)
+                {
+                    if (x != 7)
+                    {
                         std::cout << "alarm" << std::endl;
-                    } else {
+                    } else
+                    {
                         k += 15;
                     }
                     c += 15;
@@ -1211,7 +1232,8 @@ group: ForLoop
             }
 
         c++:
-            for (int i = 0; i < 10; i += c) {
+            for (int i = 0; i < 10; i += c)
+            {
                 func(a);
             }
 
@@ -1229,7 +1251,8 @@ group: ForLoop
             }
 
         c++:
-            for (double v = a * b * c; v < dx - 1; v++) {
+            for (double v = a * b * c; v < dx - 1; v++)
+            {
                 func(a);
             }
 
@@ -1245,7 +1268,8 @@ group: ForLoop
             }
 
         c++:
-            for (auto a : b) {
+            for (auto a : b)
+            {
                 x += 4;
             }
 
@@ -1355,7 +1379,8 @@ group: WhileLoop
             }
 
         c++:
-            while (x != m) {
+            while (x != m)
+            {
                 g();
                 f();
             }
@@ -1377,9 +1402,11 @@ group: WhileLoop
             }
 
         c++:
-            while (started()) {
+            while (started())
+            {
                 do_work();
-                if (has_errors()) {
+                if (has_errors())
+                {
                     break;
                 }
             }
@@ -1396,7 +1423,8 @@ group: WhileLoop
             }
 
         c++:
-            while (true) {
+            while (true)
+            {
 
             }
 
@@ -1475,7 +1503,8 @@ group: SwitchStatement
 
         c++:
             int test = 0;
-            switch (a) {
+            switch (a)
+            {
                 case t:
                     test++;
                     break;
@@ -1521,7 +1550,8 @@ group: SwitchStatement
             }
 
         isolated c++:
-            switch (a) {
+            switch (a)
+            {
                 case t:
                     test++;
                     break;
@@ -1549,7 +1579,8 @@ group: Functions
             }
 
         c++:
-            auto f(auto a, auto b) {
+            auto f(auto a, auto b)
+            {
                 return a + b;
             }
 
@@ -1565,7 +1596,8 @@ group: Functions
             }
 
         c++:
-            std::string concat(std::string a, std::string b) {
+            std::string concat(std::string a, std::string b)
+            {
                 return a + b;
             }
 
@@ -1584,12 +1616,6 @@ group: Functions
                 return a + b;
             }
 
-        c++:
-            std::string concat(std::string a, std::string b) {
-                return a + b;
-            }
-
-
     case: FunctionWithCustomTypes
         python:
             def join_data(a: Data, b: Data) -> DataUnion:
@@ -1601,7 +1627,8 @@ group: Functions
             }
 
         c++:
-            DataUnion join_data(Data a, Data b) {
+            DataUnion join_data(Data a, Data b)
+            {
                 return a + b;
             }
 
@@ -1615,7 +1642,8 @@ group: StructuresOOP
                 _c = 123
 
         c++:
-            class A {
+            class A
+            {
                 public:
                     int a = k;
                     auto b = GLOBAL();
@@ -1649,13 +1677,16 @@ group: StructuresOOP
             }
 
         c++:
-            class A {
+            class A
+            {
                 public:
-                    Object a() {
+                    Object a()
+                    {
                         return k();
                     }
 
-                    Object b() {
+                    Object b()
+                    {
                         return r + m;
                     }
             }
@@ -1688,16 +1719,19 @@ group: StructuresOOP
             }
 
         c++:
-            class A {
+            class A
+            {
                 public:
                     int k = 32;
                     Object m = 34;
 
-                    Object a() {
+                    Object a()
+                    {
                         return k();
                     }
 
-                    Object b() {
+                    Object b()
+                    {
                         return r + m;
                     }
             }
@@ -1718,8 +1752,10 @@ group: StructuresOOP
             }
 
         c++:
-            class A {
-                static DataUnion concat(Data a, Data b) {
+            class A
+            {
+                static DataUnion concat(Data a, Data b)
+                {
                     return a + b;
                 }
             }
@@ -1759,7 +1795,8 @@ group: StructuresOOP
             }
 
         c++:
-            class A {
+            class A
+            {
             public:
                 A() {
                     print("construct");
@@ -1781,9 +1818,11 @@ group: StructuresOOP
             }
 
         c++:
-            class A {
+            class A
+            {
             public:
-                ~A() {
+                ~A()
+                {
                     print("destruct");
                 }
             }
@@ -1804,9 +1843,11 @@ group: StructuresOOP
                     self.__init__(a)
 
         c++:
-            class A : public B {
+            class A : public B
+            {
             public:
-                A(int a, string b, float c) : B(a, b), A(a) {
+                A(int a, string b, float c) : B(a, b), A(a)
+                {
 
                 }
             }
@@ -1834,14 +1875,16 @@ group: StructuresOOP
                 }
             }
 
-        java:
-            class A {
+        c++:
+            class A
+            {
                 public:
                 int out = 567;
                 int k;
                 object m;
 
-                A() {
+                A()
+                {
                     out = 5;
                     k = 5;
                     m = hello();
@@ -1963,12 +2006,15 @@ group: Other
             }
 
         c++:
-            for (int x = 0; x < m; i++) {
+            for (int x = 0; x < m; i++)
+            {
                 list<object> _tmp_compreh;
-                for (int _ = 0; _ < t; _++) {
+                for (int _ = 0; _ < t; _++)
+                {
                     _tmp_compreh.push_back(next(k));
                 }
-                if (x > func(_tmp_compreh)) {
+                if (x > func(_tmp_compreh))
+                {
                     print("Good");
                 }
             }
@@ -1996,14 +2042,18 @@ group: Other
             }
 
         c++:
-            for (int x = 0; x < m; i++) {
+            for (int x = 0; x < m; i++)
+            {
                 list<object> _tmp_compreh;
-                for (int _ = 0; _ < t; _++) {
-                    if (x > 5) {
+                for (int _ = 0; _ < t; _++)
+                {
+                    if (x > 5)
+                    {
                         _tmp_compreh.push_back(next(k));
                     }
                 }
-                if (x > func(_tmp_compreh)) {
+                if (x > func(_tmp_compreh))
+                {
                     print("Good");
                 }
             }
@@ -2071,11 +2121,13 @@ group: Other
             int a = 3;
             f();
 
-            int main() {
+            int main()
+            {
                 return 0;
             }
 
-            int main() {
+            int main()
+            {
                 main();
                 return 0;
             }
@@ -2111,12 +2163,14 @@ group: Other
             #include "funcs.func"
             int a = 1;
 
-            int run() {
+            int run()
+            {
                 func(a);
                 return 0;
             }
 
-            int main() {
+            int main()
+            {
                 run();
                 return 0;
             }

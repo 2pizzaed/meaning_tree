@@ -1,16 +1,20 @@
 package org.vstu.meaningtree.languages;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
+import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
+import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
+import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
@@ -958,7 +962,7 @@ public class CppViewer extends LanguageViewer {
 
     private String toStringCast(CastTypeExpression cast) {
         cast = parenFiller.process(cast);
-        return String.format("(%s)%s", toString(cast.getCastType()), toString(cast.getValue()));
+        return String.format("(%s) %s", toString(cast.getCastType()), toString(cast.getValue()));
     }
 
     private String toStringCollectionLiteral(PlainCollectionLiteral colLit) {
@@ -987,8 +991,71 @@ public class CppViewer extends LanguageViewer {
         return String.format("(long) (%s / %s)", toString(op.getLeft()), toString(op.getRight()));
     }
 
+    @Nullable
+    private MethodDefinition getMainFunction(List<Node> nodes) {
+        for (var node : nodes) {
+            if (node instanceof FunctionDefinition functionDefinition
+                    && functionDefinition.getName().toString().equals("main")) {
+                return functionDefinition.makeMethod(
+                        null,
+                        List.of(DeclarationModifier.PUBLIC, DeclarationModifier.STATIC)
+                );
+            }
+        }
+
+        return null;
+    }
+
+    private List<Node> getNotFunction(List<Node> nodes) {
+        var notMethods = new ArrayList<Node>();
+
+        for (var node : nodes) {
+            if (!(node instanceof FunctionDefinition functionDefinition)) {
+                notMethods.add(node);
+            }
+        }
+
+        return notMethods;
+    }
+
+    private String makeSimpleProgram(List<Node> nodes) {
+        StringBuilder builder = new StringBuilder();
+
+        builder.append("int main(int argc, char * argv[]) {\n\n");
+        increaseIndentLevel();
+
+        var mainFunc = getMainFunction(nodes);
+        var notMethods = getNotFunction(nodes);
+
+        if (mainFunc != null) {
+            // Добавляем все не-методы в body main
+            var mainBody = mainFunc.getBody();
+            for (Node node : notMethods) {
+                mainBody.insert(mainBody.getLength(), node);
+            }
+            for (var node : mainBody.getNodes()) {
+                builder.append(indent(toString(node))).append("\n");
+            }
+        }
+        else {
+            for (var node : notMethods) {
+                builder.append(indent(toString(node))).append("\n");
+            }
+        }
+
+        decreaseIndentLevel();
+        builder.append("}\n");
+
+        return builder.toString();
+    }
+
     private String toStringEntryPoint(ProgramEntryPoint entryPoint) {
         // TODO: required main function creation or expression mode
+
+        if (getConfigParameter(TranslationUnitMode.class).orElse(true) && !entryPoint.hasEntryPoint()) {
+            return makeSimpleProgram(entryPoint.getBody());
+        }
+
         StringBuilder builder = new StringBuilder();
         for (Node node : ctx.iterateBody(entryPoint)) {
             builder.append(toString(node));

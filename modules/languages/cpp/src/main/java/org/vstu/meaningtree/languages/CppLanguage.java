@@ -8,6 +8,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
 import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
 import org.vstu.meaningtree.languages.configs.params.SkipErrors;
+import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
@@ -76,7 +77,6 @@ import java.util.Objects;
 public class CppLanguage extends LanguageParser {
     private TSLanguage _language;
     private TSParser _parser;
-    private int binaryRecursiveFlag = -1;
 
     public CppLanguage(LanguageTranslator translator) {
         super(translator);
@@ -98,6 +98,7 @@ public class CppLanguage extends LanguageParser {
 
     @NotNull
     public synchronized MeaningTree getMeaningTree(String code) {
+        ctx.set("binaryRecursive", -1);
         _code = code;
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
@@ -254,12 +255,11 @@ public class CppLanguage extends LanguageParser {
                 && getCodePiece(node.getChild(0)).equals("static")) {
             // Статик обозначает приватность функции (по отношению к файлу, где она определена)
             modifiers.add(DeclarationModifier.PRIVATE);
+            modifiers.add(DeclarationModifier.STATIC);
         }
         else {
             modifiers.add(DeclarationModifier.PUBLIC);
         }
-        // TODO: однако, модификаторы не определены для функций в мининг-три...
-        // Это не причина удалять код сверху, пусть будет...
 
         Type returnType = fromType(node.getChildByFieldName("type"));
         Identifier identifier = (Identifier) fromIdentifier(
@@ -269,13 +269,13 @@ public class CppLanguage extends LanguageParser {
                 node.getChildByFieldName("declarator").getChildByFieldName("parameters")
         );
 
-        // TODO: Пока не реализовано определение аннотаций
         var declaration = new FunctionDeclaration(
                 identifier,
                 returnType,
                 List.of(),
                 parameters
         );
+        declaration.setModifiers(modifiers);
 
         CompoundStatement body = fromBlock(node.getChildByFieldName("body"));
 
@@ -286,26 +286,40 @@ public class CppLanguage extends LanguageParser {
         List<DeclarationArgument> parameters = new ArrayList<>();
 
         for (int i = 0; i < node.getChildCount(); i++) {
-            // TODO: может быть можно как-то более эффективно извлекать извлечь параметры...
-            // Такие сложности из-за того, что в детях также будет скобки, запятые и другие
-            // синтаксические артефакты.
             TSNode child = node.getChild(i);
-            if (!child.getType().equals("parameter_declaration")) {
+            if (child.getType().equals("...")) {
+                var decl = DeclarationArgument.listUnpacking(new UnknownType(), new SimpleIdentifier("arguments"));
+                parameters.add(decl); // bad support
+            }
+            if (!List.of("parameter_declaration", "variadic_parameter_declaration").contains(child.getType())) {
                 continue;
             }
-
             DeclarationArgument parameter = fromFormalParameter(child);
             parameters.add(parameter);
         }
-
         return parameters;
     }
 
     private DeclarationArgument fromFormalParameter(TSNode node) {
         Type type = fromType(node.getChildByFieldName("type"));
-        SimpleIdentifier name = (SimpleIdentifier) fromIdentifier(node.getChildByFieldName("declarator"));
+
+        for (int i = 0; i < node.getChildCount(); i++) {
+            TSNode child = node.getChild(i);
+            if (child.getType().equals("type_qualifier") && getCodePiece(child).equals("const")) {
+                type.setConst(true);
+            }
+        }
+
+        var declaration = fromDeclarator(node.getChildByFieldName("declarator"), type);
+        SimpleIdentifier name = declaration.getFirstDeclarator().getIdentifier();
+        type = declaration.getType();
+
+        var defValueNode = node.getChildByFieldName("default_value");
+        Expression defaultValue = defValueNode != null && !defValueNode.isNull() ?
+                (Expression) parseTSNode(defValueNode) : null;
+
         // Не поддерживается распаковка списков (как в Python) и значения по умолчанию
-        return new DeclarationArgument(type,  name, null);
+        return new DeclarationArgument(type,  name, defaultValue);
     }
 
     private CompoundStatement fromBlock(TSNode node) {
@@ -1041,14 +1055,14 @@ public class CppLanguage extends LanguageParser {
 
     @NotNull
     private Node fromBinaryExpression(@NotNull TSNode node) {
-        if (binaryRecursiveFlag == -1) {
-            binaryRecursiveFlag = node.getEndByte();
+        if (ctx.check("binaryRecursive", -1)) {
+            ctx.set("binaryRecursive", node.getEndByte());
         }
         Expression left = (Expression) parseTSNode(node.getChildByFieldName("left"));
         Expression right = (Expression) parseTSNode(node.getChildByFieldName("right"));
         TSNode operator = node.getChildByFieldName("operator");
-        if (binaryRecursiveFlag == node.getEndByte()) {
-            binaryRecursiveFlag = -1;
+        if (ctx.check("binaryRecursive", node.getEndByte())) {
+            ctx.set("binaryRecursive", -1);
         }
 
         return switch (getCodePiece(operator)) {
@@ -1103,7 +1117,7 @@ public class CppLanguage extends LanguageParser {
             case "^" -> new XorOp(left, right);
             case "<<" -> {
                 LeftShiftOp lshift = new LeftShiftOp(left, right);
-                if (binaryRecursiveFlag == -1) {
+                if (ctx.check("binaryRecursive", -1)) {
                     Expression fName = lshift.getLeftmost();
                     List<Expression> exprs = lshift.getRecursivePlainOperands();
                     boolean isEndl = sanitizeFromStd(exprs.getLast()).equalsIdentifier("endl");
@@ -1120,7 +1134,7 @@ public class CppLanguage extends LanguageParser {
             }
             case ">>" -> {
                 var rshift = new RightShiftOp(left, right);
-                if (binaryRecursiveFlag == -1) {
+                if (ctx.check("binaryRecursive", -1)) {
                     Expression fName = rshift.getLeftmost();
                     List<Expression> exprs = rshift.getRecursivePlainOperands();
                     if (sanitizeFromStd(fName).equalsIdentifier("cin")) {
@@ -1152,80 +1166,9 @@ public class CppLanguage extends LanguageParser {
         var declarators = new ArrayList<VariableDeclaration>();
         for (i += 1; i < node.getNamedChildCount(); i++) {
             TSNode tsDeclarator = node.getNamedChild(i);
-
-            if (tsDeclarator.getType().equals("type_qualifier") && getCodePiece(tsDeclarator).equals("const")) {
-                mainType.setConst(true);
-            } else if (tsDeclarator.getType().equals("array_declarator")) {
-                List<Expression> dimensions = new ArrayList<>();
-                TSNode arrayDimension = tsDeclarator;
-                while (!arrayDimension.isNull() && arrayDimension.getType().equals("array_declarator")) {
-                    if (!arrayDimension.getChildByFieldName("value").isNull()) {
-                        dimensions.add((Expression) parseTSNode(arrayDimension.getChildByFieldName("value")));
-                    } else {
-                        dimensions.add(null);
-                    }
-                    arrayDimension = arrayDimension.getChildByFieldName("declarator");
-                }
-                mainType = new ArrayType(mainType, dimensions.size(), dimensions);
-                declarators.add(new VariableDeclaration(mainType, new VariableDeclarator((SimpleIdentifier) parseTSNode(arrayDimension))));
-            } else if (tsDeclarator.getType().equals("init_declarator")) {
-                TSNode tsVariableName = tsDeclarator.getChildByFieldName("declarator");
-                Type type = mainType;
-
-                if (tsVariableName.getType().equals("pointer_declarator")) {
-                    type = new PointerType(mainType);
-                    if (mainType instanceof NoReturn) {
-                        type = new PointerType(new UnknownType());
-                    }
-                    if ((tsVariableName.getNamedChild(0).getType().equals("type_qualifier") &&
-                            getCodePiece(tsVariableName.getNamedChild(0)).equals("const"))
-                    ) {
-                        type.setConst(true);
-                    }
-                    tsVariableName = tsVariableName.getChildByFieldName("declarator");
-                } else if (tsVariableName.getType().equals("reference_declarator")) {
-                    type = new ReferenceType(mainType);
-                    tsVariableName = tsVariableName.getNamedChild(0);
-                } else if (tsVariableName.getType().equals("array_declarator")) {
-                    List<Expression> dimensions = new ArrayList<>();
-                    TSNode arrayDimension = tsVariableName;
-                    while (!arrayDimension.isNull() && arrayDimension.getType().equals("array_declarator")) {
-                        if (!arrayDimension.getChildByFieldName("value").isNull()) {
-                            dimensions.add((Expression) parseTSNode(arrayDimension.getChildByFieldName("value")));
-                        } else {
-                            dimensions.add(null);
-                        }
-                        arrayDimension = arrayDimension.getChildByFieldName("declarator");
-                    }
-                    type = new ArrayType(mainType, dimensions.size(), dimensions);
-                    tsVariableName = arrayDimension;
-                }
-                TSNode tsValue = tsDeclarator.getChildByFieldName("value");
-
-                SimpleIdentifier variableName = (SimpleIdentifier) parseTSNode(tsVariableName);
-                Expression value = (Expression) parseTSNode(tsValue);
-                if (value instanceof PlainCollectionLiteral col) {
-                    if (mainType instanceof PlainCollectionType arrayType) {
-                        col.setTypeHint(arrayType.getItemType());
-                    } else {
-                        col.setTypeHint(mainType);
-                    }
-                }
-
-                VariableDeclarator declarator = new VariableDeclarator(variableName, value);
-                declarators.add(new VariableDeclaration(type, declarator));
-            } else {
-                Type type = mainType;
-
-                if (tsDeclarator.getType().equals("pointer_declaration")) {
-                    type = new PointerType(mainType);
-                    if (mainType instanceof NoReturn) {
-                        type = new PointerType(new UnknownType());
-                    }
-                } else if (tsDeclarator.getType().equals("reference_declaration")) {
-                    type = new ReferenceType(mainType);
-                }
-                declarators.add(new VariableDeclaration(type, new VariableDeclarator((SimpleIdentifier) fromIdentifier(tsDeclarator))));
+            var decl = fromDeclarator(tsDeclarator, mainType);
+            if (decl != null) {
+                declarators.add(decl);
             }
         }
 
@@ -1234,6 +1177,85 @@ public class CppLanguage extends LanguageParser {
             return sepDecl.reduce();
         }
         return sepDecl;
+    }
+
+    //has size effects
+    private VariableDeclaration fromDeclarator(@NotNull TSNode tsDeclarator, Type mainType) {
+        if (tsDeclarator.getType().equals("type_qualifier") && getCodePiece(tsDeclarator).equals("const")) {
+            mainType.setConst(true);
+        } else if (tsDeclarator.getType().equals("array_declarator")) {
+            List<Expression> dimensions = new ArrayList<>();
+            TSNode arrayDimension = tsDeclarator;
+            while (!arrayDimension.isNull() && arrayDimension.getType().equals("array_declarator")) {
+                if (!arrayDimension.getChildByFieldName("value").isNull()) {
+                    dimensions.add((Expression) parseTSNode(arrayDimension.getChildByFieldName("value")));
+                } else {
+                    dimensions.add(null);
+                }
+                arrayDimension = arrayDimension.getChildByFieldName("declarator");
+            }
+            mainType = new ArrayType(mainType, dimensions.size(), dimensions);
+            return new VariableDeclaration(mainType, new VariableDeclarator((SimpleIdentifier) parseTSNode(arrayDimension)));
+        } else if (tsDeclarator.getType().equals("init_declarator")) {
+            TSNode tsVariableName = tsDeclarator.getChildByFieldName("declarator");
+            Type type = mainType;
+
+            if (tsVariableName.getType().equals("pointer_declarator")) {
+                type = new PointerType(mainType);
+                if (mainType instanceof NoReturn) {
+                    type = new PointerType(new UnknownType());
+                }
+                if ((tsVariableName.getNamedChild(0).getType().equals("type_qualifier") &&
+                        getCodePiece(tsVariableName.getNamedChild(0)).equals("const"))
+                ) {
+                    type.setConst(true);
+                }
+                tsVariableName = tsVariableName.getChildByFieldName("declarator");
+            } else if (tsVariableName.getType().equals("reference_declarator")) {
+                type = new ReferenceType(mainType);
+                tsVariableName = tsVariableName.getNamedChild(0);
+            } else if (tsVariableName.getType().equals("array_declarator")) {
+                List<Expression> dimensions = new ArrayList<>();
+                TSNode arrayDimension = tsVariableName;
+                while (!arrayDimension.isNull() && arrayDimension.getType().equals("array_declarator")) {
+                    if (!arrayDimension.getChildByFieldName("value").isNull()) {
+                        dimensions.add((Expression) parseTSNode(arrayDimension.getChildByFieldName("value")));
+                    } else {
+                        dimensions.add(null);
+                    }
+                    arrayDimension = arrayDimension.getChildByFieldName("declarator");
+                }
+                type = new ArrayType(mainType, dimensions.size(), dimensions);
+                tsVariableName = arrayDimension;
+            }
+            TSNode tsValue = tsDeclarator.getChildByFieldName("value");
+
+            SimpleIdentifier variableName = (SimpleIdentifier) parseTSNode(tsVariableName);
+            Expression value = (Expression) parseTSNode(tsValue);
+            if (value instanceof PlainCollectionLiteral col) {
+                if (mainType instanceof PlainCollectionType arrayType) {
+                    col.setTypeHint(arrayType.getItemType());
+                } else {
+                    col.setTypeHint(mainType);
+                }
+            }
+
+            VariableDeclarator declarator = new VariableDeclarator(variableName, value);
+            return new VariableDeclaration(type, declarator);
+        } else {
+            Type type = mainType;
+
+            if (tsDeclarator.getType().equals("pointer_declaration")) {
+                type = new PointerType(mainType);
+                if (mainType instanceof NoReturn) {
+                    type = new PointerType(new UnknownType());
+                }
+            } else if (tsDeclarator.getType().equals("reference_declaration")) {
+                type = new ReferenceType(mainType);
+            }
+            return new VariableDeclaration(type, new VariableDeclarator((SimpleIdentifier) fromIdentifier(tsDeclarator)));
+        }
+        return null;
     }
 
     private QualifiedIdentifier rightToLeftQualified(Identifier left, Identifier right) {
@@ -1333,17 +1355,22 @@ public class CppLanguage extends LanguageParser {
     @NotNull
     private Node fromTranslationUnit(@NotNull TSNode node) {
         List<Node> nodes = new ArrayList<>();
+        Node entryPoint = null;
         for (int i = 0; i < node.getNamedChildCount(); i++) {
             TSNode currNode = node.getNamedChild(i);
             Node n = parseTSNode(currNode);
             nodes.add(n);
             if (n instanceof FunctionDefinition functionDefinition
-                    && functionDefinition.getName().toString().equals("main")) {
-                n = new ProgramEntryPoint(List.of(functionDefinition.getBody().getNodes()), n);
-                return n;
+                    && functionDefinition.getName().toString().equals("main")
+            ) {
+                entryPoint = n;
+                if (!getConfigParameter(TranslationUnitMode.class).orElse(true)) {
+                    n = new ProgramEntryPoint(List.of(functionDefinition.getBody().getNodes()), n);
+                    return n;
+                }
             }
         }
-        return new ProgramEntryPoint(nodes);
+        return new ProgramEntryPoint(nodes, entryPoint);
     }
 
     @NotNull

@@ -6,9 +6,9 @@ import org.jetbrains.annotations.Nullable;
 import org.treesitter.*;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
-import org.vstu.meaningtree.languages.configs.params.EnforceEntryPoint;
 import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
 import org.vstu.meaningtree.languages.configs.params.SkipErrors;
+import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -69,7 +69,6 @@ import org.vstu.meaningtree.nodes.types.containers.SetType;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
-import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.*;
 
@@ -789,7 +788,7 @@ public class JavaLanguage extends LanguageParser {
         for (int i = 0; i < node.getChildCount(); i++) {
             if (node.getChild(i).getType().equals("marker_annotation")) {
                 annotations.add(new Annotation(
-                        StringLiteral.fromUnescaped(TreeSitterUtils.getCodePiece(_code, node.getChild(i)), StringLiteral.Type.NONE))
+                        (SimpleIdentifier) fromTSNode(node.getChild(i).getChildByFieldName("name")))
                 );
                 continue;
             }
@@ -1294,11 +1293,11 @@ public class JavaLanguage extends LanguageParser {
 
         */
 
-        List<Node> body = new ArrayList<>();
+        List<Node> body;
 
-        if (mainMethod != null) {
+        if (mainMethod != null && !getConfigParameter(TranslationUnitMode.class).orElse(true)) {
             body = Arrays.asList(mainMethod.getBody().getNodes());
-        } else if (getConfigParameter(EnforceEntryPoint.class).orElse(false)) {
+        } else {
             body = statements.getNodes();
         }
 

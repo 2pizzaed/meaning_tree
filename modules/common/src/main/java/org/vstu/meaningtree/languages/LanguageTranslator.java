@@ -11,7 +11,10 @@ import org.vstu.meaningtree.languages.configs.Config;
 import org.vstu.meaningtree.languages.configs.ConfigBuilder;
 import org.vstu.meaningtree.languages.configs.ConfigScope;
 import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
-import org.vstu.meaningtree.languages.configs.params.*;
+import org.vstu.meaningtree.languages.configs.params.DisableCompoundComparisonConversion;
+import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
+import org.vstu.meaningtree.languages.configs.params.SkipErrors;
+import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.languages.configs.parser.ConfigMapping;
 import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
 import org.vstu.meaningtree.nodes.Node;
@@ -35,10 +38,9 @@ public abstract class LanguageTranslator implements Cloneable {
 
     public static Config getPredefinedCommonConfig() {
         return new Config(
-                new ExpressionMode(false, ConfigScope.TRANSLATOR),
-                new TranslationUnitMode(true, ConfigScope.VIEWER),
-                new SkipErrors(true, ConfigScope.PARSER),
-                new EnforceEntryPoint(true, ConfigScope.ANY)
+                new ExpressionMode(false),
+                new TranslationUnitMode(true),
+                new SkipErrors(false)
         );
     }
 
@@ -56,11 +58,6 @@ public abstract class LanguageTranslator implements Cloneable {
                         "disableCompoundComparisonConversion",
                         DisableCompoundComparisonConversion::parse,
                         DisableCompoundComparisonConversion::new
-                ),
-                new ConfigMapping<>(
-                        "enforceEntryPoint",
-                        EnforceEntryPoint::parse,
-                        EnforceEntryPoint::new
                 ),
                 new ConfigMapping<>(
                         "expressionMode",
@@ -99,6 +96,11 @@ public abstract class LanguageTranslator implements Cloneable {
         _config = _config.merge(getPredefinedCommonConfig(), getDeclaredConfig(), configBuilder.toConfig());
     }
 
+    @Nullable
+    public ScopeTable getLatestScopeTable() {
+        return _latestScopeTable;
+    }
+
     public MeaningTree getMeaningTree(String code) {
         MeaningTree mt = _language.getMeaningTree(prepareCode(code));
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
@@ -112,22 +114,13 @@ public abstract class LanguageTranslator implements Cloneable {
 
         if (parser != null) {
             _language.setConfig(
-                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR))
+                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
             );
         }
 
         if (viewer != null) {
             _viewer.setConfig(
-                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR))
-            );
-        }
-    }
-
-    protected void setParser(LanguageParser parser) {
-        _language = parser;
-        if (_language != null) {
-            _language.setConfig(
-                    getDeclaredConfig().subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR))
+                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
             );
         }
     }

@@ -39,7 +39,7 @@ import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 
 import java.util.*;
 
-
+// TODO: преобразования не выполняются с использованием возможностей нового BodyConstructor, а рекомендуется переписать всё под него
 public class PythonSpecialNodeTransformations {
     public static Node[] representGeneralFor(GeneralForLoop generalFor) {
         boolean needDeleting = false;

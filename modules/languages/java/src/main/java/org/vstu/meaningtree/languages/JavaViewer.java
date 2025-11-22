@@ -3,7 +3,7 @@ package org.vstu.meaningtree.languages;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
-import org.vstu.meaningtree.languages.configs.params.EnforceEntryPoint;
+import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -1973,7 +1973,7 @@ public class JavaViewer extends LanguageViewer {
         return builder.toString();
     }
 
-    private String makeSimpleJavaProgram(List<Node> nodes) {
+    private String makeSimpleProgram(List<Node> nodes) {
         StringBuilder builder = new StringBuilder();
 
         builder.append("package main;\n\n");
@@ -2066,21 +2066,19 @@ public class JavaViewer extends LanguageViewer {
 
     private List<Node> getNotMethods(List<Node> nodes) {
         var notMethods = new ArrayList<Node>();
-
         for (var node : nodes) {
-            if (!(node instanceof FunctionDefinition functionDefinition)) {
+            if (!(node instanceof FunctionDefinition)) {
                 notMethods.add(node);
             }
         }
-
         return notMethods;
     }
 
     public String toStringProgramEntryPoint(ProgramEntryPoint entryPoint) {
         List<Node> nodes = entryPoint.getBody();
 
-        if (getConfigParameter(EnforceEntryPoint.class).orElse(false) && !entryPoint.hasMainClass()) {
-            return makeSimpleJavaProgram(nodes);
+        if (getConfigParameter(TranslationUnitMode.class).orElse(true) && !entryPoint.hasMainClass()) {
+            return makeSimpleProgram(nodes);
         }
 
         StringBuilder builder = new StringBuilder();

@@ -636,7 +636,7 @@ public class PythonLanguage extends LanguageParser {
             }
         }
         List<Node> nodes = new ArrayList<>(List.of(compound.getNodes()));
-        nodes.remove(entryPointIf);
+        nodes.remove(entryPointIf); // entry point only as separate node!
 
         boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
 

@@ -4,6 +4,7 @@ import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 
 import java.util.List;
+import java.util.Objects;
 
 public class ImportMembersFromModule extends ImportModule {
     @TreeNode private List<Identifier> members;
@@ -19,5 +20,21 @@ public class ImportMembersFromModule extends ImportModule {
 
     public List<Identifier> getMembers() {
         return members;
+    }
+
+    public ImportMembersFromModule clone() {
+        return new ImportMembersFromModule(getModuleName().clone(), members.stream().map(Identifier::clone).toList());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof ImportMembersFromModule nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(members, nodeInfos.members);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), members);
     }
 }

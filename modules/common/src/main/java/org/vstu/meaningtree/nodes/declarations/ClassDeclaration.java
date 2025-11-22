@@ -10,9 +10,10 @@ import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
 
 import java.util.List;
+import java.util.Objects;
+
 
 public class ClassDeclaration extends Declaration {
-    protected List<DeclarationModifier> modifiers;
     @TreeNode protected Identifier name;
     @TreeNode protected List<Type> parentTypes;
     @TreeNode protected List<Type> typeParameters; // for generic type
@@ -34,10 +35,6 @@ public class ClassDeclaration extends Declaration {
 
     public ClassDeclaration(Identifier name) {
         this(List.of(), name);
-    }
-
-    public List<DeclarationModifier> getModifiers() {
-        return modifiers;
     }
 
     public List<Type> getParents() {
@@ -66,5 +63,26 @@ public class ClassDeclaration extends Declaration {
     @Override
     public String generateDot() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof ClassDeclaration nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(modifiers, nodeInfos.modifiers) && Objects.equals(name, nodeInfos.name) && Objects.equals(parentTypes, nodeInfos.parentTypes) && Objects.equals(typeParameters, nodeInfos.typeParameters);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), modifiers, name, parentTypes, typeParameters);
+    }
+
+    public ClassDeclaration clone() {
+        var clone = (ClassDeclaration) super.clone();
+        clone.modifiers = List.copyOf(modifiers);
+        clone.name = name;
+        clone.typeParameters = typeParameters.stream().map(Type::clone).toList();
+        clone.parentTypes = parentTypes.stream().map(Type::clone).toList();
+        return clone;
     }
 }

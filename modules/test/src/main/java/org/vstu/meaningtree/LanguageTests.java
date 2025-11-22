@@ -56,12 +56,11 @@ class LanguageTests {
         //TODO: hardcoded конфигурация для всех языков. В будущем лучше придумать, как задавать её прямо в тестах
         HashMap<String, String> defaultConfig = new HashMap<>() {{
             put("translationUnitMode", "false");
-            put("enforceEntryPoint", "true");
             put("skipErrors", "false");
         }};
 
         _config.addLanguageConfig(new TestLanguageConfig(new JavaTranslator(defaultConfig), "java", false));
-        _config.addLanguageConfig(new TestLanguageConfig(new PythonTranslator(), "python", true));
+        _config.addLanguageConfig(new TestLanguageConfig(new PythonTranslator(defaultConfig), "python", true));
         _config.addLanguageConfig(new TestLanguageConfig(new CppTranslator(defaultConfig), "c++", false));
         parseTestsFiles();
     }

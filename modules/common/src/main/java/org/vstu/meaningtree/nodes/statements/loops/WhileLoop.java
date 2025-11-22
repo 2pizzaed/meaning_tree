@@ -6,10 +6,11 @@ import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.Loop;
 
+import java.util.Objects;
+
 public class WhileLoop extends Loop {
     @TreeNode protected Expression condition;
     @TreeNode protected Statement body;
-
 
     public Expression getCondition() {
         return condition;
@@ -45,5 +46,24 @@ public class WhileLoop extends Loop {
         builder.append(String.format("%s -- %s [label=\"%s\"];\n", _id, body.getId(), "body"));
 
         return builder.toString();
+    }
+
+    public WhileLoop clone() {
+        var clone = (WhileLoop) super.clone();
+        clone.condition = condition.clone();
+        clone.body = body.clone();
+        return clone;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof WhileLoop nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(condition, nodeInfos.condition) && Objects.equals(body, nodeInfos.body);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), condition, body);
     }
 }

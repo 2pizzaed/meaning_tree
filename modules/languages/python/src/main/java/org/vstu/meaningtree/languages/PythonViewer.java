@@ -3,8 +3,8 @@ package org.vstu.meaningtree.languages;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.configs.params.DisableCompoundComparisonConversion;
-import org.vstu.meaningtree.languages.configs.params.EnforceEntryPoint;
 import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
+import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.languages.utils.Tab;
 import org.vstu.meaningtree.nodes.*;
@@ -71,8 +71,8 @@ import java.util.stream.Collectors;
 
 
 public class PythonViewer extends LanguageViewer {
-    public PythonViewer(LanguageTokenizer tokenizer) {
-        super(tokenizer);
+    public PythonViewer(LanguageTranslator translator) {
+        super(translator);
     }
 
     @Override
@@ -334,7 +334,10 @@ public class PythonViewer extends LanguageViewer {
         function.append("def ");
         function.append(toString(decl.getName()));
         function.append("(");
-        if (decl instanceof MethodDeclaration methodDecl && !methodDecl.getModifiers().contains(DeclarationModifier.STATIC)) {
+        if (decl instanceof MethodDeclaration methodDecl
+                && !methodDecl.getModifiers().contains(DeclarationModifier.STATIC)
+                && ctx.isInNode(ClassDefinition.class)
+        ) {
             function.append("self");
         }
         List<DeclarationArgument> declArgs = decl.getArguments();
@@ -376,7 +379,7 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String assignmentToString(MultipleAssignmentStatement stmtSequence) {
-        AugmentedAssignmentOperator augOp = ((AssignmentStatement) stmtSequence.getStatements().getFirst()).getAugmentedOperator();
+        AugmentedAssignmentOperator augOp = stmtSequence.getStatements().getFirst().getAugmentedOperator();
         String operator = switch (augOp) {
             case ADD -> "+=";
             case SUB -> "-=";
@@ -410,11 +413,11 @@ public class PythonViewer extends LanguageViewer {
 
     private String entryPointToString(ProgramEntryPoint programEntryPoint, Tab tab) {
         IfStatement entryPointIf = null;
-        if (getConfigParameter(EnforceEntryPoint.class).orElse(false) && programEntryPoint.hasEntryPoint()) {
+        if (programEntryPoint.hasEntryPoint()) {
             Node entryPointNode = programEntryPoint.getEntryPoint();
             if (entryPointNode instanceof FunctionDefinition func) {
                 Identifier ident;
-                FunctionDeclaration funcDecl = (FunctionDeclaration) func.getDeclaration();
+                FunctionDeclaration funcDecl = func.getDeclaration();
                 if (funcDecl instanceof MethodDeclaration method) {
                     ident = new ScopedIdentifier(method.getOwner().getName(), method.getName());
                 } else {
@@ -434,7 +437,14 @@ public class PythonViewer extends LanguageViewer {
             }
         }
         List<Node> nodes = new ArrayList<>(programEntryPoint.getBody());
-        if (entryPointIf != null) {
+        if (!getConfigParameter(TranslationUnitMode.class).orElse(false) && entryPointIf != null) {
+            Statement body = entryPointIf.getBranches().getFirst().getBody();
+            if (body instanceof CompoundStatement compoundStatement) {
+                nodes.addAll(compoundStatement.getNodeList());
+            } else {
+                nodes.add(body);
+            }
+        } else if (entryPointIf != null) {
             nodes.add(entryPointIf);
         }
         return nodeListToString(nodes, tab);
@@ -942,7 +952,7 @@ public class PythonViewer extends LanguageViewer {
         if (node.getNodes().length == 0) {
             return tab.toString().concat("pass");
         }
-        for (Node child : node.getNodes()) {
+        for (Node child : ctx.iterateBody(node)) {
             builder.append(tab);
             if (child instanceof CompoundStatement) {
                 // Схлопываем лишний таб, так как блоки как самостоятельная сущность в Python не поддерживаются
@@ -960,7 +970,7 @@ public class PythonViewer extends LanguageViewer {
         if (nodes.isEmpty()) {
             return "pass";
         }
-        for (Node child : nodes) {
+        for (Node child : ctx.iterateBody(nodes)) {
             builder.append(tab);
             if (child instanceof CompoundStatement) {
                 // Схлопываем лишний таб, так как блоки как самостоятельная сущность в Python не поддерживаются
@@ -1105,6 +1115,6 @@ public class PythonViewer extends LanguageViewer {
             case PrefixDecrementOp op -> "-=";
             default -> null;
         };
-        return tokenizer.getOperatorByTokenName(tok);
+        return ctx.requireTokenizer().getOperatorByTokenName(tok);
     }
 }

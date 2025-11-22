@@ -91,4 +91,14 @@ public class DeclarationArgument extends Declaration {
     public int hashCode() {
         return Objects.hash(super.hashCode(), type, isListUnpacking, name, initial);
     }
+
+    public DeclarationArgument clone() {
+        var clone =  (DeclarationArgument) super.clone();
+        clone.type = type.clone();
+        clone.isListUnpacking = isListUnpacking;
+        clone.isDictUnpacking = isDictUnpacking;
+        clone.name = name.clone();
+        clone.initial = initial.clone();
+        return clone;
+    }
 }

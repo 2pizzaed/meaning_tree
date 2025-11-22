@@ -65,6 +65,15 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
         return null;
     }
 
+    public boolean hasFeature(Class<? extends Node> feature) {
+        for (NodeInfo inf : this) {
+            if (inf.node().getClass().isAssignableFrom(feature)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public String generateDot() {
         return normalizeDot("graph MeaningTree {\ndpi=255;\n" + rootNode.generateDot() + "}");
     }

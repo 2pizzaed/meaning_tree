@@ -29,13 +29,13 @@ public class Main {
         full,
         expression;
 
-        public Map.Entry<String, Boolean> getConfigEntry() {
+        public Map.Entry<String, String> getConfigEntry() {
             if (this.equals(simple)) {
-                return Map.entry("translationUnitMode", false);
+                return Map.entry("translationUnitMode", "false");
             } else if (this.equals(expression)) {
-                return Map.entry("expressionMode", true);
+                return Map.entry("expressionMode", "true");
             }
-            return Map.entry("translationUnitMode", true);
+            return Map.entry("translationUnitMode", "true");
         }
     }
 
@@ -213,8 +213,6 @@ public class Main {
             return;
         }
 
-
-
         // Instantiate target-language translator and generate code
         if (cmd.performOriginTokenize) {
             Token.setupId(cmd.startTokenId);
@@ -226,7 +224,7 @@ public class Main {
                     );
         } else if (toLanguage != null) {
             LanguageTranslator toTranslator =
-                    translators.get(toLanguage.toLowerCase()).getDeclaredConstructor().newInstance();
+                    translators.get(toLanguage.toLowerCase()).getDeclaredConstructor(Map.class).newInstance(config);
 
             if (cmd.outputSourceMap && cmd.performTokenize) {
                 System.err.println("Source map building and tokenizing are both required. Defaulting to using only `outputSourceMap`");

@@ -800,6 +800,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.addProperty("name", expr.getName());
+        json.addProperty("repr_name", expr.getName());
 
         return json;
     }
@@ -900,6 +901,8 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray declarators = new JsonArray();
         for (VariableDeclarator varDecl : stmt.getDeclarators()) {
             JsonObject jsonDeclaration = new JsonObject();
+            jsonDeclaration.addProperty("id", varDecl.getId());
+            jsonDeclaration.addProperty("type", "variable_declarator");
             jsonDeclaration.add("identifier", serialize(varDecl.getIdentifier()));
             if (varDecl.getRValue() != null) {
                 jsonDeclaration.add("rvalue", serialize(varDecl.getRValue()));
@@ -1448,6 +1451,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("scope", serialize(expr.getScope()));
         json.add("member", serialize(expr.getMember()));
+        json.addProperty("repr_name", String.format("%s::%s",
+                json.getAsJsonObject("scope").get("repr_name").getAsString(), expr.getMember().getName())
+        );
         return json;
     }
 
@@ -1458,6 +1464,10 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray targets = new JsonArray();
         for (var t : expr.getScopeResolution()) targets.add(serialize(t));
         json.add("identifiers", targets);
+        json.addProperty("repr_name",
+                String.join(".",
+                        expr.getScopeResolution().stream().map(SimpleIdentifier::getName).toArray(String[]::new))
+        );
         return json;
     }
 

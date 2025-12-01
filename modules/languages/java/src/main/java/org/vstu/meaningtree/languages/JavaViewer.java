@@ -268,9 +268,9 @@ public class JavaViewer extends LanguageViewer {
 
         String body = toString(functionDefinition.getBody());
         if (_openBracketOnSameLine)
-        { builder.append(" ").append(body); }
+        { builder.append(" ").append(body).append("\n"); }
         else
-        { builder.append("\n").append(indent(body)); }
+        { builder.append("\n").append(indent(body)).append("\n"); }
 
         return builder.toString();
     }
@@ -1099,9 +1099,9 @@ public class JavaViewer extends LanguageViewer {
 
         String body = toString(methodDefinition.getBody());
         if (_openBracketOnSameLine)
-            { builder.append(" ").append(body); }
+            { builder.append(" ").append(body).append("\n"); }
         else
-            { builder.append("\n").append(indent(body)); }
+            { builder.append("\n").append(indent(body)).append("\n"); }
 
         _methodReturnType = null;
 

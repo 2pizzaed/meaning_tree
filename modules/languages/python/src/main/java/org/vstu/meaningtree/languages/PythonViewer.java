@@ -369,8 +369,10 @@ public class PythonViewer extends LanguageViewer {
         function.append(":\n");
         if (func instanceof MethodDefinition methodDef) {
             function.append(toString(methodDef.getBody(), tab));
+            function.append("\n\n");
         } else if (func instanceof FunctionDefinition funcDef) {
             function.append(toString(funcDef.getBody(), tab));
+            function.append("\n");
         }
         return function.toString();
     }

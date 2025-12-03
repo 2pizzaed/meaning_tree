@@ -768,9 +768,9 @@ public class PythonViewer extends LanguageViewer {
         }
 
         if ((start == null || isStartDefault) && (step == null || isStepDefault)) {
-            return String.format("range(%s)", toString(stop));
+            return this.applyHooks(range, String.format("range(%s)", toString(stop)));
         } else if (start != null && (step == null || isStepDefault)) {
-            return String.format("range(%s, %s)", toString(start), toString(stop));
+            return this.applyHooks(range, String.format("range(%s, %s)", toString(start), toString(stop)));
         }
 
         if (start == null || isStartDefault) {

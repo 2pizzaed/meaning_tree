@@ -1596,7 +1596,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     @NotNull
     private JsonObject serializeNumericType(@NotNull NumericType t) {
         JsonObject json = new JsonObject();
-        json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         json.addProperty("size", t.size);
         if (t instanceof IntType intt) {
             json.addProperty("unsigned", intt.isUnsigned);
@@ -1665,7 +1665,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     @NotNull
     private JsonObject serializeGenericUserType(@NotNull GenericUserType t) {
         JsonObject json = new JsonObject();
-        json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         json.add("name", serialize(t.getName()));
         JsonArray targets = new JsonArray();
         for (var v : t.getTypeParameters()) targets.add(serialize(v));
@@ -1690,7 +1690,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     @NotNull
     private JsonObject serializeUserType(@NotNull UserType t) {
         JsonObject json = new JsonObject();
-        json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         json.add("name", serialize(t.getName()));
         return json;
     }

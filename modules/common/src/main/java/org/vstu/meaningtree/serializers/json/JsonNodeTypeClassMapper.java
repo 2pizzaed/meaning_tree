@@ -45,9 +45,10 @@ import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
-import org.vstu.meaningtree.nodes.types.containers.ArrayType;
-import org.vstu.meaningtree.nodes.types.containers.PlainCollectionType;
+import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
+import org.vstu.meaningtree.nodes.types.user.GenericClass;
+import org.vstu.meaningtree.nodes.types.user.Structure;
 import org.vstu.meaningtree.utils.TransliterationUtils;
 
 import java.util.HashMap;
@@ -205,14 +206,22 @@ public class JsonNodeTypeClassMapper {
         register("pointer_type", PointerType.class);
         register("reference_type", ReferenceType.class);
         register("string_type", StringType.class);
+        register("list_type", ListType.class);
         register("array_type", ArrayType.class);
         register("plain_collection_type", PlainCollectionType.class);
         register("shape", Shape.class);
+        register("dictionary_type", DictionaryType.class);
+        register("set_type", SetType.class);
+        register("unmodifiable_list_type", UnmodifiableListType.class);
         register("generic_user_type", GenericUserType.class);
         register("generic_interface", GenericInterface.class);
         register("no_return", NoReturn.class);
         register("unknown_type", UnknownType.class);
         register("user_type", UserType.class);
+        register("class_type", org.vstu.meaningtree.nodes.types.user.Class.class);
+        register("enum_type", org.vstu.meaningtree.nodes.types.user.Enum.class);
+        register("structure_type", Structure.class);
+        register("generic_class_type", GenericClass.class);
 
         // Definitions
         register("class_definition", ClassDefinition.class);

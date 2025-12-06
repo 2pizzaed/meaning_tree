@@ -6,6 +6,7 @@ import org.vstu.meaningtree.nodes.Statement;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class CompoundStatement extends Statement {
     @TreeNode private List<Node> nodes;
@@ -37,11 +38,33 @@ public class CompoundStatement extends Statement {
         return nodes.toArray(new Node[0]);
     }
 
+    public List<Node> getNodeList() {
+        return List.copyOf(nodes);
+    }
+
     public void substitute(int index, Node node) {
         nodes.set(index, node);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof CompoundStatement nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(nodes, nodeInfos.nodes);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), nodes);
+    }
+
     public void insert(int index, Node node) {
         nodes.add(index, node);
+    }
+
+    public CompoundStatement clone() {
+        var clone = (CompoundStatement) super.clone();
+        clone.nodes = new ArrayList<>(nodes.stream().map(Node::clone).toList());
+        return clone;
     }
 }

@@ -1,5 +1,7 @@
 package org.vstu.meaningtree.languages.configs;
 
+import org.vstu.meaningtree.exceptions.ConflictingConfigParameterException;
+
 import java.util.*;
 import java.util.function.Predicate;
 
@@ -26,6 +28,23 @@ public class Config {
      */
     public Config(Iterable<ConfigParameter<?>> configParameters) {
         put(configParameters);
+        checkConflicts();
+    }
+
+    private void checkConflicts() {
+        for (ConfigParameter<?> param : parameters.values()) {
+            for (var entry : param.conflictsWith.entrySet()) {
+                var foundParam = Optional.ofNullable(parameters.getOrDefault(entry.getKey(), null));
+                if (entry.getValue() == null && foundParam.isPresent()) {
+                    throw new ConflictingConfigParameterException("Parameter `%s` with it value `%s` cannot be defined with parameter `%s`"
+                            .formatted(param.getClass().getSimpleName(), param.getValue(), foundParam.get().getClass().getSimpleName()));
+                } else if (foundParam.isPresent() && foundParam.get().getValue().equals(entry.getValue())) {
+                    throw new ConflictingConfigParameterException("Parameter `%s` with it value `%s` cannot be defined with parameter `%s` with value `%s`"
+                            .formatted(param.getClass().getSimpleName(), param.getValue(), foundParam.get().getClass().getSimpleName(), foundParam.get().getValue())
+                    );
+                }
+            }
+        }
     }
 
     private void put(Iterable<ConfigParameter<?>> configParameters) {
@@ -41,6 +60,22 @@ public class Config {
     }
 
     private void put(ConfigParameter<?> parameter) {
+        // check consistency
+        if (parameters.containsKey(parameter.getClass())) {
+            var existingParam = parameters.get(parameter.getClass());
+            String formatted = "Unexpected narrowing of scope for parameter `%s`".formatted(parameter.getClass().getSimpleName());
+
+            if (!(parameter instanceof ConfigScopedParameter && existingParam instanceof ConfigScopedParameter) && !parameter.getClass().equals(existingParam.getClass())) {
+                throw new ConflictingConfigParameterException(formatted);
+            }
+            if (parameter instanceof ConfigScopedParameter scopedParameter
+                    && existingParam instanceof ConfigScopedParameter existingScopedParameter
+                    && scopedParameter._scope != existingScopedParameter._scope
+            ) {
+                throw new ConflictingConfigParameterException(formatted);
+            }
+        }
+
         parameters.put(parameter.getClass(), parameter);
     }
 
@@ -75,9 +110,9 @@ public class Config {
         List<Config> otherConfigs = new LinkedList<>(Arrays.asList(others));
         otherConfigs.addFirst(this);
 
-        Set<ConfigParameter<?>> newParameters = new HashSet<>();
+        Set<ConfigParameter<?>> newParameters = new LinkedHashSet<>();
 
-        for (var config : otherConfigs.reversed()) {
+        for (var config : otherConfigs) {
             newParameters.addAll(config.parameters.values());
         }
 

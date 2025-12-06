@@ -12,13 +12,13 @@ public class PythonTranslator extends LanguageTranslator {
     public static final int ID = 1;
 
     public PythonTranslator(Map<String, String> rawStringConfig) {
-        super(new PythonLanguage(), null, rawStringConfig);
-        this.setViewer(new PythonViewer(this.getTokenizer()));
+        super(rawStringConfig);
+        this.init(new PythonLanguage(this), new PythonViewer(this));
     }
 
     public PythonTranslator() {
-        super(new PythonLanguage(), null, new HashMap<>());
-        this.setViewer(new PythonViewer(this.getTokenizer()));
+        super(new HashMap<>());
+        this.init(new PythonLanguage(this), new PythonViewer(this));
     }
 
     @Override

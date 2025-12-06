@@ -11,6 +11,7 @@ import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class FunctionDeclaration extends Declaration {
     @TreeNode private List<DeclarationArgument> arguments;
@@ -52,5 +53,25 @@ public class FunctionDeclaration extends Declaration {
     @Override
     public String generateDot() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof FunctionDeclaration nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(arguments, nodeInfos.arguments) && Objects.equals(name, nodeInfos.name) && Objects.equals(returnType, nodeInfos.returnType);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), arguments, name, returnType);
+    }
+
+    public FunctionDeclaration clone() {
+        var clone = (FunctionDeclaration) super.clone();
+        clone.arguments = new ArrayList<>(arguments.stream().map(DeclarationArgument::clone).toList());
+        clone.name = name;
+        clone.returnType = returnType;
+        return clone;
     }
 }

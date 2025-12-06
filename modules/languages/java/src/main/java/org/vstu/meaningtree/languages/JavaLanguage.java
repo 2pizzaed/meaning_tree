@@ -6,9 +6,9 @@ import org.jetbrains.annotations.Nullable;
 import org.treesitter.*;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
-import org.vstu.meaningtree.languages.configs.params.EnforceEntryPoint;
 import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
 import org.vstu.meaningtree.languages.configs.params.SkipErrors;
+import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -69,7 +69,6 @@ import org.vstu.meaningtree.nodes.types.containers.SetType;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
-import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.*;
 
@@ -78,7 +77,8 @@ public class JavaLanguage extends LanguageParser {
     private TSParser _parser;
     private final Map<String, UserType> _userTypes;
 
-    public JavaLanguage() {
+    public JavaLanguage(LanguageTranslator translator) {
+        super(translator);
         _userTypes = new HashMap<>();
     }
 
@@ -93,14 +93,7 @@ public class JavaLanguage extends LanguageParser {
     @Override
     public TSTree getTSTree() {
         _initBackend();
-        TSTree tree = _parser.parseString(null, _code);
-        /*
-        TODO: only for test
-        try {
-            tree.printDotGraphs(new File("TSTree.dot"));
-        } catch (IOException e) { }
-        */
-        return tree;
+        return _parser.parseString(null, _code);
     }
 
     public synchronized MeaningTree getMeaningTree(String code) {
@@ -123,7 +116,7 @@ public class JavaLanguage extends LanguageParser {
     public TSNode getRootNode() {
         TSNode result = super.getRootNode();
 
-        Optional<Boolean> maybeExpressionMode = _config.get(ExpressionMode.class);
+        Optional<Boolean> maybeExpressionMode = getConfigParameter(ExpressionMode.class);
 
         if (maybeExpressionMode.orElse(false)) {
             // В режиме выражений в код перед парсингом подставляется заглушка в виде точки входа
@@ -732,15 +725,8 @@ public class JavaLanguage extends LanguageParser {
     private List<DeclarationArgument> fromMethodParameters(TSNode node) {
         List<DeclarationArgument> parameters = new ArrayList<>();
 
-        for (int i = 0; i < node.getChildCount(); i++) {
-            // TODO: может быть можно как-то более эффективно извлекать извлечь параметры...
-            // Такие сложности из-за того, что в детях также будет скобки, запятые и другие
-            // синтаксические артефакты.
-            TSNode child = node.getChild(i);
-            if (!child.getType().equals("formal_parameter")) {
-                continue;
-            }
-
+        for (int i = 0; i < node.getNamedChildCount(); i++) {
+            TSNode child = node.getNamedChild(i);
             DeclarationArgument parameter = fromFormalParameter(child);
             parameters.add(parameter);
         }
@@ -795,7 +781,7 @@ public class JavaLanguage extends LanguageParser {
         for (int i = 0; i < node.getChildCount(); i++) {
             if (node.getChild(i).getType().equals("marker_annotation")) {
                 annotations.add(new Annotation(
-                        StringLiteral.fromUnescaped(TreeSitterUtils.getCodePiece(_code, node.getChild(i)), StringLiteral.Type.NONE))
+                        (SimpleIdentifier) fromTSNode(node.getChild(i).getChildByFieldName("name")))
                 );
                 continue;
             }
@@ -1252,9 +1238,6 @@ public class JavaLanguage extends LanguageParser {
             VariableDeclarator decl = fromVariableDeclarator(capture.getNode(), type);
             declarators.add(decl);
         }
-        //while (cursor.nextMatch(match)) {
-        //    System.out.println(match.getCaptures());
-        //}
 
         if (!modifiers.isEmpty()) {
             var result = new FieldDeclaration(type, modifiers, declarators);
@@ -1268,7 +1251,7 @@ public class JavaLanguage extends LanguageParser {
     }
 
     private Node fromProgramTSNode(TSNode node) {
-        var statements = new ArrayList<Node>();
+        var statements = ctx.createNodeBody(false);
         for (int i = 0; i < node.getNamedChildCount(); i++) {
             statements.add(parseTSNode(node.getNamedChild(i)));
         }
@@ -1303,12 +1286,12 @@ public class JavaLanguage extends LanguageParser {
 
         */
 
-        List<Node> body = new ArrayList<>();
+        List<Node> body;
 
-        if (mainMethod != null) {
+        if (mainMethod != null && !getConfigParameter(TranslationUnitMode.class).orElse(true)) {
             body = Arrays.asList(mainMethod.getBody().getNodes());
-        } else if (getConfigParameter(EnforceEntryPoint.class).orElse(false)) {
-            body = statements;
+        } else {
+            body = statements.getNodes();
         }
 
         return new ProgramEntryPoint(body, mainClass, mainMethod);
@@ -1332,11 +1315,11 @@ public class JavaLanguage extends LanguageParser {
     }
 
     private CompoundStatement fromBlockTSNode(TSNode node) {
-        var statements = new ArrayList<Node>();
+        var statements = ctx.createNodeBody(true);
         for (int i = 1; i < node.getChildCount() - 1; i++) {
             statements.add(parseTSNode(node.getChild(i)));
         }
-        return new CompoundStatement(statements);
+        return statements.build();
     }
 
     private Node fromStatementTSNode(TSNode node) {

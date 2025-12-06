@@ -31,7 +31,7 @@ public class ConfigParser {
     }
 
     public ConfigParameter<?> parse(String key, String value) {
-        var mapping = configMappings.get(key);
+        var mapping = configMappings.getOrDefault(key, null);
 
         if (mapping == null) {
             return null;

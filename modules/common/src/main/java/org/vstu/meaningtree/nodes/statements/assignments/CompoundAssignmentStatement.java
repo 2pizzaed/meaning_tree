@@ -40,4 +40,10 @@ public class CompoundAssignmentStatement extends Node implements HasInitializati
     public int hashCode() {
         return Objects.hash(super.hashCode(), assignments);
     }
+
+    public CompoundAssignmentStatement clone() {
+        var clone = (CompoundAssignmentStatement) super.clone();
+        clone.assignments = assignments.stream().map(AssignmentStatement::clone).toList();
+        return clone;
+    }
 }

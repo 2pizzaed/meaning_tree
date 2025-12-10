@@ -3,10 +3,11 @@ package org.vstu.meaningtree.nodes.types.containers;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.interfaces.Generic;
+import org.vstu.meaningtree.nodes.interfaces.SequenceType;
 
 import java.util.Objects;
 
-public class DictionaryType extends Type implements Generic {
+public abstract class DictionaryType extends Type implements Generic, SequenceType {
     @TreeNode private Type keyType;
     @TreeNode private Type valueType;
 

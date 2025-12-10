@@ -29,8 +29,7 @@ import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
-import org.vstu.meaningtree.nodes.types.NoReturn;
-import org.vstu.meaningtree.nodes.types.UnknownType;
+import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
@@ -44,6 +43,9 @@ import org.vstu.meaningtree.utils.tokens.TokenList;
 
 import java.util.*;
 
+/**
+ * Currently, supports only expressions, for full support use JSONSerializer
+ */
 public class UniversalSerializer implements Serializer<AbstractSerializedNode> {
     @Override
     public SerializedNode serialize(Node node) {
@@ -64,6 +66,7 @@ public class UniversalSerializer implements Serializer<AbstractSerializedNode> {
             case ExpressionSequence sequence -> serialize(sequence);
             case ExpressionStatement stmt -> serialize(stmt);
             case MemberAccess member -> serialize(member);
+            case StringFormat stringFormat -> serialize(stringFormat);
             case NewExpression newExpr -> serialize(newExpr);
             case SizeofExpression sizeOf -> serialize(sizeOf);
             case Shape shape -> serialize(shape);
@@ -179,6 +182,15 @@ public class UniversalSerializer implements Serializer<AbstractSerializedNode> {
                 put("keyType", serialize(dict.getKeyType()));
                 put("valueType", serialize(dict.getValueType()));
             }});
+            case OptionalType opt -> new SerializedNode("OptionalType", new HashMap<>() {{
+                put("targetType", serialize(opt.getTargetType()));
+            }});
+            case TypeAlternatives alt -> new SerializedNode("LiteralType", new HashMap<>() {{
+                put("alternatives", serialize(alt.get()));
+            }});
+            case LiteralType lit -> new SerializedNode("LiteralType", new HashMap<>() {{
+                put("literal", serialize(lit.getLiteral()));
+            }});
             case ListType arr -> new SerializedNode("ListType", new HashMap<>() {{
                 put("type", serialize(arr.getItemType()));
             }});
@@ -228,6 +240,14 @@ public class UniversalSerializer implements Serializer<AbstractSerializedNode> {
 
     public SerializedListNode serialize(Node[] nodes) {
         return new SerializedListNode(Arrays.stream(nodes).map(this::serialize).toList());
+    }
+
+    public SerializedNode serialize(StringFormat fmt) {
+        return new SerializedNode("StringFormat", new HashMap<>() {{
+            put("substitutions", serialize(fmt.getSubstitutionList()));
+            put("template", serialize(fmt.getTemplate()));
+        }}, new HashMap<>() {{
+        }});
     }
 
     public SerializedNode serialize(BinaryExpression binOp) {

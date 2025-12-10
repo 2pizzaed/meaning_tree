@@ -3,12 +3,14 @@ package org.vstu.meaningtree.nodes.types.containers;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Type;
+import org.vstu.meaningtree.nodes.interfaces.PrimitiveType;
+import org.vstu.meaningtree.nodes.interfaces.SequenceType;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 
 import java.util.List;
 import java.util.Objects;
 
-public class ArrayType extends PlainCollectionType {
+public class ArrayType extends PlainCollectionType implements PrimitiveType, SequenceType {
 
     @TreeNode private Shape shape;
 

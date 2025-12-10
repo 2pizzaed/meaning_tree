@@ -1,10 +1,11 @@
 package org.vstu.meaningtree.nodes.types.builtin;
 
 import org.vstu.meaningtree.nodes.Type;
+import org.vstu.meaningtree.nodes.interfaces.SequenceType;
 
 import java.util.Objects;
 
-public class StringType extends Type {
+public class StringType extends Type implements SequenceType {
     public final int charSize;
 
     public StringType() {

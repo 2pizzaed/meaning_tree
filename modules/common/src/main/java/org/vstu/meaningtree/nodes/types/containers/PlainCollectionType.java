@@ -3,10 +3,11 @@ package org.vstu.meaningtree.nodes.types.containers;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.interfaces.Generic;
+import org.vstu.meaningtree.nodes.interfaces.SequenceType;
 
 import java.util.Objects;
 
-public class PlainCollectionType extends Type implements Generic {
+public class PlainCollectionType extends Type implements Generic, SequenceType {
     @TreeNode private Type itemType;
 
     public PlainCollectionType(Type itemType) {

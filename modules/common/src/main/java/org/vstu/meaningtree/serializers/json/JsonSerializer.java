@@ -54,6 +54,7 @@ import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.ArrayType;
+import org.vstu.meaningtree.nodes.types.containers.DictionaryType;
 import org.vstu.meaningtree.nodes.types.containers.PlainCollectionType;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.serializers.model.Serializer;
@@ -275,11 +276,15 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case StringType t -> serializeStringType(t);
             case Shape t -> serializeShape(t);
             case PlainCollectionType t -> serializePlainCollectionType(t);
+            case DictionaryType t -> serializeDictType(t);
             case GenericInterface t -> serializeGenericUserType(t);
             case GenericUserType t -> serializeGenericUserType(t);
             case NoReturn t -> serializeNoReturn(t);
             case UnknownType t -> serializeUnknownType(t);
             case UserType t -> serializeUserType(t);
+            case OptionalType t -> serializeOptionalType(t);
+            case TypeAlternatives t -> serializeTypeAlternatives(t);
+            case LiteralType t -> serializeLiteralType(t);
 
             case ClassDefinition cd -> serializeClassDefinition(cd);
             case ObjectConstructorDefinition ocd -> serializeObjectConstructorDefinition(ocd);
@@ -1652,6 +1657,15 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
+    private JsonObject serializeDictType(@NotNull DictionaryType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
+        json.add("key_type", serialize(t.getKeyType()));
+        json.add("value_type", serialize(t.getValueType()));
+        return json;
+    }
+
+    @NotNull
     private JsonObject serializeShape(@NotNull Shape t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
@@ -1692,6 +1706,32 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
         json.add("name", serialize(t.getName()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeOptionalType(@NotNull OptionalType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
+        json.add("target", serialize(t.getTargetType()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeLiteralType(@NotNull LiteralType t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
+        json.add("literal", serialize(t.getLiteral()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeTypeAlternatives(@NotNull TypeAlternatives t) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", TransliterationUtils.camelToSnake(t.getClass().getSimpleName()));
+        JsonArray altList = new JsonArray();
+        for (var alt : t.get()) altList.add(serialize(alt));
+        json.add("alternatives", altList);
         return json;
     }
 

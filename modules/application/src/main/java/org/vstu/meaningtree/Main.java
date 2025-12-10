@@ -121,7 +121,7 @@ public class Main {
     private static final IOAliases<BiFunction<Serializable, Boolean, String>> serializers = new IOAliases<>(List.of(
             new IOAlias<>("json", (node, pretty) -> {
                 JsonObject json = new JsonSerializer().serialize(node);
-                var builder = new GsonBuilder();
+                var builder = new GsonBuilder().disableHtmlEscaping();
                 if (pretty) {
                     builder = builder.setPrettyPrinting();
                 }

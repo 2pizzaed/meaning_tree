@@ -795,7 +795,7 @@ public class CppLanguage extends LanguageParser {
             Type type1 = !generic.isEmpty() ? generic.getFirst() : new UnknownType();
             Type type2 = generic.size() > 1 ? generic.get(1) : new UnknownType();
             return switch (reprQualifiedIdentifier(q)) {
-                case "std::map" -> new DictionaryType(type1, type2);
+                case "std::map" -> new UnorderedDictionaryType(type1, type2);
                 case "std::list", "std::vector", "std::array" -> new ListType(type1);
                 case "std::set" -> new SetType(type1);
                 case "std::string", "std::wstring" -> new StringType(8);

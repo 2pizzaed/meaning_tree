@@ -62,10 +62,7 @@ import org.vstu.meaningtree.nodes.types.NoReturn;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.UserType;
 import org.vstu.meaningtree.nodes.types.builtin.*;
-import org.vstu.meaningtree.nodes.types.containers.ArrayType;
-import org.vstu.meaningtree.nodes.types.containers.DictionaryType;
-import org.vstu.meaningtree.nodes.types.containers.ListType;
-import org.vstu.meaningtree.nodes.types.containers.SetType;
+import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
@@ -1160,7 +1157,7 @@ public class JavaLanguage extends LanguageParser {
                 if (subType instanceof ListType) {
                     parsedType = new ListType(!subTypes.isEmpty() ? subTypes.getFirst() : new UnknownType());
                 } else if (subType instanceof DictionaryType) {
-                    parsedType = new DictionaryType(
+                    parsedType = new UnorderedDictionaryType(
                             !subTypes.isEmpty() ? subTypes.getFirst() : new UnknownType(),
                             subTypes.size() > 1 ? subTypes.get(1) : new UnknownType()
                     );
@@ -1174,7 +1171,8 @@ public class JavaLanguage extends LanguageParser {
                 ScopedIdentifier idents = fromScopedTypeIdentifier(node);
                 parsedType = switch (idents.getScopeResolution().getLast().toString()) {
                     case "ArrayList", "List" -> new ListType(new UnknownType());
-                    case "TreeMap", "HashMap", "Map", "OrderedMap" -> new DictionaryType(new UnknownType(), new UnknownType());
+                    case "HashMap", "Map" -> new UnorderedDictionaryType(new UnknownType(), new UnknownType());
+                    case "TreeMap", "OrderedMap" -> new OrderedDictionaryType(new UnknownType(), new UnknownType());
                     case "Set", "HashSet" -> new SetType(new UnknownType());
                     case "Integer" -> new IntType(32);
                     case "Byte" -> new IntType(8);

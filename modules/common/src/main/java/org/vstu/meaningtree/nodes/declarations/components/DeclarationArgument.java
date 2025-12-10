@@ -8,7 +8,7 @@ import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.containers.ArrayType;
-import org.vstu.meaningtree.nodes.types.containers.DictionaryType;
+import org.vstu.meaningtree.nodes.types.containers.OrderedDictionaryType;
 
 import java.util.Objects;
 
@@ -25,7 +25,7 @@ public class DeclarationArgument extends Declaration {
         if (isListUnpacking) {
             return new ArrayType(type, 1);
         } else if (isDictUnpacking) {
-            return new DictionaryType(type, new UnknownType());
+            return new OrderedDictionaryType(type, new UnknownType());
         }
         return type;
     }

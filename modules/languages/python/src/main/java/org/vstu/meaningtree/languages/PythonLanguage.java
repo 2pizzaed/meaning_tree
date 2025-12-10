@@ -55,8 +55,8 @@ import org.vstu.meaningtree.nodes.types.UserType;
 import org.vstu.meaningtree.nodes.types.builtin.FloatType;
 import org.vstu.meaningtree.nodes.types.builtin.IntType;
 import org.vstu.meaningtree.nodes.types.builtin.StringType;
-import org.vstu.meaningtree.nodes.types.containers.DictionaryType;
 import org.vstu.meaningtree.nodes.types.containers.ListType;
+import org.vstu.meaningtree.nodes.types.containers.OrderedDictionaryType;
 import org.vstu.meaningtree.nodes.types.containers.SetType;
 import org.vstu.meaningtree.nodes.types.containers.UnmodifiableListType;
 import org.vstu.meaningtree.nodes.types.user.Class;
@@ -720,7 +720,7 @@ public class PythonLanguage extends LanguageParser {
                 case "tuple":
                     return new UnmodifiableListType(genericTypes.getFirst());
                 case "dict":
-                    return new DictionaryType(genericTypes.getFirst(), genericTypes.get(1));
+                    return new OrderedDictionaryType(genericTypes.getFirst(), genericTypes.get(1));
                 default:
                     return new GenericUserType(new SimpleIdentifier(typeName), genericTypes.toArray(new Type[0]));
             }
@@ -737,7 +737,7 @@ public class PythonLanguage extends LanguageParser {
             case "tuple":
                 return new UnmodifiableListType(new UnknownType());
             case "dict":
-                return new DictionaryType(new UnknownType(), new UnknownType());
+                return new OrderedDictionaryType(new UnknownType(), new UnknownType());
             case "set":
                 return new SetType(new UnknownType());
             default:

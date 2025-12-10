@@ -125,7 +125,7 @@ public class SimpleTypeInferrer {
                 valueType = inferredValueType;
         }
 
-        return new DictionaryType(keyType, valueType);
+        return new OrderedDictionaryType(keyType, valueType);
     }
 
     @NotNull

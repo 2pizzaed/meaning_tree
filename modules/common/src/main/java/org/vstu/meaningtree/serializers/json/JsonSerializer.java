@@ -151,6 +151,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         root.addProperty("id", token.getId());
         root.addProperty("assigned_label", gson.toJson(token.getAssignedValue()));
         root.addProperty("belongs_to", token.belongsTo() != null ? token.belongsTo.getId() : null);
+        root.add("byte_pos", token.bytePos() != null ? serialize(token.bytePos()) : null);
         return root;
     }
 

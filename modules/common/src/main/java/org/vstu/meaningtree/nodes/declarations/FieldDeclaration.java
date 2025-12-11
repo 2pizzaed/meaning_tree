@@ -5,12 +5,14 @@ import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
+import org.vstu.meaningtree.nodes.interfaces.NestedDeclaration;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class FieldDeclaration extends VariableDeclaration {
+public class FieldDeclaration extends VariableDeclaration implements NestedDeclaration<ClassDeclaration> {
+    private ClassDeclaration parent;
 
     public FieldDeclaration(Type type, SimpleIdentifier name, List<DeclarationModifier> modifiers) {
         super(type, name);
@@ -34,7 +36,6 @@ public class FieldDeclaration extends VariableDeclaration {
     public FieldDeclaration(Type type, SimpleIdentifier name) {
         this(type, name, List.of());
     }
-
 
     public FieldDeclaration(Type type, SimpleIdentifier name, Expression value) {
         this(type, name, value, List.of());
@@ -61,5 +62,15 @@ public class FieldDeclaration extends VariableDeclaration {
         var clone = (FieldDeclaration) super.clone();
         clone.modifiers = List.copyOf(modifiers);
         return clone;
+    }
+
+    @Override
+    public ClassDeclaration getParentDeclaration() {
+        return parent;
+    }
+
+    @Override
+    public void setParentDeclaration(ClassDeclaration declaration) {
+        if (parent == null) parent = declaration;
     }
 }

@@ -1,12 +1,11 @@
 package org.vstu.meaningtree.nodes.modules;
 
 import org.vstu.meaningtree.iterators.utils.TreeNode;
-import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.expressions.literals.StringLiteral;
 
 import java.util.Objects;
 
-public class Include extends Node {
+public class Include extends Import {
     @TreeNode private StringLiteral filename;
 
     public enum IncludeType {

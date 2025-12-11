@@ -160,7 +160,6 @@ public class PythonViewer extends LanguageViewer {
             case ReturnStatement returnStmt -> returnToString(returnStmt);
             case ArrayInitializer arrayInit -> arrayInitializerToString(arrayInit);
             case DefinitionArgument arg -> definitionArgumentToString(arg);
-            case Include incl -> String.format("import %s", incl.getFileName().getUnescapedValue());
             case PackageDeclaration packageDecl -> String.format("import %s", toString(packageDecl.getPackageName()));
             case CommaExpression ignored -> throw new UnsupportedViewingException("Comma is unsupported in this language");
             case ExpressionSequence exprSeq -> String.join(", ", exprSeq.getExpressions().stream().map((Expression nd) -> toString(nd, tab)).toList().toArray(new String[0]));
@@ -294,6 +293,7 @@ public class PythonViewer extends LanguageViewer {
                     );
             case ImportModule importModule ->
                     String.format("import %s", toString(importModule.getModuleName()));
+            case Include incl -> String.format("import %s", incl.getFileName().getUnescapedValue());
             default -> throw new IllegalStateException("Unexpected import type: " + importStmt);
         };
     }

@@ -57,4 +57,10 @@ public class QualifiedIdentifier extends Identifier {
     public int contentSize() {
         return scope.contentSize() + 1;
     }
+
+    @Override
+    public String internalRepresentation() {
+        return String.format("%s::%s",
+                scope.internalRepresentation(), getMember().getName());
+    }
 }

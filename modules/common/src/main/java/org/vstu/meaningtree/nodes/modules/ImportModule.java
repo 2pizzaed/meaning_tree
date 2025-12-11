@@ -7,7 +7,7 @@ import java.util.Objects;
 
 public class ImportModule extends Import {
     @TreeNode
-    private Identifier moduleName;
+    protected Identifier moduleName;
 
     @Override
     public boolean equals(Object o) {

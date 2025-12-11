@@ -58,6 +58,7 @@ import org.vstu.meaningtree.nodes.types.containers.DictionaryType;
 import org.vstu.meaningtree.nodes.types.containers.PlainCollectionType;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.serializers.model.Serializer;
+import org.vstu.meaningtree.utils.BytePosition;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.SourceMap;
 import org.vstu.meaningtree.utils.TransliterationUtils;
@@ -88,13 +89,13 @@ public class JsonSerializer implements Serializer<JsonObject> {
         root.addProperty("source_code", sourceMap.code());
         root.addProperty("language", sourceMap.language());
         JsonObject map = new JsonObject();
-        for (var entry : sourceMap.map().entrySet()) {
+        for (var entry : sourceMap.bytePositions().entrySet()) {
             var pair = new JsonArray();
             pair.add(entry.getValue().getLeft());
             pair.add(entry.getValue().getRight());
             map.add(entry.getKey().toString(), pair);
         }
-        root.add("map", map);
+        root.add("byte_positions", map);
         return root;
     }
 
@@ -151,6 +152,13 @@ public class JsonSerializer implements Serializer<JsonObject> {
         root.addProperty("assigned_label", gson.toJson(token.getAssignedValue()));
         root.addProperty("belongs_to", token.belongsTo() != null ? token.belongsTo.getId() : null);
         return root;
+    }
+
+    public JsonArray serialize(BytePosition pos) {
+        var arr = new JsonArray();
+        arr.add(pos.offset());
+        arr.add(pos.length());
+        return arr;
     }
 
     @Override
@@ -805,7 +813,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.addProperty("name", expr.getName());
-        json.addProperty("repr_name", expr.getName());
+        json.addProperty("repr_name", expr.internalRepresentation());
 
         return json;
     }
@@ -1456,9 +1464,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("scope", serialize(expr.getScope()));
         json.add("member", serialize(expr.getMember()));
-        json.addProperty("repr_name", String.format("%s::%s",
-                json.getAsJsonObject("scope").get("repr_name").getAsString(), expr.getMember().getName())
-        );
+        json.addProperty("repr_name", expr.internalRepresentation());
         return json;
     }
 
@@ -1469,10 +1475,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray targets = new JsonArray();
         for (var t : expr.getScopeResolution()) targets.add(serialize(t));
         json.add("identifiers", targets);
-        json.addProperty("repr_name",
-                String.join(".",
-                        expr.getScopeResolution().stream().map(SimpleIdentifier::getName).toArray(String[]::new))
-        );
+        json.addProperty("repr_name", expr.internalRepresentation());
         return json;
     }
 
@@ -1870,6 +1873,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray targets = new JsonArray();
         for (var t : decl.getArguments()) targets.add(serialize(t));
         json.add("arguments", targets);
+        json.addProperty("parent_decl_id", decl.getParentDeclaration() == null ? null : decl.getParentDeclaration().getId());
         return json;
     }
 

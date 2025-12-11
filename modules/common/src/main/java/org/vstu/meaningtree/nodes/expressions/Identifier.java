@@ -18,4 +18,6 @@ public abstract class Identifier extends Expression {
         }
         throw new AssertionError("This identifier isn't simple identifier");
     }
+
+    public abstract String internalRepresentation();
 }

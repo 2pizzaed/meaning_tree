@@ -48,4 +48,9 @@ public class Alias extends Identifier {
     public int contentSize() {
         return realName.contentSize() + 1;
     }
+
+    @Override
+    public String internalRepresentation() {
+        return alias.internalRepresentation();
+    }
 }

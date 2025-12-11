@@ -40,4 +40,9 @@ public abstract class Type extends Identifier {
     public boolean contains(Identifier o) {
         return false;
     }
+
+    @Override
+    public String internalRepresentation() {
+        return getClass().getSimpleName();
+    }
 }

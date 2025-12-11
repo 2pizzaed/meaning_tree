@@ -3,6 +3,7 @@ package org.vstu.meaningtree.languages;
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.EnumDeclaration;
+import org.vstu.meaningtree.nodes.declarations.FieldDeclaration;
 import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
@@ -283,6 +284,13 @@ public class TranslatorContext {
 
         private void setNodeHook(Node node) {
             if (node instanceof ClassDefinition def) {
+                for (Node clsComponent : def.getBody().getNodes()) {
+                    if (clsComponent instanceof FieldDeclaration field) {
+                        field.setParentDeclaration(def.getDeclaration());
+                    } else if (clsComponent instanceof MethodDefinition method) {
+                        method.getDeclaration().setParentDeclaration(def.getDeclaration());
+                    }
+                }
                 ctx.visibilityScope.scope().registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
             } else if (node instanceof FunctionDefinition def) {
                 ctx.visibilityScope.scope().registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
@@ -292,8 +300,10 @@ public class TranslatorContext {
                 ctx.visibilityScope.scope().registerVariable(varDecl);
             } else if (node instanceof SeparatedVariableDeclaration sepDecl) {
                 ctx.visibilityScope.scope().registerVariable(sepDecl);
-            } if (node instanceof EnumDeclaration decl) {
+            } else if (node instanceof EnumDeclaration decl) {
                 ctx.visibilityScope.scope().registerDeclaration(decl.getName().getSimpleIdentifierOrThrow(), decl);
+            } else if (node instanceof Import imprt) {
+                ctx.visibilityScope.scope().registerImport(imprt);
             }
             ctx.processInfer(node);
         }

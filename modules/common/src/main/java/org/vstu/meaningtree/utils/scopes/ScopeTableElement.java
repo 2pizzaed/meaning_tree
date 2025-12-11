@@ -14,13 +14,11 @@ import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
+import org.vstu.meaningtree.nodes.modules.Import;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * {@code TypedEntities} представляет набор сущностей текущей области видимости,
@@ -69,6 +67,12 @@ public class ScopeTableElement {
     private final Map<Identifier, Type> availableTypes;
 
     /**
+     * Все импорты в данной области видимости
+     */
+    @NotNull
+    private final Set<Import> externalLibrariesImport;
+
+    /**
      * Создаёт новый набор сущностей с родителем.
      *
      * @param parent родительский набор сущностей или {@code null} для корневого
@@ -83,6 +87,7 @@ public class ScopeTableElement {
         this.typeDeclarations = new HashMap<>();
         this.variableDeclarations = new HashMap<>();
         this.availableDeclarations = new HashMap<>();
+        this.externalLibrariesImport = new HashSet<>();
     }
 
     /**
@@ -92,6 +97,22 @@ public class ScopeTableElement {
      */
     public ScopeTableElement(@Nullable ScopeTableElement parent) {
         this(parent, null);
+    }
+
+    public Map<Identifier, Declaration> allDeclarations() {
+        return Map.copyOf(availableDeclarations);
+    }
+
+    public Map<Identifier, Type> allTypes() {
+        return Map.copyOf(availableTypes);
+    }
+
+    public Map<Type, Declaration> allTypeDeclarations() {
+        return Map.copyOf(typeDeclarations);
+    }
+
+    public Set<Import> allImports() {
+        return Set.copyOf(externalLibrariesImport);
     }
 
     /**
@@ -109,6 +130,10 @@ public class ScopeTableElement {
         for (var varDecl : variableDeclaration.getDeclarations()) {
             registerVariable(varDecl);
         }
+    }
+
+    public void registerImport(@NotNull Import importDeclaration) {
+        externalLibrariesImport.add(importDeclaration);
     }
 
     /**

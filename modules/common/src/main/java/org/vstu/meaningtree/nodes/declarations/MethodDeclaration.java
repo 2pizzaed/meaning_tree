@@ -5,13 +5,15 @@ import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
+import org.vstu.meaningtree.nodes.interfaces.NestedDeclaration;
 import org.vstu.meaningtree.nodes.types.UserType;
 
 import java.util.List;
 import java.util.Objects;
 
-public class MethodDeclaration extends FunctionDeclaration {
+public class MethodDeclaration extends FunctionDeclaration implements NestedDeclaration<ClassDeclaration> {
     @TreeNode private UserType owner;
+    private ClassDeclaration parent;
 
     public MethodDeclaration(UserType owner,
                              Identifier name,
@@ -56,5 +58,15 @@ public class MethodDeclaration extends FunctionDeclaration {
         clone.modifiers = List.copyOf(modifiers);
         clone.owner = owner.clone();
         return clone;
+    }
+
+    @Override
+    public ClassDeclaration getParentDeclaration() {
+        return parent;
+    }
+
+    @Override
+    public void setParentDeclaration(ClassDeclaration declaration) {
+        if (parent == null) parent = declaration;
     }
 }

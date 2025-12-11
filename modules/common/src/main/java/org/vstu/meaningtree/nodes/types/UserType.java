@@ -54,4 +54,9 @@ public abstract class UserType extends Type {
         obj.name = name.clone();
         return obj;
     }
+
+    @Override
+    public String internalRepresentation() {
+        return name.internalRepresentation();
+    }
 }

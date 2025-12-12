@@ -58,6 +58,12 @@ public class ScopedIdentifier extends Identifier {
         return scopeResolutionList.size();
     }
 
+    @Override
+    public String internalRepresentation() {
+        return String.join(".", getScopeResolution().stream()
+                .map(SimpleIdentifier::getName).toArray(String[]::new));
+    }
+
     public MemberAccess toMemberAccess() {
         if (scopeResolutionList.size() == 2) {
             return new MemberAccess(scopeResolutionList.getFirst(), scopeResolutionList.getLast());

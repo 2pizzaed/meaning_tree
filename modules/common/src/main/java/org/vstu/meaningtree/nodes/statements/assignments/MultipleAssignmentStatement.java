@@ -35,4 +35,10 @@ public class MultipleAssignmentStatement extends Statement implements HasInitial
     public int hashCode() {
         return Objects.hash(super.hashCode(), statements);
     }
+
+    public MultipleAssignmentStatement clone() {
+        var clone = (MultipleAssignmentStatement) super.clone();
+        clone.statements = statements.stream().map(AssignmentStatement::clone).toList();
+        return clone;
+    }
 }

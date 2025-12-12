@@ -5,13 +5,15 @@ import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
+import org.vstu.meaningtree.nodes.interfaces.NestedDeclaration;
 import org.vstu.meaningtree.nodes.types.UserType;
 
 import java.util.List;
+import java.util.Objects;
 
-public class MethodDeclaration extends FunctionDeclaration {
+public class MethodDeclaration extends FunctionDeclaration implements NestedDeclaration<ClassDeclaration> {
     @TreeNode private UserType owner;
-    private List<DeclarationModifier> modifiers;
+    private ClassDeclaration parent;
 
     public MethodDeclaration(UserType owner,
                              Identifier name,
@@ -39,7 +41,32 @@ public class MethodDeclaration extends FunctionDeclaration {
         return owner;
     }
 
-    public List<DeclarationModifier> getModifiers() {
-        return modifiers;
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof MethodDeclaration nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(owner, nodeInfos.owner) && Objects.equals(modifiers, nodeInfos.modifiers);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), owner, modifiers);
+    }
+
+    public MethodDeclaration clone() {
+        var clone = (MethodDeclaration) super.clone();
+        clone.modifiers = List.copyOf(modifiers);
+        clone.owner = owner.clone();
+        return clone;
+    }
+
+    @Override
+    public ClassDeclaration getParentDeclaration() {
+        return parent;
+    }
+
+    @Override
+    public void setParentDeclaration(ClassDeclaration declaration) {
+        if (parent == null) parent = declaration;
     }
 }

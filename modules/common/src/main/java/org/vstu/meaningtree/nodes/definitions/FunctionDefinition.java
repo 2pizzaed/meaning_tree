@@ -12,6 +12,7 @@ import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.types.UserType;
 
 import java.util.List;
+import java.util.Objects;
 
 public class FunctionDefinition extends Definition implements HasBodyStatement {
     @TreeNode protected CompoundStatement body;
@@ -19,6 +20,10 @@ public class FunctionDefinition extends Definition implements HasBodyStatement {
     public FunctionDefinition(FunctionDeclaration declaration, CompoundStatement body) {
         super(declaration);
         this.body = body;
+    }
+
+    public FunctionDeclaration getDeclaration() {
+        return (FunctionDeclaration) super.getDeclaration();
     }
 
     public Identifier getName() {
@@ -47,5 +52,23 @@ public class FunctionDefinition extends Definition implements HasBodyStatement {
     @Override
     public CompoundStatement makeCompoundBody() {
         return body;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof FunctionDefinition nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(body, nodeInfos.body);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), body);
+    }
+
+    public FunctionDefinition clone() {
+        FunctionDefinition clone = (FunctionDefinition) super.clone();
+        clone.body = body.clone();
+        return clone;
     }
 }

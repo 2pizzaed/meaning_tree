@@ -9,10 +9,7 @@ import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
-import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
-import org.vstu.meaningtree.nodes.expressions.Identifier;
-import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
-import org.vstu.meaningtree.nodes.expressions.UnaryExpression;
+import org.vstu.meaningtree.nodes.expressions.*;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.BinaryComparison;
@@ -34,8 +31,7 @@ import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
-import org.vstu.meaningtree.nodes.types.NoReturn;
-import org.vstu.meaningtree.nodes.types.UnknownType;
+import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
@@ -48,6 +44,9 @@ import org.vstu.meaningtree.utils.tokens.TokenList;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
+/**
+ * Currently, supports only expressions
+ */
 public class UniversalDeserializer implements Deserializer<AbstractSerializedNode> {
     public Node deserialize(AbstractSerializedNode abstractSerialized) {
         SerializedNode serialized = (SerializedNode) abstractSerialized;
@@ -72,14 +71,16 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
             case "ExpressionStatement" -> deserializeExprStmt(serialized);
             case "PointerMemberAccess" -> deserializePointerMemberAccess(serialized);
             case "MemberAccess"-> deserializeMemberAccess(serialized);
+            case "StringFormat" -> deserializeStringFormat(serialized);
             case "Shape" -> deserializeShape(serialized);
             case "Range" -> deserializeRange(serialized);
             case "DefinitionArgument" -> deserializeDefArg(serialized);
             case "BooleanType", "StringType", "CharacterType",
                  "FloatType", "IntType", "PointerType",
                  "ReferenceType", "ArrayType", "ListType",
-                 "DictionaryType", "SetType", "UnmodifiableListType",
-                 "Class", "Enum", "Structure", "Interface",
+                 "OrderedDictionaryType", "UnorderedDictionaryType", "SetType", "UnmodifiableListType",
+                 "Class", "Enum", "Structure", "Interface", "OptionalType",
+                 "LiteralType", "TypeAlternatives", "TupleType",
                  "GenericClass", "UnknownType", "NoReturn" -> deserializeType(serialized);
             default -> deserializeOther(serialized);
         };
@@ -92,6 +93,11 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
             node.setAssignedValueTag(abstractSerialized.values.get("assignedValueTag"));
         }
         return node;
+    }
+
+    private Node deserializeStringFormat(SerializedNode serialized) {
+        return new StringFormat((Expression) deserialize(serialized.fields.get("template")),
+                deserializeList((SerializedListNode) serialized.fields.get("substitutions")).toArray(Expression[]::new));
     }
 
     private Node deserializeRange(SerializedNode serialized) {
@@ -204,9 +210,15 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
             case "ListType" -> new ListType((Type) deserialize(serialized.fields.get("type")));
             case "SetType" -> new SetType((Type) deserialize(serialized.fields.get("type")));
             case "UnmodifiableListType" -> new UnmodifiableListType((Type) deserialize(serialized.fields.get("type")));
-            case "DictionaryType" -> new DictionaryType((Type) deserialize(serialized.fields.get("keyType")),
+            case "UnorderedDictionaryType" -> new UnorderedDictionaryType((Type) deserialize(serialized.fields.get("keyType")),
+                    (Type) deserialize(serialized.fields.get("valueType")));
+            case "OrderedDictionaryType" -> new OrderedDictionaryType((Type) deserialize(serialized.fields.get("keyType")),
                     (Type) deserialize(serialized.fields.get("valueType")));
             case "Class" -> new org.vstu.meaningtree.nodes.types.user.Class((Identifier) deserialize(serialized.fields.get("name")));
+            case "OptionalType" -> new OptionalType((Type) deserialize(serialized.fields.get("targetType")));
+            case "LiteralType" -> new LiteralType((Literal) deserialize(serialized.fields.get("literal")));
+            case "TypeAlternatives" -> new TypeAlternatives((List<Type>) deserializeList((SerializedListNode) serialized.fields.get("alternatives")));
+            case "TupleType" -> new TupleType((List<Type>) deserializeList((SerializedListNode) serialized.fields.get("elements")));
             case "Structure" -> new Structure((Identifier) deserialize(serialized.fields.get("name")));
             case "Enum" -> new org.vstu.meaningtree.nodes.types.user.Enum((Identifier) deserialize(serialized.fields.get("name")));
             case "Interface" -> new org.vstu.meaningtree.nodes.types.user.Interface((Identifier) deserialize(serialized.fields.get("name")));

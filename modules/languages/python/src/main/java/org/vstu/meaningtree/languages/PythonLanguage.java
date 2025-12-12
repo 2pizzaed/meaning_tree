@@ -14,10 +14,7 @@ import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
-import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
-import org.vstu.meaningtree.nodes.expressions.Identifier;
-import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
-import org.vstu.meaningtree.nodes.expressions.UnaryExpression;
+import org.vstu.meaningtree.nodes.expressions.*;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
@@ -49,19 +46,17 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.DefaultCaseBl
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
-import org.vstu.meaningtree.nodes.types.GenericUserType;
-import org.vstu.meaningtree.nodes.types.UnknownType;
-import org.vstu.meaningtree.nodes.types.UserType;
+import org.vstu.meaningtree.nodes.types.*;
+import org.vstu.meaningtree.nodes.types.builtin.BooleanType;
 import org.vstu.meaningtree.nodes.types.builtin.FloatType;
 import org.vstu.meaningtree.nodes.types.builtin.IntType;
 import org.vstu.meaningtree.nodes.types.builtin.StringType;
-import org.vstu.meaningtree.nodes.types.containers.DictionaryType;
 import org.vstu.meaningtree.nodes.types.containers.ListType;
+import org.vstu.meaningtree.nodes.types.containers.OrderedDictionaryType;
 import org.vstu.meaningtree.nodes.types.containers.SetType;
 import org.vstu.meaningtree.nodes.types.containers.UnmodifiableListType;
 import org.vstu.meaningtree.nodes.types.user.Class;
-import org.vstu.meaningtree.utils.type_inference.HindleyMilner;
-import org.vstu.meaningtree.utils.type_inference.TypeScope;
+import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayDeque;
@@ -74,19 +69,13 @@ public class PythonLanguage extends LanguageParser {
     private TSLanguage _language;
     private TSParser _parser;
 
-    private TypeScope scope = new TypeScope();
+    public PythonLanguage(LanguageTranslator translator) {
+        super(translator);
+    }
 
     @Override
     public TSTree getTSTree() {
         _initBackend();
-
-        /*
-        TODO: only for test
-        try {
-            tree.printDotGraphs(new File("TSTree.dot"));
-        } catch (IOException e) { }
-        */
-
         return _parser.parseString(null, _code);
     }
 
@@ -100,7 +89,6 @@ public class PythonLanguage extends LanguageParser {
 
     @Override
     public synchronized MeaningTree getMeaningTree(String code) {
-        scope = new TypeScope();
         _code = code;
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
@@ -118,7 +106,7 @@ public class PythonLanguage extends LanguageParser {
         Node createdNode = switch (nodeType) {
             case "ERROR" -> fromTSNode(node.getChild(0));
             case "module" -> createEntryPoint(node);
-            case "block" -> fromCompoundTSNode(node);
+            case "block" -> fromCompoundTSNode(node, false);
             case "if_statement" -> fromIfStatementTSNode(node);
             case "expression_statement", "expression_list", "tuple_pattern" -> fromExpressionSequencesTSNode(node);
             case "parenthesized_expression" -> fromParenthesizedExpressionTSNode(node);
@@ -165,10 +153,19 @@ public class PythonLanguage extends LanguageParser {
             case "assert_statement" -> fromAssertTSNode(node);
             case "set_comprehension", "dictionary_comprehension", "list_comprehension", "generator_expression" -> fromComprehension(node);
             case "match_statement" -> fromMatchStatement(node);
+            case "pattern_list" -> fromPatternList(node);
             case null, default -> throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));
         };
         assignValue(node, createdNode);
         return createdNode;
+    }
+
+    private Node fromPatternList(TSNode node) {
+        List<Expression> expressions = new ArrayList<>();
+        for (int i = 0; i < node.getNamedChildCount(); i++) {
+            expressions.add((Expression) fromTSNode(node.getNamedChild(i)));
+        }
+        return new ExpressionSequence(expressions);
     }
 
     @Override
@@ -180,10 +177,6 @@ public class PythonLanguage extends LanguageParser {
     private Node fromAssertTSNode(TSNode node) {
         return new FunctionCall(new SimpleIdentifier("assert"), (Expression)
                 parseTSNode(node.getNamedChild(0)));
-    }
-
-    private void rollbackContext() {
-        scope.leave();
     }
 
     private EmptyStatement fromPassStatementOrEllipsis(TSNode node) {
@@ -250,7 +243,7 @@ public class PythonLanguage extends LanguageParser {
             } else if (alternative.getNamedChild(0).getNamedChild(0).getType().equals("as_pattern")) {
                 condition = (Expression) parseTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(0).getNamedChild(0));
                 SimpleIdentifier ident = (SimpleIdentifier) parseTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(1));
-                Type variableType = HindleyMilner.inference(condition, scope);
+                Type variableType = ctx.inferType(condition);
                 newDecl = new VariableDeclaration(variableType, ident, condition);
             } else {
                 condition = (Expression) parseTSNode(alternative.getNamedChild(0).getNamedChild(0));
@@ -344,13 +337,17 @@ public class PythonLanguage extends LanguageParser {
 
         List<Expression> exprs = new ArrayList<>();
         TSNode arguments = node.getChildByFieldName("arguments");
-        for (int i = 0; i < arguments.getNamedChildCount(); i++) {
-            String tsNodeChildType = arguments.getNamedChild(i).getType();
-            if (tsNodeChildType.equals("(") || tsNodeChildType.equals(")") || tsNodeChildType.equals(",") || tsNodeChildType.equals("comment")) {
-                continue;
+        if (arguments.getType().equals("generator_expression")) {
+            exprs.add((Expression) fromTSNode(arguments));
+        } else {
+            for (int i = 0; i < arguments.getNamedChildCount(); i++) {
+                String tsNodeChildType = arguments.getNamedChild(i).getType();
+                if (tsNodeChildType.equals("(") || tsNodeChildType.equals(")") || tsNodeChildType.equals(",") || tsNodeChildType.equals("comment")) {
+                    continue;
+                }
+                Expression expr = (Expression) parseTSNode(arguments.getNamedChild(i));
+                exprs.add(expr);
             }
-            Expression expr = (Expression) parseTSNode(arguments.getNamedChild(i));
-            exprs.add(expr);
         }
 
         if (getCodePiece(tsNode).equals("print")) {
@@ -400,6 +397,7 @@ public class PythonLanguage extends LanguageParser {
 
     private Node fromFunctionTSNode(TSNode node) {
         List<Annotation> anno = new ArrayList<>();
+        boolean isStatic = false;
         if (node.getType().equals("decorated_definition")) {
             TSNode decorator = node.getNamedChild(0);
             anno.add(fromDecorator(decorator));
@@ -409,6 +407,12 @@ public class PythonLanguage extends LanguageParser {
             }
             node = node.getChildByFieldName("definition");
         }
+        for (Annotation an : anno) {
+            if (an.getName().equalsIdentifier("staticmethod")) {
+                isStatic = true;
+            }
+        }
+        anno = anno.stream().filter(an -> !an.getName().equalsIdentifier("staticmethod")).toList();
         SimpleIdentifier name = new SimpleIdentifier(getCodePiece(node.getChildByFieldName("name")));
         List<DeclarationArgument> arguments = new ArrayList<>();
         for (int i = 0; i < node.getChildByFieldName("parameters").getNamedChildCount(); i++) {
@@ -416,12 +420,12 @@ public class PythonLanguage extends LanguageParser {
         }
         Type returnType = determineType(node.getChildByFieldName("return_type"));
 
-        scope.enter();
-        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"));
+        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"), true);
 
         assert body != null;
-        rollbackContext();
-        return new FunctionDefinition(new FunctionDeclaration(name, returnType, anno, arguments.toArray(new DeclarationArgument[0])), body);
+        var decl = new FunctionDeclaration(name, returnType, anno, arguments.toArray(new DeclarationArgument[0]));
+        if (isStatic) decl.addModifiers(DeclarationModifier.STATIC);
+        return new FunctionDefinition(decl, body);
     }
 
     private DeclarationArgument fromDeclarationArgument(TSNode namedChild) {
@@ -472,10 +476,9 @@ public class PythonLanguage extends LanguageParser {
                 (SimpleIdentifier) parseTSNode(node.getChildByFieldName("name")),
                 supertypes
         );
-        UserType type = new Class((SimpleIdentifier) classDecl.getName());
+        UserType type = new Class(classDecl.getName());
 
-        scope.enter();
-        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"));
+        CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"), true);
 
         Node[] bodyNodes = body.getNodes();
         for (int i = 0; i < body.getLength(); i++) {
@@ -484,13 +487,17 @@ public class PythonLanguage extends LanguageParser {
                 body.substitute(i, var.makeField(List.of(DeclarationModifier.PUBLIC)));
             } else if (bodyNode instanceof FunctionDefinition func) {
                 boolean isStatic = false;
-                List<Annotation> anno = ((FunctionDeclaration) (func.getDeclaration())).getAnnotations();
+                List<Annotation> anno = new ArrayList<>(func.getDeclaration().getAnnotations());
                 for (Annotation annotation : anno) {
                     isStatic = annotation.hasName() && (annotation.getName().toString().equals("staticmethod") || annotation.getName().toString().equals("classmethod"));
-                    if (isStatic) break;
+                    if (isStatic) {
+                        if (!annotation.getName().equalsIdentifier("classmethod")) anno.remove(annotation);
+                        func.getDeclaration().setAnnotations(anno);
+                        break;
+                    }
                 }
-                List<DeclarationModifier> modifiers = new ArrayList<>();
-                if (isStatic) {
+                List<DeclarationModifier> modifiers = new ArrayList<>(func.getDeclaration().getModifiers());
+                if (isStatic && !modifiers.contains(DeclarationModifier.STATIC)) {
                     modifiers.add(DeclarationModifier.STATIC);
                 }
                 DeclarationModifier visibility = DeclarationModifier.PUBLIC;
@@ -509,25 +516,38 @@ public class PythonLanguage extends LanguageParser {
         }
 
         ClassDefinition def = new ClassDefinition(classDecl, body);
-        // TODO: кто такой владелец контекста и зачем он нужен?
-        // currentContext.setOwner(def);
-        scope.leave();
 
         return def;
     }
 
     private Statement fromForLoop(TSNode node) {
-        SimpleIdentifier left = (SimpleIdentifier) parseTSNode(node.getChildByFieldName("left"));
+        Expression left = (Expression) parseTSNode(node.getChildByFieldName("left"));
+        VariableDeclaration decl = null;
+        if (left instanceof ExpressionSequence expressionSequence) {
+            List<VariableDeclarator> decls = new ArrayList<>();
+            for (Expression expression : expressionSequence.getExpressions()) {
+                if (expression instanceof SimpleIdentifier identifier) {
+                    decls.add(new VariableDeclarator(identifier));
+                } else {
+                    throw new UnsupportedParsingException("Unsupported Python expression in for-each loop: " + expression);
+                }
+            }
+            decl = new VariableDeclaration(new UnknownType(), decls);
+        } else if (left instanceof SimpleIdentifier identifier) {
+            decl = new VariableDeclaration(new UnknownType(), identifier);
+        } else {
+            throw new UnsupportedParsingException("Unsupported identifier in for-each loop: " + left);
+        }
         Node right = parseTSNode(node.getChildByFieldName("right"));
         Statement body = (Statement) parseTSNode(node.getChildByFieldName("body"));
         if (right instanceof FunctionCall call) {
             Range range = rangeFromFunction(call);
-            if (range != null) {
-                return new RangeForLoop(range, left, body);
+            if (range != null && left instanceof SimpleIdentifier simpleLeft) {
+                return new RangeForLoop(range, simpleLeft, body);
             }
-            return new ForEachLoop(new VariableDeclaration(new UnknownType(), left), (Expression) right, body);
+            return new ForEachLoop(decl, (Expression) right, body);
         } else {
-            return new ForEachLoop(new VariableDeclaration(new UnknownType(), left), (Expression) right, body);
+            return new ForEachLoop(decl, (Expression) right, body);
         }
     }
 
@@ -638,10 +658,7 @@ public class PythonLanguage extends LanguageParser {
 
     private Node createEntryPoint(TSNode node) {
         // detect if __name__ == __main__ construction
-        scope.enter();
-        CompoundStatement compound = fromCompoundTSNode(node);
-
-        HindleyMilner.inference(List.of(compound.getNodes()), scope);
+        CompoundStatement compound = fromCompoundTSNode(node, false);
 
         Node entryPointNode = null;
         IfStatement entryPointIf = null;
@@ -657,7 +674,7 @@ public class PythonLanguage extends LanguageParser {
             }
         }
         List<Node> nodes = new ArrayList<>(List.of(compound.getNodes()));
-        nodes.remove(entryPointIf);
+        nodes.remove(entryPointIf); // entry point only as separate node!
 
         boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
 
@@ -728,20 +745,107 @@ public class PythonLanguage extends LanguageParser {
         if (typeNode.isNull()) {
             return new UnknownType();
         }
-        if (typeNode.getNamedChildCount() > 0 && typeNode.getNamedChild(0).getType().equals("generic_type")) {
-            TSNode genericTypeNode = typeNode.getNamedChild(0);
+
+        if (typeNode.getNamedChildCount() == 1 &&
+                typeNode.getNamedChild(0).getType().equals("string")) {
+            var string = this.getCodePiece(typeNode.getNamedChild(0));
+            string = "x: %s".formatted(string.substring(1, string.length() - 1));
+            var node = (ProgramEntryPoint) new PythonTranslator().getMeaningTree(
+                    string
+            ).getRootNode();
+            Type t = ((VariableDeclaration) node.getBody().getFirst()).getType();
+            t.setSafeReference(true);
+            return t;
+        }
+
+        if (typeNode.getNamedChildCount() == 1 &&
+                typeNode.getNamedChild(0).getType().equals("union_type")) {
+            typeNode = typeNode.getNamedChild(0);
+            List<TSNode> components = new ArrayList<>();
+            components.add(typeNode.getNamedChild(1).getNamedChild(0));
+            var descentNode = typeNode.getNamedChild(0).getNamedChild(0);
+            while (descentNode.getType().equals("union_type")) {
+                components.add(descentNode.getNamedChild(1).getNamedChild(0));
+                descentNode = descentNode.getNamedChild(0).getNamedChild(0);
+            }
+            components.add(descentNode);
+            components = components.reversed();
+            boolean hasOptional = components.stream().anyMatch((t) -> t.getType().equals("none"));
+            List<Type> types = components.stream().filter(t -> !t.getType().equals("none")).map(this::determineType).toList();
+            if (hasOptional && types.size() == 1) {
+                return new OptionalType(types.getFirst());
+            } else if (hasOptional && types.size() > 1) {
+                return new OptionalType(new TypeAlternatives(types));
+            } else if (types.size() == 1) {
+                return types.getFirst(); // never be possible here
+            } else {
+                return new TypeAlternatives(types);
+            }
+        }
+
+        if (typeNode.getNamedChildCount() == 1 &&
+                typeNode.getNamedChild(0).getType().equals("binary_operator")
+                && typeNode.getNamedChild(0).getChildByFieldName("operator").getType().equals("|")) {
+            typeNode = typeNode.getNamedChild(0);
+            List<TSNode> components = new ArrayList<>();
+            components.add(typeNode.getChildByFieldName("right"));
+            var descentNode = typeNode.getChildByFieldName("left");
+            while (descentNode.getType().equals("binary_operator")) {
+                components.add(descentNode.getChildByFieldName("right"));
+                descentNode = descentNode.getChildByFieldName("left");
+            }
+            components.add(descentNode);
+            components = components.reversed();
+            boolean hasOptional = components.stream().anyMatch((t) -> t.getType().equals("none"));
+            List<Type> types = components.stream().filter(t -> !t.getType().equals("none")).map(this::determineType).toList();
+            if (hasOptional && types.size() == 1) {
+                return new OptionalType(types.getFirst());
+            } else if (hasOptional && types.size() > 1) {
+                return new OptionalType(new TypeAlternatives(types));
+            } else if (types.size() == 1) {
+                return types.getFirst(); // never be possible here
+            } else {
+                return new TypeAlternatives(types);
+            }
+        }
+        if (
+                (typeNode.getNamedChildCount() > 0 && typeNode.getNamedChild(0).getType().equals("generic_type"))
+                || typeNode.getType().equals("generic_type")
+        ) {
+            TSNode genericTypeNode;
+            if (typeNode.getType().equals("generic_type")) {
+                genericTypeNode = typeNode;
+            } else {
+                genericTypeNode = typeNode.getNamedChild(0);
+            }
             List<Type> genericTypes = new ArrayList<>();
-            String typeName = getCodePiece(typeNode.getNamedChild(0).getNamedChild(0));
+            String typeName = getCodePiece(genericTypeNode.getNamedChild(0));
+            if (typeName.equals("Literal")) {
+                var literals = new ArrayList<Literal>();
+                for (int i = 0; i < genericTypeNode.getNamedChild(1).getNamedChildCount(); i++) {
+                    literals.add((Literal) fromTSNode(genericTypeNode.getNamedChild(1).getNamedChild(i).getNamedChild(0)));
+                }
+                var types = literals.stream().map(LiteralType::new).toList();
+                if (types.size() == 1) {
+                    return types.getFirst();
+                } else {
+                    return new TypeAlternatives(types);
+                }
+            }
             for (int i = 0; i < genericTypeNode.getNamedChild(1).getNamedChildCount(); i++) {
                 genericTypes.add(determineType(genericTypeNode.getNamedChild(1).getNamedChild(i)));
             }
             switch (typeName) {
-                case "list":
+                case "Optional":
+                    return new OptionalType(genericTypes.getFirst());
+                case "Union":
+                    return new TypeAlternatives(genericTypes);
+                case "list", "List":
                     return new ListType(genericTypes.getFirst());
-                case "tuple":
-                    return new UnmodifiableListType(genericTypes.getFirst());
-                case "dict":
-                    return new DictionaryType(genericTypes.getFirst(), genericTypes.get(1));
+                case "tuple", "Tuple":
+                    return new TupleType(genericTypes);
+                case "dict", "Mapping":
+                    return new OrderedDictionaryType(genericTypes.getFirst(), genericTypes.get(1));
                 default:
                     return new GenericUserType(new SimpleIdentifier(typeName), genericTypes.toArray(new Type[0]));
             }
@@ -751,14 +855,16 @@ public class PythonLanguage extends LanguageParser {
                 return new StringType();
             case "int":
                 return new IntType();
+            case "bool":
+                return new BooleanType();
             case "float":
                 return new FloatType();
-            case "list":
+            case "list", "List":
                 return new ListType(new UnknownType());
-            case "tuple":
+            case "tuple", "Tuple":
                 return new UnmodifiableListType(new UnknownType());
-            case "dict":
-                return new DictionaryType(new UnknownType(), new UnknownType());
+            case "dict", "Mapping":
+                return new OrderedDictionaryType(new UnknownType(), new UnknownType());
             case "set":
                 return new SetType(new UnknownType());
             default:
@@ -771,16 +877,17 @@ public class PythonLanguage extends LanguageParser {
         Expression right = (Expression) parseTSNode(node.getChildByFieldName("value"));
 
         if (left instanceof SimpleIdentifier variableName && right != null) {
-            var leftType = scope.getVariableType(variableName);
-            var rightType = HindleyMilner.inference(right, scope);
+            var scopeTable = ctx.getVisibilityScope();
+            var leftType = scopeTable.scope().getVariableType(variableName);
+            var rightType = ctx.inferType(right); // already uses scopeTable by default
 
-            if (leftType == null) {
-                scope.changeVariableType(variableName, rightType);
+            if (leftType == null || leftType instanceof UnknownType) {
+                scopeTable.scope().changeVariableType(variableName, rightType);
             }
             else {
-                scope.changeVariableType(
+                scopeTable.scope().changeVariableType(
                         variableName,
-                        HindleyMilner.chooseGeneralType(leftType, rightType)
+                        SimpleTypeInferrer.chooseGeneralType(leftType, rightType)
                 );
             }
         }
@@ -857,22 +964,26 @@ public class PythonLanguage extends LanguageParser {
             }
 
             boolean allNew = augOp == AugmentedAssignmentOperator.NONE
-                    && idents.stream().allMatch(id -> scope.getVariableType((SimpleIdentifier) id) == null);
+                    && idents.stream().allMatch(id -> ctx.getVisibilityScope().scope().getVariableType((SimpleIdentifier) id) == null);
 
             if (allNew) {
                 // Вычисляем общий тип по всем выражениям
-                var evaluatedTypes = exprs.stream().map(expr -> HindleyMilner.inference(expr, scope)).toList();
-                Type commonType = HindleyMilner.chooseGeneralType(evaluatedTypes);
+                var evaluatedTypes = exprs.stream().map(expr -> ctx.inferType(expr)).toList();
+                Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? null :
+                        (Type) fromTSNode(node.getChildByFieldName("type"));
+                if (declaredType == null) {
+                    declaredType = SimpleTypeInferrer.chooseGeneralType(evaluatedTypes);
+                }
 
                 // Регистрируем все переменные и создаём декларатор-ы
                 List<VariableDeclarator> decls = new ArrayList<>();
                 for (int i = 0; i < idents.size(); i++) {
                     Identifier id = idents.get(i);
                     Expression init = exprs.get(i);
-                    scope.changeVariableType((SimpleIdentifier) id, commonType);
+                    ctx.getVisibilityScope().scope().changeVariableType((SimpleIdentifier) id, declaredType);
                     decls.add(new VariableDeclarator((SimpleIdentifier) id, init));
                 }
-                return new VariableDeclaration(commonType, decls);
+                return new VariableDeclaration(declaredType, decls);
             }
 
             // Иначе — обычный multiple assignment
@@ -893,18 +1004,32 @@ public class PythonLanguage extends LanguageParser {
         if (leftExpr instanceof SimpleIdentifier variableName
                 && rightExpr != null
                 && augOp == AugmentedAssignmentOperator.NONE) {
-            Type leftType = scope.getVariableType(variableName);
-            Type rightType = HindleyMilner.inference(rightExpr, scope);
+            var scopeTable = ctx.getVisibilityScope();
+            Type leftType = scopeTable.scope().getVariableType(variableName);
+            Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? new UnknownType() :
+                    (Type) fromTSNode(node.getChildByFieldName("type"));
+            Type rightType = ctx.inferType(rightExpr); // already uses scopeTable by default
 
-            if (leftType == null) {
-                scope.changeVariableType(variableName, rightType);
+            if (declaredType != null && !(declaredType instanceof UnknownType)) {
+                scopeTable.scope().changeVariableType(variableName, declaredType);
+                return new VariableDeclaration(declaredType, variableName, rightExpr);
+            } else if (leftType == null) {
+                scopeTable.scope().changeVariableType(variableName, rightType);
                 return new VariableDeclaration(rightType, variableName, rightExpr);
             } else {
-                scope.changeVariableType(
+                scopeTable.scope().changeVariableType(
                         variableName,
-                        HindleyMilner.chooseGeneralType(leftType, rightType)
+                        SimpleTypeInferrer.chooseGeneralType(List.of(leftType, rightType, declaredType))
                 );
             }
+        } else if (leftExpr instanceof SimpleIdentifier variableName
+                && rightExpr == null
+                && augOp == AugmentedAssignmentOperator.NONE) {
+            var scopeTable = ctx.getVisibilityScope();
+            Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? new UnknownType() :
+                    (Type) fromTSNode(node.getChildByFieldName("type"));
+            scopeTable.scope().changeVariableType(variableName, declaredType);
+            return new VariableDeclaration(declaredType, variableName, new NullLiteral());
         }
 
         return new AssignmentStatement(leftExpr, rightExpr, augOp);
@@ -924,12 +1049,12 @@ public class PythonLanguage extends LanguageParser {
         };
     }
 
-    private CompoundStatement fromCompoundTSNode(TSNode node) {
-        var nodes = new ArrayList<Node>();
+    private CompoundStatement fromCompoundTSNode(TSNode node, boolean newScope) {
+        var nodes = ctx.createNodeBody(newScope);
         for (int i = 0; i < node.getChildCount(); i++) {
             nodes.add(parseTSNode(node.getChild(i)));
         }
-        return new CompoundStatement(nodes);
+        return nodes.build();
     }
 
     private IfStatement fromIfStatementTSNode(TSNode node) {

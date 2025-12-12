@@ -1,6 +1,7 @@
 package org.vstu.meaningtree.utils.tokens;
 
 import org.jetbrains.annotations.Nullable;
+import org.vstu.meaningtree.utils.BytePosition;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -17,10 +18,24 @@ public class Token implements Serializable {
 
     protected Object assignedValue = null;
     private long id = _id_generator.incrementAndGet();
+    protected BytePosition bytePos = null;
 
     public Token(String value, TokenType type) {
         this.value = value;
         this.type = type;
+    }
+
+    @Nullable
+    public BytePosition bytePos() {
+        return bytePos;
+    }
+
+    public boolean setBytePosition(BytePosition bytePos) {
+        if (this.bytePos == null) {
+            this.bytePos = bytePos;
+            return true;
+        }
+        return false;
     }
 
     /**

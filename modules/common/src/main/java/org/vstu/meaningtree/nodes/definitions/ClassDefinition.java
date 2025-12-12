@@ -12,6 +12,7 @@ import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class ClassDefinition extends Definition {
@@ -43,6 +44,10 @@ public class ClassDefinition extends Definition {
         return body;
     }
 
+    public ClassDeclaration getDeclaration() {
+        return (ClassDeclaration) super.getDeclaration();
+    }
+
     @Nullable
     public MethodDefinition findMethod(String methodName) {
         for (Node node : body.getNodes()) {
@@ -61,5 +66,23 @@ public class ClassDefinition extends Definition {
 
     public List<DeclarationModifier> getModifiers() {
         return ((ClassDeclaration) getDeclaration()).getModifiers();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof ClassDefinition nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(body, nodeInfos.body);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), body);
+    }
+
+    public ClassDefinition clone() {
+        var clone = (ClassDefinition) super.clone();
+        clone.body = body.clone();
+        return clone;
     }
 }

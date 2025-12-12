@@ -1,10 +1,9 @@
 package org.vstu.meaningtree.languages;
 
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
-import org.vstu.meaningtree.languages.configs.params.EnforceEntryPoint;
+import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -57,17 +56,13 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.*;
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
-import org.vstu.meaningtree.nodes.types.GenericUserType;
-import org.vstu.meaningtree.nodes.types.NoReturn;
-import org.vstu.meaningtree.nodes.types.UnknownType;
-import org.vstu.meaningtree.nodes.types.UserType;
+import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.utils.Label;
+import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
-import org.vstu.meaningtree.utils.type_inference.HindleyMilner;
-import org.vstu.meaningtree.utils.type_inference.TypeScope;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -82,40 +77,23 @@ public class JavaViewer extends LanguageViewer {
     private final boolean _bracketsAroundCaseBranches;
     private final boolean _autoVariableDeclaration;
 
-    private TypeScope _currentScope;
-    private TypeScope _typeScope;
-
     private Type _methodReturnType = null;
 
-    private void addVariableToCurrentScope(@NotNull SimpleIdentifier variableName, Type type) {
-        _currentScope.addVariable(variableName, type);
-    }
-
-    private void addMethodToCurrentScope(@NotNull SimpleIdentifier methodName, Type returnType) {
-        _currentScope.addMethod(methodName, returnType);
-    }
-
-    public JavaViewer() {
-        this(0, false, true, false);
-    }
-
-    public JavaViewer(int indentSpaceCount,
+    public JavaViewer(LanguageTranslator translator, int indentSpaceCount,
                       boolean openBracketOnSameLine,
                       boolean bracketsAroundCaseBranches,
                       boolean autoVariableDeclaration
     ) {
+        super(translator);
         _indentation = " ".repeat(indentSpaceCount);
         _indentLevel = 0;
         _openBracketOnSameLine = openBracketOnSameLine;
         _bracketsAroundCaseBranches = bracketsAroundCaseBranches;
-        _currentScope = new TypeScope();
-        _typeScope = new TypeScope();
         _autoVariableDeclaration = autoVariableDeclaration;
     }
 
-    public JavaViewer(LanguageTokenizer tokenizer) {
-        this(4, true, false, false);
-        this.tokenizer = tokenizer;
+    public JavaViewer(LanguageTranslator translator) {
+        this(translator, 4, true, true, false);
     }
 
     @Override
@@ -130,16 +108,6 @@ public class JavaViewer extends LanguageViewer {
         if (node.hasLabel(Label.DUMMY)) {
             return "";
         }
-
-        /*
-        TODO: temporarily disabled
-        if (node instanceof Expression expression) {
-            HindleyMilner.inference(expression, _typeScope);
-        }
-        else if (node instanceof Statement statement) {
-            HindleyMilner.inference(statement, _typeScope);
-        }
-        */
 
         return switch (node) {
             case ListLiteral listLiteral -> toStringListLiteral(listLiteral);
@@ -184,6 +152,7 @@ public class JavaViewer extends LanguageViewer {
             case VariableDeclaration stmt -> toStringVariableDeclaration(stmt);
             case CompoundStatement stmt -> toStringCompoundStatement(stmt);
             case ExpressionStatement stmt -> toStringExpressionStatement(stmt);
+            case MethodDeclaration stmt -> toStringMethodDeclaration(stmt);
             case SimpleIdentifier expr -> toStringSimpleIdentifier(expr);
             case IfStatement stmt -> toStringIfStatement(stmt);
             case GeneralForLoop stmt -> toStringGeneralForLoop(stmt);
@@ -243,6 +212,7 @@ public class JavaViewer extends LanguageViewer {
             case PointerPackOp ptr -> toStringPointerPackOp(ptr);
             case DefinitionArgument defArg ->toString(defArg.getInitialExpression());
             case PointerUnpackOp ptr -> toStringPointerUnpackOp(ptr);
+            case Annotation annotation -> toStringAnnotation(annotation);
             case ContainsOp op -> toStringContainsOp(op);
             case ReferenceEqOp op -> toStringReferenceEqOp(op);
             case FunctionDefinition functionDefinition -> toStringFunctionDefinition(functionDefinition);
@@ -277,6 +247,7 @@ public class JavaViewer extends LanguageViewer {
 
     private String toStringFunctionDeclaration(FunctionDeclaration functionDeclaration) {
         StringBuilder builder = new StringBuilder();
+        builder.append(toStringAnnotations(functionDeclaration.getAnnotations()));
 
         // Считаем каждую функцию доступной извне
         builder.append("public static ");
@@ -311,7 +282,7 @@ public class JavaViewer extends LanguageViewer {
                         .append("new Scanner(System.in).");
             }
 
-            Type exprType = HindleyMilner.inference(stringPart, _currentScope);
+            Type exprType = ctx.inferType(stringPart);
             switch (exprType) {
                 case StringType stringType -> {
                     builder.append("next()");
@@ -344,7 +315,7 @@ public class JavaViewer extends LanguageViewer {
         }
 
         for (Expression stringPart : formatInput.getArguments()) {
-            Type exprType = HindleyMilner.inference(stringPart, _typeScope);
+            Type exprType = ctx.inferType(stringPart);
             switch (exprType) {
                 case StringType stringType -> {
                     builder.append("next()");
@@ -380,6 +351,24 @@ public class JavaViewer extends LanguageViewer {
         return toString(ptr.getArgument());
     }
 
+    public String toStringAnnotation(Annotation annotation) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("@");
+        builder.append(toString(annotation.getName()));
+        if (annotation.getArguments().length > 0) {
+            builder.append("(");
+            for (Expression arg : annotation.getArguments()) {
+                builder.append(toString(arg));
+                builder.append(", ");
+            }
+            if (builder.substring(builder.length() - 2, builder.length()) == ", ") {
+                builder.replace(builder.length() - 2, builder.length(), "");
+            }
+            builder.append(")");
+        }
+        return builder.toString();
+    }
+
     public String toStringPointerUnpackOp(PointerUnpackOp ptr) {
         if (ptr.getArgument() instanceof SubOp) {
             throw new UnsupportedViewingException("Subtraction of pointers cannot be converted to indexing");
@@ -389,8 +378,6 @@ public class JavaViewer extends LanguageViewer {
 
     public String toStringListLiteral(ListLiteral list) {
         var builder = new StringBuilder();
-        // FIX: уби
-        // String typeHint = "list.getTypeHint() == null ? "" : toString(list.getTypeHint());"
         String typeHint = "";
         builder.append(String.format("new java.util.ArrayList<%s>(java.util.List.of(", typeHint));
         for (Expression expression : list.getList()) {
@@ -450,7 +437,7 @@ public class JavaViewer extends LanguageViewer {
 
         builder.append("String.format(\"");
         for (Expression stringPart : interpolatedStringLiteral.components()) {
-            Type exprType = HindleyMilner.inference(stringPart, _typeScope);
+            Type exprType = ctx.inferType(stringPart);
             switch (exprType) {
                 case StringType stringType -> {
                     var string = toString(stringPart);
@@ -589,6 +576,9 @@ public class JavaViewer extends LanguageViewer {
 
     private String toStringForEachLoop(ForEachLoop forEachLoop) {
         var type = toString(forEachLoop.getItem().getType());
+        if (forEachLoop.getItem().getDeclarators().length > 1) {
+            throw new UnsupportedViewingException("Java doesn't have multiple declarators in for-each loop");
+        }
         var iterVarId = toString(forEachLoop.getItem().getDeclarators()[0].getIdentifier());
         var iterable = toString(forEachLoop.getExpression());
         var body = toString(forEachLoop.getBody());
@@ -675,10 +665,10 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringObjectConstructorDefinition(ObjectConstructorDefinition objectConstructor) {
-        MethodDeclaration constructorDeclaration =
-                (MethodDeclaration) objectConstructor.getDeclaration();
+        MethodDeclaration constructorDeclaration = objectConstructor.getDeclaration();
 
         StringBuilder builder = new StringBuilder();
+        builder.append(toStringAnnotations(constructorDeclaration.getAnnotations()));
 
         String modifiers = toString(constructorDeclaration.getModifiers());
         if (!modifiers.isEmpty()) {
@@ -1033,7 +1023,7 @@ public class JavaViewer extends LanguageViewer {
         builder.append(type);
 
         if (parameter.isListUnpacking()) {
-            builder.append("...");
+            builder.append(" ...");
         }
 
         String name = toString(parameter.getName());
@@ -1069,6 +1059,7 @@ public class JavaViewer extends LanguageViewer {
 
     private String toStringMethodDeclaration(MethodDeclaration methodDeclaration) {
         StringBuilder builder = new StringBuilder();
+        builder.append(toStringAnnotations(methodDeclaration.getAnnotations()));
 
         String modifiersList = toString(methodDeclaration.getModifiers());
         if (!modifiersList.isEmpty()) {
@@ -1091,10 +1082,10 @@ public class JavaViewer extends LanguageViewer {
         StringBuilder builder = new StringBuilder();
 
         // Нужен для отслеживания необходимости в return
-        _methodReturnType = ((MethodDeclaration) methodDefinition.getDeclaration()).getReturnType();
+        _methodReturnType = methodDefinition.getDeclaration().getReturnType();
 
         // Преобразование типа нужно, чтобы избежать вызова toString(Node node)
-        String methodDeclaration = toString((MethodDeclaration) methodDefinition.getDeclaration());
+        String methodDeclaration = toString(methodDefinition.getDeclaration());
         builder.append(methodDeclaration);
 
         String body = toString(methodDefinition.getBody());
@@ -1174,8 +1165,18 @@ public class JavaViewer extends LanguageViewer {
         return modifiers + "class " + toString(decl.getName());
     }
 
+    private String toStringAnnotations(List<Annotation> annotations) {
+        StringBuilder builder = new StringBuilder();
+        for (Annotation annotation : annotations) {
+            builder.append(toString(annotation));
+            builder.append("\n");
+        }
+        return builder.toString();
+    }
+
     private String toStringClassDefinition(ClassDefinition def) {
         StringBuilder builder = new StringBuilder();
+        builder.append(toStringAnnotations(def.getDeclaration().getAnnotations()));
 
         String declaration = toString(def.getDeclaration());
         builder.append(declaration);
@@ -1291,7 +1292,7 @@ public class JavaViewer extends LanguageViewer {
             case PrefixDecrementOp op -> "--U";
             default -> null;
         };
-        return tokenizer.getOperatorByTokenName(tok);
+        return ctx.requireTokenizer().getOperatorByTokenName(tok);
     }
 
     public String toStringAddOp(AddOp op) {
@@ -1450,16 +1451,14 @@ public class JavaViewer extends LanguageViewer {
 
         if (leftValue instanceof SimpleIdentifier identifier
                 && assignmentOperator == AugmentedAssignmentOperator.NONE) {
-            Type variableType = _currentScope.getVariableType(identifier);
+            Type variableType = ctx.getVisibilityScope().scope().getVariableType(identifier);
             // Objects.requireNonNull(variableType);
 
             if (variableType == null && _autoVariableDeclaration) {
-                variableType = _typeScope.getVariableType(identifier);
-                Objects.requireNonNull(variableType); // Никогда не будет null...
+                variableType = ctx.getVisibilityScope().scope().findType(identifier).orElseThrow();
 
                 String typeName = toString(variableType);
                 String variableName = toString(identifier);
-                addVariableToCurrentScope(identifier, variableType);
                 return "%s %s = %s;".formatted(typeName, variableName, toString(rightValue));
             }
         }
@@ -1482,6 +1481,7 @@ public class JavaViewer extends LanguageViewer {
             case DictionaryType dictType -> toStringDictionaryType(dictType);
             case PlainCollectionType plain -> toStringPlainCollectionType(plain);
             case PointerType ptr -> toString(ptr.getTargetType());
+            case OptionalType optionalType -> "Optional<%s>".formatted(toString(optionalType));
             default -> throw new IllegalStateException("Unexpected value: " + type.getClass());
         };
     }
@@ -1569,15 +1569,15 @@ public class JavaViewer extends LanguageViewer {
         Type variableType = new UnknownType();
         Expression rValue = varDecl.getRValue();
         if (rValue != null) {
-            variableType = HindleyMilner.inference(rValue, _currentScope);
+            variableType = ctx.inferType(rValue);
         }
 
         if (variableType instanceof UnknownType)
             variableType = type;
 
-        addVariableToCurrentScope(
+        ctx.getVisibilityScope().scope().changeVariableType(
                 identifier,
-                HindleyMilner.chooseGeneralType(variableType, type)
+                SimpleTypeInferrer.chooseGeneralType(variableType, type)
         );
 
         String identifierName = toString(identifier);
@@ -1647,7 +1647,7 @@ public class JavaViewer extends LanguageViewer {
         StringBuilder builder = new StringBuilder();
         builder.append("{\n");
         increaseIndentLevel();
-        for (Node node : stmt.getNodes()) {
+        for (Node node : ctx.iterateBody(stmt)) {
             String s = toString(node);
             if (s.isEmpty()) {
                 continue;
@@ -1994,7 +1994,7 @@ public class JavaViewer extends LanguageViewer {
         return builder.toString();
     }
 
-    private String makeSimpleJavaProgram(List<Node> nodes) {
+    private String makeSimpleProgram(List<Node> nodes) {
         StringBuilder builder = new StringBuilder();
 
         builder.append("package main;\n\n");
@@ -2087,25 +2087,23 @@ public class JavaViewer extends LanguageViewer {
 
     private List<Node> getNotMethods(List<Node> nodes) {
         var notMethods = new ArrayList<Node>();
-
         for (var node : nodes) {
-            if (!(node instanceof FunctionDefinition functionDefinition)) {
+            if (!(node instanceof FunctionDefinition)) {
                 notMethods.add(node);
             }
         }
-
         return notMethods;
     }
 
     public String toStringProgramEntryPoint(ProgramEntryPoint entryPoint) {
         List<Node> nodes = entryPoint.getBody();
 
-        if (getConfigParameter(EnforceEntryPoint.class).orElse(false) && !entryPoint.hasMainClass()) {
-            return makeSimpleJavaProgram(nodes);
+        if (getConfigParameter(TranslationUnitMode.class).orElse(true) && !entryPoint.hasMainClass()) {
+            return makeSimpleProgram(nodes);
         }
 
         StringBuilder builder = new StringBuilder();
-        for (Node node : nodes) {
+        for (Node node : ctx.iterateBody(entryPoint)) {
             builder.append("%s\n".formatted(toString(node)));
         }
 

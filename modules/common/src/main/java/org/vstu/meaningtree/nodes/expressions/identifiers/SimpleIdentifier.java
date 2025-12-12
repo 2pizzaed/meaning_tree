@@ -52,4 +52,9 @@ public class SimpleIdentifier extends Identifier {
     public int contentSize() {
         return 1;
     }
+
+    @Override
+    public String internalRepresentation() {
+        return name;
+    }
 }

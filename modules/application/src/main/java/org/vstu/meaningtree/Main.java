@@ -24,6 +24,21 @@ import java.util.function.BiFunction;
 
 public class Main {
 
+    public enum TranslatorMode {
+        simple,
+        full,
+        expression;
+
+        public Map.Entry<String, String> getConfigEntry() {
+            if (this.equals(simple)) {
+                return Map.entry("translationUnitMode", "false");
+            } else if (this.equals(expression)) {
+                return Map.entry("expressionMode", "true");
+            }
+            return Map.entry("translationUnitMode", "true");
+        }
+    }
+
     @Parameters(commandDescription = "Translate code between programming languages")
     public static class TranslateCommand {
         @Parameter(names = "--prettify", description = "Prettify serializer output")
@@ -31,6 +46,9 @@ public class Main {
 
         @Parameter(names = "--source-map", description = "Output source map instead code")
         private boolean outputSourceMap = false;
+
+        @Parameter(names = "--mode", description = "Translator mode (expression, simple, full)")
+        private TranslatorMode translatorMode = TranslatorMode.full;
 
         @Parameter(names = "--start-node-id", description = "Start id for nodes")
         private long startNodeId = 0;
@@ -103,7 +121,7 @@ public class Main {
     private static final IOAliases<BiFunction<Serializable, Boolean, String>> serializers = new IOAliases<>(List.of(
             new IOAlias<>("json", (node, pretty) -> {
                 JsonObject json = new JsonSerializer().serialize(node);
-                var builder = new GsonBuilder();
+                var builder = new GsonBuilder().disableHtmlEscaping();
                 if (pretty) {
                     builder = builder.setPrettyPrinting();
                 }
@@ -139,7 +157,7 @@ public class Main {
     }
 
     private static void viewHierarchy(NodeHierarchyCommand nodeHierarchyCommand) {
-        var builder = new GsonBuilder();
+        var builder = new GsonBuilder().disableHtmlEscaping();
         if (nodeHierarchyCommand.prettify) {
             builder = builder.setPrettyPrinting();
         }
@@ -179,8 +197,9 @@ public class Main {
         String code = readCode(inputFilePath);
 
         // Instantiate source-language translator
+        Map<String, Object> config = Map.ofEntries(cmd.translatorMode.getConfigEntry());
         LanguageTranslator fromTranslator =
-                translators.get(fromLanguage).getDeclaredConstructor().newInstance();
+                translators.get(fromLanguage).getDeclaredConstructor(Map.class).newInstance(config);
         var meaningTree = fromTranslator.getMeaningTree(code);
         final var rootNode = meaningTree.getRootNode();
 
@@ -194,8 +213,6 @@ public class Main {
             return;
         }
 
-
-
         // Instantiate target-language translator and generate code
         if (cmd.performOriginTokenize) {
             Token.setupId(cmd.startTokenId);
@@ -207,7 +224,7 @@ public class Main {
                     );
         } else if (toLanguage != null) {
             LanguageTranslator toTranslator =
-                    translators.get(toLanguage.toLowerCase()).getDeclaredConstructor().newInstance();
+                    translators.get(toLanguage.toLowerCase()).getDeclaredConstructor(Map.class).newInstance(config);
 
             if (cmd.outputSourceMap && cmd.performTokenize) {
                 System.err.println("Source map building and tokenizing are both required. Defaulting to using only `outputSourceMap`");

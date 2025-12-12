@@ -9,6 +9,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.nodes.Comment;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
+import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
@@ -54,9 +55,11 @@ import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.ArrayType;
+import org.vstu.meaningtree.nodes.types.containers.DictionaryType;
 import org.vstu.meaningtree.nodes.types.containers.PlainCollectionType;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.serializers.model.Serializer;
+import org.vstu.meaningtree.utils.BytePosition;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.SourceMap;
 import org.vstu.meaningtree.utils.TransliterationUtils;
@@ -82,18 +85,22 @@ public class JsonSerializer implements Serializer<JsonObject> {
     @Override
     public JsonObject serialize(SourceMap sourceMap) {
         JsonObject root = new JsonObject();
+        Gson gson = new Gson();
         root.addProperty("type", "source_map");
         root.add("origin", serialize(sourceMap.root()));
         root.addProperty("source_code", sourceMap.code());
         root.addProperty("language", sourceMap.language());
         JsonObject map = new JsonObject();
-        for (var entry : sourceMap.map().entrySet()) {
+        for (var entry : sourceMap.bytePositions().entrySet()) {
             var pair = new JsonArray();
             pair.add(entry.getValue().getLeft());
             pair.add(entry.getValue().getRight());
             map.add(entry.getKey().toString(), pair);
         }
-        root.add("map", map);
+        root.add("declarations", gson.toJsonTree(sourceMap.definitions()));
+        root.add("imports", gson.toJsonTree(sourceMap.imports()));
+        root.add("user_type_hierarchy", gson.toJsonTree(sourceMap.userTypeHierarchy()));
+
         return root;
     }
 
@@ -149,7 +156,15 @@ public class JsonSerializer implements Serializer<JsonObject> {
         root.addProperty("id", token.getId());
         root.addProperty("assigned_label", gson.toJson(token.getAssignedValue()));
         root.addProperty("belongs_to", token.belongsTo() != null ? token.belongsTo.getId() : null);
+        root.add("byte_pos", token.bytePos() != null ? serialize(token.bytePos()) : null);
         return root;
+    }
+
+    public JsonArray serialize(BytePosition pos) {
+        var arr = new JsonArray();
+        arr.add(pos.offset());
+        arr.add(pos.length());
+        return arr;
     }
 
     @Override
@@ -270,16 +285,19 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case NumericType t -> serializeNumericType(t);
             case PointerType t -> serializePointerType(t);
             case ArrayType t -> serializeArrayType(t);
-            case BooleanType t -> serializeBooleanType(t);
             case ReferenceType t -> serializeReferenceType(t);
             case StringType t -> serializeStringType(t);
             case Shape t -> serializeShape(t);
             case PlainCollectionType t -> serializePlainCollectionType(t);
+            case DictionaryType t -> serializeDictType(t);
             case GenericInterface t -> serializeGenericUserType(t);
             case GenericUserType t -> serializeGenericUserType(t);
-            case NoReturn t -> serializeNoReturn(t);
-            case UnknownType t -> serializeUnknownType(t);
             case UserType t -> serializeUserType(t);
+            case OptionalType t -> serializeOptionalType(t);
+            case TypeAlternatives t -> serializeTypeAlternatives(t);
+            case LiteralType t -> serializeLiteralType(t);
+            case TupleType t -> serializeTupleType(t);
+            case Type t -> serializeType(t);
 
             case ClassDefinition cd -> serializeClassDefinition(cd);
             case ObjectConstructorDefinition ocd -> serializeObjectConstructorDefinition(ocd);
@@ -800,7 +818,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.addProperty("name", expr.getName());
-        json.addProperty("repr_name", expr.getName());
+        json.addProperty("repr_name", expr.internalRepresentation());
 
         return json;
     }
@@ -1451,9 +1469,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("scope", serialize(expr.getScope()));
         json.add("member", serialize(expr.getMember()));
-        json.addProperty("repr_name", String.format("%s::%s",
-                json.getAsJsonObject("scope").get("repr_name").getAsString(), expr.getMember().getName())
-        );
+        json.addProperty("repr_name", expr.internalRepresentation());
         return json;
     }
 
@@ -1464,10 +1480,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray targets = new JsonArray();
         for (var t : expr.getScopeResolution()) targets.add(serialize(t));
         json.add("identifiers", targets);
-        json.addProperty("repr_name",
-                String.join(".",
-                        expr.getScopeResolution().stream().map(SimpleIdentifier::getName).toArray(String[]::new))
-        );
+        json.addProperty("repr_name", expr.internalRepresentation());
         return json;
     }
 
@@ -1593,10 +1606,17 @@ public class JsonSerializer implements Serializer<JsonObject> {
         return json;
     }
 
-    @NotNull
-    private JsonObject serializeNumericType(@NotNull NumericType t) {
+    private JsonObject serializeType(@NotNull Type t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
+        json.addProperty("is_const", t.isConst());
+        json.addProperty("is_safe_reference", t.isSafeReference());
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeNumericType(@NotNull NumericType t) {
+        JsonObject json = serializeType(t);
         json.addProperty("size", t.size);
         if (t instanceof IntType intt) {
             json.addProperty("unsigned", intt.isUnsigned);
@@ -1605,49 +1625,45 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serializeBooleanType(@NotNull BooleanType t) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
-        return json;
-    }
-
-    @NotNull
     private JsonObject serializePointerType(@NotNull PointerType t) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
+        JsonObject json = serializeType(t);
         json.add("target_type", serialize(t.getTargetType()));
         return json;
     }
 
     @NotNull
     private JsonObject serializeReferenceType(@NotNull ReferenceType t) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
+        JsonObject json = serializeType(t);
         json.add("target_type", serialize(t.getTargetType()));
         return json;
     }
 
     @NotNull
     private JsonObject serializeStringType(@NotNull StringType t) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
+        JsonObject json = serializeType(t);
         json.addProperty("char_size", t.getCharSize());
         return json;
     }
 
     @NotNull
     private JsonObject serializeArrayType(@NotNull ArrayType t) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
+        JsonObject json = serializeType(t);
         json.add("shape", serialize(t.getShape()));
         return json;
     }
 
     @NotNull
     private JsonObject serializePlainCollectionType(@NotNull PlainCollectionType t) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
+        JsonObject json = serializeType(t);
         json.add("target_type", serialize(t.getItemType()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeDictType(@NotNull DictionaryType t) {
+        JsonObject json = serializeType(t);
+        json.add("key_type", serialize(t.getKeyType()));
+        json.add("value_type", serialize(t.getValueType()));
         return json;
     }
 
@@ -1664,8 +1680,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
     @NotNull
     private JsonObject serializeGenericUserType(@NotNull GenericUserType t) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
+        JsonObject json = serializeType(t);
         json.add("name", serialize(t.getName()));
         JsonArray targets = new JsonArray();
         for (var v : t.getTypeParameters()) targets.add(serialize(v));
@@ -1674,24 +1689,41 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serializeNoReturn(@NotNull NoReturn t) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
-        return json;
-    }
-
-    @NotNull
-    private JsonObject serializeUnknownType(@NotNull UnknownType t) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
-        return json;
-    }
-
-    @NotNull
     private JsonObject serializeUserType(@NotNull UserType t) {
-        JsonObject json = new JsonObject();
-        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
+        JsonObject json = serializeType(t);
         json.add("name", serialize(t.getName()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeOptionalType(@NotNull OptionalType t) {
+        JsonObject json = serializeType(t);
+        json.add("target", serialize(t.getTargetType()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeLiteralType(@NotNull LiteralType t) {
+        JsonObject json = serializeType(t);
+        json.add("literal", serialize(t.getLiteral()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeTypeAlternatives(@NotNull TypeAlternatives t) {
+        JsonObject json = serializeType(t);
+        JsonArray altList = new JsonArray();
+        for (var alt : t.get()) altList.add(serialize(alt));
+        json.add("alternatives", altList);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeTupleType(@NotNull TupleType t) {
+        JsonObject json = serializeType(t);
+        JsonArray items = new JsonArray();
+        for (var i : t.getTupleElementTypes()) items.add(serialize(i));
+        json.add("elements", items);
         return json;
     }
 
@@ -1830,6 +1862,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray targets = new JsonArray();
         for (var t : decl.getArguments()) targets.add(serialize(t));
         json.add("arguments", targets);
+        json.addProperty("parent_decl_id", decl.getParentDeclaration() == null ? null : decl.getParentDeclaration().getId());
         return json;
     }
 

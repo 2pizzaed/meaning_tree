@@ -227,4 +227,9 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         }
         return descr.substitute(value);
     }
+
+    @Override
+    public String toString() {
+        return "Node<type: %s, id: %d>".formatted(getClass().getSimpleName(), getId());
+    }
 }

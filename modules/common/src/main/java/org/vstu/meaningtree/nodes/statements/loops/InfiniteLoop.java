@@ -5,6 +5,8 @@ import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.Loop;
 
+import java.util.Objects;
+
 public class InfiniteLoop extends Loop {
     @TreeNode private Statement body;
 
@@ -24,5 +26,23 @@ public class InfiniteLoop extends Loop {
             body = new CompoundStatement(getBody());
         }
         return (CompoundStatement) body;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof InfiniteLoop nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(body, nodeInfos.body);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), body);
+    }
+
+    public InfiniteLoop clone() {
+        var clone = (InfiniteLoop) super.clone();
+        clone.body = body.clone();
+        return clone;
     }
 }

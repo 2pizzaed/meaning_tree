@@ -1,8 +1,6 @@
 package org.vstu.meaningtree.languages;
 
 import org.vstu.meaningtree.MeaningTree;
-import org.vstu.meaningtree.languages.configs.Config;
-import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.ParenthesesFiller;
@@ -10,7 +8,6 @@ import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.BiFunction;
 
 /**
@@ -18,17 +15,13 @@ import java.util.function.BiFunction;
  * Это сломает многие фичи, т.к. toString(Node node) не только перенаправляет запросы к специальному методу,
  * но и добавляет логику хуков!
  */
-abstract public class LanguageViewer {
-    private Config _config;
+abstract public class LanguageViewer extends TranslatorComponent {
     protected MeaningTree origin;
+    protected ParenthesesFiller parenFiller;
     private List<BiFunction<Node, String, String>> postProcessFunctions = new ArrayList<>();
 
-    public LanguageViewer() {
-        this.parenFiller = new ParenthesesFiller(this::mapToToken);
-    }
-
-    public LanguageViewer(LanguageTokenizer tokenizer) {
-        this.tokenizer = tokenizer;
+    public LanguageViewer(LanguageTranslator translator) {
+        super(translator);
         this.parenFiller = new ParenthesesFiller(this::mapToToken);
     }
 
@@ -39,9 +32,6 @@ abstract public class LanguageViewer {
     public boolean removePostprocessFunction(BiFunction<Node, String, String> function) {
         return this.postProcessFunctions.remove(function);
     }
-
-    protected LanguageTokenizer tokenizer;
-    protected ParenthesesFiller parenFiller;
 
     protected abstract String formString(Node node);
 
@@ -62,13 +52,5 @@ abstract public class LanguageViewer {
     public String toString(MeaningTree mt) {
         origin = mt;
         return toString(mt.getRootNode());
-    }
-
-    void setConfig(Config config) {
-        _config = config;
-    }
-
-    protected <P, T extends ConfigScopedParameter<P>> Optional<P> getConfigParameter(Class<T> configClass) {
-        return Optional.ofNullable(_config).flatMap(config -> config.get(configClass));
     }
 }

@@ -3,8 +3,8 @@ package org.vstu.meaningtree.languages;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.configs.params.DisableCompoundComparisonConversion;
-import org.vstu.meaningtree.languages.configs.params.EnforceEntryPoint;
 import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
+import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.languages.utils.Tab;
 import org.vstu.meaningtree.nodes.*;
@@ -56,10 +56,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.FallthroughCa
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
-import org.vstu.meaningtree.nodes.types.GenericUserType;
-import org.vstu.meaningtree.nodes.types.NoReturn;
-import org.vstu.meaningtree.nodes.types.UnknownType;
-import org.vstu.meaningtree.nodes.types.UserType;
+import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
@@ -71,8 +68,8 @@ import java.util.stream.Collectors;
 
 
 public class PythonViewer extends LanguageViewer {
-    public PythonViewer(LanguageTokenizer tokenizer) {
-        super(tokenizer);
+    public PythonViewer(LanguageTranslator translator) {
+        super(translator);
     }
 
     @Override
@@ -160,7 +157,6 @@ public class PythonViewer extends LanguageViewer {
             case ReturnStatement returnStmt -> returnToString(returnStmt);
             case ArrayInitializer arrayInit -> arrayInitializerToString(arrayInit);
             case DefinitionArgument arg -> definitionArgumentToString(arg);
-            case Include incl -> String.format("import %s", incl.getFileName().getUnescapedValue());
             case PackageDeclaration packageDecl -> String.format("import %s", toString(packageDecl.getPackageName()));
             case CommaExpression ignored -> throw new UnsupportedViewingException("Comma is unsupported in this language");
             case ExpressionSequence exprSeq -> String.join(", ", exprSeq.getExpressions().stream().map((Expression nd) -> toString(nd, tab)).toList().toArray(new String[0]));
@@ -294,6 +290,7 @@ public class PythonViewer extends LanguageViewer {
                     );
             case ImportModule importModule ->
                     String.format("import %s", toString(importModule.getModuleName()));
+            case Include incl -> String.format("import %s", incl.getFileName().getUnescapedValue());
             default -> throw new IllegalStateException("Unexpected import type: " + importStmt);
         };
     }
@@ -331,10 +328,19 @@ public class PythonViewer extends LanguageViewer {
                 function.append(String.format("@%s\n%s", toString(anno.getFunctionExpression()), tab));
             }
         }
+        if (decl.getModifiers().contains(DeclarationModifier.STATIC)
+                && !decl.getAnnotations().stream().anyMatch(an ->
+                an.getName().equalsIdentifier("classmethod") || an.getName().equalsIdentifier("staticmethod"))
+        ) {
+            function.append(String.format("@staticmethod\n%s", tab));
+        }
         function.append("def ");
         function.append(toString(decl.getName()));
         function.append("(");
-        if (decl instanceof MethodDeclaration methodDecl && !methodDecl.getModifiers().contains(DeclarationModifier.STATIC)) {
+        if (decl instanceof MethodDeclaration methodDecl
+                && !methodDecl.getModifiers().contains(DeclarationModifier.STATIC)
+                && ctx.isInNode(ClassDefinition.class)
+        ) {
             function.append("self");
         }
         List<DeclarationArgument> declArgs = decl.getArguments();
@@ -369,16 +375,16 @@ public class PythonViewer extends LanguageViewer {
         function.append(":\n");
         if (func instanceof MethodDefinition methodDef) {
             function.append(toString(methodDef.getBody(), tab));
-            function.append("\n\n");
+            function.append("\n");
         } else if (func instanceof FunctionDefinition funcDef) {
             function.append(toString(funcDef.getBody(), tab));
-            function.append("\n");
+            function.append("\n\n");
         }
         return function.toString();
     }
 
     private String assignmentToString(MultipleAssignmentStatement stmtSequence) {
-        AugmentedAssignmentOperator augOp = ((AssignmentStatement) stmtSequence.getStatements().getFirst()).getAugmentedOperator();
+        AugmentedAssignmentOperator augOp = stmtSequence.getStatements().getFirst().getAugmentedOperator();
         String operator = switch (augOp) {
             case ADD -> "+=";
             case SUB -> "-=";
@@ -412,11 +418,11 @@ public class PythonViewer extends LanguageViewer {
 
     private String entryPointToString(ProgramEntryPoint programEntryPoint, Tab tab) {
         IfStatement entryPointIf = null;
-        if (getConfigParameter(EnforceEntryPoint.class).orElse(false) && programEntryPoint.hasEntryPoint()) {
+        if (programEntryPoint.hasEntryPoint()) {
             Node entryPointNode = programEntryPoint.getEntryPoint();
             if (entryPointNode instanceof FunctionDefinition func) {
                 Identifier ident;
-                FunctionDeclaration funcDecl = (FunctionDeclaration) func.getDeclaration();
+                FunctionDeclaration funcDecl = func.getDeclaration();
                 if (funcDecl instanceof MethodDeclaration method) {
                     ident = new ScopedIdentifier(method.getOwner().getName(), method.getName());
                 } else {
@@ -436,7 +442,14 @@ public class PythonViewer extends LanguageViewer {
             }
         }
         List<Node> nodes = new ArrayList<>(programEntryPoint.getBody());
-        if (entryPointIf != null) {
+        if (!getConfigParameter(TranslationUnitMode.class).orElse(false) && entryPointIf != null) {
+            Statement body = entryPointIf.getBranches().getFirst().getBody();
+            if (body instanceof CompoundStatement compoundStatement) {
+                nodes.addAll(compoundStatement.getNodeList());
+            } else {
+                nodes.add(body);
+            }
+        } else if (entryPointIf != null) {
             nodes.add(entryPointIf);
         }
         return nodeListToString(nodes, tab);
@@ -543,51 +556,65 @@ public class PythonViewer extends LanguageViewer {
 
     private String typeToString(Type type) {
         //NOTE: python 3.9+ typing support, without using typing library
+        String typeStr = "object";
         if (type instanceof IntType) {
-            return "int";
+            typeStr = "int";
         } else if (type instanceof FloatType) {
-            return "float";
+            typeStr = "float";
         } else if (type instanceof DictionaryType dictType) {
             if (dictType.getKeyType() != null && dictType.getValueType() != null) {
-                return String.format("dict[%s, %s]", toString(dictType.getKeyType()), toString(dictType.getValueType()));
+                typeStr = String.format("dict[%s, %s]", toString(dictType.getKeyType()), toString(dictType.getValueType()));
+            } else {
+                typeStr = "dict";
             }
-            return "dict";
         } else if (type instanceof StringType) {
-            return "str";
+            typeStr = "str";
         } else if (type instanceof BooleanType) {
-            return "bool";
+            typeStr = "bool";
         } else if (type instanceof ListType listType) {
             if (listType.getItemType() != null) {
-                return String.format("list[%s]",  toString(listType.getItemType()));
+                typeStr = String.format("list[%s]",  toString(listType.getItemType()));
+            } else {
+                typeStr = "list";
             }
-            return "list";
         } else if (type instanceof ArrayType listType) {
             if (listType.getItemType() != null) {
-                return String.format("list[%s]",  toString(listType.getItemType()));
+                typeStr = String.format("list[%s]",  toString(listType.getItemType()));
+            } else {
+                typeStr = "list";
             }
-            return "list";
         } else if (type instanceof SetType setType) {
             if (setType.getItemType() != null) {
-                return String.format("set[%s]",  toString(setType.getItemType()));
+                typeStr = String.format("set[%s]",  toString(setType.getItemType()));
+            } else {
+                typeStr = "set";
             }
-            return "set";
         } else if (type instanceof UnmodifiableListType tupleType) {
             if (tupleType.getItemType() != null) {
-                return String.format("tuple[%s]",  toString(tupleType.getItemType()));
+                typeStr = String.format("tuple[%s]", toString(tupleType.getItemType()));
+            } else {
+                typeStr = "tuple";
             }
-            return "tuple";
+        } else if (type instanceof TupleType tupleType) {
+            typeStr = "tuple[%s]".formatted(tupleType.getTupleElementTypes().stream().map(this::toString).collect(Collectors.joining(", ")));
         } else if (type instanceof GenericUserType generic) {
-            return String.format("%s[%s]", generic.getName().toString(), String.join(", ", Arrays.stream(generic.getTypeParameters()).map(this::typeToString).toList().toArray(new String[0])));
+            typeStr = String.format("%s[%s]", generic.getName().toString(), String.join(", ", Arrays.stream(generic.getTypeParameters()).map(this::typeToString).toList().toArray(new String[0])));
         } else if (type instanceof UserType userType) {
-            return userType.getName().toString();
+            typeStr = userType.getName().toString();
         } else if (type instanceof NoReturn) {
-            return "None";
+            typeStr = "None";
         } else if (type instanceof PointerType ptr) {
-            return toString(ptr.getTargetType());
+            typeStr = toString(ptr.getTargetType());
         } else if (type instanceof ReferenceType ref) {
-            return toString(ref.getTargetType());
+            typeStr = toString(ref.getTargetType());
+        } else if (type instanceof LiteralType literal) {
+            typeStr = "Literal[%s]".formatted(literal.getLiteral());
+        } else if (type instanceof TypeAlternatives typeAlt) {
+            typeStr = typeAlt.get().stream().map(this::typeToString).collect(Collectors.joining(" | "));
+        } else if (type instanceof OptionalType optType) {
+            typeStr = "%s | None".formatted(typeToString(optType.getTargetType()));
         }
-        return "object";
+        return type.isSafeReference() ? "'%s'".formatted(typeStr) : typeStr;
     }
 
     private String assignmentExpressionToString(AssignmentExpression expr) {
@@ -944,7 +971,7 @@ public class PythonViewer extends LanguageViewer {
         if (node.getNodes().length == 0) {
             return tab.toString().concat("pass");
         }
-        for (Node child : node.getNodes()) {
+        for (Node child : ctx.iterateBody(node)) {
             builder.append(tab);
             if (child instanceof CompoundStatement) {
                 // Схлопываем лишний таб, так как блоки как самостоятельная сущность в Python не поддерживаются
@@ -962,7 +989,7 @@ public class PythonViewer extends LanguageViewer {
         if (nodes.isEmpty()) {
             return "pass";
         }
-        for (Node child : nodes) {
+        for (Node child : ctx.iterateBody(nodes)) {
             builder.append(tab);
             if (child instanceof CompoundStatement) {
                 // Схлопываем лишний таб, так как блоки как самостоятельная сущность в Python не поддерживаются
@@ -1107,6 +1134,6 @@ public class PythonViewer extends LanguageViewer {
             case PrefixDecrementOp op -> "-=";
             default -> null;
         };
-        return tokenizer.getOperatorByTokenName(tok);
+        return ctx.requireTokenizer().getOperatorByTokenName(tok);
     }
 }

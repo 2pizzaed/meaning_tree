@@ -1,10 +1,11 @@
 package org.vstu.meaningtree.nodes.modules;
 
 import org.vstu.meaningtree.iterators.utils.TreeNode;
-import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.expressions.literals.StringLiteral;
 
-public class Include extends Node {
+import java.util.Objects;
+
+public class Include extends Import {
     @TreeNode private StringLiteral filename;
 
     public enum IncludeType {
@@ -27,5 +28,21 @@ public class Include extends Node {
 
     public IncludeType getIncludeType() {
         return includeType;
+    }
+
+    public Include clone() {
+        return new Include((StringLiteral) filename.clone(), includeType);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof Include nodeInfos)) return false;
+        if (!super.equals(o)) return false;
+        return Objects.equals(filename, nodeInfos.filename) && includeType == nodeInfos.includeType;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), filename, includeType);
     }
 }

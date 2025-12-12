@@ -29,6 +29,7 @@ import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.utils.BytePosition;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 import org.vstu.meaningtree.utils.tokens.*;
@@ -219,7 +220,9 @@ public class PythonTokenizer extends LanguageTokenizer {
         } else {
             tokenType = TokenType.UNKNOWN;
         }
-        return new Token(TreeSitterUtils.getCodePiece(code, node), tokenType);
+        var tok = new Token(TreeSitterUtils.getCodePiece(code, node), tokenType);
+        tok.setBytePosition(new BytePosition(node.getStartByte(), node.getEndByte() - node.getStartByte()));
+        return tok;
     }
 
     @Override

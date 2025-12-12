@@ -19,9 +19,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public abstract class LanguageTokenizer {
+public abstract class LanguageTokenizer extends TranslatorComponent {
     protected String code;
-    protected LanguageTranslator translator;
     protected LanguageParser parser;
     protected LanguageViewer viewer;
     protected boolean navigablePseudoTokens = false;
@@ -40,6 +39,7 @@ public abstract class LanguageTokenizer {
             list.registerHook(hook);
         }
         collectTokens(parser.getRootNode(), list, true, null);
+        rollbackContext();
         return list;
     }
 
@@ -93,7 +93,9 @@ public abstract class LanguageTokenizer {
      * @return
      */
     public TokenList tokenizeExtended(MeaningTree mt) {
-        return tokenizeExtended(mt.getRootNode());
+        var tokens = tokenizeExtended(mt.getRootNode());
+        rollbackContext();
+        return tokens;
     }
 
     public Pair<Boolean, TokenList> tryTokenizeExtended(MeaningTree mt) {
@@ -132,7 +134,7 @@ public abstract class LanguageTokenizer {
     public abstract OperatorToken getOperatorByTokenName(String tokenName);
 
     public LanguageTokenizer(LanguageTranslator translator) {
-        this.translator = translator;
+        super(translator);
         this.parser = translator._language;
         this.viewer = translator._viewer;
     }

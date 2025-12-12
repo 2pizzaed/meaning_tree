@@ -4,21 +4,24 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.treesitter.TSNode;
 import org.treesitter.TSTree;
 import org.vstu.meaningtree.MeaningTree;
-import org.vstu.meaningtree.languages.configs.Config;
-import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Hook;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-abstract public class LanguageParser {
+abstract public class LanguageParser extends TranslatorComponent {
     protected String _code = "";
-    protected LanguageTranslator translator;
-    protected Config _config;
     protected Map<int[], Object> _byteValueTags = new HashMap<>();
 
     protected List<Hook<Pair<TSNode, Node>>> onNodeParsedHooks = new ArrayList<>();
+
+    public LanguageParser(LanguageTranslator translator) {
+        super(translator);
+    }
 
     public abstract TSTree getTSTree();
 
@@ -48,14 +51,6 @@ abstract public class LanguageParser {
         for (int[] indexes : toDelete) {
             _byteValueTags.remove(indexes);
         }
-    }
-
-    public void setConfig(Config config) {
-        _config = config;
-    }
-
-    protected <P, T extends ConfigScopedParameter<P>> Optional<P> getConfigParameter(Class<T> configClass) {
-        return Optional.ofNullable(_config).flatMap(config -> config.get(configClass));
     }
 
     protected List<String> lookupErrors(TSNode node) {

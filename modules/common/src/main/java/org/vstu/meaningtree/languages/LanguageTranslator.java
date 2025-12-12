@@ -2,6 +2,7 @@ package org.vstu.meaningtree.languages;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.Nullable;
 import org.treesitter.TSException;
 import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
@@ -10,12 +11,16 @@ import org.vstu.meaningtree.languages.configs.Config;
 import org.vstu.meaningtree.languages.configs.ConfigBuilder;
 import org.vstu.meaningtree.languages.configs.ConfigScope;
 import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
-import org.vstu.meaningtree.languages.configs.params.*;
+import org.vstu.meaningtree.languages.configs.params.DisableCompoundComparisonConversion;
+import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
+import org.vstu.meaningtree.languages.configs.params.SkipErrors;
+import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.languages.configs.parser.ConfigMapping;
 import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Experimental;
 import org.vstu.meaningtree.utils.Label;
+import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.tokens.Token;
 import org.vstu.meaningtree.utils.tokens.TokenGroup;
 import org.vstu.meaningtree.utils.tokens.TokenList;
@@ -29,13 +34,13 @@ public abstract class LanguageTranslator implements Cloneable {
     protected LanguageParser _language;
     protected LanguageViewer _viewer;
     protected Config _config = new Config();
+    protected ScopeTable _latestScopeTable = null;
 
     public static Config getPredefinedCommonConfig() {
         return new Config(
-                new ExpressionMode(false, ConfigScope.TRANSLATOR),
-                new TranslationUnitMode(true, ConfigScope.VIEWER),
-                new SkipErrors(true, ConfigScope.PARSER),
-                new EnforceEntryPoint(true, ConfigScope.ANY)
+                new ExpressionMode(false),
+                new TranslationUnitMode(true),
+                new SkipErrors(false)
         );
     }
 
@@ -53,11 +58,6 @@ public abstract class LanguageTranslator implements Cloneable {
                         "disableCompoundComparisonConversion",
                         DisableCompoundComparisonConversion::parse,
                         DisableCompoundComparisonConversion::new
-                ),
-                new ConfigMapping<>(
-                        "enforceEntryPoint",
-                        EnforceEntryPoint::parse,
-                        EnforceEntryPoint::new
                 ),
                 new ConfigMapping<>(
                         "expressionMode",
@@ -79,14 +79,10 @@ public abstract class LanguageTranslator implements Cloneable {
 
     /**
      * Создает транслятор языка
-     * @param language - parser языка
-     * @param viewer - viewer языка
+     * Требует дальнейшей инициализации методом init(parser, viewer)
      * @param rawConfig - конфигурация в формате "название - значение" в виде строки (тип будет выведен автоматически из строки)
      */
-    protected LanguageTranslator(LanguageParser language, LanguageViewer viewer, Map<String, String> rawConfig) {
-        _language = language;
-        _viewer = viewer;
-
+    protected LanguageTranslator(Map<String, String> rawConfig) {
         var configBuilder = new ConfigBuilder();
 
         // Загрузка конфигов, специфических для конкретного языка
@@ -98,41 +94,33 @@ public abstract class LanguageTranslator implements Cloneable {
         }
 
         _config = _config.merge(getPredefinedCommonConfig(), getDeclaredConfig(), configBuilder.toConfig());
+    }
 
-        if (language != null) {
-            _language.setConfig(
-                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR))
-            );
-        }
-
-        if (viewer != null) {
-            _viewer.setConfig(
-                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR))
-            );
-        }
+    @Nullable
+    public ScopeTable getLatestScopeTable() {
+        return _latestScopeTable;
     }
 
     public MeaningTree getMeaningTree(String code) {
         MeaningTree mt = _language.getMeaningTree(prepareCode(code));
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
+        _language.rollbackContext();
         return mt;
     }
 
-    protected void setViewer(LanguageViewer viewer) {
+    protected void init(LanguageParser parser, LanguageViewer viewer) {
+        _language = parser;
         _viewer = viewer;
 
-        if (_viewer != null) {
-            _viewer.setConfig(
-                    getDeclaredConfig().subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR))
+        if (parser != null) {
+            _language.setConfig(
+                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
             );
         }
-    }
 
-    protected void setParser(LanguageParser parser) {
-        _language = parser;
-        if (_language != null) {
-            _language.setConfig(
-                    getDeclaredConfig().subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR))
+        if (viewer != null) {
+            _viewer.setConfig(
+                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
             );
         }
     }
@@ -141,6 +129,7 @@ public abstract class LanguageTranslator implements Cloneable {
     public MeaningTree getMeaningTree(TSNode node, String code) {
         MeaningTree mt = _language.getMeaningTree(node, code);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
+        _language.rollbackContext();
         return mt;
     }
 
@@ -164,6 +153,7 @@ public abstract class LanguageTranslator implements Cloneable {
     protected MeaningTree getMeaningTree(String code, HashMap<int[], Object> values) {
         MeaningTree mt = _language.getMeaningTree(prepareCode(code), values);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
+        _language.rollbackContext();
         return mt;
     }
 
@@ -213,7 +203,9 @@ public abstract class LanguageTranslator implements Cloneable {
     public abstract LanguageTokenizer getTokenizer();
 
     public String getCode(MeaningTree mt) {
-        return _viewer.toString(mt);
+        var result = _viewer.toString(mt);
+        _viewer.rollbackContext();
+        return result;
     }
 
     public Pair<Boolean, String> tryGetCode(MeaningTree mt) {
@@ -235,7 +227,9 @@ public abstract class LanguageTranslator implements Cloneable {
     }
 
     public String getCode(Node node) {
-        return _viewer.toString(node);
+        var result = _viewer.toString(node);
+        _viewer.rollbackContext();
+        return result;
     }
 
     public TokenList getCodeAsTokens(MeaningTree mt) {

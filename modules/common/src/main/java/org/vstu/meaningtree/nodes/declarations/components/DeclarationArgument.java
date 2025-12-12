@@ -8,7 +8,7 @@ import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.containers.ArrayType;
-import org.vstu.meaningtree.nodes.types.containers.DictionaryType;
+import org.vstu.meaningtree.nodes.types.containers.OrderedDictionaryType;
 
 import java.util.Objects;
 
@@ -25,7 +25,7 @@ public class DeclarationArgument extends Declaration {
         if (isListUnpacking) {
             return new ArrayType(type, 1);
         } else if (isDictUnpacking) {
-            return new DictionaryType(type, new UnknownType());
+            return new OrderedDictionaryType(type, new UnknownType());
         }
         return type;
     }
@@ -90,5 +90,15 @@ public class DeclarationArgument extends Declaration {
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), type, isListUnpacking, name, initial);
+    }
+
+    public DeclarationArgument clone() {
+        var clone =  (DeclarationArgument) super.clone();
+        clone.type = type.clone();
+        clone.isListUnpacking = isListUnpacking;
+        clone.isDictUnpacking = isDictUnpacking;
+        clone.name = name.clone();
+        clone.initial = initial.clone();
+        return clone;
     }
 }

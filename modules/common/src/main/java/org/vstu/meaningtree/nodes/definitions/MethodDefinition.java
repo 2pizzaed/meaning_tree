@@ -14,9 +14,12 @@ public class MethodDefinition extends FunctionDefinition {
         throw new UnsupportedOperationException();
     }
 
+    public MethodDeclaration getDeclaration() {
+        return (MethodDeclaration) super.getDeclaration();
+    }
 
     public SimpleIdentifier getName() {
-        MethodDeclaration methodDeclaration = (MethodDeclaration) getDeclaration();
+        MethodDeclaration methodDeclaration = getDeclaration();
         return methodDeclaration.getName();
     }
 }

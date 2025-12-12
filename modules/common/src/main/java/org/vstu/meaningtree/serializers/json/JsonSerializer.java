@@ -97,6 +97,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             pair.add(entry.getValue().getRight());
             map.add(entry.getKey().toString(), pair);
         }
+        root.add("byte_positions", map);
         root.add("declarations", gson.toJsonTree(sourceMap.definitions()));
         root.add("imports", gson.toJsonTree(sourceMap.imports()));
         root.add("user_type_hierarchy", gson.toJsonTree(sourceMap.userTypeHierarchy()));

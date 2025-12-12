@@ -157,7 +157,7 @@ public class Main {
     }
 
     private static void viewHierarchy(NodeHierarchyCommand nodeHierarchyCommand) {
-        var builder = new GsonBuilder();
+        var builder = new GsonBuilder().disableHtmlEscaping();
         if (nodeHierarchyCommand.prettify) {
             builder = builder.setPrettyPrinting();
         }

@@ -47,6 +47,7 @@ import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.nodes.types.*;
+import org.vstu.meaningtree.nodes.types.builtin.BooleanType;
 import org.vstu.meaningtree.nodes.types.builtin.FloatType;
 import org.vstu.meaningtree.nodes.types.builtin.IntType;
 import org.vstu.meaningtree.nodes.types.builtin.StringType;
@@ -396,6 +397,7 @@ public class PythonLanguage extends LanguageParser {
 
     private Node fromFunctionTSNode(TSNode node) {
         List<Annotation> anno = new ArrayList<>();
+        boolean isStatic = false;
         if (node.getType().equals("decorated_definition")) {
             TSNode decorator = node.getNamedChild(0);
             anno.add(fromDecorator(decorator));
@@ -405,6 +407,12 @@ public class PythonLanguage extends LanguageParser {
             }
             node = node.getChildByFieldName("definition");
         }
+        for (Annotation an : anno) {
+            if (an.getName().equalsIdentifier("staticmethod")) {
+                isStatic = true;
+            }
+        }
+        anno = anno.stream().filter(an -> !an.getName().equalsIdentifier("staticmethod")).toList();
         SimpleIdentifier name = new SimpleIdentifier(getCodePiece(node.getChildByFieldName("name")));
         List<DeclarationArgument> arguments = new ArrayList<>();
         for (int i = 0; i < node.getChildByFieldName("parameters").getNamedChildCount(); i++) {
@@ -415,7 +423,9 @@ public class PythonLanguage extends LanguageParser {
         CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"), true);
 
         assert body != null;
-        return new FunctionDefinition(new FunctionDeclaration(name, returnType, anno, arguments.toArray(new DeclarationArgument[0])), body);
+        var decl = new FunctionDeclaration(name, returnType, anno, arguments.toArray(new DeclarationArgument[0]));
+        if (isStatic) decl.addModifiers(DeclarationModifier.STATIC);
+        return new FunctionDefinition(decl, body);
     }
 
     private DeclarationArgument fromDeclarationArgument(TSNode namedChild) {
@@ -477,13 +487,17 @@ public class PythonLanguage extends LanguageParser {
                 body.substitute(i, var.makeField(List.of(DeclarationModifier.PUBLIC)));
             } else if (bodyNode instanceof FunctionDefinition func) {
                 boolean isStatic = false;
-                List<Annotation> anno = ((FunctionDeclaration) (func.getDeclaration())).getAnnotations();
+                List<Annotation> anno = new ArrayList<>(func.getDeclaration().getAnnotations());
                 for (Annotation annotation : anno) {
                     isStatic = annotation.hasName() && (annotation.getName().toString().equals("staticmethod") || annotation.getName().toString().equals("classmethod"));
-                    if (isStatic) break;
+                    if (isStatic) {
+                        if (!annotation.getName().equalsIdentifier("classmethod")) anno.remove(annotation);
+                        func.getDeclaration().setAnnotations(anno);
+                        break;
+                    }
                 }
-                List<DeclarationModifier> modifiers = new ArrayList<>();
-                if (isStatic) {
+                List<DeclarationModifier> modifiers = new ArrayList<>(func.getDeclaration().getModifiers());
+                if (isStatic && !modifiers.contains(DeclarationModifier.STATIC)) {
                     modifiers.add(DeclarationModifier.STATIC);
                 }
                 DeclarationModifier visibility = DeclarationModifier.PUBLIC;
@@ -826,11 +840,11 @@ public class PythonLanguage extends LanguageParser {
                     return new OptionalType(genericTypes.getFirst());
                 case "Union":
                     return new TypeAlternatives(genericTypes);
-                case "list":
+                case "list", "List":
                     return new ListType(genericTypes.getFirst());
-                case "tuple":
+                case "tuple", "Tuple":
                     return new TupleType(genericTypes);
-                case "dict":
+                case "dict", "Mapping":
                     return new OrderedDictionaryType(genericTypes.getFirst(), genericTypes.get(1));
                 default:
                     return new GenericUserType(new SimpleIdentifier(typeName), genericTypes.toArray(new Type[0]));
@@ -841,13 +855,15 @@ public class PythonLanguage extends LanguageParser {
                 return new StringType();
             case "int":
                 return new IntType();
+            case "bool":
+                return new BooleanType();
             case "float":
                 return new FloatType();
-            case "list":
+            case "list", "List":
                 return new ListType(new UnknownType());
-            case "tuple":
+            case "tuple", "Tuple":
                 return new UnmodifiableListType(new UnknownType());
-            case "dict":
+            case "dict", "Mapping":
                 return new OrderedDictionaryType(new UnknownType(), new UnknownType());
             case "set":
                 return new SetType(new UnknownType());
@@ -990,11 +1006,11 @@ public class PythonLanguage extends LanguageParser {
                 && augOp == AugmentedAssignmentOperator.NONE) {
             var scopeTable = ctx.getVisibilityScope();
             Type leftType = scopeTable.scope().getVariableType(variableName);
-            Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? null :
+            Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? new UnknownType() :
                     (Type) fromTSNode(node.getChildByFieldName("type"));
             Type rightType = ctx.inferType(rightExpr); // already uses scopeTable by default
 
-            if (declaredType != null) {
+            if (declaredType != null && !(declaredType instanceof UnknownType)) {
                 scopeTable.scope().changeVariableType(variableName, declaredType);
                 return new VariableDeclaration(declaredType, variableName, rightExpr);
             } else if (leftType == null) {

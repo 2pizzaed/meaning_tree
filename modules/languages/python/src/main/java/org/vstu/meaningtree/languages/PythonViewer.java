@@ -328,6 +328,12 @@ public class PythonViewer extends LanguageViewer {
                 function.append(String.format("@%s\n%s", toString(anno.getFunctionExpression()), tab));
             }
         }
+        if (decl.getModifiers().contains(DeclarationModifier.STATIC)
+                && !decl.getAnnotations().stream().anyMatch(an ->
+                an.getName().equalsIdentifier("classmethod") || an.getName().equalsIdentifier("staticmethod"))
+        ) {
+            function.append(String.format("@staticmethod\n%s", tab));
+        }
         function.append("def ");
         function.append(toString(decl.getName()));
         function.append("(");
@@ -369,10 +375,10 @@ public class PythonViewer extends LanguageViewer {
         function.append(":\n");
         if (func instanceof MethodDefinition methodDef) {
             function.append(toString(methodDef.getBody(), tab));
-            function.append("\n\n");
+            function.append("\n");
         } else if (func instanceof FunctionDefinition funcDef) {
             function.append(toString(funcDef.getBody(), tab));
-            function.append("\n");
+            function.append("\n\n");
         }
         return function.toString();
     }

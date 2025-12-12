@@ -11,7 +11,7 @@ public abstract class Declaration extends Node {
     @TreeNode
     protected List<Annotation> annotations;
 
-    protected List<DeclarationModifier> modifiers;
+    protected List<DeclarationModifier> modifiers = new ArrayList<>();
 
     public void setAnnotations(List<Annotation> annotations) {
         this.annotations = annotations;
@@ -38,9 +38,6 @@ public abstract class Declaration extends Node {
     }
 
     public void addModifiers(DeclarationModifier ... modifiers) {
-        if (this.modifiers == null) {
-            this.modifiers = new ArrayList<>();
-        }
         for (DeclarationModifier mod : modifiers) {
             this.modifiers.add(mod);
         }

@@ -1023,7 +1023,7 @@ public class JavaViewer extends LanguageViewer {
         builder.append(type);
 
         if (parameter.isListUnpacking()) {
-            builder.append("...");
+            builder.append(" ...");
         }
 
         String name = toString(parameter.getName());

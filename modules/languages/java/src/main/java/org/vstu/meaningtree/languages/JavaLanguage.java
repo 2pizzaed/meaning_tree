@@ -704,7 +704,6 @@ public class JavaLanguage extends LanguageParser {
             definition = new FunctionDefinition(functionDeclaration, body);
         }
         else {
-            // TODO: Пока не реализован механизм нахождения класса, к которому принадлежит метод, и определение аннотаций
             var methodDeclaration = new MethodDeclaration(
                     null,
                     identifier,

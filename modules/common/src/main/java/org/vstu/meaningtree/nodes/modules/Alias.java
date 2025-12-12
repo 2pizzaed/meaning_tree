@@ -51,6 +51,6 @@ public class Alias extends Identifier {
 
     @Override
     public String internalRepresentation() {
-        return alias.internalRepresentation();
+        return "%s as %s".formatted(realName.internalRepresentation(), alias.internalRepresentation());
     }
 }

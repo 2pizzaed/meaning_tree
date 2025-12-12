@@ -317,12 +317,12 @@ group: SimpleExpressionsTest
             a: bool = x in list
 
         java:
-            java.util.ArrayList<Object> list = new java.util.ArrayList<>(java.util.List.of());
+            java.util.ArrayList<Integer> list = new java.util.ArrayList<>(java.util.List.of());
             int x = 0;
             boolean a = list.contains(x);
 
         c++:
-            std::vector<auto> list = {};
+            std::vector<int> list = {};
             int x = 0;
             bool a = list.contains(x);
 
@@ -333,12 +333,12 @@ group: SimpleExpressionsTest
             a: bool = x not in list
 
         java:
-            java.util.ArrayList<Object> list = new java.util.ArrayList<>(java.util.List.of());
+            java.util.ArrayList<Integer> list = new java.util.ArrayList<>(java.util.List.of());
             int x = 0;
             boolean a = !list.contains(x);
 
         c++:
-            std::vector<auto> list = {};
+            std::vector<int> list = {};
             int x = 0;
             bool a = !list.contains(x);
 
@@ -1538,15 +1538,13 @@ group: SwitchStatement
                 case t:
                     test++;
                     break;
-                case 345: {
+                case 345:
                     int a = 345;
                     test += a;
                     break;
-                }
-                default: {
+                default:
                     int test = 0;
                     break;
-                }
             }
 
         isolated c++:
@@ -1603,16 +1601,17 @@ group: Functions
 
 
     case: DecoratedFunction
-        python:
+        main python:
             @decorator
             @next_decorator
+            @staticmethod
             def concat(a: str, b: str) -> str:
                 return a + b
 
         java:
             @decorator
             @next_decorator
-            String concat(String a, String b) {
+            public static String concat(String a, String b) {
                 return a + b;
             }
 
@@ -1746,7 +1745,7 @@ group: StructuresOOP
 
         java:
             class A {
-                static DataUnion concat(Data a, Data b) {
+                static DataUnion join_data(Data a, Data b) {
                     return a + b;
                 }
             }
@@ -1754,7 +1753,7 @@ group: StructuresOOP
         c++:
             class A
             {
-                static DataUnion concat(Data a, Data b)
+                static DataUnion join_data(Data a, Data b)
                 {
                     return a + b;
                 }
@@ -1966,7 +1965,7 @@ group: Other
     case: ListUnpacking
         java:
             class A {
-                int a(T t, int ... args) {
+                public int a(T t, int ... args) {
                     return t + sum(args);
                 }
             }

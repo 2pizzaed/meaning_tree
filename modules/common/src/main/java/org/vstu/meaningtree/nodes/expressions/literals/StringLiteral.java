@@ -4,6 +4,8 @@ import org.apache.commons.text.StringEscapeUtils;
 import org.vstu.meaningtree.nodes.expressions.Literal;
 
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class StringLiteral extends Literal {
     public enum Type {
@@ -24,7 +26,17 @@ public class StringLiteral extends Literal {
     }
 
     public String getEscapedValue() {
-        return StringEscapeUtils.escapeJava(value);
+        return unescapeUnicode(StringEscapeUtils.escapeJava(value));
+    }
+
+    protected static String unescapeUnicode(String input) {
+        Pattern pattern = Pattern.compile("\\\\u([0-9a-fA-F]{4})");
+        Matcher matcher = pattern.matcher(input);
+
+        return matcher.replaceAll(matchResult -> {
+            String hex = matchResult.group(1);
+            return String.valueOf((char) Integer.parseInt(hex, 16));
+        });
     }
 
     private StringLiteral(String value, Type stringType) {

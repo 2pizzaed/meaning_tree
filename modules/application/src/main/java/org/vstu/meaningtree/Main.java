@@ -258,7 +258,7 @@ public class Main {
             if ("-".equals(outputFilePath)) {
                 System.out.println(content);
             } else {
-                try (PrintWriter out = new PrintWriter(new FileWriter(outputFilePath))) {
+                try (PrintWriter out = new PrintWriter(new FileWriter(outputFilePath, StandardCharsets.UTF_8, false))) {
                     out.print(content);
                 }
             }
@@ -276,7 +276,7 @@ public class Main {
             }
             return buffer.toString(StandardCharsets.UTF_8);
         } else {
-            return new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(filePath)));
+            return new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(filePath)), StandardCharsets.UTF_8);
         }
     }
 }

@@ -185,8 +185,11 @@ public class UniversalSerializer implements Serializer<AbstractSerializedNode> {
             case OptionalType opt -> new SerializedNode("OptionalType", new HashMap<>() {{
                 put("targetType", serialize(opt.getTargetType()));
             }});
-            case TypeAlternatives alt -> new SerializedNode("LiteralType", new HashMap<>() {{
+            case TypeAlternatives alt -> new SerializedNode("TypeAlternatives", new HashMap<>() {{
                 put("alternatives", serialize(alt.get()));
+            }});
+            case TupleType tup -> new SerializedNode("TupleType", new HashMap<>() {{
+                put("elements", serialize(tup.getTupleElementTypes()));
             }});
             case LiteralType lit -> new SerializedNode("LiteralType", new HashMap<>() {{
                 put("literal", serialize(lit.getLiteral()));

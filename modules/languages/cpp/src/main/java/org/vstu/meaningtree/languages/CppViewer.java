@@ -212,7 +212,14 @@ public class CppViewer extends LanguageViewer {
 
     private String toStringForEachLoop(ForEachLoop forEachLoop) {
         var type = toString(forEachLoop.getItem().getType());
-        var iterVarId = toString(forEachLoop.getItem().getDeclarators()[0].getIdentifier());
+        String iterVarId;
+        if (forEachLoop.getItem().getDeclarators().length > 1) {
+            iterVarId = "auto & [%s]".formatted(Arrays.stream(forEachLoop.getItem().getDeclarators())
+                    .map(VariableDeclarator::getIdentifier).map(this::toString).collect(Collectors.joining(", "))
+            );
+        } else {
+            iterVarId = toString(forEachLoop.getItem().getDeclarators()[0].getIdentifier());
+        }
         var iterable = toString(forEachLoop.getExpression());
         var body = toString(forEachLoop.getBody());
 

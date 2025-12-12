@@ -6,6 +6,20 @@ import java.util.Objects;
 
 public abstract class Type extends Identifier {
     private boolean isConst = false;
+    private boolean isSafeReference = false;
+
+    public boolean isSafeReference() {
+        return isSafeReference;
+    }
+
+    /**
+     * Важно для Python. Если тип объявлен как аннотация в виде строки,
+     * то это попытка обезопасить ссылку на возможно еще необъявленный тип
+     * @param safeReference ссылка на тип в данном месте пока может быть не валидной?
+     */
+    public void setSafeReference(boolean safeReference) {
+        isSafeReference = safeReference;
+    }
 
     public boolean isConst() {
         return isConst;

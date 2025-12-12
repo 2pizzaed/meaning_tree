@@ -56,10 +56,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.*;
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
-import org.vstu.meaningtree.nodes.types.GenericUserType;
-import org.vstu.meaningtree.nodes.types.NoReturn;
-import org.vstu.meaningtree.nodes.types.UnknownType;
-import org.vstu.meaningtree.nodes.types.UserType;
+import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
@@ -579,6 +576,9 @@ public class JavaViewer extends LanguageViewer {
 
     private String toStringForEachLoop(ForEachLoop forEachLoop) {
         var type = toString(forEachLoop.getItem().getType());
+        if (forEachLoop.getItem().getDeclarators().length > 1) {
+            throw new UnsupportedViewingException("Java doesn't have multiple declarators in for-each loop");
+        }
         var iterVarId = toString(forEachLoop.getItem().getDeclarators()[0].getIdentifier());
         var iterable = toString(forEachLoop.getExpression());
         var body = toString(forEachLoop.getBody());
@@ -1481,6 +1481,7 @@ public class JavaViewer extends LanguageViewer {
             case DictionaryType dictType -> toStringDictionaryType(dictType);
             case PlainCollectionType plain -> toStringPlainCollectionType(plain);
             case PointerType ptr -> toString(ptr.getTargetType());
+            case OptionalType optionalType -> "Optional<%s>".formatted(toString(optionalType));
             default -> throw new IllegalStateException("Unexpected value: " + type.getClass());
         };
     }

@@ -80,7 +80,7 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
                  "ReferenceType", "ArrayType", "ListType",
                  "OrderedDictionaryType", "UnorderedDictionaryType", "SetType", "UnmodifiableListType",
                  "Class", "Enum", "Structure", "Interface", "OptionalType",
-                 "LiteralType", "TypeAlternatives",
+                 "LiteralType", "TypeAlternatives", "TupleType",
                  "GenericClass", "UnknownType", "NoReturn" -> deserializeType(serialized);
             default -> deserializeOther(serialized);
         };
@@ -218,6 +218,7 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
             case "OptionalType" -> new OptionalType((Type) deserialize(serialized.fields.get("targetType")));
             case "LiteralType" -> new LiteralType((Literal) deserialize(serialized.fields.get("literal")));
             case "TypeAlternatives" -> new TypeAlternatives((List<Type>) deserializeList((SerializedListNode) serialized.fields.get("alternatives")));
+            case "TupleType" -> new TupleType((List<Type>) deserializeList((SerializedListNode) serialized.fields.get("elements")));
             case "Structure" -> new Structure((Identifier) deserialize(serialized.fields.get("name")));
             case "Enum" -> new org.vstu.meaningtree.nodes.types.user.Enum((Identifier) deserialize(serialized.fields.get("name")));
             case "Interface" -> new org.vstu.meaningtree.nodes.types.user.Interface((Identifier) deserialize(serialized.fields.get("name")));

@@ -56,10 +56,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.FallthroughCa
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
-import org.vstu.meaningtree.nodes.types.GenericUserType;
-import org.vstu.meaningtree.nodes.types.NoReturn;
-import org.vstu.meaningtree.nodes.types.UnknownType;
-import org.vstu.meaningtree.nodes.types.UserType;
+import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
@@ -553,51 +550,65 @@ public class PythonViewer extends LanguageViewer {
 
     private String typeToString(Type type) {
         //NOTE: python 3.9+ typing support, without using typing library
+        String typeStr = "object";
         if (type instanceof IntType) {
-            return "int";
+            typeStr = "int";
         } else if (type instanceof FloatType) {
-            return "float";
+            typeStr = "float";
         } else if (type instanceof DictionaryType dictType) {
             if (dictType.getKeyType() != null && dictType.getValueType() != null) {
-                return String.format("dict[%s, %s]", toString(dictType.getKeyType()), toString(dictType.getValueType()));
+                typeStr = String.format("dict[%s, %s]", toString(dictType.getKeyType()), toString(dictType.getValueType()));
+            } else {
+                typeStr = "dict";
             }
-            return "dict";
         } else if (type instanceof StringType) {
-            return "str";
+            typeStr = "str";
         } else if (type instanceof BooleanType) {
-            return "bool";
+            typeStr = "bool";
         } else if (type instanceof ListType listType) {
             if (listType.getItemType() != null) {
-                return String.format("list[%s]",  toString(listType.getItemType()));
+                typeStr = String.format("list[%s]",  toString(listType.getItemType()));
+            } else {
+                typeStr = "list";
             }
-            return "list";
         } else if (type instanceof ArrayType listType) {
             if (listType.getItemType() != null) {
-                return String.format("list[%s]",  toString(listType.getItemType()));
+                typeStr = String.format("list[%s]",  toString(listType.getItemType()));
+            } else {
+                typeStr = "list";
             }
-            return "list";
         } else if (type instanceof SetType setType) {
             if (setType.getItemType() != null) {
-                return String.format("set[%s]",  toString(setType.getItemType()));
+                typeStr = String.format("set[%s]",  toString(setType.getItemType()));
+            } else {
+                typeStr = "set";
             }
-            return "set";
         } else if (type instanceof UnmodifiableListType tupleType) {
             if (tupleType.getItemType() != null) {
-                return String.format("tuple[%s]",  toString(tupleType.getItemType()));
+                typeStr = String.format("tuple[%s]", toString(tupleType.getItemType()));
+            } else {
+                typeStr = "tuple";
             }
-            return "tuple";
+        } else if (type instanceof TupleType tupleType) {
+            typeStr = "tuple[%s]".formatted(tupleType.getTupleElementTypes().stream().map(this::toString).collect(Collectors.joining(", ")));
         } else if (type instanceof GenericUserType generic) {
-            return String.format("%s[%s]", generic.getName().toString(), String.join(", ", Arrays.stream(generic.getTypeParameters()).map(this::typeToString).toList().toArray(new String[0])));
+            typeStr = String.format("%s[%s]", generic.getName().toString(), String.join(", ", Arrays.stream(generic.getTypeParameters()).map(this::typeToString).toList().toArray(new String[0])));
         } else if (type instanceof UserType userType) {
-            return userType.getName().toString();
+            typeStr = userType.getName().toString();
         } else if (type instanceof NoReturn) {
-            return "None";
+            typeStr = "None";
         } else if (type instanceof PointerType ptr) {
-            return toString(ptr.getTargetType());
+            typeStr = toString(ptr.getTargetType());
         } else if (type instanceof ReferenceType ref) {
-            return toString(ref.getTargetType());
+            typeStr = toString(ref.getTargetType());
+        } else if (type instanceof LiteralType literal) {
+            typeStr = "Literal[%s]".formatted(literal.getLiteral());
+        } else if (type instanceof TypeAlternatives typeAlt) {
+            typeStr = typeAlt.get().stream().map(this::typeToString).collect(Collectors.joining(" | "));
+        } else if (type instanceof OptionalType optType) {
+            typeStr = "%s | None".formatted(typeToString(optType.getTargetType()));
         }
-        return "object";
+        return type.isSafeReference() ? "'%s'".formatted(typeStr) : typeStr;
     }
 
     private String assignmentExpressionToString(AssignmentExpression expr) {

@@ -9,9 +9,9 @@ import java.util.Objects;
 
 public class TypeAlternatives extends Type {
     @TreeNode
-    private List<Type> alternatives;
+    private List<? extends Type> alternatives;
 
-    public TypeAlternatives(List<Type> alternatives) {
+    public TypeAlternatives(List<? extends Type> alternatives) {
         this.alternatives = alternatives;
     }
 
@@ -19,12 +19,19 @@ public class TypeAlternatives extends Type {
         this.alternatives = Arrays.asList(alternatives);
     }
 
-    public List<Type> get() {
+    public List<? extends Type> get() {
         return alternatives;
     }
 
     public boolean has(Type t) {
         return alternatives.contains(t);
+    }
+
+    @Override
+    public TypeAlternatives clone() {
+        TypeAlternatives obj = (TypeAlternatives) super.clone();
+        obj.alternatives = alternatives.stream().map(Type::clone).toList();
+        return obj;
     }
 
     @Override

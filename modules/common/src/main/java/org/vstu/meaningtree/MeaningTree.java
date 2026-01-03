@@ -74,30 +74,6 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
         return false;
     }
 
-    public String generateDot() {
-        return normalizeDot("graph MeaningTree {\ndpi=255;\n" + rootNode.generateDot() + "}");
-    }
-
-    private static String normalizeDot(String dot) {
-        String[] lines = dot.split("\n");
-
-        StringBuilder connections = new StringBuilder();
-        StringBuilder result = new StringBuilder();
-
-        for (String line : lines) {
-            if (line.contains("--") || line.equals("}")) {
-                connections.append(line).append("\n");
-            }
-            else {
-                result.append(line).append("\n");
-            }
-        }
-
-        result.append(connections);
-
-        return result.toString();
-    }
-
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;

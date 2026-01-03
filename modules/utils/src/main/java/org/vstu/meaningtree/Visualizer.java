@@ -40,7 +40,7 @@ public class Visualizer extends JFrame {
     }
 
     private void generatePicture(MeaningTree mt, String path) throws IOException {
-        String dot = mt.generateDot();
+        String dot = ""; //TODO: fixme
         MutableGraph tree = new Parser().read(dot);
         File outputImage = new File(path);
         Graphviz.fromGraph(tree).render(Format.PNG).toFile(outputImage);

@@ -7,7 +7,10 @@ public class ComplexOperatorToken extends OperatorToken {
     public final int positionOfToken;
     public final List<String> complexTokenValues;
 
-    ComplexOperatorToken(int positionOfToken, String value,
+    /**
+     * Please, in client code, use OperatorToken.makeComplex!
+     */
+    public ComplexOperatorToken(int positionOfToken, String value,
                          TokenType type,
                          OperatorTokenPosition tokenPos,
                          int precedence,

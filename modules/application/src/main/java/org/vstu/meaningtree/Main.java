@@ -14,6 +14,7 @@ import org.vstu.meaningtree.serializers.json.JsonTypeHierarchyBuilder;
 import org.vstu.meaningtree.serializers.model.IOAlias;
 import org.vstu.meaningtree.serializers.model.IOAliases;
 import org.vstu.meaningtree.serializers.rdf.RDFSerializer;
+import org.vstu.meaningtree.serializers.xml.XMLSerializer;
 import org.vstu.meaningtree.utils.tokens.Token;
 
 import java.io.*;
@@ -127,6 +128,7 @@ public class Main {
                 }
                 return builder.create().toJson(json);
             }),
+            new IOAlias<>("xml", (node, pretty) -> new XMLSerializer(pretty).serialize(node)),
             new IOAlias<>("rdf", (node, pretty) -> serializeRdf(node, "RDF/XML")),
             new IOAlias<>("rdf-turtle", (node, pretty) -> serializeRdf(node, "TTL"))
     ));

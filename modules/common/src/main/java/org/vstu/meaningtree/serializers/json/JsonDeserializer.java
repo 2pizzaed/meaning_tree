@@ -58,6 +58,7 @@ import org.vstu.meaningtree.serializers.model.Deserializer;
 import org.vstu.meaningtree.utils.*;
 import org.vstu.meaningtree.utils.tokens.*;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -68,6 +69,16 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
 
     private final Map<Long, Node> nodeCache = new HashMap<>();
     private final Map<Long, Token> tokenCache = new HashMap<>();
+    private final Field idField;
+
+    public JsonDeserializer() {
+        try {
+            this.idField =  Node.class.getDeclaredField("_id");
+        } catch (NoSuchFieldException e) {
+            throw new MeaningTreeSerializationException(e);
+        }
+    }
+
 
     @Override
     public MeaningTree deserializeTree(JsonObject json) {
@@ -288,6 +299,12 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
         long id = json.get("id").getAsLong();
 
         Node node = deserializeNodeByType(type, json);
+
+        try {
+            idField.setAccessible(true);
+            idField.set(node, id);
+            idField.setAccessible(false);
+        } catch (IllegalAccessException e) { }
 
         if (node != null) {
             nodeCache.put(id, node);

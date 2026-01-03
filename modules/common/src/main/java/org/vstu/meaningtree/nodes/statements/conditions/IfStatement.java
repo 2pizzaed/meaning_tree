@@ -69,24 +69,6 @@ public class IfStatement extends Statement {
         return _elseBranch != null;
     }
 
-    @Override
-    public String generateDot() {
-        StringBuilder builder = new StringBuilder();
-        builder.append(String.format("%s [label=\"%s\"];\n", _id, getClass().getSimpleName()));
-
-        for (ConditionBranch branch : branches) {
-            builder.append(branch.generateDot());
-            builder.append(String.format("%s -- %s;\n", _id, branch.getId()));
-        }
-
-        if (_elseBranch != null) {
-            builder.append(_elseBranch.generateDot());
-            builder.append(String.format("%s -- %s [label=\"%s\"];\n", _id, _elseBranch.getId(), "else"));
-        }
-
-        return builder.toString();
-    }
-
     public void makeCompoundBranches() {
         for (ConditionBranch branch : branches) {
             branch.makeCompoundBody();

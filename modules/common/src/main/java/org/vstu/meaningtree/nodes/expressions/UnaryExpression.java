@@ -17,13 +17,6 @@ abstract public class UnaryExpression extends Expression {
     }
 
     @Override
-    public String generateDot() {
-        return String.format("%s [label=\"%s\"];\n", _id, getClass().getSimpleName())
-                + argument.generateDot()
-                + String.format("%s -- %s;\n", _id, argument.getId());
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;

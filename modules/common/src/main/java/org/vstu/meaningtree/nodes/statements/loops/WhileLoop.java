@@ -33,21 +33,6 @@ public class WhileLoop extends Loop {
         return (CompoundStatement) body;
     }
 
-    @Override
-    public String generateDot() {
-        StringBuilder builder = new StringBuilder();
-
-        builder.append(String.format("%s [label=\"%s\"];\n", _id, getClass().getSimpleName()));
-
-        builder.append(condition.generateDot());
-        builder.append(body.generateDot());
-
-        builder.append(String.format("%s -- %s [label=\"%s\"];\n", _id, condition.getId(), "condition"));
-        builder.append(String.format("%s -- %s [label=\"%s\"];\n", _id, body.getId(), "body"));
-
-        return builder.toString();
-    }
-
     public WhileLoop clone() {
         var clone = (WhileLoop) super.clone();
         clone.condition = condition.clone();

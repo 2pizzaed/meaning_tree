@@ -7,8 +7,4 @@ public class ListType extends PlainCollectionType {
         super(itemType);
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
 }

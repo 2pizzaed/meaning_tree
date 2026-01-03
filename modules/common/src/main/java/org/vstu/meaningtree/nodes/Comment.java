@@ -23,11 +23,6 @@ public class Comment extends Node {
     }
 
     @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;

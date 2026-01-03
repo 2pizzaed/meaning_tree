@@ -80,8 +80,4 @@ public class DefinitionArgument extends Expression {
         return obj;
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
 }

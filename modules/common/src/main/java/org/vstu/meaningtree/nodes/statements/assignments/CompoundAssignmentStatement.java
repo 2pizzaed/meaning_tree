@@ -19,11 +19,6 @@ public class CompoundAssignmentStatement extends Node implements HasInitializati
         this.assignments = List.of(assignments);
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
     public AssignmentStatement[] getAssignments() {
         return assignments.toArray(new AssignmentStatement[0]);
     }

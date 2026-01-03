@@ -7,8 +7,4 @@ public class UnmodifiableListType extends PlainCollectionType {
         super(itemType);
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
 }

@@ -8,11 +8,6 @@ public class LeOp extends BinaryComparison {
     }
 
     @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Expression tryInvert() {
         return new GtOp(this.getLeft(), this.getRight());
     }

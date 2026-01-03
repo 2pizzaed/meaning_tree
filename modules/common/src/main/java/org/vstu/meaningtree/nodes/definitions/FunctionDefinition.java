@@ -40,11 +40,6 @@ public class FunctionDefinition extends Definition implements HasBodyStatement {
                 getBody());
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
     public CompoundStatement getBody() {
         return body;
     }

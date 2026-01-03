@@ -1,7 +1,7 @@
 package org.vstu.meaningtree.nodes.expressions.bitwise;
 
-import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
 import org.vstu.meaningtree.nodes.Expression;
+import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
 
 public class BitwiseOrOp extends BinaryExpression {
 
@@ -9,8 +9,4 @@ public class BitwiseOrOp extends BinaryExpression {
         super(left, right);
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
 }

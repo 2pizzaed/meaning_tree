@@ -14,8 +14,4 @@ public class GeOp extends BinaryComparison {
     }
 
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
 }

@@ -8,8 +8,4 @@ public class InversionOp extends UnaryExpression {
         super(argument);
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
 }

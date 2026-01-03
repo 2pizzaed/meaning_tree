@@ -26,20 +26,6 @@ public class CompoundComparison extends Expression {
         this(members.toArray(new BinaryComparison[0]));
     }
 
-    @Override
-    public String generateDot() {
-        StringBuilder builder = new StringBuilder();
-
-        builder.append(String.format("%s [label=\"%s\"];\n", _id, getClass().getSimpleName()));
-
-        for (BinaryComparison comparison : comparisons) {
-            builder.append(comparison.generateDot());
-            builder.append(String.format("%s -- %s;\n", _id, comparison.getId()));
-        }
-
-        return builder.toString();
-    }
-
     public List<BinaryComparison> getComparisons() {
         return new ArrayList<>(comparisons);
     }

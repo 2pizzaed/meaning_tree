@@ -4,6 +4,7 @@ import guru.nidi.graphviz.engine.Format;
 import guru.nidi.graphviz.engine.Graphviz;
 import guru.nidi.graphviz.model.MutableGraph;
 import guru.nidi.graphviz.parse.Parser;
+import org.vstu.meaningtree.serializers.dot.GraphvizDotSerializer;
 
 import javax.swing.*;
 import java.awt.*;
@@ -40,7 +41,7 @@ public class Visualizer extends JFrame {
     }
 
     private void generatePicture(MeaningTree mt, String path) throws IOException {
-        String dot = ""; //TODO: fixme
+        String dot = new GraphvizDotSerializer().serialize(mt);
         MutableGraph tree = new Parser().read(dot);
         File outputImage = new File(path);
         Graphviz.fromGraph(tree).render(Format.PNG).toFile(outputImage);

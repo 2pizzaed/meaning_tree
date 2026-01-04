@@ -1,6 +1,5 @@
 package org.vstu.meaningtree.serializers.xml;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeSerializationException;
 import org.vstu.meaningtree.nodes.Node;
@@ -14,16 +13,16 @@ public class XMLDeserializer implements Deserializer<String> {
 
     private JsonDeserializer jsonDeserializer;
 
-    public XMLDeserializer(JsonDeserializer jsonSerializer)
+    public XMLDeserializer()
     {
-        this.jsonDeserializer = jsonSerializer;
+        this.jsonDeserializer = new JsonDeserializer();
     }
 
     @Override
     public Node deserialize(String serialized) {
         try {
-            return jsonDeserializer.deserialize(JsonXmlConverter.xmlToGsonJsonObject(serialized));
-        } catch (JsonProcessingException e) {
+            return jsonDeserializer.deserialize(JsonXmlConverter.xmlToJsonObject(serialized));
+        } catch (Exception e) {
             throw new MeaningTreeSerializationException(e);
         }
     }
@@ -31,8 +30,8 @@ public class XMLDeserializer implements Deserializer<String> {
     @Override
     public MeaningTree deserializeTree(String serialized) {
         try {
-            return jsonDeserializer.deserializeTree(JsonXmlConverter.xmlToGsonJsonObject(serialized));
-        } catch (JsonProcessingException e) {
+            return jsonDeserializer.deserializeTree(JsonXmlConverter.xmlToJsonObject(serialized));
+        } catch (Exception e) {
             throw new MeaningTreeSerializationException(e);
         }
     }
@@ -40,8 +39,8 @@ public class XMLDeserializer implements Deserializer<String> {
     @Override
     public SourceMap deserializeSourceMap(String serialized) {
         try {
-            return jsonDeserializer.deserializeSourceMap(JsonXmlConverter.xmlToGsonJsonObject(serialized));
-        } catch (JsonProcessingException e) {
+            return jsonDeserializer.deserializeSourceMap(JsonXmlConverter.xmlToJsonObject(serialized));
+        } catch (Exception e) {
             throw new MeaningTreeSerializationException(e);
         }
     }
@@ -49,8 +48,8 @@ public class XMLDeserializer implements Deserializer<String> {
     @Override
     public TokenList deserializeTokens(String serialized) {
         try {
-            return jsonDeserializer.deserializeTokens(JsonXmlConverter.xmlToGsonJsonObject(serialized));
-        } catch (JsonProcessingException e) {
+            return jsonDeserializer.deserializeTokens(JsonXmlConverter.xmlToJsonObject(serialized));
+        } catch (Exception e) {
             throw new MeaningTreeSerializationException(e);
         }
     }
@@ -58,8 +57,8 @@ public class XMLDeserializer implements Deserializer<String> {
     @Override
     public Token deserializeToken(String token) {
         try {
-            return jsonDeserializer.deserializeToken(JsonXmlConverter.xmlToGsonJsonObject(token));
-        } catch (JsonProcessingException e) {
+            return jsonDeserializer.deserializeToken(JsonXmlConverter.xmlToJsonObject(token));
+        } catch (Exception e) {
             throw new MeaningTreeSerializationException(e);
         }
     }

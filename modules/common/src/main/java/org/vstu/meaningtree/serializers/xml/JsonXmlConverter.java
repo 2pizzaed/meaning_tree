@@ -1,226 +1,301 @@
 package org.vstu.meaningtree.serializers.xml;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
+import org.w3c.dom.*;
+import org.xml.sax.SAXException;
 
-import java.util.Iterator;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.StringWriter;
 import java.util.Map;
 
+/**
+ * Двунаправленный конвертер между JSON и XML для MeaningTree.
+ * Сохраняет структуру массивов (включая пустые) и использует поле "type" для именования элементов.
+ */
+public class JsonXmlConverter {
+    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final String ARRAY_WRAPPER = "array";
+    private static final String ARRAY_ITEM = "item";
 
-public final class JsonXmlConverter {
+    // ==================== JSON → XML ====================
 
-    private static final ObjectMapper jsonMapper = new ObjectMapper();
-    private static final XmlMapper xmlMapper = new XmlMapper();
-    private static final Gson gson = new Gson();
+    /**
+     * Конвертирует JSON строку в XML строку
+     */
+    public static String jsonToXml(String json, boolean pretty) throws Exception {
+        JsonElement element = JsonParser.parseString(json);
+        Document doc = createDocument();
 
-    // --- name converters ---
-    public static String snakeToUpperCamel(String s) {
-        if (s == null || s.isEmpty()) return s;
-        StringBuilder out = new StringBuilder();
-        boolean up = true;
-        for (char c : s.toCharArray()) {
-            if (c == '_' || c == '-') {
-                up = true;
-            } else {
-                out.append(up ? Character.toUpperCase(c) : c);
-                up = false;
-            }
-        }
-        return out.toString();
+        Element root = jsonElementToXml(doc, element, "root");
+        doc.appendChild(root);
+
+        return documentToString(doc, pretty);
     }
 
-    public static String upperCamelToSnake(String s) {
-        if (s == null || s.isEmpty()) return s;
-        StringBuilder out = new StringBuilder();
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (Character.isUpperCase(c)) {
-                if (i != 0) out.append('_');
-                out.append(Character.toLowerCase(c));
-            } else {
-                out.append(c);
-            }
-        }
-        return out.toString();
+    /**
+     * Конвертирует JsonObject в XML строку
+     */
+    public static String jsonToXml(JsonObject jsonObject, boolean pretty) throws Exception {
+        return jsonToXml(gson.toJson(jsonObject), pretty);
     }
 
-    // --- main flow: Gson JsonObject -> XML ---
-    public static String gsonJsonObjectToXml(JsonObject gsonObj, boolean pretty) throws JsonProcessingException {
-
-        if (pretty) {
-            xmlMapper.enable(SerializationFeature.INDENT_OUTPUT);
-        } else {
-            xmlMapper.disable(SerializationFeature.INDENT_OUTPUT);
+    /**
+     * Рекурсивное преобразование JsonElement в XML Element
+     */
+    private static Element jsonElementToXml(Document doc, JsonElement element, String tagName) {
+        if (element.isJsonObject()) {
+            return jsonObjectToXml(doc, element.getAsJsonObject(), tagName);
+        } else if (element.isJsonArray()) {
+            return jsonArrayToXml(doc, element.getAsJsonArray(), tagName);
+        } else if (element.isJsonPrimitive()) {
+            return jsonPrimitiveToXml(doc, element.getAsJsonPrimitive(), tagName);
+        } else if (element.isJsonNull()) {
+            Element elem = doc.createElement(tagName);
+            elem.setAttribute("null", "true");
+            return elem;
         }
-
-        // 1) convert Gson JsonObject -> Jackson JsonNode
-        JsonNode jacksonNode = jsonMapper.readTree(gson.toJson(gsonObj));
-
-        // 2) transform to "xml-ready" node (attributes prefixed with '@', element names converted)
-        ObjectNode xmlReady = transformToXmlReady(jacksonNode);
-
-        // 3) write XML
-        return xmlMapper.writeValueAsString(xmlReady);
+        return doc.createElement(tagName);
     }
 
-    private static ObjectNode transformToXmlReady(JsonNode node) {
-        ObjectNode result = jsonMapper.createObjectNode();
+    /**
+     * Преобразование JsonObject в XML Element
+     */
+    private static Element jsonObjectToXml(Document doc, JsonObject obj, String tagName) {
+        // Используем поле "type" если есть, иначе переданное имя
+        String elementName = obj.has("type") ?
+                sanitizeTagName(obj.get("type").getAsString()) : tagName;
 
-        if (!node.isObject()) {
-            // wrap non-object into generic element
-            result.set("Item", node);
-            return result;
-        }
+        Element element = doc.createElement(elementName);
 
-        ObjectNode obj = (ObjectNode) node;
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            String key = entry.getKey();
+            JsonElement value = entry.getValue();
 
-        // decide element name (from "type" if present)
-        JsonNode typeNode = obj.get("type");
-        String elemName = null;
-        if (typeNode != null && typeNode.isTextual()) {
-            elemName = snakeToUpperCamel(typeNode.asText());
-        }
+            if (key.equals("type")) {
+                // "type" сохраняем как атрибут
+                element.setAttribute("type", value.getAsString());
+            } else if (value.isJsonArray()) {
+                // Массивы оборачиваем для сохранения структуры
+                Element arrayWrapper = doc.createElement(sanitizeTagName(key));
+                arrayWrapper.setAttribute("is_array", "true");
 
-        ObjectNode content = jsonMapper.createObjectNode();
-
-        Iterator<Map.Entry<String, JsonNode>> it = obj.fields();
-        while (it.hasNext()) {
-            Map.Entry<String, JsonNode> e = it.next();
-            String key = e.getKey();
-            JsonNode val = e.getValue();
-            if ("type".equals(key)) continue;
-
-            String xmlKey = snakeToUpperCamel(key);
-
-            if (val.isValueNode()) {
-                // scalar -> attribute (prefix with '@')
-                content.put("@" + xmlKey, val.asText());
-            } else if (val.isArray()) {
-                // array -> sequence of child elements named xmlKey
-                ArrayNode arr = jsonMapper.createArrayNode();
-                for (JsonNode item : val) {
-                    if (item.isValueNode()) {
-                        // wrap scalar items into element nodes
-                        ObjectNode itemNode = jsonMapper.createObjectNode();
-                        itemNode.put(xmlKey, item.asText());
-                        arr.add(itemNode);
-                    } else {
-                        // complex item: transform recursively; ensure resulting node is an element
-                        ObjectNode childReady = transformToXmlReady(item);
-                        arr.add(childReady);
-                    }
+                JsonArray array = value.getAsJsonArray();
+                for (JsonElement item : array) {
+                    Element itemElement = jsonElementToXml(doc, item, ARRAY_ITEM);
+                    arrayWrapper.appendChild(itemElement);
                 }
-                content.set(xmlKey, arr);
-            } else if (val.isObject()) {
-                // nested object: transform recursively
-                ObjectNode childReady = transformToXmlReady(val);
-                // if childReady contains a single top-level element, attach it under xmlKey,
-                // else attach the whole object under xmlKey
-                content.set(xmlKey, childReady);
-            } else {
-                content.set(xmlKey, val);
-            }
-        }
-
-        if (elemName != null) {
-            result.set(elemName, content);
-        } else {
-            // no type -> use content fields as-is
-            result.setAll(content);
-        }
-
-        return result;
-    }
-
-    // --- reverse: XML -> Gson JsonObject ---
-    public static JsonObject xmlToGsonJsonObject(String xml) throws JsonProcessingException {
-        JsonNode root = xmlMapper.readTree(xml);
-
-        // xmlMapper.readTree usually gives an ObjectNode whose single field is the root element
-        JsonNode converted = transformXmlNodeToJson(root);
-        String jsonString = jsonMapper.writeValueAsString(converted);
-        return gson.fromJson(jsonString, JsonObject.class);
-    }
-
-    private static JsonNode transformXmlNodeToJson(JsonNode node) {
-        // if node is not object, return as-is
-        if (!node.isObject()) return node;
-
-        ObjectNode obj = jsonMapper.createObjectNode();
-        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
-
-        // If this object has exactly one named child (common for xml root), treat that child as the element
-        if (node.size() == 1) {
-            Map.Entry<String, JsonNode> only = node.fields().next();
-            String elementName = only.getKey();
-            JsonNode content = only.getValue();
-
-            ObjectNode out = jsonMapper.createObjectNode();
-            // put type = elementName (converted to snake_case)
-            out.put("type", upperCamelToSnake(elementName));
-
-            if (content.isObject()) {
-                Iterator<Map.Entry<String, JsonNode>> cfields = content.fields();
-                while (cfields.hasNext()) {
-                    Map.Entry<String, JsonNode> ce = cfields.next();
-                    String k = ce.getKey();
-                    JsonNode v = ce.getValue();
-
-                    if (k.startsWith("@")) {
-                        // attribute -> scalar property
-                        String propName = upperCamelToSnake(k.substring(1));
-                        out.put(propName, v.asText());
-                    } else {
-                        // child element(s)
-                        String propName = upperCamelToSnake(k);
-                        if (v.isArray()) {
-                            // reconstruct array: each array element may be an element-wrapped object or scalar wrapper
-                            ArrayNode arr = jsonMapper.createArrayNode();
-                            for (JsonNode item : v) {
-                                // if item contains a single field that's an element wrapper, recurse
-                                if (item.isObject() && item.size() == 1) {
-                                    arr.add(transformXmlNodeToJson(item));
-                                } else {
-                                    arr.add(transformXmlNodeToJson(item));
-                                }
-                            }
-                            out.set(propName, arr);
-                        } else if (v.isObject()) {
-                            // nested object or wrapper
-                            out.set(propName, transformXmlNodeToJson(v));
-                        } else {
-                            out.set(propName, v);
-                        }
-                    }
-                }
-            } else {
-                // content is scalar -> set some default field or value
-                out.set("value", content);
-            }
-
-            return out;
-        } else {
-            // multiple fields: convert each field name -> snake_case and recurse
-            ObjectNode out = jsonMapper.createObjectNode();
-            while (fields.hasNext()) {
-                Map.Entry<String, JsonNode> e = fields.next();
-                String k = e.getKey();
-                JsonNode v = e.getValue();
-                String propName = upperCamelToSnake(k);
-                if (v.isObject() || v.isArray()) {
-                    out.set(propName, transformXmlNodeToJson(v));
+                element.appendChild(arrayWrapper);
+            } else if (value.isJsonObject()) {
+                Element child = jsonElementToXml(doc, value, sanitizeTagName(key));
+                element.appendChild(child);
+            } else if (value.isJsonPrimitive()) {
+                JsonPrimitive primitive = value.getAsJsonPrimitive();
+                if (primitive.isString() || primitive.isBoolean()) {
+                    element.setAttribute(key, primitive.getAsString());
                 } else {
-                    out.set(propName, v);
+                    // Числа можно хранить как атрибуты или дочерние элементы
+                    element.setAttribute(key, primitive.getAsString());
+                }
+            } else if (value.isJsonNull()) {
+                element.setAttribute(key, "null");
+            }
+        }
+
+        return element;
+    }
+
+    /**
+     * Преобразование JsonArray в XML Element
+     */
+    private static Element jsonArrayToXml(Document doc, JsonArray array, String tagName) {
+        Element wrapper = doc.createElement(tagName);
+        wrapper.setAttribute("is_array", "true");
+
+        for (JsonElement item : array) {
+            Element itemElement = jsonElementToXml(doc, item, ARRAY_ITEM);
+            wrapper.appendChild(itemElement);
+        }
+
+        return wrapper;
+    }
+
+    /**
+     * Преобразование JsonPrimitive в XML Element
+     */
+    private static Element jsonPrimitiveToXml(Document doc, JsonPrimitive primitive, String tagName) {
+        Element element = doc.createElement(tagName);
+        element.setTextContent(primitive.getAsString());
+        return element;
+    }
+
+    // ==================== XML → JSON ====================
+
+    /**
+     * Конвертирует XML строку в JSON строку
+     */
+    public static String xmlToJson(String xml) throws Exception {
+        Document doc = parseXmlString(xml);
+        JsonElement element = xmlToJsonElement(doc.getDocumentElement());
+        return gson.toJson(element);
+    }
+
+    /**
+     * Конвертирует XML строку в JsonObject
+     */
+    public static JsonObject xmlToJsonObject(String xml) throws Exception {
+        Document doc = parseXmlString(xml);
+        JsonElement element = xmlToJsonElement(doc.getDocumentElement());
+        return element.getAsJsonObject();
+    }
+
+    /**
+     * Рекурсивное преобразование XML Element в JsonElement
+     */
+    private static JsonElement xmlToJsonElement(Element element) {
+        // Проверяем, является ли элемент массивом
+        if ("true".equals(element.getAttribute("is_array"))) {
+            return xmlArrayToJson(element);
+        }
+
+        // Проверяем null
+        if ("true".equals(element.getAttribute("null"))) {
+            return JsonNull.INSTANCE;
+        }
+
+        JsonObject obj = new JsonObject();
+
+        // Добавляем тип из имени элемента (если не root)
+        if (!element.getTagName().equals("root") && !element.getTagName().equals(ARRAY_ITEM)) {
+            obj.addProperty("type", element.getTagName());
+        }
+
+        // Добавляем атрибуты (кроме служебных)
+        NamedNodeMap attributes = element.getAttributes();
+        for (int i = 0; i < attributes.getLength(); i++) {
+            Node attr = attributes.item(i);
+            String attrName = attr.getNodeName();
+            String attrValue = attr.getNodeValue();
+
+            if (!attrName.equals("is_array") && !attrName.equals("null")) {
+                if (attrName.equals("type")) {
+                    obj.addProperty("type", attrValue);
+                } else if (attrValue.equals("null")) {
+                    obj.add(attrName, JsonNull.INSTANCE);
+                } else if (attrValue.equals("true") || attrValue.equals("false")) {
+                    obj.addProperty(attrName, Boolean.parseBoolean(attrValue));
+                } else if (isNumeric(attrValue)) {
+                    if (attrValue.contains(".")) {
+                        obj.addProperty(attrName, Double.parseDouble(attrValue));
+                    } else {
+                        obj.addProperty(attrName, Long.parseLong(attrValue));
+                    }
+                } else {
+                    obj.addProperty(attrName, attrValue);
                 }
             }
-            return out;
+        }
+
+        // Обрабатываем дочерние элементы
+        NodeList children = element.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+
+            if (child.getNodeType() == Node.ELEMENT_NODE) {
+                Element childElement = (Element) child;
+                String childName = childElement.getTagName();
+
+                // Проверяем, является ли дочерний элемент массивом
+                if ("true".equals(childElement.getAttribute("is_array"))) {
+                    obj.add(childName, xmlArrayToJson(childElement));
+                } else {
+                    obj.add(childName, xmlToJsonElement(childElement));
+                }
+            } else if (child.getNodeType() == Node.TEXT_NODE) {
+                String text = child.getTextContent().trim();
+                if (!text.isEmpty()) {
+                    obj.addProperty("value", text);
+                }
+            }
+        }
+
+        return obj;
+    }
+
+    /**
+     * Преобразование XML массива в JsonArray
+     */
+    private static JsonArray xmlArrayToJson(Element arrayElement) {
+        JsonArray array = new JsonArray();
+        NodeList children = arrayElement.getChildNodes();
+
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+            if (child.getNodeType() == Node.ELEMENT_NODE) {
+                Element childElement = (Element) child;
+                array.add(xmlToJsonElement(childElement));
+            }
+        }
+
+        return array;
+    }
+
+    // ==================== Вспомогательные методы ====================
+
+    private static Document createDocument() throws ParserConfigurationException {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        return builder.newDocument();
+    }
+
+    private static Document parseXmlString(String xml) throws ParserConfigurationException, IOException, SAXException {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        return builder.parse(new ByteArrayInputStream(xml.getBytes("UTF-8")));
+    }
+
+    private static String documentToString(Document doc, boolean pretty) throws TransformerException {
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        Transformer transformer = transformerFactory.newTransformer();
+        if (pretty) {
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
+        } else {
+            transformer.setOutputProperty(OutputKeys.INDENT, "no");
+        }
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
+
+        StringWriter writer = new StringWriter();
+        transformer.transform(new DOMSource(doc), new StreamResult(writer));
+        return writer.toString();
+    }
+
+    /**
+     * Очищает имя тега от недопустимых символов
+     */
+    private static String sanitizeTagName(String name) {
+        return name.replaceAll("[^a-zA-Z0-9_-]", "_");
+    }
+
+    /**
+     * Проверяет, является ли строка числом
+     */
+    private static boolean isNumeric(String str) {
+        try {
+            Double.parseDouble(str);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
         }
     }
 }

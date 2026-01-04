@@ -41,21 +41,6 @@ public class AssignmentStatement extends Statement implements HasInitialization 
     }
 
     @Override
-    public String generateDot() {
-        StringBuilder builder = new StringBuilder();
-
-        builder.append(String.format("%s [label=\"%s\"];\n", _id, operatorType.toString()));
-
-        builder.append(lvalue.generateDot());
-        builder.append(rvalue.generateDot());
-
-        builder.append(String.format("%s -- %s;\n", _id, lvalue.getId()));
-        builder.append(String.format("%s -- %s;\n", _id, rvalue.getId()));
-
-        return builder.toString();
-    }
-
-    @Override
     public AssignmentStatement clone() {
         AssignmentStatement obj = (AssignmentStatement) super.clone();
         obj.lvalue = lvalue.clone();

@@ -51,11 +51,6 @@ public class FunctionDeclaration extends Declaration {
     }
 
     @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (!(o instanceof FunctionDeclaration nodeInfos)) return false;
         if (!super.equals(o)) return false;

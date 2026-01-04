@@ -82,23 +82,6 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         }
     }
 
-    public String generateDot() {
-        StringBuilder builder = new StringBuilder();
-        builder.append(String.format("%s [label=\"%s\"];\n", _id, getClass().getSimpleName()));
-        var fields = getFieldDescriptors();
-        for (String fieldName : fields.keySet()) {
-            if (fields.get(fieldName) instanceof NodeFieldDescriptor fd) {
-                try {
-                    Node node = fd.get();
-                    builder.append(node.generateDot());
-                    builder.append(String.format("%s -- %s [label=\"%s\"];\n", _id, node.getId(), fieldName));
-                } catch (IllegalAccessException e) {}
-            }
-            // TODO: Добавить поддержку children как списков
-        }
-        return builder.toString();
-    }
-
     public long getId() {
         return _id;
     }

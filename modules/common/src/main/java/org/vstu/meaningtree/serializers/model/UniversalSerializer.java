@@ -2,7 +2,7 @@ package org.vstu.meaningtree.serializers.model;
 
 import org.apache.commons.lang3.NotImplementedException;
 import org.vstu.meaningtree.MeaningTree;
-import org.vstu.meaningtree.exceptions.MeaningTreeException;
+import org.vstu.meaningtree.exceptions.MeaningTreeSerializationException;
 import org.vstu.meaningtree.iterators.utils.ArrayFieldDescriptor;
 import org.vstu.meaningtree.iterators.utils.CollectionFieldDescriptor;
 import org.vstu.meaningtree.iterators.utils.FieldDescriptor;
@@ -46,6 +46,7 @@ import java.util.*;
 /**
  * Currently, supports only expressions, for full support use JSONSerializer
  */
+@Deprecated
 public class UniversalSerializer implements Serializer<AbstractSerializedNode> {
     @Override
     public SerializedNode serialize(Node node) {
@@ -141,7 +142,7 @@ public class UniversalSerializer implements Serializer<AbstractSerializedNode> {
                 put("type", serialize(objNew.getType()));
                 put("arguments", serialize(objNew.getConstructorArguments()));
             }});
-            default -> throw new MeaningTreeException("Invalid new expression for serializer");
+            default -> throw new MeaningTreeSerializationException("Invalid new expression for serializer");
         };
     }
 
@@ -339,7 +340,7 @@ public class UniversalSerializer implements Serializer<AbstractSerializedNode> {
             case ScopedIdentifier scoped -> new SerializedNode("ScopedIdentifier", new HashMap<>() {{
                 put("members", serialize(scoped.getScopeResolution()));
             }});
-            default -> throw new MeaningTreeException("Unknown identifier in universal serializer");
+            default -> throw new MeaningTreeSerializationException("Unknown identifier in universal serializer");
         };
     }
 

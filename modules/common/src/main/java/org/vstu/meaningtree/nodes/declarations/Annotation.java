@@ -34,11 +34,6 @@ public class Annotation extends Node {
     }
 
     @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (!(o instanceof Annotation nodeInfos)) return false;
         if (!super.equals(o)) return false;

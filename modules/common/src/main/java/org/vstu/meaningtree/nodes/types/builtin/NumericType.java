@@ -19,8 +19,4 @@ public abstract class NumericType extends Type implements PrimitiveType, ScalarT
         return size;
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
 }

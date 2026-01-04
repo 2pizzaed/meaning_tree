@@ -19,17 +19,6 @@ public class CompoundStatement extends Statement {
         this.nodes = new ArrayList<>(nodes);
     }
 
-    @Override
-    public String generateDot() {
-        StringBuilder builder = new StringBuilder();
-        builder.append(String.format("%s [label=\"%s\"];", _id, getClass().getSimpleName()));
-        for (Node node : nodes) {
-            builder.append(node.generateDot());
-            builder.append(String.format("%s -- %s;\n", _id, node.getId()));
-        }
-        return builder.toString();
-    }
-
     public int getLength() {
         return nodes.size();
     }

@@ -1,6 +1,10 @@
 package org.vstu.meaningtree.utils;
 
+import com.google.gson.JsonElement;
+import org.vstu.meaningtree.exceptions.MeaningTreeConfigException;
+
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Специальные метки для узла дерева
@@ -53,10 +57,13 @@ public class Label {
 
     private short id;
     private Object attribute = null;
+    private Class<?> attributeType = null;
 
     public Label(short id, Object attribute) {
         this.attribute = attribute;
         this.id = id;
+        this.attributeType = attribute.getClass();
+        typeFits(attribute);
     }
 
     public Label(short id) {
@@ -65,6 +72,29 @@ public class Label {
 
     public short getId() {
         return id;
+    }
+
+    private static final Set<Class<?>> ALLOWED_TYPES = Set.of(
+            String.class,
+            Number.class,
+            Boolean.class,
+            JsonElement.class
+    );
+
+    private void typeFits(Object attr) {
+        if (attr == null) return;
+
+        Class<?> cls = attr.getClass();
+
+        if (ALLOWED_TYPES.stream().noneMatch(t -> t.isAssignableFrom(cls))) {
+            throw new MeaningTreeConfigException(
+                    "Invalid label attribute type: " + cls.getName()
+            );
+        }
+    }
+
+    public Class<?> getAttributeType() {
+        return attributeType;
     }
 
     public Object getAttribute() {
@@ -85,4 +115,5 @@ public class Label {
     public int hashCode() {
         return Objects.hash(attribute, id);
     }
+
 }

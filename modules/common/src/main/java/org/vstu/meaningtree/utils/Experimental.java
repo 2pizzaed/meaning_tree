@@ -4,7 +4,7 @@ import java.lang.annotation.*;
 
 @Documented
 @Retention(RetentionPolicy.CLASS)
-@Target({ElementType.METHOD, ElementType.FIELD,
+@Target({ElementType.METHOD, ElementType.FIELD, ElementType.TYPE,
         ElementType.PACKAGE, ElementType.MODULE, ElementType.RECORD_COMPONENT,
         ElementType.CONSTRUCTOR
 })

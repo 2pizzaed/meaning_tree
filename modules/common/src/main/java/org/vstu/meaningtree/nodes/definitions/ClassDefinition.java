@@ -23,11 +23,6 @@ public class ClassDefinition extends Definition {
         this.body = body;
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
     public List<Node> getFields() {
         return Arrays.stream(body.getNodes()).filter((Node node) -> node instanceof FieldDeclaration).collect(Collectors.toList());
     }

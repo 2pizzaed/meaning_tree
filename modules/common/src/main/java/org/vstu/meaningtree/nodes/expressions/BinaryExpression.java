@@ -26,15 +26,6 @@ abstract public class BinaryExpression extends Expression {
         return right;
     }
 
-    @Override
-    public String generateDot() {
-        return String.format("%s [label=\"%s\"];\n", _id, getClass().getSimpleName())
-                + left.generateDot()
-                + right.generateDot()
-                + String.format("%s -- %s;\n", _id, left.getId())
-                + String.format("%s -- %s;\n", _id, right.getId());
-    }
-
     public static Expression fromManyOperands(Expression[] array, int startIndex, Class<? extends BinaryExpression> whatClassNeeded){
         if (array.length == 0) {
             throw new ArrayIndexOutOfBoundsException("Empty array has been passed");

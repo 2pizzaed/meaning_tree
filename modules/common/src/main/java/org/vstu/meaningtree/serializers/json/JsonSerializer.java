@@ -1,11 +1,9 @@
 package org.vstu.meaningtree.serializers.json;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.MeaningTree;
+import org.vstu.meaningtree.exceptions.MeaningTreeSerializationException;
 import org.vstu.meaningtree.nodes.Comment;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
@@ -337,7 +335,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case ProgramEntryPoint entryPoint -> serializeProgramEntryPoint(entryPoint);
             case Comment comment -> serializeComment(comment);
 
-            default -> throw new IllegalStateException("Unexpected value: " + node);
+            default -> throw new MeaningTreeSerializationException("Unexpected value: " + node);
         };
 
         json.addProperty("id", node.getId());
@@ -364,14 +362,28 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     private JsonObject serializeLabel(Label label) {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("id", label.getId());
+        JsonObject json = new JsonObject();
+        json.addProperty("id", label.getId());
         if (label.hasAttribute()) {
-            // Сериализуем attribute произвольного типа в Json
-            JsonElement attrJson = gson.toJsonTree(label.getAttribute());
-            obj.add("attr", attrJson);
+            Object attr = label.getAttribute();
+
+            if (attr instanceof JsonElement je) {
+                json.add("attr", je);
+            } else if (attr instanceof Number n) {
+                json.addProperty("attr", n);
+            } else if (attr instanceof Boolean b) {
+                json.addProperty("attr", b);
+            } else if (attr instanceof String s) {
+                json.addProperty("attr", s);
+            } else {
+                throw new MeaningTreeSerializationException(
+                        "Unsupported attribute type: " + attr.getClass()
+                );
+            }
+        } else {
+            json.add("attr", JsonNull.INSTANCE);
         }
-        return obj;
+        return json;
     }
 
     /* -----------------------------
@@ -539,6 +551,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
         json.add("left_operand", serialize(op.getLeft()));
         json.add("right_operand", serialize(op.getRight()));
+        json.add("is_negative", serialize(op.isNegative()));
 
         return json;
     }
@@ -717,6 +730,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
         json.add("element", serialize(op.getLeft()));
         json.add("collection", serialize(op.getRight()));
+        json.add("is_negative", serialize(op.isNegative()));
 
         return json;
     }
@@ -1533,6 +1547,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     private JsonObject serializeContainerBasedComprehension(@NotNull ContainerBasedComprehension expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
+        json.add("condition", serialize(expr.getCondition()));
         json.add("container_item", serialize(expr.getContainerItemDeclaration()));
         json.add("container", serialize(expr.getContainerExpression()));
         json.add("item", serializeComprehensionItem(expr.getItem()));
@@ -1544,6 +1559,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     private JsonObject serializeRangeBasedComprehension(@NotNull RangeBasedComprehension expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
+        json.add("condition", serialize(expr.getCondition()));
         json.add("item", serializeComprehensionItem(expr.getItem()));
         json.add("range", serialize(expr.getRange()));
         json.add("identifier", serialize(expr.getRangeVariableIdentifier()));

@@ -13,11 +13,6 @@ public class ParenthesizedExpression extends Expression {
         expression = expr;
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
     public Expression getExpression() {
         return expression;
     }

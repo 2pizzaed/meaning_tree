@@ -27,11 +27,6 @@ public class MemberAccess extends Expression {
         return member;
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
     public ScopedIdentifier toScopedIdentifier() {
         List<SimpleIdentifier> idents = new ArrayList<>();
         idents.add(member);

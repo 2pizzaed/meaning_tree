@@ -21,11 +21,6 @@ public class SimpleIdentifier extends Identifier {
     }
 
     @Override
-    public String generateDot() {
-        return String.format("%s [label=\"%s\"];\n", _id, getName());
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;

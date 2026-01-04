@@ -18,11 +18,6 @@ public class ReturnStatement extends Statement {
         this(null);
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
     @Nullable
     public Expression getExpression() {
         return expression;

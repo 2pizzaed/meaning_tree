@@ -21,6 +21,7 @@ import java.util.Map;
 /**
  * Двунаправленный конвертер между JSON и XML для MeaningTree.
  * Сохраняет структуру массивов (включая пустые) и использует поле "type" для именования элементов.
+ * Конвертирует имена между snake_case (JSON) и CamelCase (XML).
  */
 public class JsonXmlConverter {
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -73,7 +74,7 @@ public class JsonXmlConverter {
     private static Element jsonObjectToXml(Document doc, JsonObject obj, String tagName) {
         // Используем поле "type" если есть, иначе переданное имя
         String elementName = obj.has("type") ?
-                sanitizeTagName(obj.get("type").getAsString()) : tagName;
+                sanitizeTagName(snakeToCamel(obj.get("type").getAsString())) : tagName;
 
         Element element = doc.createElement(elementName);
 
@@ -82,11 +83,12 @@ public class JsonXmlConverter {
             JsonElement value = entry.getValue();
 
             if (key.equals("type")) {
-                // "type" сохраняем как атрибут
+                // "type" сохраняем как атрибут (в snake_case)
                 element.setAttribute("type", value.getAsString());
             } else if (value.isJsonArray()) {
                 // Массивы оборачиваем для сохранения структуры
-                Element arrayWrapper = doc.createElement(sanitizeTagName(key));
+                // Имя массива конвертируем в CamelCase
+                Element arrayWrapper = doc.createElement(sanitizeTagName(snakeToCamel(key)));
                 arrayWrapper.setAttribute("is_array", "true");
 
                 JsonArray array = value.getAsJsonArray();
@@ -96,9 +98,10 @@ public class JsonXmlConverter {
                 }
                 element.appendChild(arrayWrapper);
             } else if (value.isJsonObject()) {
-                Element child = jsonElementToXml(doc, value, sanitizeTagName(key));
+                Element child = jsonElementToXml(doc, value, sanitizeTagName(snakeToCamel(key)));
                 element.appendChild(child);
             } else if (value.isJsonPrimitive()) {
+                // Атрибуты оставляем в snake_case для сохранения совместимости
                 JsonPrimitive primitive = value.getAsJsonPrimitive();
                 if (primitive.isString() || primitive.isBoolean()) {
                     element.setAttribute(key, primitive.getAsString());
@@ -176,7 +179,8 @@ public class JsonXmlConverter {
 
         // Добавляем тип из имени элемента (если не root)
         if (!element.getTagName().equals("root") && !element.getTagName().equals(ARRAY_ITEM)) {
-            obj.addProperty("type", element.getTagName());
+            // Конвертируем имя элемента обратно в snake_case
+            obj.addProperty("type", camelToSnake(element.getTagName()));
         }
 
         // Добавляем атрибуты (кроме служебных)
@@ -188,6 +192,7 @@ public class JsonXmlConverter {
 
             if (!attrName.equals("is_array") && !attrName.equals("null")) {
                 if (attrName.equals("type")) {
+                    // type берём напрямую (уже в snake_case)
                     obj.addProperty("type", attrValue);
                 } else if (attrValue.equals("null")) {
                     obj.add(attrName, JsonNull.INSTANCE);
@@ -214,11 +219,14 @@ public class JsonXmlConverter {
                 Element childElement = (Element) child;
                 String childName = childElement.getTagName();
 
+                // Конвертируем имя обратно в snake_case
+                String jsonKey = camelToSnake(childName);
+
                 // Проверяем, является ли дочерний элемент массивом
                 if ("true".equals(childElement.getAttribute("is_array"))) {
-                    obj.add(childName, xmlArrayToJson(childElement));
+                    obj.add(jsonKey, xmlArrayToJson(childElement));
                 } else {
-                    obj.add(childName, xmlToJsonElement(childElement));
+                    obj.add(jsonKey, xmlToJsonElement(childElement));
                 }
             } else if (child.getNodeType() == Node.TEXT_NODE) {
                 String text = child.getTextContent().trim();
@@ -249,6 +257,70 @@ public class JsonXmlConverter {
         return array;
     }
 
+    // ==================== Конвертация имён ====================
+
+    /**
+     * Конвертирует snake_case в CamelCase
+     * Примеры:
+     * - "meaning_tree" -> "MeaningTree"
+     * - "variable_declaration" -> "VariableDeclaration"
+     * - "some_long_name" -> "SomeLongName"
+     */
+    private static String snakeToCamel(String snakeCase) {
+        if (snakeCase == null || snakeCase.isEmpty()) {
+            return snakeCase;
+        }
+
+        StringBuilder result = new StringBuilder();
+        boolean capitalizeNext = true;
+
+        for (char c : snakeCase.toCharArray()) {
+            if (c == '_') {
+                capitalizeNext = true;
+            } else {
+                if (capitalizeNext) {
+                    result.append(Character.toUpperCase(c));
+                    capitalizeNext = false;
+                } else {
+                    result.append(c);
+                }
+            }
+        }
+
+        return result.toString();
+    }
+
+    /**
+     * Конвертирует CamelCase в snake_case
+     * Примеры:
+     * - "MeaningTree" -> "meaning_tree"
+     * - "VariableDeclaration" -> "variable_declaration"
+     * - "SomeLongName" -> "some_long_name"
+     */
+    private static String camelToSnake(String camelCase) {
+        if (camelCase == null || camelCase.isEmpty()) {
+            return camelCase;
+        }
+
+        StringBuilder result = new StringBuilder();
+
+        for (int i = 0; i < camelCase.length(); i++) {
+            char c = camelCase.charAt(i);
+
+            if (Character.isUpperCase(c)) {
+                // Добавляем подчёркивание перед заглавной буквой (кроме первого символа)
+                if (i > 0) {
+                    result.append('_');
+                }
+                result.append(Character.toLowerCase(c));
+            } else {
+                result.append(c);
+            }
+        }
+
+        return result.toString();
+    }
+
     // ==================== Вспомогательные методы ====================
 
     private static Document createDocument() throws ParserConfigurationException {
@@ -272,7 +344,6 @@ public class JsonXmlConverter {
         } else {
             transformer.setOutputProperty(OutputKeys.INDENT, "no");
         }
-        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
         transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
 
         StringWriter writer = new StringWriter();
@@ -284,6 +355,10 @@ public class JsonXmlConverter {
      * Очищает имя тега от недопустимых символов
      */
     private static String sanitizeTagName(String name) {
+        // XML теги не могут начинаться с цифры
+        if (name.matches("^[0-9].*")) {
+            name = "_" + name;
+        }
         return name.replaceAll("[^a-zA-Z0-9_-]", "_");
     }
 
@@ -291,6 +366,9 @@ public class JsonXmlConverter {
      * Проверяет, является ли строка числом
      */
     private static boolean isNumeric(String str) {
+        if (str == null || str.isEmpty()) {
+            return false;
+        }
         try {
             Double.parseDouble(str);
             return true;

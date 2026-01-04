@@ -27,11 +27,11 @@ public class FunctionDefinition extends Definition implements HasBodyStatement {
     }
 
     public Identifier getName() {
-        return ((FunctionDeclaration) getDeclaration()).getName();
+        return getDeclaration().getName();
     }
 
     public MethodDefinition makeMethod(UserType owner, List<DeclarationModifier> modifiers) {
-        FunctionDeclaration decl = (FunctionDeclaration) getDeclaration();
+        FunctionDeclaration decl = getDeclaration();
         return new MethodDefinition(
                 new MethodDeclaration(
                         owner, decl.getName(), decl.getReturnType(),

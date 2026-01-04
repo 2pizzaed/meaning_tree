@@ -13,8 +13,7 @@ import java.io.Serializable;
 import java.util.*;
 
 public class MeaningTree implements Serializable, LabelAttachable, Cloneable, NodeIterable {
-    @TreeNode
-    private Node rootNode;
+    @TreeNode private Node rootNode;
     private TreeMap<Long, NodeInfo> _index = null;
     private Set<Label> _labels = new HashSet<>();
 

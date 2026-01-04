@@ -95,7 +95,9 @@ public class DFSNodeIterator extends AbstractNodeIterator {
                     }
                 }
 
-                frame.visitedChildren = true;
+                if (!(frame.fieldIterator != null && frame.fieldIterator.hasNext())) {
+                    frame.visitedChildren = true;
+                }
                 continue;
             }
 

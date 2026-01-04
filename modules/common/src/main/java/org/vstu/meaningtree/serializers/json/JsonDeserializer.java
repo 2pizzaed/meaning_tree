@@ -463,7 +463,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     json.get("value").getAsString(),
                     json.get("is_double").getAsBoolean()
             );
-            case "integer_literal" -> new IntegerLiteral(
+            case "int_literal" -> new IntegerLiteral(
                     json.get("value").getAsLong()
             );
             case "string_literal" -> StringLiteral.fromUnescaped(
@@ -496,7 +496,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             }
 
             // Identifiers
-            case "simple_identifier" -> new SimpleIdentifier(
+            case "identifier" -> new SimpleIdentifier(
                     json.get("name").getAsString()
             );
             case "qualified_identifier" -> new QualifiedIdentifier(

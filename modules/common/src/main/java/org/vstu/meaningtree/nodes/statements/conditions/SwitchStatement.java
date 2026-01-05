@@ -54,11 +54,6 @@ public class SwitchStatement extends Statement {
         return defaultCaseBlock;
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
     @NotNull
     public Expression getTargetExpression() {
         return targetExpression;

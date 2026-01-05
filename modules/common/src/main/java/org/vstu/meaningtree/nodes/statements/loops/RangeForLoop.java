@@ -97,23 +97,6 @@ public class RangeForLoop extends ForLoop {
     }
 
     @Override
-    public String generateDot() {
-        StringBuilder builder = new StringBuilder();
-
-        builder.append(String.format("%s [label=\"%s\"];\n", _id, getClass().getSimpleName()));
-
-        builder.append(range.generateDot());
-        builder.append(identifier.generateDot());
-        builder.append(body.generateDot());
-
-        builder.append(String.format("%s -- %s [label=\"%s\"];\n", _id, range.getId(), "range"));
-        builder.append(String.format("%s -- %s [label=\"%s\"];\n", _id, identifier.getId(), "ident"));
-        builder.append(String.format("%s -- %s [label=\"%s\"];\n", _id, body.getId(), "body"));
-
-        return builder.toString();
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (!(o instanceof RangeForLoop nodeInfos)) return false;
         if (!super.equals(o)) return false;

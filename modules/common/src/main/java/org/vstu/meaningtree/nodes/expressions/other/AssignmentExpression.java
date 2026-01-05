@@ -37,21 +37,6 @@ public class AssignmentExpression extends BinaryExpression implements HasInitial
     }
 
     @Override
-    public String generateDot() {
-        StringBuilder builder = new StringBuilder();
-
-        builder.append(String.format("%s [label=\"%s\"];\n", _id, operatorType.toString()));
-
-        builder.append(left.generateDot());
-        builder.append(right.generateDot());
-
-        builder.append(String.format("%s -- %s;\n", _id, left.getId()));
-        builder.append(String.format("%s -- %s;\n", _id, right.getId()));
-
-        return builder.toString();
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;

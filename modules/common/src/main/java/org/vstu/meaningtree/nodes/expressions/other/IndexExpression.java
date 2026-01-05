@@ -23,11 +23,6 @@ public class IndexExpression extends Expression {
         _preferPointers = preferPointers;
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
     public Expression getExpression() {
         return expression;
     }

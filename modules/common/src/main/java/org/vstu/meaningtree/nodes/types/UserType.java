@@ -39,11 +39,6 @@ public abstract class UserType extends Type {
     }
 
     @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), name);
     }

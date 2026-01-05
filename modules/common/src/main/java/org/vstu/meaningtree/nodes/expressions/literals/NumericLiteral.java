@@ -6,8 +6,4 @@ abstract public class NumericLiteral extends Literal {
     abstract public Number getValue();
     abstract public String getStringValue(boolean outputModifiers);
 
-    @Override
-    public String generateDot() {
-        return String.format("%s [label=\"%s\"];\n", _id, getValue());
-    }
 }

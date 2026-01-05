@@ -2,7 +2,7 @@ package org.vstu.meaningtree.serializers.model;
 
 import org.apache.commons.lang3.NotImplementedException;
 import org.vstu.meaningtree.MeaningTree;
-import org.vstu.meaningtree.exceptions.MeaningTreeException;
+import org.vstu.meaningtree.exceptions.MeaningTreeSerializationException;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
@@ -47,6 +47,7 @@ import java.util.List;
 /**
  * Currently, supports only expressions
  */
+@Deprecated
 public class UniversalDeserializer implements Deserializer<AbstractSerializedNode> {
     public Node deserialize(AbstractSerializedNode abstractSerialized) {
         SerializedNode serialized = (SerializedNode) abstractSerialized;
@@ -185,7 +186,7 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
                     (Type) deserialize(serialized.fields.get("type")),
                     (List<Expression>) deserializeList((SerializedListNode) serialized.fields.get("arguments"))
             );
-            default -> throw new MeaningTreeException("Unsupported new expression for deserialize");
+            default -> throw new MeaningTreeSerializationException("Unsupported new expression for deserialize");
         };
     }
 
@@ -228,7 +229,7 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
                     (Identifier) deserialize(serialized.fields.get("name")),
                     deserializeList((SerializedListNode) serialized.fields.get("templateParameters")).toArray(new Type[0])
             );
-            default -> throw new MeaningTreeException("Unknown type in serializer");
+            default -> throw new MeaningTreeSerializationException("Unknown type in serializer");
         };
     }
 
@@ -323,7 +324,7 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
                     (List<Expression>) deserializeList((SerializedListNode) serialized.fields.get("components"))
             );
             case "Null" -> new NullLiteral();
-            default -> throw new MeaningTreeException("Unsupported literal in universal deserializer");
+            default -> throw new MeaningTreeSerializationException("Unsupported literal in universal deserializer");
         };
     }
 
@@ -384,7 +385,7 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
                     );
             case "SimpleIdentifier" -> new SimpleIdentifier((String) serialized.values.get("text"));
             case "ScopedIdentifier" -> new ScopedIdentifier((List<SimpleIdentifier>) deserializeList((SerializedListNode) serialized.fields.get("members")));
-            default -> throw new MeaningTreeException("Unknown identifier in universal deserializer");
+            default -> throw new MeaningTreeSerializationException("Unknown identifier in universal deserializer");
         };
     }
 
@@ -408,7 +409,7 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
                     "org.vstu.meaningtree.nodes.".concat(serialized.nodeName)
             );
         } catch (ClassNotFoundException e) {
-            throw new MeaningTreeException("Unsupported serialized node in universal deserializer");
+            throw new MeaningTreeSerializationException("Unsupported serialized node in universal deserializer");
         }
         if (BinaryExpression.class.isAssignableFrom(clazz)) {
             try {
@@ -444,7 +445,7 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
             }
         }
 
-        throw new MeaningTreeException("Unsupported serialized node " + serialized.nodeName + " in universal deserializer");
+        throw new MeaningTreeSerializationException("Unsupported serialized node " + serialized.nodeName + " in universal deserializer");
     }
 
     private List<? extends Node> deserializeList(SerializedListNode serializedListNode) {

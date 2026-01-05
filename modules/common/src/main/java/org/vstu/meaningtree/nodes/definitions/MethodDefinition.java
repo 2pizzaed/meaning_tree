@@ -9,11 +9,6 @@ public class MethodDefinition extends FunctionDefinition {
         super(declaration, body);
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
-
     public MethodDeclaration getDeclaration() {
         return (MethodDeclaration) super.getDeclaration();
     }

@@ -18,13 +18,6 @@ public class ExpressionStatement extends Statement {
     }
 
     @Override
-    public String generateDot() {
-        return String.format("%s [label=\"%s\"];\n", _id, getClass().getSimpleName())
-                + String.format("%s -- %s;\n", _id, expression.getId())
-                + expression.generateDot();
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;

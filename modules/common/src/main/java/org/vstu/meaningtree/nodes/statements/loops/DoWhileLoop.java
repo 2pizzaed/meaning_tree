@@ -52,8 +52,4 @@ public class DoWhileLoop extends Loop {
         return clone;
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
 }

@@ -94,8 +94,4 @@ public class GeneralForLoop extends ForLoop {
         return clone;
     }
 
-    @Override
-    public String generateDot() {
-        throw new UnsupportedOperationException();
-    }
 }

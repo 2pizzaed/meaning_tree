@@ -67,19 +67,6 @@ public class ProgramEntryPoint extends Node {
     }
 
     @Override
-    public String generateDot() {
-        StringBuilder builder = new StringBuilder();
-
-        builder.append(String.format("%s [label=\"%s\"];\n", _id, getClass().getSimpleName()));
-        for (var node : body) {
-            builder.append(node.generateDot());
-            builder.append(String.format("%s -- %s;\n", _id, node.getId()));
-        }
-
-        return builder.toString();
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;

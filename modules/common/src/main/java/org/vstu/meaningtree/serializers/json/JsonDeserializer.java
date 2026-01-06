@@ -324,137 +324,137 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
     private Node deserializeNodeByType(String type, JsonObject json) {
         return switch (type) {
             // Math operators
-            case "add_op" -> new AddOp(
+            case "add_operator" -> new AddOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "sub_op" -> new SubOp(
+            case "sub_operator" -> new SubOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "mul_op" -> new MulOp(
+            case "mul_operator" -> new MulOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "div_op" -> new DivOp(
+            case "div_operator" -> new DivOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "mod_op" -> new ModOp(
+            case "mod_operator" -> new ModOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "mat_mul_op" -> new MatMulOp(
+            case "mat_mul_operator" -> new MatMulOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "floor_div_op" -> new FloorDivOp(
+            case "floor_div_operator" -> new FloorDivOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "pow_op" -> new PowOp(
+            case "pow_operator" -> new PowOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
 
             // Comparison operators
-            case "eq_op" -> new EqOp(
+            case "eq_operator" -> new EqOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "not_eq_op" -> new NotEqOp(
+            case "not_eq_operator" -> new NotEqOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "ge_op" -> new GeOp(
+            case "ge_operator" -> new GeOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "gt_op" -> new GtOp(
+            case "gt_operator" -> new GtOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "le_op" -> new LeOp(
+            case "le_operator" -> new LeOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "lt_op" -> new LtOp(
+            case "lt_operator" -> new LtOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "reference_eq_op" -> new ReferenceEqOp(
+            case "reference_eq_operator" -> new ReferenceEqOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand")),
                     json.get("is_negative").getAsBoolean() // Default to non-negative
             );
-            case "three_way_comparison_op" -> new ThreeWayComparisonOp(
+            case "three_way_comparison_operator" -> new ThreeWayComparisonOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
 
             // Logical operators
-            case "short_circuit_and_op" -> new ShortCircuitAndOp(
+            case "short_circuit_and_operator" -> new ShortCircuitAndOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "short_circuit_or_op" -> new ShortCircuitOrOp(
+            case "short_circuit_or_operator" -> new ShortCircuitOrOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "long_circuit_and_op" -> new LongCircuitAndOp(
+            case "long_circuit_and_operator" -> new LongCircuitAndOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "long_circuit_or_op" -> new LongCircuitOrOp(
+            case "long_circuit_or_operator" -> new LongCircuitOrOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "not_op" -> new NotOp(
+            case "not_operator" -> new NotOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
 
             // Bitwise operators
-            case "bitwise_and_op" -> new BitwiseAndOp(
+            case "bitwise_and_operator" -> new BitwiseAndOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "bitwise_or_op" -> new BitwiseOrOp(
+            case "bitwise_or_operator" -> new BitwiseOrOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "xor_op" -> new XorOp(
+            case "xor_operator" -> new XorOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "inversion_op" -> new InversionOp(
+            case "inversion_operator" -> new InversionOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "left_shift_op" -> new LeftShiftOp(
+            case "left_shift_operator" -> new LeftShiftOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "right_shift_op" -> new RightShiftOp(
+            case "right_shift_operator" -> new RightShiftOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
 
             // Unary operators
-            case "unary_minus_op" -> new UnaryMinusOp(
+            case "unary_minus_operator" -> new UnaryMinusOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "unary_plus_op" -> new UnaryPlusOp(
+            case "unary_plus_operator" -> new UnaryPlusOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "postfix_increment_op" -> new PostfixIncrementOp(
+            case "postfix_increment_operator" -> new PostfixIncrementOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "postfix_decrement_op" -> new PostfixDecrementOp(
+            case "postfix_decrement_operator" -> new PostfixDecrementOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "prefix_increment_op" -> new PrefixIncrementOp(
+            case "prefix_increment_operator" -> new PrefixIncrementOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "prefix_decrement_op" -> new PrefixDecrementOp(
+            case "prefix_decrement_operator" -> new PrefixDecrementOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
 
@@ -550,11 +550,11 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("true_expression")),
                     deserializeExpression(json.getAsJsonObject("false_expression"))
             );
-            case "instance_of_op" -> new InstanceOfOp(
+            case "instance_of_operator" -> new InstanceOfOp(
                     deserializeExpression(json.getAsJsonObject("expression")),
                     (Type) deserialize(json.getAsJsonObject("type"))
             );
-            case "contains_op" -> new ContainsOp(
+            case "contains_operator" -> new ContainsOp(
                     deserializeExpression(json.getAsJsonObject("element")),
                     deserializeExpression(json.getAsJsonObject("collection")),
                     json.get("is_negative").getAsBoolean()
@@ -606,10 +606,10 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("expression")),
                     (SimpleIdentifier) deserialize(json.getAsJsonObject("member"))
             );
-            case "pointer_pack_op" -> new PointerPackOp(
+            case "pointer_pack_operator" -> new PointerPackOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "pointer_unpack_op" -> new PointerUnpackOp(
+            case "pointer_unpack_operator" -> new PointerUnpackOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
             case "compound_comparison" -> {
@@ -622,12 +622,12 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     String operator = compJson.get("operator").getAsString();
 
                     BinaryComparison comp = switch (operator) {
-                        case "eq_op" -> new EqOp(left, right);
-                        case "not_eq_op" -> new NotEqOp(left, right);
-                        case "ge_op" -> new GeOp(left, right);
-                        case "gt_op" -> new GtOp(left, right);
-                        case "le_op" -> new LeOp(left, right);
-                        case "lt_op" -> new LtOp(left, right);
+                        case "eq_operator" -> new EqOp(left, right);
+                        case "not_eq_operator" -> new NotEqOp(left, right);
+                        case "ge_operator" -> new GeOp(left, right);
+                        case "gt_operator" -> new GtOp(left, right);
+                        case "le_operator" -> new LeOp(left, right);
+                        case "lt_operator" -> new LtOp(left, right);
                         default -> throw new MeaningTreeSerializationException("Unknown comparison operator: " + operator);
                     };
                     comparisons.add(comp);

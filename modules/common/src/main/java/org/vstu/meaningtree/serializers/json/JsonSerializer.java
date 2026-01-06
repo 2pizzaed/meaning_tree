@@ -551,7 +551,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
         json.add("left_operand", serialize(op.getLeft()));
         json.add("right_operand", serialize(op.getRight()));
-        json.add("is_negative", serialize(op.isNegative()));
+        json.addProperty("is_negative", op.isNegative());
 
         return json;
     }
@@ -730,7 +730,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
         json.add("element", serialize(op.getLeft()));
         json.add("collection", serialize(op.getRight()));
-        json.add("is_negative", serialize(op.isNegative()));
+        json.addProperty("is_negative", op.isNegative());
 
         return json;
     }

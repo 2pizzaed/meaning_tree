@@ -4,6 +4,12 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedSerializationException;
 import org.vstu.meaningtree.iterators.utils.*;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.nodes.Type;
+import org.vstu.meaningtree.nodes.expressions.Identifier;
+import org.vstu.meaningtree.nodes.expressions.literals.BoolLiteral;
+import org.vstu.meaningtree.nodes.expressions.literals.CharacterLiteral;
+import org.vstu.meaningtree.nodes.expressions.literals.NumericLiteral;
+import org.vstu.meaningtree.nodes.expressions.literals.StringLiteral;
 import org.vstu.meaningtree.serializers.model.Serializer;
 import org.vstu.meaningtree.utils.SourceMap;
 import org.vstu.meaningtree.utils.tokens.Token;
@@ -91,7 +97,7 @@ public class GraphvizDotSerializer implements Serializer<String> {
     private void createDotNode(Node node) {
         String nodeId = getNodeId(node);
         String label = getNodeLabel(node);
-        dot.append("  ").append(nodeId).append(" [label=\"").append(escapeLabel(label)).append("\"];\n");
+        dot.append("  ").append(nodeId).append(" [label=< ").append(escapeLabel(label)).append(" >];\n");
     }
 
     private void createEdge(Node parent, Node child, String fieldName, int index) {
@@ -110,15 +116,33 @@ public class GraphvizDotSerializer implements Serializer<String> {
     private String getNodeLabel(Node node) {
         StringBuilder label = new StringBuilder();
         label.append(node.getClass().getSimpleName());
-        label.append("\\nid: ").append(node.getId());
+        label.append("<br/>");
+        label.append("<i>id:</i> %d".formatted(node.getId()));
+
+        String additional = getSpecializedNodeLabelInfo(node);
+        if (additional != null && !additional.isEmpty()) {
+            label.append("<br/>");
+            label.append(additional);
+        }
 
         // Добавляем значение, если есть
         Object value = node.getAssignedValueTag();
         if (value != null) {
-            label.append("\\nvalue: ").append(value.toString());
+            label.append("<br/><i>value:</i> ").append(value.toString());
         }
-
         return label.toString();
+    }
+
+    private String getSpecializedNodeLabelInfo(Node node) {
+        return switch (node) {
+            case NumericLiteral i -> "<b>%s</b>".formatted(i.getStringValue(true));
+            case StringLiteral s -> "<b>%s</b>".formatted(s.getEscapedValue());
+            case BoolLiteral b -> "<b>%s</b>".formatted(Boolean.toString(b.getValue()));
+            case CharacterLiteral c -> "<b>%s</b>".formatted(Character.toString((char) c.getValue()));
+            case Type ignored -> "";
+            case Identifier i -> "<b>%s</b>".formatted(i.internalRepresentation());
+            default -> "";
+        };
     }
 
     private String escapeLabel(String label) {

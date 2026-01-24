@@ -830,14 +830,26 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             );
 
             // Loops
-            case "while_loop" -> new WhileLoop(
+            case "while_loop" -> {
+                var loop = new WhileLoop(
                     deserializeExpression(json.getAsJsonObject("condition")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
-            );
-            case "do_while_loop" -> new DoWhileLoop(
-                    deserializeExpression(json.getAsJsonObject("condition")),
-                    (Statement) deserialize(json.getAsJsonObject("body"))
-            );
+                );
+                if (json.has("jump_label")) {
+                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
+                }
+                yield loop;
+            }
+            case "do_while_loop" -> {
+                var loop = new DoWhileLoop(
+                        deserializeExpression(json.getAsJsonObject("condition")),
+                        (Statement) deserialize(json.getAsJsonObject("body"))
+                );
+                if (json.has("jump_label")) {
+                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
+                }
+                yield loop;
+            }
             case "general_for_loop" -> {
                 Node initializer = json.has("initializer") && !json.get("initializer").isJsonNull()
                         ? deserialize(json.getAsJsonObject("initializer")) : null;
@@ -846,22 +858,44 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 Expression update = json.has("update") && !json.get("update").isJsonNull()
                         ? deserializeExpression(json.getAsJsonObject("update")) : null;
                 Statement body = (Statement) deserialize(json.getAsJsonObject("body"));
-                yield new GeneralForLoop((HasInitialization) initializer, condition, update, body);
+                var loop = new GeneralForLoop((HasInitialization) initializer, condition, update, body);
+                if (json.has("jump_label")) {
+                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
+                }
+                yield loop;
             }
-            case "range_for_loop" -> new RangeForLoop(
+            case "range_for_loop" -> {
+                var loop = new RangeForLoop(
                     (Range) deserialize(json.getAsJsonObject("range")),
                     (SimpleIdentifier) deserialize(json.getAsJsonObject("identifier")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
-            );
-            case "for_each_loop" -> new ForEachLoop(
+                );
+                if (json.has("jump_label")) {
+                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
+                }
+                yield loop;
+            }
+            case "for_each_loop" -> {
+                var loop = new ForEachLoop(
                     (VariableDeclaration) deserialize(json.getAsJsonObject("item")),
                     deserializeExpression(json.getAsJsonObject("container")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
-            );
-            case "infinite_loop" -> new InfiniteLoop(
+                );
+                if (json.has("jump_label")) {
+                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
+                }
+                yield loop;
+            }
+            case "infinite_loop" -> {
+                var loop = new InfiniteLoop(
                     (Statement) deserialize(json.getAsJsonObject("body")),
-                    LoopType.WHILE // Default
-            );
+                    LoopType.valueOf(json.get("original_loop_type").getAsString())
+                );
+                if (json.has("jump_label")) {
+                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
+                }
+                yield loop;
+            }
             case "break_statement" -> new BreakStatement();
             case "continue_statement" -> new ContinueStatement();
 

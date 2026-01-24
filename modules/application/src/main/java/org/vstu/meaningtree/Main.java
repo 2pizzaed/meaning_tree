@@ -218,7 +218,7 @@ public class Main {
         // Instantiate target-language translator and generate code
         if (cmd.performOriginTokenize) {
             Token.setupId(cmd.startTokenId);
-            var tokens = fromTranslator.getCodeAsTokens(meaningTree);
+            var tokens = fromTranslator.getCodeAsTokens(meaningTree, true);
             serializers.apply(serializeFormat == null ? "json" : serializeFormat, function -> function.apply(tokens, cmd.prettify))
                     .ifPresentOrElse(
                             result -> writeOutput(result, outputFilePath),
@@ -242,7 +242,7 @@ public class Main {
                         );
             } else if (cmd.performTokenize) {
                 Token.setupId(cmd.startTokenId);
-                var tokens = toTranslator.getCodeAsTokens(meaningTree);
+                var tokens = toTranslator.getCodeAsTokens(meaningTree, true);
                 serializers.apply(serializeFormat == null ? "json" : serializeFormat, function -> function.apply(tokens, cmd.prettify))
                         .ifPresentOrElse(
                                 result -> writeOutput(result, outputFilePath),

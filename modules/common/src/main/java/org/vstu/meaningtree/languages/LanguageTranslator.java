@@ -217,9 +217,9 @@ public abstract class LanguageTranslator implements Cloneable {
         }
     }
 
-    public Pair<Boolean, TokenList> tryGetCodeAsTokens(MeaningTree mt) {
+    public Pair<Boolean, TokenList> tryGetCodeAsTokens(MeaningTree mt, boolean enableWhitespaces) {
         try {
-            TokenList result = getCodeAsTokens(mt);
+            TokenList result = getCodeAsTokens(mt, enableWhitespaces);
             return ImmutablePair.of(true, result);
         } catch (TSException | MeaningTreeException | IllegalArgumentException | ClassCastException e) {
             return ImmutablePair.of(false, null);
@@ -232,8 +232,8 @@ public abstract class LanguageTranslator implements Cloneable {
         return result;
     }
 
-    public TokenList getCodeAsTokens(MeaningTree mt) {
-        return getTokenizer().setEnabledNavigablePseudoTokens(true).tokenizeExtended(mt);
+    public TokenList getCodeAsTokens(MeaningTree mt, boolean enableWhitespaces) {
+        return getTokenizer().setEnabledNavigablePseudoTokens(enableWhitespaces).tokenizeExtended(mt);
     }
 
     protected <P, T extends ConfigScopedParameter<P>> Optional<P> getConfigParameter(Class<T> configClass) {

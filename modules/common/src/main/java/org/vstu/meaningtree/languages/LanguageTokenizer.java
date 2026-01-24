@@ -14,10 +14,7 @@ import org.vstu.meaningtree.utils.TreeSitterUtils;
 import org.vstu.meaningtree.utils.tokens.*;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public abstract class LanguageTokenizer extends TranslatorComponent {
     protected String code;
@@ -28,6 +25,8 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
     private List<Hook<Triple<Integer, Token, ListModificationType>>>
             tokenListModificationsHooks = new ArrayList<>();
     private List<Hook<Pair<TSNode, TokenList>>> tokenParsePositionHooks = new ArrayList<>();
+
+    private Set<String> reservedKeywords;
 
     protected abstract Token recognizeToken(TSNode node);
 
@@ -41,6 +40,10 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
         collectTokens(parser.getRootNode(), list, true, null);
         rollbackContext();
         return list;
+    }
+
+    public boolean isReservedKeyword(String token) {
+        return reservedKeywords.contains(token);
     }
 
     public boolean registerOnTokenListModificationHook(Hook<Triple<Integer, Token, ListModificationType>> hook) {
@@ -133,12 +136,14 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
     protected abstract OperatorToken getOperator(String tokenValue, TSNode node);
     public abstract OperatorToken getOperatorByTokenName(String tokenName);
 
-    public LanguageTokenizer(LanguageTranslator translator) {
+    public LanguageTokenizer(LanguageTranslator translator, Collection<String> reservedKeywords) {
         super(translator);
+        this.reservedKeywords = Set.copyOf(reservedKeywords);
         this.parser = translator._language;
         this.viewer = translator._viewer;
     }
 
+    /** Белые разделители будут включены как токен в общий список токенов **/
     public LanguageTokenizer setEnabledNavigablePseudoTokens(boolean enabled) {
         navigablePseudoTokens = enabled;
         return this;

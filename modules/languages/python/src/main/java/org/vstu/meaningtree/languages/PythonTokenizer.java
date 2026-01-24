@@ -129,7 +129,12 @@ public class PythonTokenizer extends LanguageTokenizer {
 
 
     public PythonTokenizer(PythonTranslator translator) {
-        super(translator);
+        super(translator, List.of(
+                "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class",
+                "continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global",
+                "if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise",
+                "return", "try", "while", "with", "yield"
+        ));
     }
 
     @Override

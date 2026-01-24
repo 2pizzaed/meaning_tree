@@ -33,6 +33,11 @@ public class Label {
     public static final short ORIGIN = 3;
 
     /**
+     * Показывает, какую байтовую позицию занимает узел в исходной строке. Содержит [offset, length]
+     */
+    public static final short BYTEPOS_ANNOTATED = 4;
+
+    /**
      * Зарезервированный номер. Применяется в случае, если метка была не распознана
      */
     public static final short UNKNOWN = Short.MAX_VALUE;
@@ -78,6 +83,9 @@ public class Label {
             String.class,
             Number.class,
             Boolean.class,
+            Number[].class,
+            String[].class,
+            Boolean[].class,
             JsonElement.class
     );
 

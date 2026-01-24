@@ -1,6 +1,7 @@
 package org.vstu.meaningtree.languages;
 
-import org.treesitter.*;
+import org.treesitter.TSNode;
+import org.treesitter.TreeSitterPython;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
 import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
@@ -66,30 +67,13 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public class PythonLanguage extends LanguageParser {
-    private TSLanguage _language;
-    private TSParser _parser;
-
     public PythonLanguage(LanguageTranslator translator) {
-        super(translator);
-    }
-
-    @Override
-    public TSTree getTSTree() {
-        _initBackend();
-        return _parser.parseString(null, _code);
-    }
-
-    private void _initBackend() {
-        if (_language == null) {
-            _language = new TreeSitterPython();
-            _parser = new TSParser();
-            _parser.setLanguage(_language);
-        }
+        super(translator, new TreeSitterPython());
     }
 
     @Override
     public synchronized MeaningTree getMeaningTree(String code) {
-        _code = code;
+        setCode(code);
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
         if (!errors.isEmpty() && !getConfigParameter(SkipErrors.class).orElse(false)) {
@@ -156,7 +140,7 @@ public class PythonLanguage extends LanguageParser {
             case "pattern_list" -> fromPatternList(node);
             case null, default -> throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));
         };
-        assignValue(node, createdNode);
+        matchParserNodes(node, createdNode);
         return createdNode;
     }
 
@@ -170,7 +154,7 @@ public class PythonLanguage extends LanguageParser {
 
     @Override
     public MeaningTree getMeaningTree(TSNode node, String code) {
-        _code = code;
+        setCode(code);
         return new MeaningTree(parseTSNode(node));
     }
 

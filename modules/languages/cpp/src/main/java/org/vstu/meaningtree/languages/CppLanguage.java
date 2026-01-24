@@ -3,7 +3,8 @@ package org.vstu.meaningtree.languages;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.treesitter.*;
+import org.treesitter.TSNode;
+import org.treesitter.TreeSitterCpp;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
 import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
@@ -68,38 +69,22 @@ import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
-import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 public class CppLanguage extends LanguageParser {
-    private TSLanguage _language;
-    private TSParser _parser;
-
     public CppLanguage(LanguageTranslator translator) {
-        super(translator);
+        super(translator, new TreeSitterCpp());
     }
 
-    private void _initBackend() {
-        if (_language == null) {
-            _language = new TreeSitterCpp();
-            _parser = new TSParser();
-            _parser.setLanguage(_language);
-        }
-    }
-
-    @Override
-    public TSTree getTSTree() {
-        _initBackend();
-        return _parser.parseString(null, _code);
-    }
 
     @NotNull
     public synchronized MeaningTree getMeaningTree(String code) {
         ctx.set("binaryRecursive", -1);
-        _code = code;
+        setCode(code);
+
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
         if (!errors.isEmpty()) {
@@ -124,7 +109,7 @@ public class CppLanguage extends LanguageParser {
 
     @Override
     public MeaningTree getMeaningTree(TSNode node, String code) {
-        _code = code;
+        setCode(code);
         return new MeaningTree(parseTSNode(node));
     }
 
@@ -194,7 +179,7 @@ public class CppLanguage extends LanguageParser {
             case "concatenated_string" -> fromConcatenatedString(node);
             case "false" -> new BoolLiteral(false);
             case "system_lib_string" -> StringLiteral.fromEscaped(
-                    TreeSitterUtils.getCodePiece( _code, node), StringLiteral.Type.NONE
+                    this.getCodePiece(node), StringLiteral.Type.NONE
             );
             case "initializer_list" -> fromInitializerList(node);
             case "primitive_type", "template_function", "placeholder_type_specifier", "sized_type_specifier", "type_descriptor" -> fromType(node);
@@ -220,7 +205,7 @@ public class CppLanguage extends LanguageParser {
             case "for_range_loop" -> fromForRangeLoop(node);
             default -> throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
         };
-        assignValue(node, createdNode);
+        matchParserNodes(node, createdNode);
         return createdNode;
     }
 

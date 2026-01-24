@@ -11,10 +11,7 @@ import org.vstu.meaningtree.languages.configs.Config;
 import org.vstu.meaningtree.languages.configs.ConfigBuilder;
 import org.vstu.meaningtree.languages.configs.ConfigScope;
 import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
-import org.vstu.meaningtree.languages.configs.params.DisableCompoundComparisonConversion;
-import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
-import org.vstu.meaningtree.languages.configs.params.SkipErrors;
-import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
+import org.vstu.meaningtree.languages.configs.params.*;
 import org.vstu.meaningtree.languages.configs.parser.ConfigMapping;
 import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
 import org.vstu.meaningtree.nodes.Node;
@@ -33,6 +30,7 @@ import java.util.Optional;
 public abstract class LanguageTranslator implements Cloneable {
     protected LanguageParser _language;
     protected LanguageViewer _viewer;
+
     protected Config _config = new Config();
     protected ScopeTable _latestScopeTable = null;
 
@@ -73,6 +71,11 @@ public abstract class LanguageTranslator implements Cloneable {
                         "translationUnitMode",
                         TranslationUnitMode::parse,
                         TranslationUnitMode::new
+                ),
+                new ConfigMapping<>(
+                        "bytePositionAnnotate",
+                        BytePositionAnnotationMode::parse,
+                        BytePositionAnnotationMode::new
                 )
         );
     }
@@ -150,6 +153,12 @@ public abstract class LanguageTranslator implements Cloneable {
         }
     }
 
+    /**
+     * Получить meaning tree
+     * @param code код
+     * @param values пары байтовой позиции (start, end) и значений для присваивания их ассоциированным с ними узлов
+     * @return
+     */
     protected MeaningTree getMeaningTree(String code, HashMap<int[], Object> values) {
         MeaningTree mt = _language.getMeaningTree(prepareCode(code), values);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
@@ -171,6 +180,12 @@ public abstract class LanguageTranslator implements Cloneable {
         }
     }
 
+    /**
+     * Получить meaning tree
+     * @param tokenList токены
+     * @param tokenValueTags пары диапазона токенов и значений для присваивания их ассоциированным с ними узлов
+     * @return meaning tree с заданными значениями для узлов
+     */
     public MeaningTree getMeaningTree(TokenList tokenList, Map<TokenGroup, Object> tokenValueTags) {
         HashMap<int[], Object> codeValueTag = new HashMap<>();
         for (TokenGroup grp : tokenValueTags.keySet()) {

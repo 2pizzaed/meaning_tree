@@ -1,11 +1,15 @@
 package org.vstu.meaningtree.languages;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.treesitter.TSLanguage;
 import org.treesitter.TSNode;
+import org.treesitter.TSParser;
 import org.treesitter.TSTree;
 import org.vstu.meaningtree.MeaningTree;
+import org.vstu.meaningtree.languages.configs.params.BytePositionAnnotationMode;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Hook;
+import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.ArrayList;
@@ -14,16 +18,38 @@ import java.util.List;
 import java.util.Map;
 
 abstract public class LanguageParser extends TranslatorComponent {
-    protected String _code = "";
+    private String _code = "";
     protected Map<int[], Object> _byteValueTags = new HashMap<>();
+
+    protected TSParser _tsParser;
+    protected TSLanguage _tsLanguage;
 
     protected List<Hook<Pair<TSNode, Node>>> onNodeParsedHooks = new ArrayList<>();
 
-    public LanguageParser(LanguageTranslator translator) {
+    public LanguageParser(LanguageTranslator translator, TSLanguage language) {
         super(translator);
+        _tsLanguage = language;
+        _tsParser = new TSParser();
+        _tsParser.setLanguage(language);
     }
 
-    public abstract TSTree getTSTree();
+    public String getCode() {
+        return _code;
+    }
+
+    public void resetParserState() {
+        _code = "";
+        rollbackContext();
+    }
+
+    public void setCode(String code) {
+        resetParserState();
+        _code = code;
+    }
+
+    public TSTree getTSTree() {
+        return _tsParser.parseString(null, _code);
+    }
 
     public TSNode getRootNode() {
         return getTSTree().getRootNode();
@@ -38,7 +64,7 @@ abstract public class LanguageParser extends TranslatorComponent {
         return getMeaningTree(code);
     }
 
-    protected void assignValue(TSNode originNode, Node createdNode) {
+    protected void matchParserNodes(TSNode originNode, Node createdNode) {
         int start = originNode.getStartByte();
         int end = originNode.getEndByte();
         List<int[]> toDelete = new ArrayList<>();
@@ -50,6 +76,11 @@ abstract public class LanguageParser extends TranslatorComponent {
         }
         for (int[] indexes : toDelete) {
             _byteValueTags.remove(indexes);
+        }
+        if (getConfigParameter(BytePositionAnnotationMode.class).get()) {
+            createdNode.setLabel(new Label(Label.BYTEPOS_ANNOTATED, new int[] {
+                    start,
+                    end - start}));
         }
     }
 

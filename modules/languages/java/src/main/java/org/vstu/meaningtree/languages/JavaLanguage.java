@@ -70,31 +70,15 @@ import org.vstu.meaningtree.nodes.types.user.GenericClass;
 import java.util.*;
 
 public class JavaLanguage extends LanguageParser {
-    private TSLanguage _language;
-    private TSParser _parser;
     private final Map<String, UserType> _userTypes;
 
     public JavaLanguage(LanguageTranslator translator) {
-        super(translator);
+        super(translator, new TreeSitterJava());
         _userTypes = new HashMap<>();
     }
 
-    private void _initBackend() {
-        if (_language == null) {
-            _language = new TreeSitterJava();
-            _parser = new TSParser();
-            _parser.setLanguage(_language);
-        }
-    }
-
-    @Override
-    public TSTree getTSTree() {
-        _initBackend();
-        return _parser.parseString(null, _code);
-    }
-
     public synchronized MeaningTree getMeaningTree(String code) {
-        _code = code;
+        setCode(code);
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
         if (!errors.isEmpty() && !getConfigParameter(SkipErrors.class).orElse(false)) {
@@ -155,7 +139,7 @@ public class JavaLanguage extends LanguageParser {
 
     @Override
     public MeaningTree getMeaningTree(TSNode node, String code) {
-        _code = code;
+        setCode(code);
         return new MeaningTree(parseTSNode(node));
     }
 
@@ -215,7 +199,7 @@ public class JavaLanguage extends LanguageParser {
             case "enhanced_for_statement" -> fromEnhancedForStatementTSNode(node);
             default -> throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
         };
-        assignValue(node, createdNode);
+        matchParserNodes(node, createdNode);
 
         return createdNode;
     }
@@ -1226,7 +1210,7 @@ public class JavaLanguage extends LanguageParser {
 
         List<VariableDeclarator> declarators = new ArrayList<>();
 
-        TSQuery all_declarators = new TSQuery(_language, "(variable_declarator) @decls");
+        TSQuery all_declarators = new TSQuery(_tsLanguage, "(variable_declarator) @decls");
         TSQueryCursor cursor = new TSQueryCursor();
         cursor.exec(all_declarators, node);
         TSQueryMatch match = new TSQueryMatch();

@@ -18,6 +18,7 @@ import java.util.function.BiFunction;
 abstract public class LanguageViewer extends TranslatorComponent {
     protected MeaningTree origin;
     protected ParenthesesFiller parenFiller;
+
     private List<BiFunction<Node, String, String>> postProcessFunctions = new ArrayList<>();
 
     public LanguageViewer(LanguageTranslator translator) {

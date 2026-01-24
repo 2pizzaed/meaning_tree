@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 public class SourceMapGenerator {
     /***
      * Данный класс необходим для получения из Viewer не только строки исходного кода, но также разметки этого кода
-     * Разметка включает в себя список айди узлов, а также их байтовая позиция в полученном коде
+     * Разметка включает в себя список ID узлов, а также их байтовая позиция в полученном коде
      */
     protected LanguageTranslator translator;
     protected ScopeTable globalScope;

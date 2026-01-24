@@ -157,7 +157,7 @@ public abstract class LanguageTranslator implements Cloneable {
      * Получить meaning tree
      * @param code код
      * @param values пары байтовой позиции (start, end) и значений для присваивания их ассоциированным с ними узлов
-     * @return
+     * @return meaning tree
      */
     protected MeaningTree getMeaningTree(String code, HashMap<int[], Object> values) {
         MeaningTree mt = _language.getMeaningTree(prepareCode(code), values);

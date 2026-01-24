@@ -38,7 +38,8 @@ public abstract class LanguageTranslator implements Cloneable {
         return new Config(
                 new ExpressionMode(false),
                 new TranslationUnitMode(true),
-                new SkipErrors(false)
+                new SkipErrors(false),
+                new BytePositionAnnotationMode(false)
         );
     }
 

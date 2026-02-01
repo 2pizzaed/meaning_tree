@@ -87,7 +87,7 @@ public class JsonNodeTypeClassMapper {
         register("short_circuit_or_operator", ShortCircuitOrOp.class);
         register("long_circuit_and_operator", LongCircuitAndOp.class);
         register("long_circuit_or_operator", LongCircuitOrOp.class);
-        register("unary_operator", NotOp.class);
+        register("not_operator", NotOp.class);
 
         // Operators - Unary
         register("unary_minus_operator", UnaryMinusOp.class);

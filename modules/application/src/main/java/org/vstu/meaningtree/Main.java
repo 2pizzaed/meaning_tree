@@ -66,6 +66,9 @@ public class Main {
         @Parameter(names = "--tokenize", description = "Tokenize target source code / meaning tree")
         private boolean performTokenize = false;
 
+        @Parameter(names = "--save-bytes", description = "Save byte positions in meaning tree")
+        private boolean saveBytes = false;
+
         @Parameter(names = "--tokenize-noconvert", description = "Tokenize target source code / meaning tree without convertation to other language")
         private boolean performOriginTokenize = false;
 
@@ -199,7 +202,8 @@ public class Main {
         String code = readCode(inputFilePath);
 
         // Instantiate source-language translator
-        Map<String, Object> config = Map.ofEntries(cmd.translatorMode.getConfigEntry());
+        Map<String, Object> config = Map.ofEntries(cmd.translatorMode.getConfigEntry(),
+                Map.entry("bytePositionsAnnotate", cmd.saveBytes));
         LanguageTranslator fromTranslator =
                 translators.get(fromLanguage).getDeclaredConstructor(Map.class).newInstance(config);
         var meaningTree = fromTranslator.getMeaningTree(code);

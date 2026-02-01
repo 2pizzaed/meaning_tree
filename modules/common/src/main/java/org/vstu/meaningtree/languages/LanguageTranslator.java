@@ -74,7 +74,7 @@ public abstract class LanguageTranslator implements Cloneable {
                         TranslationUnitMode::new
                 ),
                 new ConfigMapping<>(
-                        "bytePositionAnnotate",
+                        "bytePositionsAnnotate",
                         BytePositionAnnotationMode::parse,
                         BytePositionAnnotationMode::new
                 )

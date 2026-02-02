@@ -25,6 +25,7 @@ public class Token implements Serializable {
         this.type = type;
     }
 
+    /** Может быть недоступно в случае выбора tokenizeExtended (detailedToken)*/
     @Nullable
     public BytePosition bytePos() {
         return bytePos;

@@ -69,6 +69,9 @@ public class Main {
         @Parameter(names = "--tokenize-noconvert", description = "Tokenize target source code / meaning tree without convertation to other language")
         private boolean performOriginTokenize = false;
 
+        @Parameter(names = "--detailed-tokens", description = "Make tokens with additional information (for expressions)")
+        private boolean detailedTokens = false;
+
         @Parameter(names = "--serialize", description = "Serialization format: json, rdf, rdf-turtle")
         private String serializeFormat;
 
@@ -218,7 +221,7 @@ public class Main {
         // Instantiate target-language translator and generate code
         if (cmd.performOriginTokenize) {
             Token.setupId(cmd.startTokenId);
-            var tokens = fromTranslator.getCodeAsTokens(meaningTree, true);
+            var tokens = fromTranslator.getCodeAsTokens(meaningTree, true, cmd.detailedTokens, false);
             serializers.apply(serializeFormat == null ? "json" : serializeFormat, function -> function.apply(tokens, cmd.prettify))
                     .ifPresentOrElse(
                             result -> writeOutput(result, outputFilePath),
@@ -242,7 +245,7 @@ public class Main {
                         );
             } else if (cmd.performTokenize) {
                 Token.setupId(cmd.startTokenId);
-                var tokens = toTranslator.getCodeAsTokens(meaningTree, true);
+                var tokens = toTranslator.getCodeAsTokens(meaningTree, true, cmd.detailedTokens, false);
                 serializers.apply(serializeFormat == null ? "json" : serializeFormat, function -> function.apply(tokens, cmd.prettify))
                         .ifPresentOrElse(
                                 result -> writeOutput(result, outputFilePath),

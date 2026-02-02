@@ -233,9 +233,11 @@ public abstract class LanguageTranslator implements Cloneable {
         }
     }
 
-    public Pair<Boolean, TokenList> tryGetCodeAsTokens(MeaningTree mt, boolean enableWhitespaces) {
+    public Pair<Boolean, TokenList> tryGetCodeAsTokens(MeaningTree mt, boolean enableWhitespaces,
+                                                       boolean detailedTokens, boolean skipPreparations
+    ) {
         try {
-            TokenList result = getCodeAsTokens(mt, enableWhitespaces);
+            TokenList result = getCodeAsTokens(mt, enableWhitespaces, detailedTokens, skipPreparations);
             return ImmutablePair.of(true, result);
         } catch (TSException | MeaningTreeException | IllegalArgumentException | ClassCastException e) {
             return ImmutablePair.of(false, null);
@@ -248,8 +250,30 @@ public abstract class LanguageTranslator implements Cloneable {
         return result;
     }
 
-    public TokenList getCodeAsTokens(MeaningTree mt, boolean enableWhitespaces) {
-        return getTokenizer().setEnabledNavigablePseudoTokens(enableWhitespaces).tokenizeExtended(mt);
+    /**
+     * Получает токены по дереву без прямого получения токенизатора (синтаксический сахар)
+     * @param mt дерево MeaningTree
+     * @param enableWhitespaces создавать токены для пробельных символы
+     * @param detailedTokens детализация токенов (для выражений)
+     * @param skipPreparations пропустить подготовительный этап (например, при false в Java в режиме только выражений, сниппеты кода будут вложены в статическую функцию main класса Main)
+     * @return список токенов
+     */
+    public TokenList getCodeAsTokens(MeaningTree mt,
+                                     boolean enableWhitespaces,
+                                     boolean detailedTokens,
+                                     boolean skipPreparations) {
+        var tokenizer = getTokenizer().setEnabledNavigablePseudoTokens(enableWhitespaces);
+        if (detailedTokens) {
+            return tokenizer.tokenizeExtended(mt);
+        } else {
+            String code = getCode(mt);
+            return tokenizer.tokenize(code, skipPreparations);
+        }
+    }
+
+    public TokenList getCodeAsTokens(MeaningTree mt,
+                                     boolean enableWhitespaces) {
+        return getCodeAsTokens(mt, enableWhitespaces, true, false);
     }
 
     protected <P, T extends ConfigScopedParameter<P>> Optional<P> getConfigParameter(Class<T> configClass) {

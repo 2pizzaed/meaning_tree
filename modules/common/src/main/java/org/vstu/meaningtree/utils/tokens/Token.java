@@ -112,6 +112,7 @@ public class Token implements Serializable {
         Token copy = new Token(value, type);
         copy.assignValue(assignedValue);
         copy.setOwner(belongsTo);
+        copy.setBytePosition(bytePos);
         return copy;
     }
 
@@ -119,6 +120,7 @@ public class Token implements Serializable {
         Token copy = new Token(newName, type);
         copy.assignValue(assignedValue);
         copy.setOwner(belongsTo);
+        copy.setBytePosition(bytePos);
         return copy;
     }
 
@@ -126,6 +128,7 @@ public class Token implements Serializable {
         OperandToken copy = new OperandToken(value, type);
         copy.assignValue(assignedValue);
         copy.setOwner(belongsTo);
+        copy.setBytePosition(bytePos);
         return copy;
     }
 }

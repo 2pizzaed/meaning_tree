@@ -8,6 +8,7 @@ import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.utils.BytePosition;
 import org.vstu.meaningtree.utils.Hook;
 import org.vstu.meaningtree.utils.ListModificationType;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
@@ -163,7 +164,9 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
             if (value.trim().isEmpty()) {
                 return new TokenGroup(0, 0, tokens);
             }
-            tokens.add(recognizeToken(node));
+            var token = recognizeToken(node);
+            token.setBytePosition(new BytePosition(node.getStartByte(), node.getEndByte() - node.getStartByte()));
+            tokens.add(token);
             skipChildren = true;
         } else if (
                 (getOperatorNodes(OperatorArity.BINARY).contains(node.getType())
@@ -242,7 +245,9 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
                 TokenGroup group = operands.get(pos);
                 for (int i = group.start; i < group.stop; i++) {
                     if (!(tokens.get(i) instanceof OperandToken)) {
-                        tokens.set(i, new OperandToken(tokens.get(i).value, tokens.get(i).type));
+                        var opToken = new OperandToken(tokens.get(i).value, tokens.get(i).type);
+                        opToken.setBytePosition(new BytePosition(node.getStartByte(), node.getEndByte() - node.getStartByte()));
+                        tokens.set(i, opToken);
                     }
                     OperandToken opTok = (OperandToken)tokens.get(i);
                     if (opTok.operandOf() == null) {
@@ -267,7 +272,9 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
             }
             for (int i = unaryStart; i < unaryStop; i++) {
                 if (!(tokens.get(i) instanceof OperandToken)) {
-                    tokens.set(i, new OperandToken(tokens.get(i).value, tokens.get(i).type));
+                    var opToken = new OperandToken(tokens.get(i).value, tokens.get(i).type);
+                    opToken.setBytePosition(new BytePosition(node.getStartByte(), node.getEndByte() - node.getStartByte()));
+                    tokens.set(i, opToken);
                 }
                 ((OperandToken)tokens.get(i)).setMetadata(token, pos);
             }

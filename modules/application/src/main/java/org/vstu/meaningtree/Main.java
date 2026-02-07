@@ -9,6 +9,7 @@ import org.apache.jena.rdf.model.Model;
 import org.vstu.meaningtree.languages.LanguageTranslator;
 import org.vstu.meaningtree.languages.SourceMapGenerator;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.serializers.dot.GraphvizDotSerializer;
 import org.vstu.meaningtree.serializers.json.JsonSerializer;
 import org.vstu.meaningtree.serializers.json.JsonTypeHierarchyBuilder;
 import org.vstu.meaningtree.serializers.model.IOAlias;
@@ -132,6 +133,7 @@ public class Main {
                 return builder.create().toJson(json);
             }),
             new IOAlias<>("xml", (node, pretty) -> new XMLSerializer(pretty).serialize(node)),
+            new IOAlias<>("dot", (node, pretty) -> new GraphvizDotSerializer().serialize(node)),
             new IOAlias<>("rdf", (node, pretty) -> serializeRdf(node, "RDF/XML")),
             new IOAlias<>("rdf-turtle", (node, pretty) -> serializeRdf(node, "TTL"))
     ));

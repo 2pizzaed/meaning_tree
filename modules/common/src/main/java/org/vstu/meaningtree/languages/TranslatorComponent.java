@@ -1,9 +1,7 @@
 package org.vstu.meaningtree.languages;
 
 import org.vstu.meaningtree.languages.configs.Config;
-import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
-
-import java.util.Optional;
+import org.vstu.meaningtree.languages.configs.ConfigParameter;
 
 public abstract class TranslatorComponent {
     private Config config;
@@ -24,7 +22,15 @@ public abstract class TranslatorComponent {
         this.ctx = new TranslatorContext(this, translator);
     }
 
-    protected <P, T extends ConfigScopedParameter<P>> Optional<P> getConfigParameter(Class<T> configClass) {
-        return Optional.ofNullable(config).flatMap(config -> config.get(configClass));
+    protected ConfigParameter getConfigParameter(String id) {
+        return config.get(id);
+    }
+
+    protected ConfigParameter getConfigParameter(ConfigParameter anyInstance) {
+        return config.get(anyInstance.getId());
+    }
+
+    protected boolean isExpressionMode() {
+        return getConfigParameter("translationUnitMode").asString().equals("expression");
     }
 }

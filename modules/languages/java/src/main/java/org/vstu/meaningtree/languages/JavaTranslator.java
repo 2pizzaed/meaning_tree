@@ -1,23 +1,27 @@
 package org.vstu.meaningtree.languages;
 
-import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
+import org.vstu.meaningtree.languages.configs.Config;
 import org.vstu.meaningtree.utils.tokens.Token;
 import org.vstu.meaningtree.utils.tokens.TokenList;
 import org.vstu.meaningtree.utils.tokens.TokenType;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class JavaTranslator extends LanguageTranslator {
     public static final int ID = 2;
 
-    public JavaTranslator(Map<String, String> rawConfig) {
+    public JavaTranslator(Map<String, Object> rawConfig) {
         super(rawConfig);
         this.init(new JavaLanguage(this), new JavaViewer(this));
     }
 
     public JavaTranslator() {
-        super(new HashMap<>());
+        super();
+        this.init(new JavaLanguage(this), new JavaViewer(this));
+    }
+
+    public JavaTranslator(Config config) {
+        super(config);
         this.init(new JavaLanguage(this), new JavaViewer(this));
     }
 
@@ -32,15 +36,18 @@ public class JavaTranslator extends LanguageTranslator {
     }
 
     @Override
+    protected Config extendConfigParameters() {
+        return null;
+    }
+
+    @Override
     public LanguageTokenizer getTokenizer() {
         return new JavaTokenizer(this);
     }
 
     @Override
     public String prepareCode(String code) {
-        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
-
-        if (expressionMode) {
+        if (isExpressionMode()) {
             if (!code.endsWith(";")) {
                 code += ";";
             }
@@ -52,9 +59,7 @@ public class JavaTranslator extends LanguageTranslator {
 
     @Override
     public TokenList prepareCode(TokenList list) {
-        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
-
-        if (expressionMode) {
+        if (isExpressionMode()) {
             if (!list.getLast().type.equals(TokenType.SEPARATOR)) {
                 list.add(new Token(";", TokenType.SEPARATOR));
             }

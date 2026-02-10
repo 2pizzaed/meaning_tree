@@ -6,9 +6,6 @@ import org.jetbrains.annotations.Nullable;
 import org.treesitter.*;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
-import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
-import org.vstu.meaningtree.languages.configs.params.SkipErrors;
-import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -81,7 +78,7 @@ public class JavaLanguage extends LanguageParser {
         setCode(code);
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
-        if (!errors.isEmpty() && !getConfigParameter(SkipErrors.class).orElse(false)) {
+        if (!errors.isEmpty() && !getConfigParameter("skipErrors").asBoolean()) {
             throw new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors));
         }
 
@@ -97,9 +94,7 @@ public class JavaLanguage extends LanguageParser {
     public TSNode getRootNode() {
         TSNode result = super.getRootNode();
 
-        Optional<Boolean> maybeExpressionMode = getConfigParameter(ExpressionMode.class);
-
-        if (maybeExpressionMode.orElse(false)) {
+        if (isExpressionMode()) {
             // В режиме выражений в код перед парсингом подставляется заглушка в виде точки входа
             TSNode cls = result.getNamedChild(0);
 
@@ -1269,7 +1264,7 @@ public class JavaLanguage extends LanguageParser {
 
         List<Node> body;
 
-        if (mainMethod != null && !getConfigParameter(TranslationUnitMode.class).orElse(true)) {
+        if (mainMethod != null && !getConfigParameter("translationUnitMode").equalsValue("full")) {
             body = Arrays.asList(mainMethod.getBody().getNodes());
         } else {
             body = statements.getNodes();

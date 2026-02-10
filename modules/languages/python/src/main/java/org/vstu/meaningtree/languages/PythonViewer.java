@@ -2,9 +2,6 @@ package org.vstu.meaningtree.languages;
 
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
-import org.vstu.meaningtree.languages.configs.params.DisableCompoundComparisonConversion;
-import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
-import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.languages.utils.Tab;
 import org.vstu.meaningtree.nodes.*;
@@ -442,7 +439,7 @@ public class PythonViewer extends LanguageViewer {
             }
         }
         List<Node> nodes = new ArrayList<>(programEntryPoint.getBody());
-        if (!getConfigParameter(TranslationUnitMode.class).orElse(false) && entryPointIf != null) {
+        if (!getConfigParameter("translationUnitMode").equalsValue("full") && entryPointIf != null) {
             Statement body = entryPointIf.getBranches().getFirst().getBody();
             if (body instanceof CompoundStatement compoundStatement) {
                 nodes.addAll(compoundStatement.getNodeList());
@@ -533,7 +530,8 @@ public class PythonViewer extends LanguageViewer {
             // NEED DISCUSSION, see typeToString notes
             // UPDATE: хинты о типах не добавляются в случае, если много переменных,
             // т.к. это синтаксическая ошибка
-            if (decls.length == 1 && varDecl.getType() != null && !(varDecl.getType() instanceof UnknownType)) {
+            if (decls.length == 1 && varDecl.getType() != null && !(varDecl.getType() instanceof UnknownType)
+                    && !getConfigParameter("disableTypeAnnotations").asBoolean()) {
                  lValues.append(String.format(": %s", toString(varDecl.getType())));
             }
             if (decls[i].hasInitialization() && decls[i].getRValue() != null) {
@@ -620,7 +618,7 @@ public class PythonViewer extends LanguageViewer {
     private String assignmentExpressionToString(AssignmentExpression expr) {
         expr = (AssignmentExpression) parenFiller.process(expr);
         if (!(expr.getLValue() instanceof SimpleIdentifier) || (expr.getRValue() instanceof AssignmentExpression)) {
-            if (getConfigParameter(ExpressionMode.class).orElse(false)) {
+            if (isExpressionMode()) {
                 return String.format("%s = %s", toString(expr.getLValue()), toString(expr.getRValue()));
             } else {
                 throw new UnsupportedViewingException("Assignment expressions in Python supports only simple identifiers");
@@ -820,7 +818,7 @@ public class PythonViewer extends LanguageViewer {
             try {
                 Node result = PythonSpecialNodeTransformations.detectCompoundComparison(node);
                 if (result instanceof CompoundComparison
-                        && !getConfigParameter(DisableCompoundComparisonConversion.class).orElse(false)) {
+                        && !getConfigParameter("disableCompoundComparisons").asBoolean()) {
                     return compoundComparisonToString((CompoundComparison) result);
                 } else {
                     return preferExplicitAndOpToString(result);
@@ -840,7 +838,7 @@ public class PythonViewer extends LanguageViewer {
     private String preferExplicitAndOpToString(Node node) {
         if (node instanceof ShortCircuitAndOp op) {
             return String.format("%s and %s", preferExplicitAndOpToString(op.getLeft()), preferExplicitAndOpToString(op.getRight()));
-        } else if (node instanceof CompoundComparison op && getConfigParameter(DisableCompoundComparisonConversion.class).orElse(false)) {
+        } else if (node instanceof CompoundComparison op && getConfigParameter("disableCompoundComparisons").asBoolean()) {
            return preferExplicitAndOpToString(BinaryExpression.fromManyOperands
                    (op.getComparisons().toArray(new BinaryComparison[0]), 0, ShortCircuitAndOp.class));
         } else {
@@ -930,7 +928,7 @@ public class PythonViewer extends LanguageViewer {
         String pattern = "";
         Expression expr = node.getArgument();
 
-        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
+        boolean expressionMode = isExpressionMode();
 
         if (node instanceof UnaryPlusOp) {
             pattern = "+%s";

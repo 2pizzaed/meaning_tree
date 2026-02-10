@@ -4,7 +4,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
-import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
@@ -1059,7 +1058,7 @@ public class CppViewer extends LanguageViewer {
     private String toStringEntryPoint(ProgramEntryPoint entryPoint) {
         // TODO: required main function creation or expression mode
 
-        if (getConfigParameter(TranslationUnitMode.class).orElse(true) && !entryPoint.hasEntryPoint()) {
+        if (getConfigParameter("translationUnitMode").asBoolean() && !entryPoint.hasEntryPoint()) {
             return makeSimpleProgram(entryPoint.getBody());
         }
 

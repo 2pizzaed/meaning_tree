@@ -7,9 +7,6 @@ import org.treesitter.TSNode;
 import org.treesitter.TreeSitterCpp;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
-import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
-import org.vstu.meaningtree.languages.configs.params.SkipErrors;
-import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
@@ -87,10 +84,8 @@ public class CppLanguage extends LanguageParser {
 
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
-        if (!errors.isEmpty()) {
-            getConfigParameter(SkipErrors.class)
-                    .filter(Boolean::booleanValue)
-                    .orElseThrow(() -> new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors)));
+        if (!errors.isEmpty() && !getConfigParameter("skipErrors").asBoolean()) {
+            throw new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors));
         }
 
         Node node = parseTSNode(rootNode);
@@ -117,9 +112,7 @@ public class CppLanguage extends LanguageParser {
     public TSNode getRootNode() {
         TSNode result = super.getRootNode();
 
-        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
-
-        if (expressionMode) {
+        if (isExpressionMode()) {
             // В режиме выражений в код перед парсингом подставляется заглушка в виде точки входа
             TSNode func = result.getNamedChild(0);
             if (!func.getType().equals("function_definition") || !getCodePiece(func.getChildByFieldName("declarator")
@@ -1320,7 +1313,7 @@ public class CppLanguage extends LanguageParser {
                 }
                 left = new IndexExpression(leftmost, BinaryExpression.
                         fromManyOperands(args.reversed().toArray(new Expression[0]), 0, AddOp.class), true);
-            } else if (getConfigParameter(ExpressionMode.class).orElse(false)) {
+            } else if (isExpressionMode()) {
                 return right;
             }
         }
@@ -1349,7 +1342,7 @@ public class CppLanguage extends LanguageParser {
                     && functionDefinition.getName().toString().equals("main")
             ) {
                 entryPoint = n;
-                if (!getConfigParameter(TranslationUnitMode.class).orElse(true)) {
+                if (!getConfigParameter("translationUnitMode").equalsValue("full")) {
                     n = new ProgramEntryPoint(List.of(functionDefinition.getBody().getNodes()), n);
                     return n;
                 }

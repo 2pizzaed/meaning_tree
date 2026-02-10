@@ -1,37 +1,26 @@
 package org.vstu.meaningtree.languages;
 
-import org.vstu.meaningtree.languages.configs.params.CLanguageMode;
-import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
-import org.vstu.meaningtree.languages.configs.parser.ConfigMapping;
-import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
+import org.vstu.meaningtree.languages.configs.Config;
+import org.vstu.meaningtree.languages.configs.ConfigParameters;
+import org.vstu.meaningtree.languages.configs.ConfigScope;
+import org.vstu.meaningtree.languages.configs.ConfigValue;
 import org.vstu.meaningtree.utils.tokens.Token;
 import org.vstu.meaningtree.utils.tokens.TokenList;
 import org.vstu.meaningtree.utils.tokens.TokenType;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class CppTranslator extends LanguageTranslator {
     public static final int ID = 0;
 
-    public CppTranslator(Map<String, String> rawConfig) {
+    public CppTranslator(Map<String, Object> rawConfig) {
         super(rawConfig);
         this.init(new CppLanguage(this), new CppViewer(this));
     }
 
     public CppTranslator() {
-        super(new HashMap<>());
+        super();
         this.init(new CppLanguage(this), new CppViewer(this));
-    }
-
-    @Override
-    protected ConfigParser defaultConfigParser() {
-        return ConfigParser.fromParser(super.defaultConfigParser(),
-                new ConfigMapping<>(
-                        "preferC",
-                        CLanguageMode::parse,
-                        CLanguageMode::new
-                ));
     }
 
     @Override
@@ -45,15 +34,19 @@ public class CppTranslator extends LanguageTranslator {
     }
 
     @Override
+    protected Config extendConfigParameters() {
+        var cMode = ConfigParameters.register(this, "preferC", new ConfigValue(false), ConfigScope.ANY);
+        return new Config(cMode);
+    }
+
+    @Override
     public LanguageTokenizer getTokenizer() {
         return new CppTokenizer(this);
     }
 
     @Override
     public String prepareCode(String code) {
-        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
-
-        if (expressionMode) {
+        if (isExpressionMode()) {
             if (!code.endsWith(";")) {
                 code += ";";
             }
@@ -65,9 +58,7 @@ public class CppTranslator extends LanguageTranslator {
 
     @Override
     public TokenList prepareCode(TokenList list) {
-        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
-
-        if (expressionMode) {
+        if (isExpressionMode()) {
             if (!list.getLast().type.equals(TokenType.SEPARATOR)) {
                 list.add(new Token(";", TokenType.SEPARATOR));
             }

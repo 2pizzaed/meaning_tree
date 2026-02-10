@@ -1,23 +1,28 @@
 package org.vstu.meaningtree.languages;
 
 import org.vstu.meaningtree.languages.configs.Config;
+import org.vstu.meaningtree.languages.configs.ConfigParameters;
 import org.vstu.meaningtree.languages.configs.ConfigScope;
-import org.vstu.meaningtree.languages.configs.params.DisableCompoundComparisonConversion;
+import org.vstu.meaningtree.languages.configs.ConfigValue;
 import org.vstu.meaningtree.utils.tokens.TokenList;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class PythonTranslator extends LanguageTranslator {
     public static final int ID = 1;
 
-    public PythonTranslator(Map<String, String> rawStringConfig) {
+    public PythonTranslator(Map<String, Object> rawStringConfig) {
         super(rawStringConfig);
         this.init(new PythonLanguage(this), new PythonViewer(this));
     }
 
+    public PythonTranslator(Config config) {
+        super(config);
+        this.init(new PythonLanguage(this), new PythonViewer(this));
+    }
+
     public PythonTranslator() {
-        super(new HashMap<>());
+        super();
         this.init(new PythonLanguage(this), new PythonViewer(this));
     }
 
@@ -29,6 +34,15 @@ public class PythonTranslator extends LanguageTranslator {
     @Override
     public String getLanguageName() {
         return "python";
+    }
+
+    @Override
+    protected Config extendConfigParameters() {
+        var compoundComparisons = ConfigParameters.register(this, "disableCompoundComparisons", new ConfigValue(false), ConfigScope.VIEWER);
+        var typeAnno = ConfigParameters.register(this, "disableTypeAnnotations", new ConfigValue(false), ConfigScope.VIEWER);
+        var transUnitMode = ConfigParameters.translationUnitMode.withValue("short");
+
+        return new Config(compoundComparisons, typeAnno, transUnitMode);
     }
 
     @Override
@@ -46,10 +60,6 @@ public class PythonTranslator extends LanguageTranslator {
         return list;
     }
 
-    @Override
-    protected Config getDeclaredConfig() {
-        return new Config(new DisableCompoundComparisonConversion(false, ConfigScope.TRANSLATOR));
-    }
 
     @Override
     public LanguageTranslator clone() {

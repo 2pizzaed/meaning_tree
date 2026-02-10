@@ -4,8 +4,6 @@ import org.treesitter.TSNode;
 import org.treesitter.TreeSitterPython;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
-import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
-import org.vstu.meaningtree.languages.configs.params.SkipErrors;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
@@ -76,7 +74,7 @@ public class PythonLanguage extends LanguageParser {
         setCode(code);
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
-        if (!errors.isEmpty() && !getConfigParameter(SkipErrors.class).orElse(false)) {
+        if (!errors.isEmpty() && !getConfigParameter("skipErrors").asBoolean()) {
             throw new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors));
         }
         return new MeaningTree(parseTSNode(rootNode));
@@ -660,7 +658,7 @@ public class PythonLanguage extends LanguageParser {
         List<Node> nodes = new ArrayList<>(List.of(compound.getNodes()));
         nodes.remove(entryPointIf); // entry point only as separate node!
 
-        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
+        boolean expressionMode = isExpressionMode();
 
         if (
                 (nodes.size() > 1 && expressionMode)

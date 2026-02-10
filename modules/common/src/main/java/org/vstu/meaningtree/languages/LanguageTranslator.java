@@ -7,13 +7,7 @@ import org.treesitter.TSException;
 import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
-import org.vstu.meaningtree.languages.configs.Config;
-import org.vstu.meaningtree.languages.configs.ConfigBuilder;
-import org.vstu.meaningtree.languages.configs.ConfigScope;
-import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
-import org.vstu.meaningtree.languages.configs.params.*;
-import org.vstu.meaningtree.languages.configs.parser.ConfigMapping;
-import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
+import org.vstu.meaningtree.languages.configs.*;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Experimental;
 import org.vstu.meaningtree.utils.Label;
@@ -25,60 +19,27 @@ import org.vstu.meaningtree.utils.tokens.TokenList;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 public abstract class LanguageTranslator implements Cloneable {
     protected LanguageParser _language;
     protected LanguageViewer _viewer;
 
-    protected Config _config = new Config();
+    protected Config _config = ConfigParameters.defaultConfig();
     protected ScopeTable _latestScopeTable = null;
-
-    public static Config getPredefinedCommonConfig() {
-        return new Config(
-                new ExpressionMode(false),
-                new TranslationUnitMode(true),
-                new SkipErrors(false),
-                new BytePositionAnnotationMode(false)
-        );
-    }
 
     public abstract int getLanguageId();
 
     public abstract String getLanguageName();
 
-    protected Config getDeclaredConfig() { return new Config(); }
+    protected abstract Config extendConfigParameters();
 
-    protected ConfigParser configParser = defaultConfigParser();
-
-    protected ConfigParser defaultConfigParser() {
-        return new ConfigParser(
-                new ConfigMapping<>(
-                        "disableCompoundComparisonConversion",
-                        DisableCompoundComparisonConversion::parse,
-                        DisableCompoundComparisonConversion::new
-                ),
-                new ConfigMapping<>(
-                        "expressionMode",
-                        ExpressionMode::parse,
-                        ExpressionMode::new
-                ),
-                new ConfigMapping<>(
-                        "skipErrors",
-                        SkipErrors::parse,
-                        SkipErrors::new
-                ),
-                new ConfigMapping<>(
-                        "translationUnitMode",
-                        TranslationUnitMode::parse,
-                        TranslationUnitMode::new
-                ),
-                new ConfigMapping<>(
-                        "bytePositionsAnnotate",
-                        BytePositionAnnotationMode::parse,
-                        BytePositionAnnotationMode::new
-                )
-        );
+    public Config getDefaultConfig() {
+        Config extended = extendConfigParameters();
+        Config target = ConfigParameters.defaultConfig();
+        if (extended != null) {
+            target.merge(extended);
+        }
+        return target;
     }
 
     /**
@@ -86,18 +47,20 @@ public abstract class LanguageTranslator implements Cloneable {
      * Требует дальнейшей инициализации методом init(parser, viewer)
      * @param rawConfig - конфигурация в формате "название - значение" в виде строки (тип будет выведен автоматически из строки)
      */
-    protected LanguageTranslator(Map<String, String> rawConfig) {
+    public LanguageTranslator(Map<String, Object> rawConfig) {
         var configBuilder = new ConfigBuilder();
-
-        // Загрузка конфигов, специфических для конкретного языка
         for (var entry : rawConfig.entrySet()) {
-            var parsed = configParser.parse(entry.getKey(), entry.getValue());
-            if (parsed != null) {
-                configBuilder.add(parsed);
-            }
+            configBuilder.add(this.getClass(), entry.getKey(), entry.getValue());
         }
+        _config = _config.merge(_config, extendConfigParameters(), configBuilder.toConfig());
+    }
 
-        _config = _config.merge(getPredefinedCommonConfig(), getDeclaredConfig(), configBuilder.toConfig());
+    public LanguageTranslator(Config config) {
+        _config = _config.merge(_config, extendConfigParameters(), config);
+    }
+
+    public LanguageTranslator() {
+        this(new Config());
     }
 
     @Nullable
@@ -118,13 +81,13 @@ public abstract class LanguageTranslator implements Cloneable {
 
         if (parser != null) {
             _language.setConfig(
-                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
+                    _config.subset(ConfigParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
             );
         }
 
         if (viewer != null) {
             _viewer.setConfig(
-                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
+                    _config.subset(ConfigParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
             );
         }
     }
@@ -276,8 +239,16 @@ public abstract class LanguageTranslator implements Cloneable {
         return getCodeAsTokens(mt, enableWhitespaces, true, false);
     }
 
-    protected <P, T extends ConfigScopedParameter<P>> Optional<P> getConfigParameter(Class<T> configClass) {
-        return Optional.ofNullable(_config).flatMap(config -> config.get(configClass));
+    protected ConfigParameter getConfigParameter(String id) {
+        return _config.get(id);
+    }
+
+    protected ConfigParameter getConfigParameter(ConfigParameter anyInstance) {
+        return _config.get(anyInstance.getId());
+    }
+
+    protected boolean isExpressionMode() {
+        return getConfigParameter("translationUnitMode").asString().equals("expression");
     }
 
     public abstract String prepareCode(String code);

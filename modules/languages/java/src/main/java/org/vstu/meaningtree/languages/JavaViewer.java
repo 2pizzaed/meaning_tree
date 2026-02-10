@@ -3,7 +3,6 @@ package org.vstu.meaningtree.languages;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
-import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -2098,7 +2097,7 @@ public class JavaViewer extends LanguageViewer {
     public String toStringProgramEntryPoint(ProgramEntryPoint entryPoint) {
         List<Node> nodes = entryPoint.getBody();
 
-        if (getConfigParameter(TranslationUnitMode.class).orElse(true) && !entryPoint.hasMainClass()) {
+        if (getConfigParameter("translationUnitMode").equalsValue("full") && !entryPoint.hasMainClass()) {
             return makeSimpleProgram(nodes);
         }
 

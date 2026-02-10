@@ -6,7 +6,6 @@ import org.treesitter.TSNode;
 import org.treesitter.TSParser;
 import org.treesitter.TSTree;
 import org.vstu.meaningtree.MeaningTree;
-import org.vstu.meaningtree.languages.configs.params.BytePositionAnnotationMode;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Hook;
 import org.vstu.meaningtree.utils.Label;
@@ -77,7 +76,7 @@ abstract public class LanguageParser extends TranslatorComponent {
         for (int[] indexes : toDelete) {
             _byteValueTags.remove(indexes);
         }
-        if (getConfigParameter(BytePositionAnnotationMode.class).get()) {
+        if (getConfigParameter("bytePositionAnnotations").asBoolean()) {
             createdNode.setLabel(new Label(Label.BYTEPOS_ANNOTATED, new int[] {
                     start,
                     end - start}));

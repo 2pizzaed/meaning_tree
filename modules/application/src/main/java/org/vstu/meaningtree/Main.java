@@ -245,6 +245,8 @@ public class Main {
             listSupportedLanguages();
         } else if ("translate".equals(parsed)) {
             runTranslation(translateCommand);
+        } else if ("generate".equals(parsed)) {
+            runGeneration(generateCommand);
         } else if ("node-hierarchy".equals(parsed)) {
             viewHierarchy(nodeHierarchyCommand);
         } else {

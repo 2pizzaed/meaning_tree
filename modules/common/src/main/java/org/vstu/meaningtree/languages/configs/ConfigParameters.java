@@ -6,6 +6,7 @@ import org.vstu.meaningtree.languages.LanguageTranslator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class ConfigParameters {
     protected final static Map<String, ConfigParameter> builtinRegistry = new HashMap<>();
@@ -37,12 +38,22 @@ public class ConfigParameters {
             if (configVal == null) {
                 return get(id);
             }
-            return configVal;
+            return Objects.requireNonNull(configVal, "`%s` config key wasn't found".formatted(id));
+        }
+    }
+
+    public static boolean exists(Class<? extends LanguageTranslator> translator, String id) {
+        var registry = langRegistry.getOrDefault(translator, null);
+        if (registry == null) {
+            return builtinRegistry.containsKey(id);
+        } else {
+            return registry.containsKey(id) || builtinRegistry.containsKey(id);
         }
     }
 
     protected static ConfigParameter get(String id) {
-        return builtinRegistry.getOrDefault(id, null);
+        var configVal = builtinRegistry.getOrDefault(id, null);
+        return Objects.requireNonNull(configVal, "`%s` config key wasn't found".formatted(id));
     }
 
     public static ConfigParameter register(LanguageTranslator translator, String id, @NotNull ConfigValue defaultValue, ConfigScope scope) {

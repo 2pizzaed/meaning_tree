@@ -120,6 +120,11 @@ public class Config {
         return Optional.ofNullable(parameters.getOrDefault(id, null));
     }
 
+    @Override
+    public Config clone() {
+        return new Config(parameters.values());
+    }
+
     public String toString() {
         StringBuilder builder = new StringBuilder();
 

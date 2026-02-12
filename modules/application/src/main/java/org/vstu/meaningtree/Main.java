@@ -368,16 +368,28 @@ public class Main {
         String code = readCode(inputFilePath);
 
         // Instantiate source-language translator
-        Config config = new Config(cmd.translatorMode.getConfigEntry(),
+        Config fromConfig = new Config(cmd.translatorMode.getConfigEntry(),
                 ConfigParameters.bytePositionAnnotations.withValue(cmd.saveBytes));
+        Config toConfig = fromConfig.clone();
         if (cmd.configPath != null) {
-            JsonElement element = JsonParser.parseString(Files.readString(Path.of(cmd.configPath)));
-            Config jsonConfig = new ConfigBuilder().fromJson(translators.get(fromLanguage), element.getAsJsonObject()).toConfig();
-            config = config.merge(jsonConfig);
+            var element = JsonParser.parseString(Files.readString(Path.of(cmd.configPath))).getAsJsonObject();
+            var fromTranslatorClass = translators.get(fromLanguage);
+            var toTranslatorClass = translators.get(toLanguage);
+            JsonObject toJson = new JsonObject();
+            JsonObject fromJson = new JsonObject();
+            for (String key : element.keySet()) {
+                if (ConfigParameters.exists(fromTranslatorClass, key)) {
+                    fromJson.add(key, element.get(key));
+                } else if  (ConfigParameters.exists(toTranslatorClass, key)) {
+                    toJson.add(key, element.get(key));
+                }
+            }
+            fromConfig = fromConfig.merge(new ConfigBuilder().fromJson(fromTranslatorClass, fromJson).toConfig());
+            toConfig = toConfig.merge(new ConfigBuilder().fromJson(toTranslatorClass, toJson).toConfig());
         }
 
         LanguageTranslator fromTranslator =
-                translators.get(fromLanguage).getDeclaredConstructor(Config.class).newInstance(config);
+                translators.get(fromLanguage).getDeclaredConstructor(Config.class).newInstance(fromConfig);
         var meaningTree = fromTranslator.getMeaningTree(code);
         final var rootNode = meaningTree.getRootNode();
 
@@ -402,7 +414,7 @@ public class Main {
                     );
         } else if (toLanguage != null) {
             LanguageTranslator toTranslator =
-                    translators.get(toLanguage.toLowerCase()).getDeclaredConstructor(Map.class).newInstance(config);
+                    translators.get(toLanguage.toLowerCase()).getDeclaredConstructor(Map.class).newInstance(toConfig);
 
             if (cmd.outputSourceMap && cmd.performTokenize) {
                 System.err.println("Source map building and tokenizing are both required. Defaulting to using only `outputSourceMap`");

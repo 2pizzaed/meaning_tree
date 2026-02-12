@@ -61,7 +61,7 @@ public class ConfigValue {
     }
 
     public static ConfigValue nullable(Class<?> type) {
-        return new ConfigValue(type, true);
+        return new ConfigValue(type, List.of(), null, true);
     }
 
     public static ConfigValue ofPossible(Class<?> type, Object defaultValue, List<Object> values) {

@@ -19,6 +19,7 @@ import org.vstu.meaningtree.utils.tokens.TokenList;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public abstract class LanguageTranslator implements Cloneable {
     protected LanguageParser _language;
@@ -52,11 +53,15 @@ public abstract class LanguageTranslator implements Cloneable {
         for (var entry : rawConfig.entrySet()) {
             configBuilder.add(this.getClass(), entry.getKey(), entry.getValue());
         }
-        _config = _config.merge(_config, extendConfigParameters(), configBuilder.toConfig());
+        _config = _config.merge(_config,
+                Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
+                configBuilder.toConfig());
     }
 
     public LanguageTranslator(Config config) {
-        _config = _config.merge(_config, extendConfigParameters(), config);
+        _config = _config.merge(_config,
+                Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
+                config);
     }
 
     public LanguageTranslator() {

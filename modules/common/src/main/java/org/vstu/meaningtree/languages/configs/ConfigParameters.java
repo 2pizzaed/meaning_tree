@@ -12,7 +12,7 @@ public class ConfigParameters {
     protected final static Map<Class<? extends LanguageTranslator>, Map<String, ConfigParameter>> langRegistry = new HashMap<>();
 
     public static final ConfigParameter translationUnitMode = register("translationUnitMode",
-            ConfigValue.ofPossible(String.class, "full", List.of("expression", "short", "full")),
+            ConfigValue.ofPossible(String.class, "full", List.of("expression", "simple", "full")),
             ConfigScope.ANY
     );
     public static final ConfigParameter skipErrors = register("skipErrors",
@@ -46,7 +46,7 @@ public class ConfigParameters {
     }
 
     public static ConfigParameter register(LanguageTranslator translator, String id, @NotNull ConfigValue defaultValue, ConfigScope scope) {
-        if (builtinRegistry.containsKey(id) || langRegistry.get(translator.getClass()).containsKey(id)) {
+        if (builtinRegistry.containsKey(id) || langRegistry.getOrDefault(translator.getClass(), Map.of()).containsKey(id)) {
             throw new IllegalArgumentException("Config with id " + id + " already exists");
         }
         if (!langRegistry.containsKey(translator.getClass())) {

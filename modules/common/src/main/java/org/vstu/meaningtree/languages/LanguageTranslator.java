@@ -7,6 +7,7 @@ import org.treesitter.TSException;
 import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
+import org.vstu.meaningtree.exceptions.UnsupportedConfigParameterException;
 import org.vstu.meaningtree.languages.configs.*;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Experimental;
@@ -62,6 +63,17 @@ public abstract class LanguageTranslator implements Cloneable {
         _config = _config.merge(_config,
                 Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
                 config);
+    }
+
+    private void setupConfig(Config additional) {
+        _config = _config.merge(_config,
+                Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
+                additional);
+        for (ConfigParameter param : _config) {
+            if (param.isNull() && param.isReadOnly()) {
+                throw new UnsupportedConfigParameterException("You must extend read-only parameter with non-null value `%s`".formatted(param.getId()));
+            }
+        }
     }
 
     public LanguageTranslator() {

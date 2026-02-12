@@ -3,6 +3,7 @@ package org.vstu.meaningtree.languages.configs;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
 
 public class ConfigParameter {
@@ -11,11 +12,12 @@ public class ConfigParameter {
 
     protected ConfigValue _defaultValue;
     protected ConfigValue _value;
+    protected boolean readOnly = false;
 
     protected ConfigParameter(String id, ConfigValue value, ConfigScope scope) {
         _id = id;
         _scope = scope;
-        _value = value;
+        _value = Objects.requireNonNull(value, "Null values for config parameters are not permitted");
         _defaultValue = value;
     }
 
@@ -64,6 +66,14 @@ public class ConfigParameter {
         return _value.asMap();
     }
 
+    public boolean isNull() {
+        return _value.isNull();
+    }
+
+    public boolean isNullable() {
+        return _value.isNullable();
+    }
+
     public void reset() {
         _value = _defaultValue;
     }
@@ -77,9 +87,17 @@ public class ConfigParameter {
     }
 
     public ConfigParameter withValue(Object value) {
+        if (readOnly && !_value.isNull()) {
+            throw new IllegalStateException("Cannot change read-only parameters with value");
+        }
         var clone = new ConfigParameter(_id, _value.change(value), _scope);
         clone._defaultValue =  _defaultValue;
         return clone;
+    }
+
+    public boolean isReadOnly() {
+        // cannot change after non-null value assignment for param
+        return readOnly;
     }
 
     public boolean isSetToDefault() {

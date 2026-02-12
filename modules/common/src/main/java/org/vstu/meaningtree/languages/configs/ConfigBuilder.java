@@ -6,6 +6,7 @@ import org.vstu.meaningtree.exceptions.UnsupportedConfigParameterException;
 import org.vstu.meaningtree.languages.LanguageTranslator;
 
 import java.util.LinkedList;
+import java.util.Objects;
 
 public class ConfigBuilder {
     private final LinkedList<ConfigParameter> params;
@@ -32,13 +33,18 @@ public class ConfigBuilder {
     }
 
     public ConfigBuilder add(ConfigParameter parameter) {
+        parameter = Objects.requireNonNull(parameter);
+        if (parameter.readOnly && parameter.isNull()) {
+            throw new UnsupportedConfigParameterException(("Config parameter %s is read-only but has not default value. " +
+                    "Define correct readonly parameter using `withValue`").formatted(parameter));
+        }
         this.params.addFirst(parameter);
         return this;
     }
 
     public ConfigBuilder add(Class<? extends LanguageTranslator> context, String id, Object value) {
         var param = ConfigParameters.get(context, id);
-        this.params.addFirst(param.withValue(value));
+        add(param.withValue(value));
         return this;
     }
 

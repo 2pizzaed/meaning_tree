@@ -1,5 +1,6 @@
 package org.vstu.meaningtree.languages.configs;
 
+import org.jspecify.annotations.NonNull;
 import org.vstu.meaningtree.exceptions.UnsupportedConfigParameterException;
 
 import java.util.*;
@@ -11,7 +12,7 @@ import java.util.function.Predicate;
  * Использует класс параметра как ключ для типобезопасного доступа.
  * Все операции изменения возвращают новые экземпляры.
  */
-public class Config {
+public class Config implements Iterable<ConfigParameter> {
     // param id -> param object
     private final Map<String, ConfigParameter> parameters = new HashMap<>();
 
@@ -136,5 +137,10 @@ public class Config {
         }
 
         return builder.toString();
+    }
+
+    @Override
+    public @NonNull Iterator<ConfigParameter> iterator() {
+        return parameters.values().iterator();
     }
 }

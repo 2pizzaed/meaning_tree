@@ -68,6 +68,12 @@ public class ConfigParameters {
         return param;
     }
 
+    public static ConfigParameter registerReadonly(LanguageTranslator translator, String id, @NotNull ConfigValue defaultValue, ConfigScope scope) {
+        var param = register(translator, id, defaultValue, ConfigScope.ANY);
+        param.readOnly = true;
+        return param;
+    }
+
     protected static ConfigParameter makeParam(String id, ConfigValue defaultValue, ConfigScope scope) {
         return new ConfigParameter(
                 id, defaultValue,
@@ -76,8 +82,17 @@ public class ConfigParameters {
     }
 
     protected static ConfigParameter register(String id, @NotNull ConfigValue defaultValue, @NotNull ConfigScope scope) {
+        if (builtinRegistry.containsKey(id)) {
+            throw new IllegalArgumentException("Config with id " + id + " already exists");
+        }
         var param = makeParam(id, defaultValue, scope);
         builtinRegistry.put(id, param);
+        return param;
+    }
+
+    protected static ConfigParameter registerReadonly(String id, @NotNull ConfigValue defaultValue, @NotNull ConfigScope scope) {
+        var param = register(id, defaultValue, scope);
+        param.readOnly = true;
         return param;
     }
 

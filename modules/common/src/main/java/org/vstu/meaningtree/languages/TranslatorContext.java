@@ -80,7 +80,7 @@ public class TranslatorContext {
         if (value != null && !value.getClass().isAssignableFrom(type)) {
             return Optional.empty();
         }
-        return Optional.of((T) value);
+        return Optional.ofNullable((T) value);
     }
 
     public boolean check(String name, Object value) {

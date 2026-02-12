@@ -55,7 +55,7 @@ class LanguageTests {
     static void setUp() throws IOException {
         //TODO: hardcoded конфигурация для всех языков. В будущем лучше придумать, как задавать её прямо в тестах
         HashMap<String, Object> defaultConfig = new HashMap<>() {{
-            put("translationUnitMode", false);
+            put("translationUnitMode", "simple");
             put("skipErrors", false);
         }};
 

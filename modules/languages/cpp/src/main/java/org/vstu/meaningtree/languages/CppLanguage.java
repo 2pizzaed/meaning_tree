@@ -76,10 +76,14 @@ public class CppLanguage extends LanguageParser {
         super(translator, new TreeSitterCpp());
     }
 
+    @Override
+    public void resetParserState() {
+        super.resetParserState();
+        ctx.set("binaryRecursive", -1);
+    }
 
     @NotNull
     public synchronized MeaningTree getMeaningTree(String code) {
-        ctx.set("binaryRecursive", -1);
         setCode(code);
 
         TSNode rootNode = getRootNode();

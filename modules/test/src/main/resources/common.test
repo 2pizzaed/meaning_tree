@@ -1538,12 +1538,13 @@ group: SwitchStatement
                 case t:
                     test++;
                     break;
-                case 345:
+                case 345: {
                     int a = 345;
                     test += a;
                     break;
+                }
                 default:
-                    int test = 0;
+                    test = 0;
                     break;
             }
 
@@ -1553,15 +1554,15 @@ group: SwitchStatement
                 case t:
                     test++;
                     break;
-                case 345: {
+                case 345:
+                {
                     int a = 345;
                     test += a;
                     break;
                 }
-                default: {
-                    int test = 0;
+                default:
+                    test = 0;
                     break;
-                }
             }
 
 

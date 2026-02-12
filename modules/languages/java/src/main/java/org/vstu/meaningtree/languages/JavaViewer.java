@@ -92,7 +92,7 @@ public class JavaViewer extends LanguageViewer {
     }
 
     public JavaViewer(LanguageTranslator translator) {
-        this(translator, 4, true, true, false);
+        this(translator, 4, true, false, false);
     }
 
     @Override

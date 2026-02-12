@@ -4,22 +4,34 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.ModelFactory;
 import org.vstu.meaningtree.languages.LanguageTranslator;
 import org.vstu.meaningtree.languages.SourceMapGenerator;
+import org.vstu.meaningtree.languages.configs.Config;
+import org.vstu.meaningtree.languages.configs.ConfigBuilder;
+import org.vstu.meaningtree.languages.configs.ConfigParameter;
+import org.vstu.meaningtree.languages.configs.ConfigParameters;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.serializers.dot.GraphvizDotSerializer;
+import org.vstu.meaningtree.serializers.json.JsonDeserializer;
 import org.vstu.meaningtree.serializers.json.JsonSerializer;
 import org.vstu.meaningtree.serializers.json.JsonTypeHierarchyBuilder;
 import org.vstu.meaningtree.serializers.model.IOAlias;
 import org.vstu.meaningtree.serializers.model.IOAliases;
+import org.vstu.meaningtree.serializers.rdf.RDFDeserializer;
 import org.vstu.meaningtree.serializers.rdf.RDFSerializer;
+import org.vstu.meaningtree.serializers.xml.XMLDeserializer;
 import org.vstu.meaningtree.serializers.xml.XMLSerializer;
 import org.vstu.meaningtree.utils.tokens.Token;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -31,13 +43,69 @@ public class Main {
         full,
         expression;
 
-        public Map.Entry<String, String> getConfigEntry() {
+        public ConfigParameter getConfigEntry() {
             if (this.equals(simple)) {
-                return Map.entry("translationUnitMode", "false");
+                return ConfigParameters.translationUnitMode.withValue("simple");
             } else if (this.equals(expression)) {
-                return Map.entry("expressionMode", "true");
+                return ConfigParameters.translationUnitMode.withValue("expression");
             }
-            return Map.entry("translationUnitMode", "true");
+            return ConfigParameters.translationUnitMode.withValue("full");
+        }
+    }
+
+    @Parameters(commandDescription = "Generate code from given meaning tree representation")
+    public static class GenerateCommand {
+        @Parameter(names = "--source-map", description = "Output source map instead code")
+        private boolean outputSourceMap = false;
+
+        @Parameter(names = "--to", description = "Target language")
+        private String toLanguage;
+
+        @Parameter(names = "--start-token-id", description = "Start id for token id counter")
+        private long startTokenId = 0;
+
+        @Parameter(names = "--config", description = "Apply config from JSON file")
+        private String configPath = null;
+
+        @Parameter(names = "--input-type", description = "Type of serialized object: meaning-tree, node")
+        private String type = "meaning-tree";
+
+        @Parameter(names = "--format", description = "Serialization format of input file: json, xml, rdf, rdf-turtle")
+        private String serializeFormat = "json";
+
+        @Parameter(description = "<input_file> [output_file]", required = true)
+        private java.util.List<String> positionalParams;
+
+        @Parameter(names = "--mode", description = "Translator mode (expression, short, full)")
+        private TranslatorMode translatorMode = TranslatorMode.full;
+
+        @Parameter(names = "--tokenize", description = "Tokenize target source code / meaning tree (convert output will be ignored)")
+        private boolean performTokenize = false;
+
+        @Parameter(names = "--detailed-tokens", description = "Make tokens (if tokenize option is selected) with additional information (for expressions)")
+        private boolean detailedTokens = false;
+
+        @Parameter(names = "--prettify", description = "Prettify serializer output")
+        private boolean prettify = false;
+
+        public String getToLanguage() {
+            return toLanguage;
+        }
+
+        public String getSerializeFormat() {
+            return serializeFormat;
+        }
+
+        public String getInputFile() {
+            return positionalParams.getFirst();
+        }
+
+        public String getOutputFile() {
+            return positionalParams.size() > 1 ? positionalParams.get(1) : "-";
+        }
+
+        public boolean isNode() {
+            return type.equals("node");
         }
     }
 
@@ -49,13 +117,13 @@ public class Main {
         @Parameter(names = "--source-map", description = "Output source map instead code")
         private boolean outputSourceMap = false;
 
-        @Parameter(names = "--mode", description = "Translator mode (expression, simple, full)")
+        @Parameter(names = "--mode", description = "Translator mode (expression, short, full)")
         private TranslatorMode translatorMode = TranslatorMode.full;
 
-        @Parameter(names = "--start-node-id", description = "Start id for nodes")
+        @Parameter(names = "--start-node-id", description = "Start id for node id counter")
         private long startNodeId = 0;
 
-        @Parameter(names = "--start-token-id", description = "Start id for tokens")
+        @Parameter(names = "--start-token-id", description = "Start id for token id counter")
         private long startTokenId = 0;
 
         @Parameter(names = "--from", description = "Source language", required = true)
@@ -64,19 +132,22 @@ public class Main {
         @Parameter(names = "--to", description = "Target language")
         private String toLanguage;
 
-        @Parameter(names = "--tokenize", description = "Tokenize target source code / meaning tree")
+        @Parameter(names = "--tokenize", description = "Tokenize target source code / meaning tree (convert output will be ignored)")
         private boolean performTokenize = false;
 
         @Parameter(names = "--save-bytes", description = "Save byte positions in meaning tree")
         private boolean saveBytes = false;
 
-        @Parameter(names = "--tokenize-noconvert", description = "Tokenize target source code / meaning tree without convertation to other language")
+        @Parameter(names = "--tokenize-noconvert", description = "Tokenize target source code without conversion to other language")
         private boolean performOriginTokenize = false;
 
-        @Parameter(names = "--detailed-tokens", description = "Make tokens with additional information (for expressions)")
+        @Parameter(names = "--detailed-tokens", description = "Make tokens (if tokenize option is selected) with additional information (for expressions)")
         private boolean detailedTokens = false;
 
-        @Parameter(names = "--serialize", description = "Serialization format: json, rdf, rdf-turtle")
+        @Parameter(names = "--config", description = "Apply config from JSON file")
+        private String configPath = null;
+
+        @Parameter(names = "--serialize", description = "Serialization format: json, xml, rdf, rdf-turtle, dot")
         private String serializeFormat;
 
         @Parameter(description = "<input_file> [output_file]", required = true)
@@ -92,10 +163,6 @@ public class Main {
 
         public String getSerializeFormat() {
             return serializeFormat;
-        }
-
-        public boolean performTokenize() {
-            return performTokenize;
         }
 
         public String getInputFile() {
@@ -126,6 +193,12 @@ public class Main {
         return writer.toString();
     }
 
+    private static Serializable deserializeRdf(String text, boolean isNode, String format) {
+        Model model = ModelFactory.createDefaultModel();
+        model.read(new StringReader(text), null, format);
+        return isNode ? new RDFDeserializer().deserialize(model) : new RDFDeserializer().deserializeTree(model);
+    }
+
     private static final IOAliases<BiFunction<Serializable, Boolean, String>> serializers = new IOAliases<>(List.of(
             new IOAlias<>("json", (node, pretty) -> {
                 JsonObject json = new JsonSerializer().serialize(node);
@@ -141,13 +214,26 @@ public class Main {
             new IOAlias<>("rdf-turtle", (node, pretty) -> serializeRdf(node, "TTL"))
     ));
 
+    private static final IOAliases<BiFunction<String, Boolean, Serializable>> deserializers = new IOAliases<>(List.of(
+            new IOAlias<>("json", (text, node) -> node ?
+                    new JsonDeserializer().deserialize(JsonParser.parseString(text).getAsJsonObject()) :
+                    new JsonDeserializer().deserializeTree(JsonParser.parseString(text).getAsJsonObject())
+            ),
+            new IOAlias<>("xml", (text, node) -> node ?
+                    new XMLDeserializer().deserialize(text) : new XMLDeserializer().deserializeTree(text)),
+            new IOAlias<>("rdf", (text, node) -> deserializeRdf(text, node, "RDF/XML")),
+            new IOAlias<>("rdf-turtle", (text, node) -> deserializeRdf(text, node, "TTL"))
+    ));
+
     public static void main(String[] args) throws Exception {
         TranslateCommand translateCommand = new TranslateCommand();
         ListLangsCommand listLangsCommand = new ListLangsCommand();
+        GenerateCommand generateCommand = new GenerateCommand();
         NodeHierarchyCommand nodeHierarchyCommand = new NodeHierarchyCommand();
 
         JCommander jc = JCommander.newBuilder()
                 .addCommand("translate", translateCommand)
+                .addCommand("generate", generateCommand)
                 .addCommand("list-langs", listLangsCommand)
                 .addCommand("node-hierarchy", nodeHierarchyCommand)
                 .build();
@@ -176,6 +262,79 @@ public class Main {
 
     private static void listSupportedLanguages() {
         System.out.println("Supported languages: " + String.join(", ", translators.keySet()));
+    }
+
+    private static void runGeneration(GenerateCommand cmd) throws Exception {
+        String toLanguage = cmd.getToLanguage();
+        String inputFilePath = cmd.getInputFile();
+        String outputFilePath = cmd.getOutputFile();
+        String serializeFormat = cmd.getSerializeFormat();
+
+        // Validate that either --to or --serialize is specified
+        if (toLanguage == null) {
+            System.err.println("Target language must be specified");
+            return;
+        }
+
+        if (cmd.performTokenize && cmd.isNode()) {
+            System.err.println("Meaning Tree must be specified for tokenizer");
+        }
+
+        if (!translators.containsKey(toLanguage)) {
+            System.err.println("Unsupported target language: " + toLanguage + ". Supported languages: " + translators.keySet());
+            return;
+        }
+
+        Config config = new Config(cmd.translatorMode.getConfigEntry());
+        if (cmd.configPath != null) {
+            JsonElement element = JsonParser.parseString(Files.readString(Path.of(cmd.configPath)));
+            Config jsonConfig = new ConfigBuilder().fromJson(translators.get(toLanguage), element.getAsJsonObject()).toConfig();
+            config = config.merge(jsonConfig);
+        }
+
+        String code = readCode(inputFilePath);
+        LanguageTranslator toTranslator =
+                translators.get(toLanguage).getDeclaredConstructor(Config.class).newInstance(config);
+        var object = deserializers.apply(serializeFormat, function -> function.apply(code, cmd.isNode()));
+        if (object.isEmpty()) {
+            System.err.println("Unknown serialization format: " + serializeFormat + ". " + deserializers.getSupportedFormatsMessage());
+        }
+        var target = object.get();
+        if (cmd.isNode()) {
+            if (cmd.outputSourceMap) {
+                SourceMapGenerator srcMapGen = new SourceMapGenerator(toTranslator);
+                var srcMap = srcMapGen.process((Node) target);
+                serializers.apply("json", function -> function.apply(srcMap, cmd.prettify))
+                        .ifPresentOrElse(
+                                result -> writeOutput(result, outputFilePath),
+                                () -> System.err.println("Unknown serialization error")
+                        );
+            } else {
+                String translatedCode = toTranslator.getCode((Node) target);
+                writeOutput(translatedCode, outputFilePath);
+            }
+        } else {
+            if (cmd.outputSourceMap) {
+                SourceMapGenerator srcMapGen = new SourceMapGenerator(toTranslator);
+                var srcMap = srcMapGen.process((MeaningTree) target);
+                serializers.apply("json", function -> function.apply(srcMap, cmd.prettify))
+                        .ifPresentOrElse(
+                                result -> writeOutput(result, outputFilePath),
+                                () -> System.err.println("Unknown serialization error")
+                        );
+            } else if (cmd.performTokenize) {
+                Token.setupId(cmd.startTokenId);
+                var tokens = toTranslator.getCodeAsTokens((MeaningTree) target, true, cmd.detailedTokens, false);
+                serializers.apply(serializeFormat == null ? "json" : serializeFormat, function -> function.apply(tokens, cmd.prettify))
+                        .ifPresentOrElse(
+                                result -> writeOutput(result, outputFilePath),
+                                () -> System.err.println("Unknown serialization format: " + serializeFormat + ". " + serializers.getSupportedFormatsMessage())
+                        );
+            } else {
+                String translatedCode = toTranslator.getCode((MeaningTree) target);
+                writeOutput(translatedCode, outputFilePath);
+            }
+        }
     }
 
     private static void runTranslation(TranslateCommand cmd) throws Exception {
@@ -207,10 +366,16 @@ public class Main {
         String code = readCode(inputFilePath);
 
         // Instantiate source-language translator
-        Map<String, Object> config = Map.ofEntries(cmd.translatorMode.getConfigEntry(),
-                Map.entry("bytePositionsAnnotate", cmd.saveBytes));
+        Config config = new Config(cmd.translatorMode.getConfigEntry(),
+                ConfigParameters.bytePositionAnnotations.withValue(cmd.saveBytes));
+        if (cmd.configPath != null) {
+            JsonElement element = JsonParser.parseString(Files.readString(Path.of(cmd.configPath)));
+            Config jsonConfig = new ConfigBuilder().fromJson(translators.get(fromLanguage), element.getAsJsonObject()).toConfig();
+            config = config.merge(jsonConfig);
+        }
+
         LanguageTranslator fromTranslator =
-                translators.get(fromLanguage).getDeclaredConstructor(Map.class).newInstance(config);
+                translators.get(fromLanguage).getDeclaredConstructor(Config.class).newInstance(config);
         var meaningTree = fromTranslator.getMeaningTree(code);
         final var rootNode = meaningTree.getRootNode();
 

@@ -83,9 +83,16 @@ public class Label {
             String.class,
             Number.class,
             Boolean.class,
+            // Массивы объектов
             Number[].class,
             String[].class,
             Boolean[].class,
+            // Массивы примитивов
+            int[].class,
+            long[].class,
+            double[].class,
+            float[].class,
+            boolean[].class,
             JsonElement.class
     );
 

@@ -66,7 +66,7 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
     public int hashCode() {
         List<Object> toHash = new ArrayList<>();
         toHash.add(getClass().getSimpleName());
-        toHash.addAll(_labels);
+        // toHash.addAll(_labels); WARNING: don't enable this! it may cause bugs with finding node in hash maps
         return Objects.hash(toHash.toArray(new Object[0]));
     }
 

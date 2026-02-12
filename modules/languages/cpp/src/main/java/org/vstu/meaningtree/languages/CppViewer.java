@@ -1058,7 +1058,7 @@ public class CppViewer extends LanguageViewer {
     private String toStringEntryPoint(ProgramEntryPoint entryPoint) {
         // TODO: required main function creation or expression mode
 
-        if (getConfigParameter("translationUnitMode").asBoolean() && !entryPoint.hasEntryPoint()) {
+        if (getConfigParameter("translationUnitMode").equalsValue("full") && !entryPoint.hasEntryPoint()) {
             return makeSimpleProgram(entryPoint.getBody());
         }
 

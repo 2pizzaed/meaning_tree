@@ -268,6 +268,10 @@ public abstract class LanguageTranslator implements Cloneable {
         return getConfigParameter("translationUnitMode").asString().equals("expression");
     }
 
+    protected boolean getConfigFlag(String id) {
+        return getConfigParameter(id).asBoolean();
+    }
+
     public abstract String prepareCode(String code);
 
     public abstract TokenList prepareCode(TokenList list);

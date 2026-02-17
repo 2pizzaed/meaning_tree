@@ -56,9 +56,9 @@ public class ConfigParameters {
         return Objects.requireNonNull(configVal, "`%s` config key wasn't found".formatted(id));
     }
 
-    public static ConfigParameter register(LanguageTranslator translator, String id, @NotNull ConfigValue defaultValue, ConfigScope scope) {
+    public static ConfigParameter registerIfNotExists(LanguageTranslator translator, String id, @NotNull ConfigValue defaultValue, ConfigScope scope) {
         if (builtinRegistry.containsKey(id) || langRegistry.getOrDefault(translator.getClass(), Map.of()).containsKey(id)) {
-            throw new IllegalArgumentException("Config with id " + id + " already exists");
+            return get(translator.getClass(), id);
         }
         if (!langRegistry.containsKey(translator.getClass())) {
             langRegistry.put(translator.getClass(), new HashMap<>());
@@ -68,8 +68,8 @@ public class ConfigParameters {
         return param;
     }
 
-    public static ConfigParameter registerReadonly(LanguageTranslator translator, String id, @NotNull ConfigValue defaultValue, ConfigScope scope) {
-        var param = register(translator, id, defaultValue, ConfigScope.ANY);
+    public static ConfigParameter registerReadonlyIfNotExists(LanguageTranslator translator, String id, @NotNull ConfigValue defaultValue, ConfigScope scope) {
+        var param = registerIfNotExists(translator, id, defaultValue, ConfigScope.ANY);
         param.readOnly = true;
         return param;
     }

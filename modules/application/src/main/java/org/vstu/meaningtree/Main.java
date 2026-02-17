@@ -414,7 +414,7 @@ public class Main {
                     );
         } else if (toLanguage != null) {
             LanguageTranslator toTranslator =
-                    translators.get(toLanguage.toLowerCase()).getDeclaredConstructor(Map.class).newInstance(toConfig);
+                    translators.get(toLanguage.toLowerCase()).getDeclaredConstructor(Config.class).newInstance(toConfig);
 
             if (cmd.outputSourceMap && cmd.performTokenize) {
                 System.err.println("Source map building and tokenizing are both required. Defaulting to using only `outputSourceMap`");

@@ -246,7 +246,7 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
                 for (int i = group.start; i < group.stop; i++) {
                     if (!(tokens.get(i) instanceof OperandToken)) {
                         var opToken = new OperandToken(tokens.get(i).value, tokens.get(i).type);
-                        opToken.setBytePosition(new BytePosition(node.getStartByte(), node.getEndByte() - node.getStartByte()));
+                        opToken.setBytePosition(tokens.get(i).bytePos());
                         tokens.set(i, opToken);
                     }
                     OperandToken opTok = (OperandToken)tokens.get(i);
@@ -273,7 +273,7 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
             for (int i = unaryStart; i < unaryStop; i++) {
                 if (!(tokens.get(i) instanceof OperandToken)) {
                     var opToken = new OperandToken(tokens.get(i).value, tokens.get(i).type);
-                    opToken.setBytePosition(new BytePosition(node.getStartByte(), node.getEndByte() - node.getStartByte()));
+                    opToken.setBytePosition(tokens.get(i).bytePos());
                     tokens.set(i, opToken);
                 }
                 ((OperandToken)tokens.get(i)).setMetadata(token, pos);

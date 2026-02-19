@@ -1,4 +1,4 @@
-package org.vstu.meaningtree.languages.templates;
+package org.vstu.meaningtree.languages.helpers.templates;
 
 import com.hubspot.jinjava.Jinjava;
 

@@ -1,8 +1,8 @@
-package org.vstu.meaningtree.languages;
+package org.vstu.meaningtree.languages.helpers;
 
-import org.vstu.meaningtree.languages.query.CompiledTSQuery;
-import org.vstu.meaningtree.languages.query.ParseSession;
-import org.vstu.meaningtree.languages.query.QueryResult;
+import org.vstu.meaningtree.languages.helpers.query.CompiledTSQuery;
+import org.vstu.meaningtree.languages.helpers.query.ParseSession;
+import org.vstu.meaningtree.languages.helpers.query.QueryResult;
 
 public interface QueryableParser {
     CompiledTSQuery compileQuery(String queryText);

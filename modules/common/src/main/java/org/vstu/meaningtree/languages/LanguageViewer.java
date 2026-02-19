@@ -1,20 +1,17 @@
 package org.vstu.meaningtree.languages;
 
 import org.vstu.meaningtree.MeaningTree;
-import org.vstu.meaningtree.languages.templates.ClasspathTemplateRepository;
-import org.vstu.meaningtree.languages.templates.JinjavaTemplateEngine;
-import org.vstu.meaningtree.languages.templates.TemplateEngine;
-import org.vstu.meaningtree.languages.templates.TemplateRepository;
+import org.vstu.meaningtree.languages.helpers.TemplateAwareViewer;
+import org.vstu.meaningtree.languages.helpers.templates.ClasspathTemplateRepository;
+import org.vstu.meaningtree.languages.helpers.templates.JinjavaTemplateEngine;
+import org.vstu.meaningtree.languages.helpers.templates.TemplateEngine;
+import org.vstu.meaningtree.languages.helpers.templates.TemplateRepository;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.ParenthesesFiller;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.BiFunction;
 
 /**

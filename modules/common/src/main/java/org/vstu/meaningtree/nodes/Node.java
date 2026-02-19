@@ -6,6 +6,8 @@ import org.vstu.meaningtree.iterators.DFSNodeIterator;
 import org.vstu.meaningtree.iterators.utils.*;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.LabelAttachable;
+import org.vstu.meaningtree.utils.ReplaceResult;
+import org.vstu.meaningtree.utils.ReplaceStatus;
 
 import java.io.Serializable;
 import java.lang.reflect.Field;

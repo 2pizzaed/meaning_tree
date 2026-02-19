@@ -1,4 +1,4 @@
-package org.vstu.meaningtree.languages.query;
+package org.vstu.meaningtree.languages.helpers.query;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.treesitter.*;

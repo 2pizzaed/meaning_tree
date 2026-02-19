@@ -1,4 +1,4 @@
-package org.vstu.meaningtree.nodes;
+package org.vstu.meaningtree.utils;
 
 public enum ReplaceStatus {
     OK,

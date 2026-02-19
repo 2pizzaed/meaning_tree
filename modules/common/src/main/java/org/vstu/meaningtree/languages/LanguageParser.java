@@ -1,25 +1,18 @@
 package org.vstu.meaningtree.languages;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.treesitter.TSLanguage;
-import org.treesitter.TSNode;
-import org.treesitter.TSParser;
-import org.treesitter.TSQuery;
-import org.treesitter.TSTree;
+import org.treesitter.*;
 import org.vstu.meaningtree.MeaningTree;
-import org.vstu.meaningtree.languages.query.CompiledTSQuery;
-import org.vstu.meaningtree.languages.query.ParseSession;
-import org.vstu.meaningtree.languages.query.QueryResult;
+import org.vstu.meaningtree.languages.helpers.QueryableParser;
+import org.vstu.meaningtree.languages.helpers.query.CompiledTSQuery;
+import org.vstu.meaningtree.languages.helpers.query.ParseSession;
+import org.vstu.meaningtree.languages.helpers.query.QueryResult;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Hook;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 abstract public class LanguageParser extends TranslatorComponent implements QueryableParser {
     private String _code = "";

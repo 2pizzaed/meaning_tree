@@ -1,7 +1,7 @@
-package org.vstu.meaningtree.languages;
+package org.vstu.meaningtree.languages.helpers;
 
-import org.vstu.meaningtree.languages.templates.TemplateEngine;
-import org.vstu.meaningtree.languages.templates.TemplateRepository;
+import org.vstu.meaningtree.languages.helpers.templates.TemplateEngine;
+import org.vstu.meaningtree.languages.helpers.templates.TemplateRepository;
 import org.vstu.meaningtree.nodes.Node;
 
 import java.util.Map;

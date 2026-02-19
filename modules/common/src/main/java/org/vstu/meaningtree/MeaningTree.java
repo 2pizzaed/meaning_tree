@@ -6,10 +6,10 @@ import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.iterators.utils.NodeIterable;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Node;
-import org.vstu.meaningtree.nodes.ReplaceResult;
-import org.vstu.meaningtree.nodes.ReplaceStatus;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.LabelAttachable;
+import org.vstu.meaningtree.utils.ReplaceResult;
+import org.vstu.meaningtree.utils.ReplaceStatus;
 
 import java.io.Serializable;
 import java.util.*;

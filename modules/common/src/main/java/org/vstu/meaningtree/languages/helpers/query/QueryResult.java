@@ -1,4 +1,4 @@
-package org.vstu.meaningtree.languages.query;
+package org.vstu.meaningtree.languages.helpers.query;
 
 import org.treesitter.TSNode;
 import org.vstu.meaningtree.nodes.Node;

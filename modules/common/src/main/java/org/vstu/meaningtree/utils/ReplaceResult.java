@@ -1,6 +1,7 @@
-package org.vstu.meaningtree.nodes;
+package org.vstu.meaningtree.utils;
 
 import org.vstu.meaningtree.iterators.utils.FieldDescriptor;
+import org.vstu.meaningtree.nodes.Node;
 
 public record ReplaceResult(
         ReplaceStatus status,

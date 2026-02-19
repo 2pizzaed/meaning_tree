@@ -9,6 +9,11 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedConfigParameterException;
 import org.vstu.meaningtree.languages.configs.*;
+import org.vstu.meaningtree.languages.query.CompiledTSQuery;
+import org.vstu.meaningtree.languages.query.ParseSession;
+import org.vstu.meaningtree.languages.query.QueryResult;
+import org.vstu.meaningtree.languages.templates.TemplateEngine;
+import org.vstu.meaningtree.languages.templates.TemplateRepository;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Experimental;
 import org.vstu.meaningtree.utils.Label;
@@ -87,6 +92,7 @@ public abstract class LanguageTranslator implements Cloneable {
 
     public MeaningTree getMeaningTree(String code) {
         MeaningTree mt = _language.getMeaningTree(prepareCode(code));
+        _language.commitParseSession(mt);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
         _language.rollbackContext();
         return mt;
@@ -112,6 +118,7 @@ public abstract class LanguageTranslator implements Cloneable {
     @Experimental
     public MeaningTree getMeaningTree(TSNode node, String code) {
         MeaningTree mt = _language.getMeaningTree(node, code);
+        _language.commitParseSession(mt);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
         _language.rollbackContext();
         return mt;
@@ -142,6 +149,7 @@ public abstract class LanguageTranslator implements Cloneable {
      */
     protected MeaningTree getMeaningTree(String code, HashMap<int[], Object> values) {
         MeaningTree mt = _language.getMeaningTree(prepareCode(code), values);
+        _language.commitParseSession(mt);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
         _language.rollbackContext();
         return mt;
@@ -198,6 +206,26 @@ public abstract class LanguageTranslator implements Cloneable {
 
     public abstract LanguageTokenizer getTokenizer();
 
+    public CompiledTSQuery compileQuery(String queryText) {
+        return _language.compileQuery(queryText);
+    }
+
+    public CompiledTSQuery compileQuery(String queryId, String queryText) {
+        return _language.compileQuery(queryId, queryText);
+    }
+
+    public QueryResult query(String queryText) {
+        return _language.query(queryText);
+    }
+
+    public QueryResult query(CompiledTSQuery compiledTSQuery) {
+        return _language.query(compiledTSQuery);
+    }
+
+    public ParseSession getLatestParseSession() {
+        return _language.getLatestParseSession();
+    }
+
     public String getCode(MeaningTree mt) {
         var result = _viewer.toString(mt);
         _viewer.rollbackContext();
@@ -211,6 +239,26 @@ public abstract class LanguageTranslator implements Cloneable {
         } catch (TSException | MeaningTreeException | IllegalArgumentException | ClassCastException e) {
             return ImmutablePair.of(false, null);
         }
+    }
+
+    public void configureJinjaTemplateRendering(String classpathBasePath) {
+        _viewer.configureJinjaTemplateEngine(classpathBasePath);
+    }
+
+    public void configureTemplateRendering(TemplateRepository templateRepository, TemplateEngine templateEngine) {
+        _viewer.configureTemplateEngine(templateRepository, templateEngine);
+    }
+
+    public void disableTemplateRendering() {
+        _viewer.disableTemplateEngine();
+    }
+
+    public String renderByTemplate(String templateKey, Map<String, Object> model) {
+        return _viewer.renderTemplate(templateKey, model);
+    }
+
+    public String renderByTemplate(String templateKey, Node node, Map<String, Object> model) {
+        return _viewer.renderTemplate(templateKey, node, model);
     }
 
     public Pair<Boolean, TokenList> tryGetCodeAsTokens(MeaningTree mt, boolean enableWhitespaces,

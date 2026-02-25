@@ -3,16 +3,17 @@ package org.vstu.meaningtree.languages;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
+import org.vstu.meaningtree.languages.helpers.ContextualNodeRenderer;
+import org.vstu.meaningtree.languages.helpers.NodeRenderer;
 import org.vstu.meaningtree.languages.helpers.TemplateAwareViewer;
 import org.vstu.meaningtree.languages.helpers.templates.ClasspathTemplateRepository;
 import org.vstu.meaningtree.languages.helpers.templates.JinjavaTemplateEngine;
 import org.vstu.meaningtree.languages.helpers.templates.TemplateEngine;
 import org.vstu.meaningtree.languages.helpers.templates.TemplateRepository;
 import org.vstu.meaningtree.languages.support.FeatureContext;
-import org.vstu.meaningtree.languages.helpers.NodeRenderer;
+import org.vstu.meaningtree.languages.support.FeatureSupport;
 import org.vstu.meaningtree.languages.support.SupportIssue;
 import org.vstu.meaningtree.languages.support.SupportReport;
-import org.vstu.meaningtree.languages.support.FeatureSupport;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.ParenthesesFiller;
@@ -27,12 +28,17 @@ import java.util.function.BiFunction;
  * но и добавляет логику хуков!
  */
 abstract public class LanguageViewer extends TranslatorComponent implements TemplateAwareViewer {
+    @FunctionalInterface
+    private interface InternalRenderer {
+        String render(Node node, Object context);
+    }
+
     protected MeaningTree origin;
     protected ParenthesesFiller parenFiller;
 
     private List<BiFunction<Node, String, String>> postProcessFunctions = new ArrayList<>();
     private final List<FeatureSupport> supportRules = new ArrayList<>();
-    private final Map<Class<? extends Node>, NodeRenderer<? extends Node>> renderers = new LinkedHashMap<>();
+    private final Map<Class<? extends Node>, InternalRenderer> renderers = new LinkedHashMap<>();
 
     private TemplateRepository templateRepository;
     private TemplateEngine templateEngine;
@@ -53,8 +59,16 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
     protected abstract String formString(Node node);
 
     protected final <T extends Node> void registerRenderer(Class<T> nodeType, NodeRenderer<T> renderer) {
-        renderers.put(Objects.requireNonNull(nodeType, "nodeType must not be null"),
-                Objects.requireNonNull(renderer, "renderer must not be null"));
+        Objects.requireNonNull(nodeType, "nodeType must not be null");
+        Objects.requireNonNull(renderer, "renderer must not be null");
+        renderers.put(nodeType, (node, context) -> renderer.render(nodeType.cast(node)));
+    }
+
+    @SuppressWarnings("unchecked")
+    protected final <T extends Node, C> void registerRenderer(Class<T> nodeType, ContextualNodeRenderer<T, C> renderer) {
+        Objects.requireNonNull(nodeType, "nodeType must not be null");
+        Objects.requireNonNull(renderer, "renderer must not be null");
+        renderers.put(nodeType, (node, context) -> renderer.render(nodeType.cast(node), (C) context));
     }
 
     public final boolean hasRegisteredRenderer(Class<? extends Node> nodeType) {
@@ -65,10 +79,10 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
         return Set.copyOf(renderers.keySet());
     }
 
-    protected final Optional<NodeRenderer<Node>> resolveRenderer(Class<? extends Node> nodeType) {
+    private Optional<InternalRenderer> resolveRenderer(Class<? extends Node> nodeType) {
         int bestDistance = Integer.MAX_VALUE;
-        NodeRenderer<? extends Node> bestRenderer = null;
-        for (Map.Entry<Class<? extends Node>, NodeRenderer<? extends Node>> entry : renderers.entrySet()) {
+        InternalRenderer bestRenderer = null;
+        for (Map.Entry<Class<? extends Node>, InternalRenderer> entry : renderers.entrySet()) {
             Class<? extends Node> registeredType = entry.getKey();
             if (!registeredType.isAssignableFrom(nodeType)) {
                 continue;
@@ -82,7 +96,7 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
         if (bestRenderer == null) {
             return Optional.empty();
         }
-        return Optional.of((NodeRenderer<Node>) bestRenderer);
+        return Optional.of(bestRenderer);
     }
 
     private static int typeDistance(Class<?> source, Class<?> target) {
@@ -96,11 +110,15 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
     }
 
     protected String dispatchRenderer(Node node) {
-        Optional<NodeRenderer<Node>> renderer = resolveRenderer(node.getClass());
+        return dispatchRenderer(node, null);
+    }
+
+    protected String dispatchRenderer(Node node, Object context) {
+        Optional<InternalRenderer> renderer = resolveRenderer(node.getClass());
         if (renderer.isEmpty()) {
             throw new UnsupportedViewingException("No renderer registered for node type " + node.getClass().getName());
         }
-        return renderer.get().render(node);
+        return renderer.get().render(node, context);
     }
 
     protected String applyHooks(Node node, String result) {

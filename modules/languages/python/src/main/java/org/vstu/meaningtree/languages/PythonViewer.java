@@ -2,6 +2,7 @@ package org.vstu.meaningtree.languages;
 
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
+import org.vstu.meaningtree.languages.helpers.ContextualNodeRenderer;
 import org.vstu.meaningtree.languages.support.features.PointerSubtractionInUnpackFeature;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.languages.utils.Tab;
@@ -72,63 +73,76 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private void configureSupportAndRenderers() {
-        registerRenderer(ProgramEntryPoint.class, node -> toString(node, new Tab()));
-        registerRenderer(AssignmentExpression.class, node -> toString(node, new Tab()));
-        registerRenderer(BinaryComparison.class, node -> toString(node, new Tab()));
-        registerRenderer(BinaryExpression.class, node -> toString(node, new Tab()));
-        registerRenderer(IfStatement.class, node -> toString(node, new Tab()));
-        registerRenderer(PointerPackOp.class, node -> toString(node, new Tab()));
-        registerRenderer(PointerUnpackOp.class, node -> toString(node, new Tab()));
-        registerRenderer(UnaryExpression.class, node -> toString(node, new Tab()));
-        registerRenderer(CompoundStatement.class, node -> toString(node, new Tab()));
-        registerRenderer(CompoundComparison.class, node -> toString(node, new Tab()));
-        registerRenderer(Type.class, node -> toString(node, new Tab()));
-        registerRenderer(FormatPrint.class, node -> toString(node, new Tab()));
-        registerRenderer(FormatInput.class, node -> toString(node, new Tab()));
-        registerRenderer(Identifier.class, node -> toString(node, new Tab()));
-        registerRenderer(IndexExpression.class, node -> toString(node, new Tab()));
-        registerRenderer(MemberAccess.class, node -> toString(node, new Tab()));
-        registerRenderer(TernaryOperator.class, node -> toString(node, new Tab()));
-        registerRenderer(ParenthesizedExpression.class, node -> toString(node, new Tab()));
-        registerRenderer(ObjectNewExpression.class, node -> toString(node, new Tab()));
-        registerRenderer(ArrayNewExpression.class, node -> toString(node, new Tab()));
-        registerRenderer(MemoryAllocationCall.class, node -> toString(node, new Tab()));
-        registerRenderer(MemoryFreeCall.class, node -> toString(node, new Tab()));
-        registerRenderer(FunctionCall.class, node -> toString(node, new Tab()));
-        registerRenderer(BreakStatement.class, node -> toString(node, new Tab()));
-        registerRenderer(DeleteStatement.class, node -> toString(node, new Tab()));
-        registerRenderer(DeleteExpression.class, node -> toString(node, new Tab()));
-        registerRenderer(Range.class, node -> toString(node, new Tab()));
-        registerRenderer(ContinueStatement.class, node -> toString(node, new Tab()));
-        registerRenderer(ConstructorCall.class, node -> toString(node, new Tab()));
-        registerRenderer(Comment.class, node -> toString(node, new Tab()));
-        registerRenderer(Literal.class, node -> toString(node, new Tab()));
-        registerRenderer(SizeofExpression.class, node -> toString(node, new Tab()));
-        registerRenderer(AssignmentStatement.class, node -> toString(node, new Tab()));
-        registerRenderer(VariableDeclaration.class, node -> toString(node, new Tab()));
-        registerRenderer(ForLoop.class, node -> toString(node, new Tab()));
-        registerRenderer(InfiniteLoop.class, node -> toString(node, new Tab()));
-        registerRenderer(WhileLoop.class, node -> toString(node, new Tab()));
-        registerRenderer(DoWhileLoop.class, node -> toString(node, new Tab()));
-        registerRenderer(SwitchStatement.class, node -> toString(node, new Tab()));
-        registerRenderer(MethodDefinition.class, node -> toString(node, new Tab()));
-        registerRenderer(FunctionDefinition.class, node -> toString(node, new Tab()));
-        registerRenderer(ClassDeclaration.class, node -> toString(node, new Tab()));
-        registerRenderer(ClassDefinition.class, node -> toString(node, new Tab()));
-        registerRenderer(FunctionDeclaration.class, node -> toString(node, new Tab()));
-        registerRenderer(Import.class, node -> toString(node, new Tab()));
-        registerRenderer(ExpressionStatement.class, node -> toString(node, new Tab()));
-        registerRenderer(ReturnStatement.class, node -> toString(node, new Tab()));
-        registerRenderer(ArrayInitializer.class, node -> toString(node, new Tab()));
-        registerRenderer(DefinitionArgument.class, node -> toString(node, new Tab()));
-        registerRenderer(PackageDeclaration.class, node -> toString(node, new Tab()));
-        registerRenderer(CommaExpression.class, node -> toString(node, new Tab()));
-        registerRenderer(ExpressionSequence.class, node -> toString(node, new Tab()));
-        registerRenderer(MultipleAssignmentStatement.class, node -> toString(node, new Tab()));
-        registerRenderer(CastTypeExpression.class, node -> toString(node, new Tab()));
-        registerRenderer(Comprehension.class, node -> toString(node, new Tab()));
-        registerRenderer(EmptyStatement.class, node -> toString(node, new Tab()));
+        registerTabRenderer(ProgramEntryPoint.class, this::entryPointToString);
+        registerTabRenderer(AssignmentExpression.class, (node, tab) -> assignmentExpressionToString(node));
+        registerTabRenderer(BinaryComparison.class, (node, tab) -> comparisonToString(node));
+        registerTabRenderer(BinaryExpression.class, (node, tab) -> binaryOpToString(node));
+        registerTabRenderer(IfStatement.class, this::conditionToString);
+        registerTabRenderer(PointerPackOp.class, (node, tab) -> pointerPackToString(node));
+        registerTabRenderer(PointerUnpackOp.class, (node, tab) -> pointerUnpackToString(node));
+        registerTabRenderer(UnaryExpression.class, (node, tab) -> unaryToString(node));
+        registerTabRenderer(CompoundStatement.class, this::blockToString);
+        registerTabRenderer(CompoundComparison.class, (node, tab) -> compoundComparisonToString(node));
+        registerTabRenderer(Type.class, (node, tab) -> typeToString(node));
+        registerTabRenderer(FormatPrint.class, (node, tab) -> callsToString(node));
+        registerTabRenderer(FormatInput.class, (node, tab) -> callsToString(node));
+        registerTabRenderer(Identifier.class, (node, tab) -> identifierToString(node));
+        registerTabRenderer(IndexExpression.class, (indexExpr, tab) -> {
+            indexExpr = parenFiller.process(indexExpr);
+            return String.format("%s[%s]", toString(indexExpr.getExpression()), toString(indexExpr.getIndex()));
+        });
+        registerTabRenderer(MemberAccess.class, (memAccess, tab) -> {
+            memAccess = parenFiller.process(memAccess);
+            return String.format("%s.%s", toString(memAccess.getExpression()), toString(memAccess.getMember()));
+        });
+        registerTabRenderer(TernaryOperator.class, (ternary, tab) -> {
+            ternary = parenFiller.process(ternary);
+            return String.format("%s if %s else %s", toString(ternary.getThenExpr()), toString(ternary.getCondition()), toString(ternary.getElseExpr()));
+        });
+        registerTabRenderer(ParenthesizedExpression.class, (paren, tab) -> String.format("(%s)", toString(paren.getExpression())));
+        registerTabRenderer(ObjectNewExpression.class, (node, tab) -> callsToString(node));
+        registerTabRenderer(ArrayNewExpression.class, (node, tab) -> callsToString(node));
+        registerTabRenderer(MemoryAllocationCall.class, (node, tab) -> toString(node.toNew()));
+        registerTabRenderer(MemoryFreeCall.class, (node, tab) -> toString(node.toDelete()));
+        registerTabRenderer(FunctionCall.class, (node, tab) -> callsToString(node));
+        registerTabRenderer(BreakStatement.class, (node, tab) -> "break");
+        registerTabRenderer(DeleteStatement.class, (node, tab) -> String.format("del %s", toString(node.getTarget())));
+        registerTabRenderer(DeleteExpression.class, (node, tab) -> toString(node.toStatement()));
+        registerTabRenderer(Range.class, (node, tab) -> rangeToString(node));
+        registerTabRenderer(ContinueStatement.class, (node, tab) -> "continue");
+        registerTabRenderer(ConstructorCall.class, (node, tab) -> String.format("%s(%s)", toString(node.getOwner()), argumentsToString(node.getArguments())));
+        registerTabRenderer(Comment.class, (node, tab) -> commentToString(node));
+        registerTabRenderer(Literal.class, (node, tab) -> literalToString(node));
+        registerTabRenderer(SizeofExpression.class, (node, tab) -> callsToString(node));
+        registerTabRenderer(AssignmentStatement.class, (node, tab) -> assignmentToString(node));
+        registerTabRenderer(VariableDeclaration.class, (node, tab) -> variableDeclarationToString(node));
+        registerTabRenderer(ForLoop.class, this::loopToString);
+        registerTabRenderer(InfiniteLoop.class, this::loopToString);
+        registerTabRenderer(WhileLoop.class, this::loopToString);
+        registerTabRenderer(DoWhileLoop.class, this::loopToString);
+        registerTabRenderer(SwitchStatement.class, this::loopToString);
+        registerTabRenderer(MethodDefinition.class, (node, tab) -> functionToString(node, tab));
+        registerTabRenderer(FunctionDefinition.class, (node, tab) -> functionToString(node, tab));
+        registerTabRenderer(ClassDeclaration.class, this::classDeclToString);
+        registerTabRenderer(ClassDefinition.class, this::classToString);
+        registerTabRenderer(FunctionDeclaration.class, this::functionDeclarationToString);
+        registerTabRenderer(Import.class, (node, tab) -> importToString(node));
+        registerTabRenderer(ExpressionStatement.class, (node, tab) -> toString(node));
+        registerTabRenderer(ReturnStatement.class, (node, tab) -> returnToString(node));
+        registerTabRenderer(ArrayInitializer.class, (node, tab) -> arrayInitializerToString(node));
+        registerTabRenderer(DefinitionArgument.class, (node, tab) -> definitionArgumentToString(node));
+        registerTabRenderer(PackageDeclaration.class, (node, tab) -> String.format("import %s", toString(node.getPackageName())));
+        registerTabRenderer(CommaExpression.class, (node, tab) -> String.join(", ", node.getExpressions().stream().map(this::toString).toList().toArray(new String[0])));
+        registerTabRenderer(ExpressionSequence.class, (node, tab) -> String.join(", ", node.getExpressions().stream().map(this::toString).toList().toArray(new String[0])));
+        registerTabRenderer(MultipleAssignmentStatement.class, (node, tab) -> assignmentToString(node));
+        registerTabRenderer(CastTypeExpression.class, (node, tab) -> callsToString(node));
+        registerTabRenderer(Comprehension.class, (node, tab) -> comprehensionToString(node));
+        registerTabRenderer(EmptyStatement.class, (node, tab) -> emptyStatementToString(node));
         registerUnsupportedFeature(new PointerSubtractionInUnpackFeature());
+    }
+
+    private <T extends Node> void registerTabRenderer(Class<T> nodeType, ContextualNodeRenderer<T, Tab> renderer) {
+        registerRenderer(nodeType, (T node, Tab tab) -> renderer.render(node, tab == null ? new Tab() : tab));
     }
 
     @Override
@@ -140,8 +154,7 @@ public class PythonViewer extends LanguageViewer {
             return "";
         }
 
-        Tab tab = new Tab();
-        return toString(node, tab);
+        return toString(node, new Tab());
     }
 
     public String toString(Tab tab, Node ... nodes) {
@@ -157,70 +170,7 @@ public class PythonViewer extends LanguageViewer {
     }
 
     public String toString(Node node, Tab tab) {
-        String result = switch (node) {
-            case ProgramEntryPoint programEntryPoint -> entryPointToString(programEntryPoint, tab);
-            case AssignmentExpression assignmentExpr -> assignmentExpressionToString(assignmentExpr);
-            case BinaryComparison cmpNode -> comparisonToString(cmpNode);
-            case BinaryExpression binaryExpression -> binaryOpToString(binaryExpression);
-            case IfStatement ifStatement -> conditionToString(ifStatement, tab);
-            case PointerPackOp ptr -> pointerPackToString(ptr);
-            case PointerUnpackOp ptr -> pointerUnpackToString(ptr);
-            case UnaryExpression exprNode -> unaryToString(exprNode);
-            case CompoundStatement exprNode -> blockToString(exprNode, tab);
-            case CompoundComparison compound -> compoundComparisonToString(compound);
-            case Type type -> typeToString(type);
-            case Identifier identifier -> identifierToString(identifier);
-            case IndexExpression indexExpr -> {
-                indexExpr = parenFiller.process(indexExpr);
-                yield String.format("%s[%s]", toString(indexExpr.getExpression()), toString(indexExpr.getIndex()));
-            }
-            case MemberAccess memAccess -> {
-                memAccess = parenFiller.process(memAccess);
-                yield String.format("%s.%s", toString(memAccess.getExpression()), toString(memAccess.getMember()));
-            }
-            case TernaryOperator ternary -> {
-                ternary = parenFiller.process(ternary);
-                yield String.format("%s if %s else %s", toString(ternary.getThenExpr()), toString(ternary.getCondition()), toString(ternary.getElseExpr()));
-            }
-            case ParenthesizedExpression paren -> String.format("(%s)", toString(paren.getExpression()));
-            case ObjectNewExpression newExpr -> callsToString(newExpr);
-            case ArrayNewExpression newExpr -> callsToString(newExpr);
-            case MemoryAllocationCall memoryAllocationCall -> toString(memoryAllocationCall.toNew());
-            case MemoryFreeCall freeCall -> toString(freeCall.toDelete());
-            case FunctionCall funcCall -> callsToString(funcCall);
-            case BreakStatement ignored2 -> "break";
-            case DeleteStatement delStmt -> String.format("del %s", toString(delStmt.getTarget()));
-            case Range range -> rangeToString(range);
-            case ContinueStatement ignored1 -> "continue";
-            case ConstructorCall call -> String.format("%s(%s)", toString(call.getOwner()), argumentsToString(call.getArguments()));
-            case Comment comment -> commentToString(comment);
-            case Literal literal -> literalToString(literal);
-            case AssignmentStatement assignmentStatement -> assignmentToString(assignmentStatement);
-            case VariableDeclaration varDecl -> variableDeclarationToString(varDecl);
-            case ForLoop forLoop -> loopToString(forLoop, tab);
-            case InfiniteLoop infLoop -> loopToString(infLoop, tab);
-            case WhileLoop whileLoop -> loopToString(whileLoop, tab);
-            case DoWhileLoop doWhileLoop -> loopToString(doWhileLoop, tab);
-            case SwitchStatement switchStmt -> loopToString(switchStmt, tab);
-            case MethodDefinition methodDef -> functionToString(methodDef, tab);
-            case FunctionDefinition funcDef -> functionToString(funcDef, tab);
-            case ClassDeclaration classDecl -> classDeclToString(classDecl, tab);
-            case ClassDefinition classDef -> classToString(classDef, tab);
-            case FunctionDeclaration funcDecl -> functionDeclarationToString(funcDecl, tab);
-            case Import importStmt -> importToString(importStmt);
-            case ExpressionStatement exprStmt -> toString(exprStmt);
-            case ReturnStatement returnStmt -> returnToString(returnStmt);
-            case ArrayInitializer arrayInit -> arrayInitializerToString(arrayInit);
-            case DefinitionArgument arg -> definitionArgumentToString(arg);
-            case PackageDeclaration packageDecl -> String.format("import %s", toString(packageDecl.getPackageName()));
-            case ExpressionSequence exprSeq -> String.join(", ", exprSeq.getExpressions().stream().map((Expression nd) -> toString(nd, tab)).toList().toArray(new String[0]));
-            case MultipleAssignmentStatement stmtSequence -> assignmentToString(stmtSequence);
-            case CastTypeExpression cast -> callsToString(cast);
-            case Comprehension compr -> comprehensionToString(compr);
-            case EmptyStatement emptyStatement -> emptyStatementToString(emptyStatement);
-            case null -> throw new MeaningTreeException("Null node detected");
-            default -> throw new UnsupportedViewingException("Unsupported tree element: " + node.getClass().getName());
-        };
+        String result = dispatchRenderer(node, tab);
         result = this.applyHooks(node, result);
         return result;
     }

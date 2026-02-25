@@ -8,9 +8,11 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.serializers.model.*;
 import org.vstu.meaningtree.utils.SourceMap;
+import org.vstu.meaningtree.utils.Unmaintained;
 import org.vstu.meaningtree.utils.tokens.Token;
 import org.vstu.meaningtree.utils.tokens.TokenList;
 
+@Unmaintained
 public class RDFSerializer implements Serializer<Model> {
     public static final String NS = "http://vstu.ru/poas/code#";
     public static final String NS_base = "http://vstu.ru/poas/code";

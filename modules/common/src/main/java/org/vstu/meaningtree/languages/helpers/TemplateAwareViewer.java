@@ -11,8 +11,6 @@ public interface TemplateAwareViewer {
 
     void configureJinjaTemplateEngine(String classpathBasePath);
 
-    void disableTemplateEngine();
-
     boolean isTemplateEngineConfigured();
 
     String renderTemplate(String templateKey, Map<String, Object> model);

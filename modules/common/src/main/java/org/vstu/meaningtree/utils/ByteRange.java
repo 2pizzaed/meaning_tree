@@ -1,4 +1,4 @@
-package org.vstu.meaningtree.languages.helpers.query;
+package org.vstu.meaningtree.utils;
 
 public record ByteRange(int startByte, int endByte) {
     public ByteRange {

@@ -72,6 +72,59 @@ public class JavaLanguage extends LanguageParser {
     public JavaLanguage(LanguageTranslator translator) {
         super(translator, new TreeSitterJava());
         _userTypes = new HashMap<>();
+        configureTsNodeHandlers();
+    }
+
+    private void configureTsNodeHandlers() {
+        registerTSNodeHandler("ERROR", node -> fromTSNode(node.getChild(0)));
+        registerTSNodeHandler("program", this::fromProgramTSNode);
+        registerTSNodeHandler("block", this::fromBlockTSNode);
+        registerTSNodeHandler("statement", this::fromStatementTSNode);
+        registerTSNodeHandler("if_statement", this::fromIfStatementTSNode);
+        registerTSNodeHandler("condition", this::fromConditionTSNode);
+        registerTSNodeHandler("expression_statement", this::fromExpressionStatementTSNode);
+        registerTSNodeHandler("parenthesized_expression", this::fromParenthesizedExpressionTSNode);
+        registerTSNodeHandler("binary_expression", this::fromBinaryExpressionTSNode);
+        registerTSNodeHandler("unary_expression", this::fromUnaryExpressionTSNode);
+        registerTSNodeHandler(List.of("decimal_integer_literal", "binary_integer_literal", "hex_integer_literal"), this::fromIntegerLiteralTSNode);
+        registerTSNodeHandler("decimal_floating_point_literal", this::fromFloatLiteralTSNode);
+        registerTSNodeHandler("local_variable_declaration", this::fromVariableDeclarationTSNode);
+        registerTSNodeHandler("for_statement", this::fromForStatementTSNode);
+        registerTSNodeHandler("assignment_expression", this::fromAssignmentExpressionTSNode);
+        registerTSNodeHandler("identifier", this::fromIdentifierTSNode);
+        registerTSNodeHandler("while_statement", this::fromWhileTSNode);
+        registerTSNodeHandler("update_expression", this::fromUpdateExpressionTSNode);
+        registerTSNodeHandler("package_declaration", this::fromPackageDeclarationTSNode);
+        registerTSNodeHandler("scoped_identifier", this::fromScopedIdentifierTSNode);
+        registerTSNodeHandler("class_declaration", this::fromClassDeclarationTSNode);
+        registerTSNodeHandler("field_declaration", this::fromFieldDeclarationTSNode);
+        registerTSNodeHandler("string_literal", this::fromStringLiteralTSNode);
+        registerTSNodeHandler("method_declaration", this::fromMethodDeclarationTSNode);
+        registerTSNodeHandler("switch_expression", this::fromSwitchExpressionTSNode);
+        registerTSNodeHandler("break_statement", this::fromBreakStatementTSNode);
+        registerTSNodeHandler("continue_statement", this::fromContinueStatementTSNode);
+        registerTSNodeHandler("null_literal", this::fromNullLiteralTSNode);
+        registerTSNodeHandler("import_declaration", this::fromImportDeclarationTSNode);
+        registerTSNodeHandler("method_invocation", this::fromMethodInvocation);
+        registerTSNodeHandler("object_creation_expression", this::fromObjectCreationExpressionTSNode);
+        registerTSNodeHandler(List.of("integral_type", "floating_point_type", "array_type", "generic_type"), this::fromTypeTSNode);
+        registerTSNodeHandler(List.of("true", "false"), this::fromBooleanValueTSNode);
+        registerTSNodeHandler("field_access", this::fromFieldAccessTSNode);
+        registerTSNodeHandler("array_creation_expression", this::fromArrayCreationExpressionTSNode);
+        registerTSNodeHandler("array_initializer", this::fromArrayInitializer);
+        registerTSNodeHandler("return_statement", this::fromReturnStatementTSNode);
+        registerTSNodeHandler(List.of("void_type", "type_identifier"), this::fromTypeTSNode);
+        registerTSNodeHandler(List.of("line_comment", "block_comment"), this::fromCommentTSNode);
+        registerTSNodeHandler("cast_expression", this::fromCastExpressionTSNode);
+        registerTSNodeHandler("array_access", this::fromArrayAccessTSNode);
+        registerTSNodeHandler("ternary_expression", this::fromTernaryExpressionTSNode);
+        registerTSNodeHandler("constructor_declaration", this::fromConstructorDeclarationTSNode);
+        registerTSNodeHandler("this", this::fromThisTSNode);
+        registerTSNodeHandler("character_literal", this::fromCharacterLiteralTSNode);
+        registerTSNodeHandler("do_statement", this::fromDoStatementTSNode);
+        registerTSNodeHandler("instanceof_expression", this::fromInstanceOfTSNode);
+        registerTSNodeHandler("class_literal", this::fromClassLiteralTSNode);
+        registerTSNodeHandler("enhanced_for_statement", this::fromEnhancedForStatementTSNode);
     }
 
     public synchronized MeaningTree getMeaningTree(String code) {
@@ -140,63 +193,13 @@ public class JavaLanguage extends LanguageParser {
 
     protected Node fromTSNode(TSNode node) {
         Objects.requireNonNull(node);
-
-        String nodeType = node.getType();
-        Node createdNode = switch (nodeType) {
-            case "ERROR" -> fromTSNode(node.getChild(0));
-            case "program" -> fromProgramTSNode(node);
-            case "block" -> fromBlockTSNode(node);
-            case "statement" -> fromStatementTSNode(node);
-            case "if_statement" -> fromIfStatementTSNode(node);
-            case "condition" -> fromConditionTSNode(node);
-            case "expression_statement" -> fromExpressionStatementTSNode(node);
-            case "parenthesized_expression" -> fromParenthesizedExpressionTSNode(node);
-            case "binary_expression" -> fromBinaryExpressionTSNode(node);
-            case "unary_expression" -> fromUnaryExpressionTSNode(node);
-            case "decimal_integer_literal", "binary_integer_literal", "hex_integer_literal" -> fromIntegerLiteralTSNode(node);
-            case "decimal_floating_point_literal" -> fromFloatLiteralTSNode(node);
-            case "local_variable_declaration" -> fromVariableDeclarationTSNode(node);
-            case "for_statement" -> fromForStatementTSNode(node);
-            case "assignment_expression" -> fromAssignmentExpressionTSNode(node);
-            case "identifier" -> fromIdentifierTSNode(node);
-            case "while_statement" -> fromWhileTSNode(node);
-            case "update_expression" -> fromUpdateExpressionTSNode(node);
-            case "package_declaration" -> fromPackageDeclarationTSNode(node);
-            case "scoped_identifier" -> fromScopedIdentifierTSNode(node);
-            case "class_declaration" -> fromClassDeclarationTSNode(node);
-            case "field_declaration" -> fromFieldDeclarationTSNode(node);
-            case "string_literal" -> fromStringLiteralTSNode(node);
-            case "method_declaration" -> fromMethodDeclarationTSNode(node);
-            case "switch_expression" -> fromSwitchExpressionTSNode(node);
-            case "break_statement" -> fromBreakStatementTSNode(node);
-            case "continue_statement" -> fromContinueStatementTSNode(node);
-            case "null_literal" -> fromNullLiteralTSNode(node);
-            case "import_declaration" -> fromImportDeclarationTSNode(node);
-            case "method_invocation" -> fromMethodInvocation(node);
-            case "object_creation_expression" -> fromObjectCreationExpressionTSNode(node);
-            case "integral_type", "floating_point_type", "array_type", "generic_type" -> fromTypeTSNode(node);
-            case "true", "false" -> fromBooleanValueTSNode(node);
-            case "field_access" -> fromFieldAccessTSNode(node);
-            case "array_creation_expression" -> fromArrayCreationExpressionTSNode(node);
-            case "array_initializer" -> fromArrayInitializer(node);
-            case "return_statement" -> fromReturnStatementTSNode(node);
-            case "void_type", "type_identifier" -> fromTypeTSNode(node);
-            case "line_comment", "block_comment" -> fromCommentTSNode(node);
-            case "cast_expression" -> fromCastExpressionTSNode(node);
-            case "array_access" -> fromArrayAccessTSNode(node);
-            case "ternary_expression" -> fromTernaryExpressionTSNode(node);
-            case "constructor_declaration" -> fromConstructorDeclarationTSNode(node);
-            case "this" -> fromThisTSNode(node);
-            case "character_literal" -> fromCharacterLiteralTSNode(node);
-            case "do_statement" -> fromDoStatementTSNode(node);
-            case "instanceof_expression" -> fromInstanceOfTSNode(node);
-            case "class_literal" -> fromClassLiteralTSNode(node);
-            case "enhanced_for_statement" -> fromEnhancedForStatementTSNode(node);
-            default -> throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
-        };
-        matchParserNodes(node, createdNode);
-
-        return createdNode;
+        Optional<Node> fromRegistry = parseWithRegistry(node);
+        if (fromRegistry.isPresent()) {
+            Node createdNode = fromRegistry.get();
+            matchParserNodes(node, createdNode);
+            return createdNode;
+        }
+        throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
     }
 
     private Node fromEnhancedForStatementTSNode(TSNode node) {

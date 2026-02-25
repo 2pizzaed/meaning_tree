@@ -13,6 +13,7 @@ import org.vstu.meaningtree.utils.ReplaceStatus;
 
 import java.io.Serializable;
 import java.util.*;
+import java.util.function.Predicate;
 
 public class MeaningTree implements Serializable, LabelAttachable, Cloneable, NodeIterable {
     @TreeNode private Node rootNode;
@@ -68,13 +69,28 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
         return null;
     }
 
-    public boolean hasFeature(Class<? extends Node> feature) {
+    public boolean hasNodeType(Class<? extends Node> type) {
         for (NodeInfo inf : this) {
-            if (inf.node().getClass().isAssignableFrom(feature)) {
+            if (type.isAssignableFrom(inf.node().getClass())) {
                 return true;
             }
         }
         return false;
+    }
+
+    public boolean anyMatch(Predicate<Node> predicate) {
+        Objects.requireNonNull(predicate, "predicate must not be null");
+        for (NodeInfo inf : this) {
+            if (predicate.test(inf.node())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Deprecated
+    public boolean hasFeature(Class<? extends Node> feature) {
+        return hasNodeType(feature);
     }
 
     @Override

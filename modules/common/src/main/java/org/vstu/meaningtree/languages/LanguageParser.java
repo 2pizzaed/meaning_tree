@@ -13,6 +13,7 @@ import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.*;
+import java.util.function.Function;
 
 abstract public class LanguageParser extends TranslatorComponent implements QueryableParser {
     private String _code = "";
@@ -29,6 +30,7 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
     private final Map<String, CompiledTSQuery> _queryCacheById = new HashMap<>();
 
     protected List<Hook<Pair<TSNode, Node>>> onNodeParsedHooks = new ArrayList<>();
+    private final Map<String, Function<TSNode, Node>> tsNodeHandlers = new LinkedHashMap<>();
 
     public LanguageParser(LanguageTranslator translator, TSLanguage language) {
         super(translator);
@@ -150,6 +152,42 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
      * @return Meaning Tree Node
      */
     protected abstract Node fromTSNode(TSNode node);
+
+    protected final void registerTSNodeHandler(String tsNodeType, Function<TSNode, Node> handler) {
+        Objects.requireNonNull(tsNodeType, "tsNodeType must not be null");
+        Objects.requireNonNull(handler, "handler must not be null");
+        tsNodeHandlers.put(tsNodeType, handler);
+    }
+
+    protected final void registerTSNodeHandler(Collection<String> tsNodeTypes, Function<TSNode, Node> handler) {
+        Objects.requireNonNull(tsNodeTypes, "tsNodeTypes must not be null");
+        for (String tsNodeType : tsNodeTypes) {
+            registerTSNodeHandler(tsNodeType, handler);
+        }
+    }
+
+    protected final Optional<Function<TSNode, Node>> resolveTsNodeHandler(String tsNodeType) {
+        return Optional.ofNullable(tsNodeHandlers.get(tsNodeType));
+    }
+
+    protected final Optional<Node> parseWithRegistry(TSNode node) {
+        if (node == null || node.isNull()) {
+            return Optional.empty();
+        }
+        Function<TSNode, Node> handler = tsNodeHandlers.get(node.getType());
+        if (handler == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(handler.apply(node));
+    }
+
+    public final boolean supportsTSNodeType(String tsNodeType) {
+        return tsNodeHandlers.containsKey(tsNodeType);
+    }
+
+    public final Set<String> getRegisteredTSNodeTypes() {
+        return Set.copyOf(tsNodeHandlers.keySet());
+    }
 
     public boolean registerOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
         return onNodeParsedHooks.add(hook);

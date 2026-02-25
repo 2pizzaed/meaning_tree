@@ -9,9 +9,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedConfigParameterException;
 import org.vstu.meaningtree.languages.configs.*;
-import org.vstu.meaningtree.languages.helpers.query.CompiledTSQuery;
-import org.vstu.meaningtree.languages.helpers.query.ParseSession;
-import org.vstu.meaningtree.languages.helpers.query.QueryResult;
+import org.vstu.meaningtree.languages.support.SupportReport;
 import org.vstu.meaningtree.languages.helpers.templates.TemplateEngine;
 import org.vstu.meaningtree.languages.helpers.templates.TemplateRepository;
 import org.vstu.meaningtree.nodes.Node;
@@ -206,30 +204,12 @@ public abstract class LanguageTranslator implements Cloneable {
 
     public abstract LanguageTokenizer getTokenizer();
 
-    public CompiledTSQuery compileQuery(String queryText) {
-        return _language.compileQuery(queryText);
+    public SupportReport analyzeSupport(MeaningTree tree) {
+        return _viewer.analyzeSupport(tree);
     }
 
-    public CompiledTSQuery compileQuery(String queryId, String queryText) {
-        return _language.compileQuery(queryId, queryText);
-    }
-
-    public QueryResult query(String queryText) {
-        return _language.query(queryText);
-    }
-
-    public QueryResult query(CompiledTSQuery compiledTSQuery) {
-        return _language.query(compiledTSQuery);
-    }
-
-    public ParseSession getLatestParseSession() {
-        return _language.getLatestParseSession();
-    }
-
-    public String getCode(MeaningTree mt) {
-        var result = _viewer.toString(mt);
-        _viewer.rollbackContext();
-        return result;
+    public SupportReport analyzeSupport(Node node) {
+        return _viewer.analyzeSupport(node);
     }
 
     public Pair<Boolean, String> tryGetCode(MeaningTree mt) {
@@ -241,24 +221,16 @@ public abstract class LanguageTranslator implements Cloneable {
         }
     }
 
-    public void configureJinjaTemplateRendering(String classpathBasePath) {
-        _viewer.configureJinjaTemplateEngine(classpathBasePath);
+    public String getCode(Node node) {
+        var result = _viewer.toString(node);
+        _viewer.rollbackContext();
+        return result;
     }
 
-    public void configureTemplateRendering(TemplateRepository templateRepository, TemplateEngine templateEngine) {
-        _viewer.configureTemplateEngine(templateRepository, templateEngine);
-    }
-
-    public void disableTemplateRendering() {
-        _viewer.disableTemplateEngine();
-    }
-
-    public String renderByTemplate(String templateKey, Map<String, Object> model) {
-        return _viewer.renderTemplate(templateKey, model);
-    }
-
-    public String renderByTemplate(String templateKey, Node node, Map<String, Object> model) {
-        return _viewer.renderTemplate(templateKey, node, model);
+    public String getCode(MeaningTree mt) {
+        var result = _viewer.toString(mt);
+        _viewer.rollbackContext();
+        return result;
     }
 
     public Pair<Boolean, TokenList> tryGetCodeAsTokens(MeaningTree mt, boolean enableWhitespaces,
@@ -272,11 +244,6 @@ public abstract class LanguageTranslator implements Cloneable {
         }
     }
 
-    public String getCode(Node node) {
-        var result = _viewer.toString(node);
-        _viewer.rollbackContext();
-        return result;
-    }
 
     /**
      * Получает токены по дереву без прямого получения токенизатора (синтаксический сахар)

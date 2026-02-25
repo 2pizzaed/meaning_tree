@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
+import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
@@ -69,6 +70,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator.POW;
@@ -81,6 +83,87 @@ public class CppViewer extends LanguageViewer {
         _openBracketOnSameLine = false;
         _bracketsAroundCaseBranches = false;
         _autoVariableDeclaration = false;
+        configureSupportAndRenderers();
+    }
+
+    private void configureSupportAndRenderers() {
+        registerRenderer(ProgramEntryPoint.class, this::toStringEntryPoint);
+        registerRenderer(ExpressionStatement.class, this::toStringExpressionStatement);
+        registerRenderer(VariableDeclaration.class, this::toStringVariableDeclaration);
+        registerRenderer(IndexExpression.class, this::toStringIndexExpression);
+        registerRenderer(ExpressionSequence.class, this::toStringCommaExpression);
+        registerRenderer(TernaryOperator.class, this::toStringTernaryOperator);
+        registerRenderer(MemoryAllocationCall.class, this::toStringMemoryAllocation);
+        registerRenderer(MemoryFreeCall.class, this::toStringMemoryFree);
+        registerRenderer(PrintCommand.class, this::toStringPrint);
+        registerRenderer(InputCommand.class, this::toStringInput);
+        registerRenderer(FunctionCall.class, this::toStringFunctionCall);
+        registerRenderer(ParenthesizedExpression.class, this::toStringParenthesizedExpression);
+        registerRenderer(AssignmentExpression.class, this::toStringAssignmentExpression);
+        registerRenderer(AssignmentStatement.class, this::toStringAssignmentStatement);
+        registerRenderer(IntType.class, this::toStringIntType);
+        registerRenderer(FloatType.class, this::toStringFloatType);
+        registerRenderer(CharacterType.class, this::toStringCharacterType);
+        registerRenderer(PointerType.class, this::toStringType);
+        registerRenderer(ReferenceType.class, this::toStringType);
+        registerRenderer(DictionaryType.class, this::toStringType);
+        registerRenderer(ArrayType.class, this::toStringType);
+        registerRenderer(UnmodifiableListType.class, this::toStringType);
+        registerRenderer(SetType.class, this::toStringType);
+        registerRenderer(PlainCollectionType.class, this::toStringType);
+        registerRenderer(GenericUserType.class, this::toStringType);
+        registerRenderer(UserType.class, this::toStringType);
+        registerRenderer(Type.class, this::toStringType);
+        registerRenderer(SimpleIdentifier.class, n -> n.getName());
+        registerRenderer(ScopedIdentifier.class, this::toStringIdentifier);
+        registerRenderer(QualifiedIdentifier.class, this::toStringIdentifier);
+        registerRenderer(Identifier.class, this::toStringIdentifier);
+        registerRenderer(FloatLiteral.class, n -> n.getStringValue(true));
+        registerRenderer(IntegerLiteral.class, this::toStringNumericLiteral);
+        registerRenderer(NumericLiteral.class, this::toStringNumericLiteral);
+        registerRenderer(FloorDivOp.class, this::toStringFloorDiv);
+        registerRenderer(UnaryExpression.class, this::toStringUnaryExpression);
+        registerRenderer(BinaryExpression.class, this::toStringBinaryExpression);
+        registerRenderer(NullLiteral.class, n -> "nullptr");
+        registerRenderer(StringLiteral.class, this::toStringStringLiteral);
+        registerRenderer(CharacterLiteral.class, this::toStringCharLiteral);
+        registerRenderer(BoolLiteral.class, n -> n.getValue() ? "true" : "false");
+        registerRenderer(PlainCollectionLiteral.class, this::toStringCollectionLiteral);
+        registerRenderer(DictionaryLiteral.class, this::toStringDictionaryLiteral);
+        registerRenderer(CastTypeExpression.class, this::toStringCast);
+        registerRenderer(SizeofExpression.class, this::toStringSizeof);
+        registerRenderer(NewExpression.class, this::toStringNew);
+        registerRenderer(DeleteExpression.class, this::toStringDelete);
+        registerRenderer(DeleteStatement.class, n -> toStringDelete(n.toExpression()) + ";");
+        registerRenderer(MemberAccess.class, this::toStringMemberAccess);
+        registerRenderer(CompoundComparison.class, this::toStringCompoundComparison);
+        registerRenderer(DefinitionArgument.class, n -> toString(n.getInitialExpression()));
+        registerRenderer(Comment.class, this::toStringComment);
+        registerRenderer(InterpolatedStringLiteral.class, this::fromInterpolatedString);
+        registerRenderer(MultipleAssignmentStatement.class, this::fromMultipleAssignmentStatement);
+        registerRenderer(IfStatement.class, this::toStringIfStatement);
+        registerRenderer(CompoundStatement.class, this::toStringCompoundStatement);
+        registerRenderer(RangeForLoop.class, this::toStringRangeForLoop);
+        registerRenderer(GeneralForLoop.class, this::toStringGeneralForLoop);
+        registerRenderer(WhileLoop.class, this::toStringWhileLoop);
+        registerRenderer(InfiniteLoop.class, this::toStringInfiniteLoop);
+        registerRenderer(SwitchStatement.class, this::toStringSwitchStatement);
+        registerRenderer(FunctionDefinition.class, this::toStringFunctionDefinition);
+        registerRenderer(FunctionDeclaration.class, this::toStringFunctionDeclaration);
+        registerRenderer(DeclarationArgument.class, this::toStringDeclarationArgument);
+        registerRenderer(ArrayInitializer.class, this::toStringArrayInitializer);
+        registerRenderer(ReturnStatement.class, this::toStringReturnStatement);
+        registerRenderer(EmptyStatement.class, n -> "");
+        registerRenderer(BreakStatement.class, n -> "break;");
+        registerRenderer(ContinueStatement.class, n -> "continue;");
+        registerRenderer(ForEachLoop.class, this::toStringForEachLoop);
+        registerRenderer(VariableDeclarator.class, n -> toStringVariableDeclarator(n, new UnknownType()));
+        registerRenderer(Shape.class, this::toStringShape);
+        registerRenderer(ConditionBranch.class, this::toStringConditionBranch);
+        registerRenderer(MatchValueCaseBlock.class, this::toStringCaseBlock);
+        registerRenderer(DefaultCaseBlock.class, this::toStringCaseBlock);
+        registerRenderer(CaseBlock.class, this::toStringCaseBlock);
+        registerUnsupportedFeature(new NonDirectionalRangeForFeature());
     }
 
     private final String _indentation;
@@ -128,85 +211,7 @@ public class CppViewer extends LanguageViewer {
             return "";
         }
 
-        return switch (node) {
-            case ProgramEntryPoint entryPoint -> toStringEntryPoint(entryPoint);
-            case ExpressionStatement expressionStatement -> toStringExpressionStatement(expressionStatement);
-            case VariableDeclaration variableDeclaration -> toStringVariableDeclaration(variableDeclaration);
-            case IndexExpression indexExpression -> toStringIndexExpression(indexExpression);
-            case ExpressionSequence commaExpression -> toStringCommaExpression(commaExpression);
-            case TernaryOperator ternaryOperator -> toStringTernaryOperator(ternaryOperator);
-            case MemoryAllocationCall mAlloc -> toStringMemoryAllocation(mAlloc);
-            case MemoryFreeCall mFree -> toStringMemoryFree(mFree);
-            case PrintCommand formatInput -> toStringPrint(formatInput);
-            case InputCommand inputCommand -> toStringInput(inputCommand);
-            case FunctionCall functionCall -> toStringFunctionCall(functionCall);
-            case ParenthesizedExpression parenthesizedExpression -> toStringParenthesizedExpression(parenthesizedExpression);
-            case AssignmentExpression assignmentExpression -> toStringAssignmentExpression(assignmentExpression);
-            case AssignmentStatement assignmentStatement -> toStringAssignmentStatement(assignmentStatement);
-            case IntType intType -> toStringIntType(intType);
-            case FloatType floatType -> toStringFloatType(floatType);
-            case CharacterType characterType -> toStringCharacterType(characterType);
-            case PointerType pointerType -> toStringType(pointerType);
-            case ReferenceType referenceType -> toStringType(referenceType);
-            case DictionaryType dictionaryType -> toStringType(dictionaryType);
-            case ArrayType arrayType -> toStringType(arrayType);
-            case UnmodifiableListType unmodifiableListType -> toStringType(unmodifiableListType);
-            case SetType setType -> toStringType(setType);
-            case PlainCollectionType plainCollectionType -> toStringType(plainCollectionType);
-            case GenericUserType genericUserType -> toStringType(genericUserType);
-            case UserType userType -> toStringType(userType);
-            case Type type -> toStringType(type);
-            case SimpleIdentifier simpleIdentifier -> simpleIdentifier.getName();
-            case ScopedIdentifier scopedIdentifier -> toStringIdentifier(scopedIdentifier);
-            case QualifiedIdentifier qualifiedIdentifier -> toStringIdentifier(qualifiedIdentifier);
-            case Identifier identifier -> toStringIdentifier(identifier);
-            case FloatLiteral floatLiteral -> floatLiteral.getStringValue(true);
-            case IntegerLiteral integerLiteral -> toStringNumericLiteral(integerLiteral);
-            case NumericLiteral numericLiteral -> toStringNumericLiteral(numericLiteral);
-            case FloorDivOp floorDivOp -> toStringFloorDiv(floorDivOp);
-            case UnaryExpression unaryExpression -> toStringUnaryExpression(unaryExpression);
-            case BinaryExpression binaryExpression -> toStringBinaryExpression(binaryExpression);
-            case NullLiteral nullLit -> "nullptr";
-            case StringLiteral sl -> toStringStringLiteral(sl);
-            case CharacterLiteral cl -> toStringCharLiteral(cl);
-            case BoolLiteral bl -> bl.getValue() ? "true" : "false";
-            case PlainCollectionLiteral colLit -> toStringCollectionLiteral(colLit);
-            case DictionaryLiteral dLit -> toStringDictionaryLiteral(dLit);
-            case CastTypeExpression cast -> toStringCast(cast);
-            case SizeofExpression sizeof -> toStringSizeof(sizeof);
-            case NewExpression new_ -> toStringNew(new_);
-            case DeleteExpression del -> toStringDelete(del);
-            case DeleteStatement del -> toStringDelete(del.toExpression()) + ";";
-            case MemberAccess memAccess -> toStringMemberAccess(memAccess);
-            case CompoundComparison cmpCmp -> toStringCompoundComparison(cmpCmp);
-            case DefinitionArgument defArg -> toString(defArg.getInitialExpression());
-            case Comment cmnt -> toStringComment(cmnt);
-            case InterpolatedStringLiteral interpolatedStringLiteral -> fromInterpolatedString(interpolatedStringLiteral);
-            case MultipleAssignmentStatement mas -> fromMultipleAssignmentStatement(mas);
-            case IfStatement ifStatement -> toStringIfStatement(ifStatement);
-            case CompoundStatement compoundStatement -> toStringCompoundStatement(compoundStatement);
-            case RangeForLoop rangeForLoop -> toStringRangeForLoop(rangeForLoop);
-            case GeneralForLoop generalForLoop -> toStringGeneralForLoop(generalForLoop);
-            case WhileLoop whileLoop -> toStringWhileLoop(whileLoop);
-            case InfiniteLoop infiniteLoop -> toStringInfiniteLoop(infiniteLoop);
-            case SwitchStatement switchStatement -> toStringSwitchStatement(switchStatement);
-            case FunctionDefinition functionDefinition -> toStringFunctionDefinition(functionDefinition);
-            case FunctionDeclaration functionDeclaration -> toStringFunctionDeclaration(functionDeclaration);
-            case DeclarationArgument declarationArgument -> toStringDeclarationArgument(declarationArgument);
-            case ArrayInitializer arrayInitializer -> toStringArrayInitializer(arrayInitializer);
-            case ReturnStatement returnStatement -> toStringReturnStatement(returnStatement);
-            case EmptyStatement emptyStatement -> "";
-            case BreakStatement stmt -> "break;";
-            case ContinueStatement stmt -> "continue;";
-            case ForEachLoop forEachLoop -> toStringForEachLoop(forEachLoop);
-            case VariableDeclarator variableDeclarator -> toStringVariableDeclarator(variableDeclarator, new UnknownType());
-            case Shape shape -> toStringShape(shape);
-            case ConditionBranch conditionBranch -> toStringConditionBranch(conditionBranch);
-            case MatchValueCaseBlock matchValueCaseBlock -> toStringCaseBlock(matchValueCaseBlock);
-            case DefaultCaseBlock defaultCaseBlock -> toStringCaseBlock(defaultCaseBlock);
-            case CaseBlock caseBlock -> toStringCaseBlock(caseBlock);
-            default -> throw new UnsupportedViewingException("Unexpected value: " + node);
-        };
+        return dispatchRenderer(node);
     }
 
     private String toStringForEachLoop(ForEachLoop forEachLoop) {
@@ -1512,3 +1517,6 @@ public class CppViewer extends LanguageViewer {
         return ctx.requireTokenizer().getOperatorByTokenName(tok);
     }
 }
+
+
+

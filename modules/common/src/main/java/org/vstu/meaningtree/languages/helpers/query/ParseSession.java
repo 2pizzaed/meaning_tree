@@ -4,6 +4,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.treesitter.*;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.utils.ByteRange;
 import org.vstu.meaningtree.utils.Hook;
 
 import java.util.*;

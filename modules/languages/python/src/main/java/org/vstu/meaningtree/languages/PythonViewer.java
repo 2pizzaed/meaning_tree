@@ -2,6 +2,7 @@ package org.vstu.meaningtree.languages;
 
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
+import org.vstu.meaningtree.languages.support.features.PointerSubtractionInUnpackFeature;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.languages.utils.Tab;
 import org.vstu.meaningtree.nodes.*;
@@ -67,6 +68,67 @@ import java.util.stream.Collectors;
 public class PythonViewer extends LanguageViewer {
     public PythonViewer(LanguageTranslator translator) {
         super(translator);
+        configureSupportAndRenderers();
+    }
+
+    private void configureSupportAndRenderers() {
+        registerRenderer(ProgramEntryPoint.class, node -> toString(node, new Tab()));
+        registerRenderer(AssignmentExpression.class, node -> toString(node, new Tab()));
+        registerRenderer(BinaryComparison.class, node -> toString(node, new Tab()));
+        registerRenderer(BinaryExpression.class, node -> toString(node, new Tab()));
+        registerRenderer(IfStatement.class, node -> toString(node, new Tab()));
+        registerRenderer(PointerPackOp.class, node -> toString(node, new Tab()));
+        registerRenderer(PointerUnpackOp.class, node -> toString(node, new Tab()));
+        registerRenderer(UnaryExpression.class, node -> toString(node, new Tab()));
+        registerRenderer(CompoundStatement.class, node -> toString(node, new Tab()));
+        registerRenderer(CompoundComparison.class, node -> toString(node, new Tab()));
+        registerRenderer(Type.class, node -> toString(node, new Tab()));
+        registerRenderer(FormatPrint.class, node -> toString(node, new Tab()));
+        registerRenderer(FormatInput.class, node -> toString(node, new Tab()));
+        registerRenderer(Identifier.class, node -> toString(node, new Tab()));
+        registerRenderer(IndexExpression.class, node -> toString(node, new Tab()));
+        registerRenderer(MemberAccess.class, node -> toString(node, new Tab()));
+        registerRenderer(TernaryOperator.class, node -> toString(node, new Tab()));
+        registerRenderer(ParenthesizedExpression.class, node -> toString(node, new Tab()));
+        registerRenderer(ObjectNewExpression.class, node -> toString(node, new Tab()));
+        registerRenderer(ArrayNewExpression.class, node -> toString(node, new Tab()));
+        registerRenderer(MemoryAllocationCall.class, node -> toString(node, new Tab()));
+        registerRenderer(MemoryFreeCall.class, node -> toString(node, new Tab()));
+        registerRenderer(FunctionCall.class, node -> toString(node, new Tab()));
+        registerRenderer(BreakStatement.class, node -> toString(node, new Tab()));
+        registerRenderer(DeleteStatement.class, node -> toString(node, new Tab()));
+        registerRenderer(DeleteExpression.class, node -> toString(node, new Tab()));
+        registerRenderer(Range.class, node -> toString(node, new Tab()));
+        registerRenderer(ContinueStatement.class, node -> toString(node, new Tab()));
+        registerRenderer(ConstructorCall.class, node -> toString(node, new Tab()));
+        registerRenderer(Comment.class, node -> toString(node, new Tab()));
+        registerRenderer(Literal.class, node -> toString(node, new Tab()));
+        registerRenderer(SizeofExpression.class, node -> toString(node, new Tab()));
+        registerRenderer(AssignmentStatement.class, node -> toString(node, new Tab()));
+        registerRenderer(VariableDeclaration.class, node -> toString(node, new Tab()));
+        registerRenderer(ForLoop.class, node -> toString(node, new Tab()));
+        registerRenderer(InfiniteLoop.class, node -> toString(node, new Tab()));
+        registerRenderer(WhileLoop.class, node -> toString(node, new Tab()));
+        registerRenderer(DoWhileLoop.class, node -> toString(node, new Tab()));
+        registerRenderer(SwitchStatement.class, node -> toString(node, new Tab()));
+        registerRenderer(MethodDefinition.class, node -> toString(node, new Tab()));
+        registerRenderer(FunctionDefinition.class, node -> toString(node, new Tab()));
+        registerRenderer(ClassDeclaration.class, node -> toString(node, new Tab()));
+        registerRenderer(ClassDefinition.class, node -> toString(node, new Tab()));
+        registerRenderer(FunctionDeclaration.class, node -> toString(node, new Tab()));
+        registerRenderer(Import.class, node -> toString(node, new Tab()));
+        registerRenderer(ExpressionStatement.class, node -> toString(node, new Tab()));
+        registerRenderer(ReturnStatement.class, node -> toString(node, new Tab()));
+        registerRenderer(ArrayInitializer.class, node -> toString(node, new Tab()));
+        registerRenderer(DefinitionArgument.class, node -> toString(node, new Tab()));
+        registerRenderer(PackageDeclaration.class, node -> toString(node, new Tab()));
+        registerRenderer(CommaExpression.class, node -> toString(node, new Tab()));
+        registerRenderer(ExpressionSequence.class, node -> toString(node, new Tab()));
+        registerRenderer(MultipleAssignmentStatement.class, node -> toString(node, new Tab()));
+        registerRenderer(CastTypeExpression.class, node -> toString(node, new Tab()));
+        registerRenderer(Comprehension.class, node -> toString(node, new Tab()));
+        registerRenderer(EmptyStatement.class, node -> toString(node, new Tab()));
+        registerUnsupportedFeature(new PointerSubtractionInUnpackFeature());
     }
 
     @Override
@@ -107,8 +169,6 @@ public class PythonViewer extends LanguageViewer {
             case CompoundStatement exprNode -> blockToString(exprNode, tab);
             case CompoundComparison compound -> compoundComparisonToString(compound);
             case Type type -> typeToString(type);
-            case FormatPrint fmt -> throw new UnsupportedViewingException("Format print is not supported in Python");
-            case FormatInput fmt -> throw new UnsupportedViewingException("Format input is not supported in Python");
             case Identifier identifier -> identifierToString(identifier);
             case IndexExpression indexExpr -> {
                 indexExpr = parenFiller.process(indexExpr);
@@ -130,13 +190,11 @@ public class PythonViewer extends LanguageViewer {
             case FunctionCall funcCall -> callsToString(funcCall);
             case BreakStatement ignored2 -> "break";
             case DeleteStatement delStmt -> String.format("del %s", toString(delStmt.getTarget()));
-            case DeleteExpression ignored2 -> throw new UnsupportedViewingException("Delete expressions is unsupported on Python");
             case Range range -> rangeToString(range);
             case ContinueStatement ignored1 -> "continue";
             case ConstructorCall call -> String.format("%s(%s)", toString(call.getOwner()), argumentsToString(call.getArguments()));
             case Comment comment -> commentToString(comment);
             case Literal literal -> literalToString(literal);
-            case SizeofExpression ignored -> throw new UnsupportedViewingException("Sizeof is disabled in this language");
             case AssignmentStatement assignmentStatement -> assignmentToString(assignmentStatement);
             case VariableDeclaration varDecl -> variableDeclarationToString(varDecl);
             case ForLoop forLoop -> loopToString(forLoop, tab);
@@ -155,7 +213,6 @@ public class PythonViewer extends LanguageViewer {
             case ArrayInitializer arrayInit -> arrayInitializerToString(arrayInit);
             case DefinitionArgument arg -> definitionArgumentToString(arg);
             case PackageDeclaration packageDecl -> String.format("import %s", toString(packageDecl.getPackageName()));
-            case CommaExpression ignored -> throw new UnsupportedViewingException("Comma is unsupported in this language");
             case ExpressionSequence exprSeq -> String.join(", ", exprSeq.getExpressions().stream().map((Expression nd) -> toString(nd, tab)).toList().toArray(new String[0]));
             case MultipleAssignmentStatement stmtSequence -> assignmentToString(stmtSequence);
             case CastTypeExpression cast -> callsToString(cast);
@@ -1135,3 +1192,4 @@ public class PythonViewer extends LanguageViewer {
         return ctx.requireTokenizer().getOperatorByTokenName(tok);
     }
 }
+

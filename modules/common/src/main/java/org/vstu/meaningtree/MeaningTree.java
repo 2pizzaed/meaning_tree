@@ -63,7 +63,7 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
     public Node findParentOfNode(Node node) {
         for (NodeInfo inf : this) {
             if (inf.node().equals(node)) {
-                return inf.parent();
+                return inf.parentNode();
             }
         }
         return null;

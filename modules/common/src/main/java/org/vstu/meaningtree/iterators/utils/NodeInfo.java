@@ -4,9 +4,13 @@ import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Experimental;
 
 
-public record NodeInfo(Node node, Node parent, FieldDescriptor field, int depth) {
+public record NodeInfo(Node node, NodeInfo parent, FieldDescriptor field, int depth) {
     public long id() {
         return node.getId();
+    }
+
+    public Node parentNode() {
+        return parent == null ? null : parent.node();
     }
 
     public boolean isInCollection() {
@@ -22,9 +26,9 @@ public record NodeInfo(Node node, Node parent, FieldDescriptor field, int depth)
             return "$/" + node().getClass().getSimpleName() + "#" + node().getId();
         }
         StringBuilder builder = new StringBuilder("$/");
-        builder.append(parent().getClass().getSimpleName())
+        builder.append(parent().node().getClass().getSimpleName())
                 .append("#")
-                .append(parent().getId())
+                .append(parent().node().getId())
                 .append(".")
                 .append(field().getName());
         if (field().isIndexed()) {

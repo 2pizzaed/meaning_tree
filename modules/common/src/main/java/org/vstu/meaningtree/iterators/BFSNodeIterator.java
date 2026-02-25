@@ -16,11 +16,13 @@ public class BFSNodeIterator extends AbstractNodeIterator {
         Node node;
         FieldDescriptor parentField;
         int depth;
+        NodeInfo info;
 
-        Frame(Node node, FieldDescriptor parentField, int depth) {
+        Frame(Node node, FieldDescriptor parentField, NodeInfo parentInfo, int depth) {
             this.node = node;
             this.parentField = parentField;
             this.depth = depth;
+            this.info = new NodeInfo(node, parentInfo, parentField, depth);
         }
     }
 
@@ -34,10 +36,11 @@ public class BFSNodeIterator extends AbstractNodeIterator {
     public BFSNodeIterator(Node root, boolean includeRoot) {
         this.includeRoot = includeRoot;
         if (includeRoot) {
-            queue.offer(new Frame(root, null, 0));
+            queue.offer(new Frame(root, null, null, 0));
         } else {
             // если корень пропускаем — сразу добавляем его детей
-            enqueueChildren(root, null, 0);
+            NodeInfo rootInfo = new NodeInfo(root, null, null, -1);
+            enqueueChildren(root, rootInfo, 0);
         }
     }
 
@@ -56,18 +59,19 @@ public class BFSNodeIterator extends AbstractNodeIterator {
         Node parentNode = frame.parentField == null ? null : frame.parentField.getOwner();
 
         // Добавляем детей текущего узла в очередь
-        enqueueChildren(frame.node, parentNode, frame.depth + 1);
+        enqueueChildren(frame.node, frame.info, frame.depth + 1);
 
-        return new NodeInfo(frame.node, parentNode, frame.parentField, frame.depth);
+        return frame.info;
     }
 
-    private void enqueueChildren(Node node, Node parentNode, int depth) {
+    private void enqueueChildren(Node node, NodeInfo currentInfo, int depth) {
+        Node parentNode = currentInfo == null ? null : currentInfo.parentNode();
         for (FieldDescriptor fd : node.getFieldDescriptors().values()) {
             try {
                 if (fd instanceof NodeFieldDescriptor nfd) {
                     Node child = nfd.get();
                     if (child != null && checkEnterCondition(child, parentNode)) {
-                        queue.offer(new Frame(child, fd, depth));
+                        queue.offer(new Frame(child, fd, currentInfo, depth));
                     }
                 } else if (fd instanceof ArrayFieldDescriptor afd) {
                     Iterator<Node> iter = afd.iterator();
@@ -75,7 +79,7 @@ public class BFSNodeIterator extends AbstractNodeIterator {
                     while (iter.hasNext()) {
                         Node child = iter.next();
                         if (child != null && checkEnterCondition(child, parentNode)) {
-                            queue.offer(new Frame(child, fd.withIndex(index), depth));
+                            queue.offer(new Frame(child, fd.withIndex(index), currentInfo, depth));
                         }
                         index++;
                     }
@@ -85,7 +89,7 @@ public class BFSNodeIterator extends AbstractNodeIterator {
                     while (iter.hasNext()) {
                         Node child = iter.next();
                         if (child != null && checkEnterCondition(child, parentNode)) {
-                            queue.offer(new Frame(child, fd.withIndex(index), depth));
+                            queue.offer(new Frame(child, fd.withIndex(index), currentInfo, depth));
                         }
                         index++;
                     }

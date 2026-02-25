@@ -10,6 +10,7 @@ import java.util.NoSuchElementException;
 public class NodeIterator extends AbstractNodeIterator {
     public final Node root;
     private final FieldDescriptor parent;
+    private final NodeInfo selfInfo;
 
     private boolean giveRoot = false;
 
@@ -22,23 +23,28 @@ public class NodeIterator extends AbstractNodeIterator {
     protected Iterator<FieldDescriptor> fieldIterator;
 
     public NodeIterator(Node node) {
-        this(node, false, 0, null);
+        this(node, false, 0, null, null);
     }
 
     NodeIterator(Node node, int depth) {
-        this(node, false, depth, null);
+        this(node, false, depth, null, null);
     }
 
     public NodeIterator(Node node, boolean includeThis) {
-       this(node, includeThis, 0, null);
+       this(node, includeThis, 0, null, null);
     }
 
     NodeIterator(Node node, boolean includeThis, int depth, FieldDescriptor parent) {
+        this(node, includeThis, depth, parent, null);
+    }
+
+    NodeIterator(Node node, boolean includeThis, int depth, FieldDescriptor parent, NodeInfo parentInfo) {
         this.root = node;
         this.depth = depth;
         this.fieldIterator = node.getFieldDescriptors().values().iterator();
         giveRoot = includeThis;
         this.parent = parent;
+        this.selfInfo = new NodeInfo(node, parentInfo, parent, depth);
     }
 
     @Override
@@ -50,7 +56,7 @@ public class NodeIterator extends AbstractNodeIterator {
             currentField = fd;
             try {
                 if (fd instanceof NodeFieldDescriptor nfd) {
-                    currentNested = new NodeIterator(nfd.get(), true, depth + 1, fd);
+                    currentNested = new NodeIterator(nfd.get(), true, depth + 1, fd, selfInfo);
                 } else if (fd instanceof ArrayFieldDescriptor afd) {
                     nodeIterator = afd.iterator();
                 } else if (fd instanceof CollectionFieldDescriptor cfd) {
@@ -67,7 +73,7 @@ public class NodeIterator extends AbstractNodeIterator {
     public NodeInfo next() {
         if (giveRoot) {
             giveRoot = false;
-            return new NodeInfo(root, parent == null ? null : parent.getOwner(), parent, 0);
+            return selfInfo;
         }
         if (currentNested != null && currentNested.hasNext()) {
             return currentNested.next();
@@ -75,8 +81,9 @@ public class NodeIterator extends AbstractNodeIterator {
         if (nodeIterator != null && nodeIterator.hasNext()) {
             Node node = nodeIterator.next();
             fieldIndex++;
-            currentNested = new NodeIterator(node, false, depth + 1, null);
-            return new NodeInfo(node, root, currentField.withIndex(fieldIndex), depth);
+            NodeInfo childInfo = new NodeInfo(node, selfInfo, currentField.withIndex(fieldIndex), depth);
+            currentNested = new NodeIterator(node, false, depth + 1, null, childInfo);
+            return childInfo;
         }
         throw new NoSuchElementException();
     }

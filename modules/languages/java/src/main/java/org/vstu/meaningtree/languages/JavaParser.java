@@ -66,10 +66,10 @@ import org.vstu.meaningtree.nodes.types.user.GenericClass;
 
 import java.util.*;
 
-public class JavaLanguage extends LanguageParser {
+public class JavaParser extends LanguageParser {
     private final Map<String, UserType> _userTypes;
 
-    public JavaLanguage(LanguageTranslator translator) {
+    public JavaParser(LanguageTranslator translator) {
         super(translator, new TreeSitterJava());
         _userTypes = new HashMap<>();
         configureTsNodeHandlers();

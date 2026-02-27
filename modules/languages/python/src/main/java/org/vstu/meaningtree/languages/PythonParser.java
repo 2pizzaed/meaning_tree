@@ -58,15 +58,11 @@ import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Stream;
 
-public class PythonLanguage extends LanguageParser {
-    public PythonLanguage(LanguageTranslator translator) {
+public class PythonParser extends LanguageParser {
+    public PythonParser(LanguageTranslator translator) {
         super(translator, new TreeSitterPython());
         configureTsNodeHandlers();
     }

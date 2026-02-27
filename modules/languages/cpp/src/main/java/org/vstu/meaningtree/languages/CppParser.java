@@ -72,8 +72,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class CppLanguage extends LanguageParser {
-    public CppLanguage(LanguageTranslator translator) {
+public class CppParser extends LanguageParser {
+    public CppParser(LanguageTranslator translator) {
         super(translator, new TreeSitterCpp());
         configureTsNodeHandlers();
     }

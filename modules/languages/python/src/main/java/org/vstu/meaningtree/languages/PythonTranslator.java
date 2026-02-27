@@ -13,17 +13,17 @@ public class PythonTranslator extends LanguageTranslator {
 
     public PythonTranslator(Map<String, Object> rawStringConfig) {
         super(rawStringConfig);
-        this.init(new PythonLanguage(this), new PythonViewer(this));
+        this.init(new PythonParser(this), new PythonViewer(this));
     }
 
     public PythonTranslator(Config config) {
         super(config);
-        this.init(new PythonLanguage(this), new PythonViewer(this));
+        this.init(new PythonParser(this), new PythonViewer(this));
     }
 
     public PythonTranslator() {
         super();
-        this.init(new PythonLanguage(this), new PythonViewer(this));
+        this.init(new PythonParser(this), new PythonViewer(this));
     }
 
     @Override

@@ -12,17 +12,17 @@ public class JavaTranslator extends LanguageTranslator {
 
     public JavaTranslator(Map<String, Object> rawConfig) {
         super(rawConfig);
-        this.init(new JavaLanguage(this), new JavaViewer(this));
+        this.init(new JavaParser(this), new JavaViewer(this));
     }
 
     public JavaTranslator() {
         super();
-        this.init(new JavaLanguage(this), new JavaViewer(this));
+        this.init(new JavaParser(this), new JavaViewer(this));
     }
 
     public JavaTranslator(Config config) {
         super(config);
-        this.init(new JavaLanguage(this), new JavaViewer(this));
+        this.init(new JavaParser(this), new JavaViewer(this));
     }
 
     @Override

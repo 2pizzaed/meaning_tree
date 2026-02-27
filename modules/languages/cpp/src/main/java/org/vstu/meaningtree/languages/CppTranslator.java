@@ -15,12 +15,12 @@ public class CppTranslator extends LanguageTranslator {
 
     public CppTranslator(Map<String, Object> rawConfig) {
         super(rawConfig);
-        this.init(new CppLanguage(this), new CppViewer(this));
+        this.init(new CppParser(this), new CppViewer(this));
     }
 
     public CppTranslator() {
         super();
-        this.init(new CppLanguage(this), new CppViewer(this));
+        this.init(new CppParser(this), new CppViewer(this));
     }
 
     @Override

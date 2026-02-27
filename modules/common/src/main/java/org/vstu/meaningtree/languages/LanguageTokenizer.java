@@ -8,10 +8,7 @@ import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.nodes.Node;
-import org.vstu.meaningtree.utils.BytePosition;
-import org.vstu.meaningtree.utils.Hook;
-import org.vstu.meaningtree.utils.ListModificationType;
-import org.vstu.meaningtree.utils.TreeSitterUtils;
+import org.vstu.meaningtree.utils.*;
 import org.vstu.meaningtree.utils.tokens.*;
 
 import java.nio.charset.StandardCharsets;
@@ -110,10 +107,12 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
         }
     }
 
+    @Unmaintained
     public TokenList tokenizeExtended(String code) {
         return tokenizeExtended(parser.getMeaningTree(translator.prepareCode(code)));
     }
 
+    @Unmaintained
     public Pair<Boolean, TokenList> tryTokenizeExtended(String code) {
         try {
             return ImmutablePair.of(true, tokenizeExtended(code));

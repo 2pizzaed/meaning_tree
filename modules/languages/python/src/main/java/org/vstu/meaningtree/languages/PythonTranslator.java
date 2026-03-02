@@ -60,8 +60,6 @@ public class PythonTranslator extends LanguageTranslator {
         return list;
     }
 
-
-
     @Override
     public LanguageTranslator clone() {
         return new PythonTranslator(this.getConfig());

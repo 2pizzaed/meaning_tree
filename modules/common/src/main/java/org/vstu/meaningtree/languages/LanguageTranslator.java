@@ -10,8 +10,6 @@ import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedConfigParameterException;
 import org.vstu.meaningtree.languages.configs.*;
 import org.vstu.meaningtree.languages.support.SupportReport;
-import org.vstu.meaningtree.languages.helpers.templates.TemplateEngine;
-import org.vstu.meaningtree.languages.helpers.templates.TemplateRepository;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Experimental;
 import org.vstu.meaningtree.utils.Label;
@@ -53,10 +51,7 @@ public abstract class LanguageTranslator implements Cloneable {
      * @param rawConfig - конфигурация в формате "название - значение" в виде строки (тип будет выведен автоматически из строки)
      */
     public LanguageTranslator(Map<String, Object> rawConfig) {
-        var configBuilder = new ConfigBuilder();
-        for (var entry : rawConfig.entrySet()) {
-            configBuilder.add(this.getClass(), entry.getKey(), entry.getValue());
-        }
+        var configBuilder = new ConfigBuilder().fromRawMap(this.getClass(), rawConfig);
         _config = _config.merge(_config,
                 Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
                 configBuilder.toConfig());
@@ -271,19 +266,19 @@ public abstract class LanguageTranslator implements Cloneable {
         return getCodeAsTokens(mt, enableWhitespaces, true, false);
     }
 
-    protected ConfigParameter getConfigParameter(String id) {
+    public ConfigParameter getConfigParameter(String id) {
         return _config.get(id);
     }
 
-    protected ConfigParameter getConfigParameter(ConfigParameter anyInstance) {
+    public ConfigParameter getConfigParameter(ConfigParameter anyInstance) {
         return _config.get(anyInstance.getId());
     }
 
-    protected boolean isExpressionMode() {
+    public boolean isExpressionMode() {
         return getConfigParameter("translationUnitMode").asString().equals("expression");
     }
 
-    protected boolean getConfigFlag(String id) {
+    public boolean getConfigFlag(String id) {
         return getConfigParameter(id).asBoolean();
     }
 
@@ -293,6 +288,8 @@ public abstract class LanguageTranslator implements Cloneable {
 
     @Override
     public abstract LanguageTranslator clone();
+
+    public abstract LanguageTranslator clone(Config config);
 
     protected Config getConfig() {
         return _config;

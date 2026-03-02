@@ -6,6 +6,7 @@ import org.vstu.meaningtree.exceptions.UnsupportedConfigParameterException;
 import org.vstu.meaningtree.languages.LanguageTranslator;
 
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Objects;
 
 public class ConfigBuilder {
@@ -13,6 +14,13 @@ public class ConfigBuilder {
 
     public ConfigBuilder() {
         this.params = new LinkedList<>();
+    }
+
+    public ConfigBuilder fromRawMap(Class<? extends LanguageTranslator> context, Map<String, Object> rawConfig) {
+        for (var entry : rawConfig.entrySet()) {
+            add(context, entry.getKey(), entry.getValue());
+        }
+        return this;
     }
 
     public ConfigBuilder fromJson(@Nullable Class<? extends LanguageTranslator> context, JsonObject json) {

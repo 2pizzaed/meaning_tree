@@ -61,11 +61,15 @@ public class PythonTranslator extends LanguageTranslator {
     }
 
 
+
     @Override
     public LanguageTranslator clone() {
-        var clone = new PythonTranslator();
-        clone._config = this.getConfig();
-        return clone;
+        return new PythonTranslator(this.getConfig());
+    }
+
+    @Override
+    public LanguageTranslator clone(Config config) {
+        return new PythonTranslator(config);
     }
 
 }

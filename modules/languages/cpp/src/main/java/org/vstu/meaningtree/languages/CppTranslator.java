@@ -18,6 +18,11 @@ public class CppTranslator extends LanguageTranslator {
         this.init(new CppParser(this), new CppViewer(this));
     }
 
+    public CppTranslator(Config config) {
+        super(config);
+        this.init(new CppParser(this), new CppViewer(this));
+    }
+
     public CppTranslator() {
         super();
         this.init(new CppParser(this), new CppViewer(this));
@@ -77,9 +82,12 @@ public class CppTranslator extends LanguageTranslator {
 
     @Override
     public LanguageTranslator clone() {
-        var clone = new CppTranslator();
-        clone._config = this.getConfig();
-        return clone;
+        return new CppTranslator(this.getConfig());
+    }
+
+    @Override
+    public LanguageTranslator clone(Config config) {
+        return new CppTranslator(config);
     }
 
 }

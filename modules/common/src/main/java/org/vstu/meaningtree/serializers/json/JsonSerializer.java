@@ -375,7 +375,19 @@ public class JsonSerializer implements Serializer<JsonObject> {
                 json.addProperty("attr", b);
             } else if (attr instanceof String s) {
                 json.addProperty("attr", s);
-            } else {
+            } else if (attr instanceof Object[] arr) {
+                JsonArray array = new JsonArray();
+                for (Object o : arr) {
+                    if (o instanceof Number n) {
+                        array.add(n);
+                    } else if (o instanceof Boolean b) {
+                        array.add(b);
+                    } else if (o instanceof String s) {
+                        array.add(s);
+                    }
+                }
+                json.add("attr", array);
+            }  else {
                 throw new MeaningTreeSerializationException(
                         "Unsupported attribute type: " + attr.getClass()
                 );
@@ -1026,6 +1038,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
 
         json.add("body", serialize(stmt.getBody()));
+        json.add("jump_label", serialize(stmt.getJumpLabel()));
         json.addProperty("id", stmt.getId());
         return json;
     }
@@ -1057,6 +1070,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("range", serialize(stmt.getRange()));
         json.add("body", serialize(stmt.getBody()));
 
+        json.add("jump_label", serialize(stmt.getJumpLabel()));
         json.addProperty("id", stmt.getId());
         return json;
     }
@@ -1069,6 +1083,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("item", serialize(stmt.getItem()));
         json.add("container", serialize(stmt.getExpression()));
         json.add("body", serialize(stmt.getBody()));
+        json.add("jump_label", serialize(stmt.getJumpLabel()));
 
         return json;
     }
@@ -1080,6 +1095,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
         json.add("condition", serialize(stmt.getCondition()));
         json.add("body", serialize(stmt.getBody()));
+        json.add("jump_label", serialize(stmt.getJumpLabel()));
 
         json.addProperty("id", stmt.getId());
         return json;
@@ -1129,6 +1145,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
         json.add("body", serialize(stmt.getBody()));
         json.add("condition", serialize(stmt.getCondition()));
+        json.add("jump_label", serialize(stmt.getJumpLabel()));
 
         json.addProperty("id", stmt.getId());
         return json;
@@ -1967,6 +1984,8 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(loop));
         json.add("body", serialize(loop.getBody()));
+        json.add("jump_label", serialize(loop.getJumpLabel()));
+        json.addProperty("original_loop_type", enumToValue(loop.getLoopType()));
         return json;
     }
 

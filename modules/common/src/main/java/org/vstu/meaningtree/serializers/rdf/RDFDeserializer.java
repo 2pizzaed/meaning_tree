@@ -8,6 +8,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.serializers.model.*;
 import org.vstu.meaningtree.utils.SourceMap;
+import org.vstu.meaningtree.utils.Unmaintained;
 import org.vstu.meaningtree.utils.tokens.Token;
 import org.vstu.meaningtree.utils.tokens.TokenList;
 
@@ -16,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Unmaintained
 public class RDFDeserializer implements Deserializer<Model> {
     public static final String NS = "http://vstu.ru/poas/code#";
     public static final String NS_base = "http://vstu.ru/poas/code";

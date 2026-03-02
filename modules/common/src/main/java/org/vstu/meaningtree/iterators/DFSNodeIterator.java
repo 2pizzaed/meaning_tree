@@ -13,15 +13,17 @@ public class DFSNodeIterator extends AbstractNodeIterator {
     private static class Frame {
         Node node;
         FieldDescriptor parentField;
+        NodeInfo info;
         Iterator<FieldDescriptor> fieldIterator;
         Iterator<Node> nodeIterator;
         int fieldIndex = -1;
         FieldDescriptor currentField;
         boolean visitedChildren = false;
 
-        Frame(Node node, FieldDescriptor parentField) {
+        Frame(Node node, FieldDescriptor parentField, NodeInfo parentInfo, int depth) {
             this.node = node;
             this.parentField = parentField;
+            this.info = new NodeInfo(node, parentInfo, parentField, depth);
             this.fieldIterator = node.getFieldDescriptors().values().iterator();
         }
     }
@@ -36,10 +38,10 @@ public class DFSNodeIterator extends AbstractNodeIterator {
     public DFSNodeIterator(Node root, boolean includeRoot) {
         this.includeRoot = includeRoot;
         if (includeRoot) {
-            stack.push(new Frame(root, null));
+            stack.push(new Frame(root, null, null, 0));
         } else {
             // если корень пропускаем — сразу добавляем его детей
-            Frame rootFrame = new Frame(root, null);
+            Frame rootFrame = new Frame(root, null, null, -1);
             prePushChildren(rootFrame);
         }
     }
@@ -67,7 +69,7 @@ public class DFSNodeIterator extends AbstractNodeIterator {
                             if (!checkEnterCondition(child, parentNode)) {
                                 break;
                             }
-                            stack.push(new Frame(child, fd));
+                            stack.push(new Frame(child, fd, frame.info, frame.info.depth() + 1));
                             return next(); // углубляемся дальше
                         } else if (fd instanceof ArrayFieldDescriptor afd) {
                             frame.nodeIterator = afd.iterator();
@@ -90,7 +92,7 @@ public class DFSNodeIterator extends AbstractNodeIterator {
                         if (!checkEnterCondition(child, parentNode)) {
                             break;
                         }
-                        stack.push(new Frame(child, frame.currentField.withIndex(frame.fieldIndex)));
+                        stack.push(new Frame(child, frame.currentField.withIndex(frame.fieldIndex), frame.info, frame.info.depth() + 1));
                         return next();
                     }
                 }
@@ -102,8 +104,7 @@ public class DFSNodeIterator extends AbstractNodeIterator {
             }
 
             stack.pop();
-            int depth = stack.size();
-            return new NodeInfo(frame.node, parentNode, frame.parentField, depth);
+            return frame.info;
         }
 
         throw new NoSuchElementException();
@@ -118,7 +119,7 @@ public class DFSNodeIterator extends AbstractNodeIterator {
             try {
                 if (fd instanceof NodeFieldDescriptor nfd) {
                     Node child = nfd.get();
-                    stack.push(new Frame(child, fd));
+                    stack.push(new Frame(child, fd, frame.info, frame.info.depth() + 1));
                     prePushChildren(stack.peek());
                 } else if (fd instanceof ArrayFieldDescriptor afd) {
                     Iterator<Node> iter = afd.iterator();
@@ -126,7 +127,7 @@ public class DFSNodeIterator extends AbstractNodeIterator {
                     while (iter.hasNext()) {
                         Node child = iter.next();
                         idx++;
-                        stack.push(new Frame(child, fd.withIndex(idx)));
+                        stack.push(new Frame(child, fd.withIndex(idx), frame.info, frame.info.depth() + 1));
                         prePushChildren(stack.peek());
                     }
                 } else if (fd instanceof CollectionFieldDescriptor cfd) {
@@ -135,7 +136,7 @@ public class DFSNodeIterator extends AbstractNodeIterator {
                     while (iter.hasNext()) {
                         Node child = iter.next();
                         idx++;
-                        stack.push(new Frame(child, fd.withIndex(idx)));
+                        stack.push(new Frame(child, fd.withIndex(idx), frame.info, frame.info.depth() + 1));
                         prePushChildren(stack.peek());
                     }
                 }

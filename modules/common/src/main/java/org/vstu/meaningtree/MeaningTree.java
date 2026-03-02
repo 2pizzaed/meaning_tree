@@ -8,9 +8,12 @@ import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.LabelAttachable;
+import org.vstu.meaningtree.utils.ReplaceResult;
+import org.vstu.meaningtree.utils.ReplaceStatus;
 
 import java.io.Serializable;
 import java.util.*;
+import java.util.function.Predicate;
 
 public class MeaningTree implements Serializable, LabelAttachable, Cloneable, NodeIterable {
     @TreeNode private Node rootNode;
@@ -26,7 +29,9 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
     }
 
     public void changeRoot(Node node) {
-        rootNode = node;}
+        rootNode = node;
+        _index = null;
+    }
 
     public void makeIndex() {
         TreeMap<Long, NodeInfo> treeMap = new TreeMap<>();
@@ -58,19 +63,34 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
     public Node findParentOfNode(Node node) {
         for (NodeInfo inf : this) {
             if (inf.node().equals(node)) {
-                return inf.parent();
+                return inf.parentNode();
             }
         }
         return null;
     }
 
-    public boolean hasFeature(Class<? extends Node> feature) {
+    public boolean hasNodeType(Class<? extends Node> type) {
         for (NodeInfo inf : this) {
-            if (inf.node().getClass().isAssignableFrom(feature)) {
+            if (type.isAssignableFrom(inf.node().getClass())) {
                 return true;
             }
         }
         return false;
+    }
+
+    public boolean anyMatch(Predicate<Node> predicate) {
+        Objects.requireNonNull(predicate, "predicate must not be null");
+        for (NodeInfo inf : this) {
+            if (predicate.test(inf.node())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Deprecated
+    public boolean hasFeature(Class<? extends Node> feature) {
+        return hasNodeType(feature);
     }
 
     @Override
@@ -133,16 +153,31 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
         return children;
     }
 
-    public boolean substitute(long id, Node node) {
-        NodeInfo nodeInfo = getNodeById(id);
-        if (nodeInfo != null) {
-            if (rootNode.uniquenessEquals(nodeInfo.node())) {
-                changeRoot(node);
-                return true;
-            }
-            return nodeInfo.field().substitute(node);
+    public ReplaceResult replace(long id, Node node) {
+        if (node == null) {
+            return new ReplaceResult(ReplaceStatus.NULL_VALUE, "Replacement node is null", null, null, null);
         }
-        return false;
+
+        NodeInfo nodeInfo = getNodeById(id);
+        if (nodeInfo == null) {
+            return new ReplaceResult(ReplaceStatus.FIELD_NOT_FOUND, "Node with id `%d` was not found".formatted(id), null, null, node);
+        }
+
+        if (rootNode.uniquenessEquals(nodeInfo.node())) {
+            Node oldRoot = rootNode;
+            changeRoot(node);
+            return new ReplaceResult(ReplaceStatus.OK, "Root node replaced", null, oldRoot, node);
+        }
+
+        ReplaceResult result = rootNode.replace(nodeInfo, node);
+        if (result.isSuccess()) {
+            _index = null;
+        }
+        return result;
+    }
+
+    @Deprecated
+    public boolean substitute(long id, Node node) {
+        return replace(id, node).isSuccess();
     }
 }
-

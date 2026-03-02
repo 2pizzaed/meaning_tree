@@ -7,16 +7,9 @@ import org.treesitter.TSException;
 import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
-import org.vstu.meaningtree.languages.configs.Config;
-import org.vstu.meaningtree.languages.configs.ConfigBuilder;
-import org.vstu.meaningtree.languages.configs.ConfigScope;
-import org.vstu.meaningtree.languages.configs.ConfigScopedParameter;
-import org.vstu.meaningtree.languages.configs.params.DisableCompoundComparisonConversion;
-import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
-import org.vstu.meaningtree.languages.configs.params.SkipErrors;
-import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
-import org.vstu.meaningtree.languages.configs.parser.ConfigMapping;
-import org.vstu.meaningtree.languages.configs.parser.ConfigParser;
+import org.vstu.meaningtree.exceptions.UnsupportedConfigParameterException;
+import org.vstu.meaningtree.languages.configs.*;
+import org.vstu.meaningtree.languages.support.SupportReport;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Experimental;
 import org.vstu.meaningtree.utils.Label;
@@ -33,48 +26,23 @@ import java.util.Optional;
 public abstract class LanguageTranslator implements Cloneable {
     protected LanguageParser _language;
     protected LanguageViewer _viewer;
-    protected Config _config = new Config();
-    protected ScopeTable _latestScopeTable = null;
 
-    public static Config getPredefinedCommonConfig() {
-        return new Config(
-                new ExpressionMode(false),
-                new TranslationUnitMode(true),
-                new SkipErrors(false)
-        );
-    }
+    protected Config _config = ConfigParameters.defaultConfig();
+    protected ScopeTable _latestScopeTable = null;
 
     public abstract int getLanguageId();
 
     public abstract String getLanguageName();
 
-    protected Config getDeclaredConfig() { return new Config(); }
+    protected abstract Config extendConfigParameters();
 
-    protected ConfigParser configParser = defaultConfigParser();
-
-    protected ConfigParser defaultConfigParser() {
-        return new ConfigParser(
-                new ConfigMapping<>(
-                        "disableCompoundComparisonConversion",
-                        DisableCompoundComparisonConversion::parse,
-                        DisableCompoundComparisonConversion::new
-                ),
-                new ConfigMapping<>(
-                        "expressionMode",
-                        ExpressionMode::parse,
-                        ExpressionMode::new
-                ),
-                new ConfigMapping<>(
-                        "skipErrors",
-                        SkipErrors::parse,
-                        SkipErrors::new
-                ),
-                new ConfigMapping<>(
-                        "translationUnitMode",
-                        TranslationUnitMode::parse,
-                        TranslationUnitMode::new
-                )
-        );
+    public Config getDefaultConfig() {
+        Config extended = extendConfigParameters();
+        Config target = ConfigParameters.defaultConfig();
+        if (extended != null) {
+            target.merge(extended);
+        }
+        return target;
     }
 
     /**
@@ -82,18 +50,32 @@ public abstract class LanguageTranslator implements Cloneable {
      * Требует дальнейшей инициализации методом init(parser, viewer)
      * @param rawConfig - конфигурация в формате "название - значение" в виде строки (тип будет выведен автоматически из строки)
      */
-    protected LanguageTranslator(Map<String, String> rawConfig) {
-        var configBuilder = new ConfigBuilder();
+    public LanguageTranslator(Map<String, Object> rawConfig) {
+        var configBuilder = new ConfigBuilder().fromRawMap(this.getClass(), rawConfig);
+        _config = _config.merge(_config,
+                Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
+                configBuilder.toConfig());
+    }
 
-        // Загрузка конфигов, специфических для конкретного языка
-        for (var entry : rawConfig.entrySet()) {
-            var parsed = configParser.parse(entry.getKey(), entry.getValue());
-            if (parsed != null) {
-                configBuilder.add(parsed);
+    public LanguageTranslator(Config config) {
+        _config = _config.merge(_config,
+                Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
+                config);
+    }
+
+    private void setupConfig(Config additional) {
+        _config = _config.merge(_config,
+                Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
+                additional);
+        for (ConfigParameter param : _config) {
+            if (param.isNull() && param.isReadOnly()) {
+                throw new UnsupportedConfigParameterException("You must extend read-only parameter with non-null value `%s`".formatted(param.getId()));
             }
         }
+    }
 
-        _config = _config.merge(getPredefinedCommonConfig(), getDeclaredConfig(), configBuilder.toConfig());
+    public LanguageTranslator() {
+        this(new Config());
     }
 
     @Nullable
@@ -103,6 +85,7 @@ public abstract class LanguageTranslator implements Cloneable {
 
     public MeaningTree getMeaningTree(String code) {
         MeaningTree mt = _language.getMeaningTree(prepareCode(code));
+        _language.commitParseSession(mt);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
         _language.rollbackContext();
         return mt;
@@ -114,13 +97,13 @@ public abstract class LanguageTranslator implements Cloneable {
 
         if (parser != null) {
             _language.setConfig(
-                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
+                    _config.subset(ConfigParameter.forScopes(ConfigScope.PARSER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
             );
         }
 
         if (viewer != null) {
             _viewer.setConfig(
-                    _config.subset(ConfigScopedParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
+                    _config.subset(ConfigParameter.forScopes(ConfigScope.VIEWER, ConfigScope.TRANSLATOR, ConfigScope.ANY))
             );
         }
     }
@@ -128,6 +111,7 @@ public abstract class LanguageTranslator implements Cloneable {
     @Experimental
     public MeaningTree getMeaningTree(TSNode node, String code) {
         MeaningTree mt = _language.getMeaningTree(node, code);
+        _language.commitParseSession(mt);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
         _language.rollbackContext();
         return mt;
@@ -150,8 +134,15 @@ public abstract class LanguageTranslator implements Cloneable {
         }
     }
 
+    /**
+     * Получить meaning tree
+     * @param code код
+     * @param values пары байтовой позиции (start, end) и значений для присваивания их ассоциированным с ними узлов
+     * @return meaning tree
+     */
     protected MeaningTree getMeaningTree(String code, HashMap<int[], Object> values) {
         MeaningTree mt = _language.getMeaningTree(prepareCode(code), values);
+        _language.commitParseSession(mt);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
         _language.rollbackContext();
         return mt;
@@ -171,6 +162,12 @@ public abstract class LanguageTranslator implements Cloneable {
         }
     }
 
+    /**
+     * Получить meaning tree
+     * @param tokenList токены
+     * @param tokenValueTags пары диапазона токенов и значений для присваивания их ассоциированным с ними узлов
+     * @return meaning tree с заданными значениями для узлов
+     */
     public MeaningTree getMeaningTree(TokenList tokenList, Map<TokenGroup, Object> tokenValueTags) {
         HashMap<int[], Object> codeValueTag = new HashMap<>();
         for (TokenGroup grp : tokenValueTags.keySet()) {
@@ -202,10 +199,12 @@ public abstract class LanguageTranslator implements Cloneable {
 
     public abstract LanguageTokenizer getTokenizer();
 
-    public String getCode(MeaningTree mt) {
-        var result = _viewer.toString(mt);
-        _viewer.rollbackContext();
-        return result;
+    public SupportReport analyzeSupport(MeaningTree tree) {
+        return _viewer.analyzeSupport(tree);
+    }
+
+    public SupportReport analyzeSupport(Node node) {
+        return _viewer.analyzeSupport(node);
     }
 
     public Pair<Boolean, String> tryGetCode(MeaningTree mt) {
@@ -215,6 +214,18 @@ public abstract class LanguageTranslator implements Cloneable {
         } catch (TSException | MeaningTreeException | IllegalArgumentException | ClassCastException e) {
             return ImmutablePair.of(false, null);
         }
+    }
+
+    public String getCode(Node node) {
+        var result = _viewer.toString(node);
+        _viewer.rollbackContext();
+        return result;
+    }
+
+    public String getCode(MeaningTree mt) {
+        var result = _viewer.toString(mt);
+        _viewer.rollbackContext();
+        return result;
     }
 
     public Pair<Boolean, TokenList> tryGetCodeAsTokens(MeaningTree mt, boolean enableWhitespaces,
@@ -228,11 +239,6 @@ public abstract class LanguageTranslator implements Cloneable {
         }
     }
 
-    public String getCode(Node node) {
-        var result = _viewer.toString(node);
-        _viewer.rollbackContext();
-        return result;
-    }
 
     /**
      * Получает токены по дереву без прямого получения токенизатора (синтаксический сахар)
@@ -260,8 +266,20 @@ public abstract class LanguageTranslator implements Cloneable {
         return getCodeAsTokens(mt, enableWhitespaces, true, false);
     }
 
-    protected <P, T extends ConfigScopedParameter<P>> Optional<P> getConfigParameter(Class<T> configClass) {
-        return Optional.ofNullable(_config).flatMap(config -> config.get(configClass));
+    public ConfigParameter getConfigParameter(String id) {
+        return _config.get(id);
+    }
+
+    public ConfigParameter getConfigParameter(ConfigParameter anyInstance) {
+        return _config.get(anyInstance.getId());
+    }
+
+    public boolean isExpressionMode() {
+        return getConfigParameter("translationUnitMode").asString().equals("expression");
+    }
+
+    public boolean getConfigFlag(String id) {
+        return getConfigParameter(id).asBoolean();
     }
 
     public abstract String prepareCode(String code);
@@ -270,6 +288,8 @@ public abstract class LanguageTranslator implements Cloneable {
 
     @Override
     public abstract LanguageTranslator clone();
+
+    public abstract LanguageTranslator clone(Config config);
 
     protected Config getConfig() {
         return _config;

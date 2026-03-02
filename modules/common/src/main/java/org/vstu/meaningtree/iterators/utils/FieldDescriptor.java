@@ -3,6 +3,9 @@ package org.vstu.meaningtree.iterators.utils;
 import org.vstu.meaningtree.nodes.Node;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.Collection;
 import java.util.Objects;
 
 public abstract class FieldDescriptor implements Cloneable {
@@ -37,6 +40,18 @@ public abstract class FieldDescriptor implements Cloneable {
         return indexTag;
     }
 
+    public boolean isIndexed() {
+        return indexTag != -1;
+    }
+
+    public boolean isReadOnly() {
+        return readOnly;
+    }
+
+    public Field getRawField() {
+        return field;
+    }
+
     public FieldDescriptor withIndex(int indexTag) {
         var clone = this.clone();
         if (clone.indexTag == -1) {
@@ -69,6 +84,23 @@ public abstract class FieldDescriptor implements Cloneable {
 
     public Class<?> getType() {
         return field.getType();
+    }
+
+    public Class<?> elementTypeHint() {
+        if (field.getType().isArray()) {
+            return field.getType().getComponentType();
+        }
+        if (Collection.class.isAssignableFrom(field.getType())) {
+            Type genericType = field.getGenericType();
+            if (genericType instanceof ParameterizedType parameterizedType
+                    && parameterizedType.getActualTypeArguments().length == 1) {
+                Type elementType = parameterizedType.getActualTypeArguments()[0];
+                if (elementType instanceof Class<?> cls) {
+                    return cls;
+                }
+            }
+        }
+        return null;
     }
 
     @Override

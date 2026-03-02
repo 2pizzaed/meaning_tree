@@ -2,6 +2,10 @@ package org.vstu.meaningtree.utils;
 
 import java.lang.annotation.*;
 
+/**
+ * Данная аннотация указывает пользователям библиотеки, что функциональность - экспериментальная
+ * В будущем, она может измениться, исчезнуть, или она не является достаточно отлаженной/покрытой тестами
+ */
 @Documented
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.METHOD, ElementType.FIELD, ElementType.TYPE,

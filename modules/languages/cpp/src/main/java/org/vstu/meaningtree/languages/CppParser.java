@@ -3,12 +3,10 @@ package org.vstu.meaningtree.languages;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.treesitter.*;
+import org.treesitter.TSNode;
+import org.treesitter.TreeSitterCpp;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
-import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
-import org.vstu.meaningtree.languages.configs.params.SkipErrors;
-import org.vstu.meaningtree.languages.configs.params.TranslationUnitMode;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
@@ -68,44 +66,81 @@ import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
-import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
-public class CppLanguage extends LanguageParser {
-    private TSLanguage _language;
-    private TSParser _parser;
-
-    public CppLanguage(LanguageTranslator translator) {
-        super(translator);
+public class CppParser extends LanguageParser {
+    public CppParser(LanguageTranslator translator) {
+        super(translator, new TreeSitterCpp());
+        configureTsNodeHandlers();
     }
 
-    private void _initBackend() {
-        if (_language == null) {
-            _language = new TreeSitterCpp();
-            _parser = new TSParser();
-            _parser.setLanguage(_language);
-        }
+    private void configureTsNodeHandlers() {
+        registerTSNodeHandler(List.of("ERROR", "parameter_pack_expansion"), node -> fromTSNode(node.getNamedChild(0)));
+        registerTSNodeHandler("translation_unit", this::fromTranslationUnit);
+        registerTSNodeHandler("function_definition", this::fromFunction);
+        registerTSNodeHandler("expression_statement", this::fromExpressionStatement);
+        registerTSNodeHandler("binary_expression", this::fromBinaryExpression);
+        registerTSNodeHandler("unary_expression", this::fromUnaryExpression);
+        registerTSNodeHandler("parenthesized_expression", this::fromParenthesizedExpression);
+        registerTSNodeHandler("update_expression", this::fromUpdateExpression);
+        registerTSNodeHandler("call_expression", this::fromCallExpression);
+        registerTSNodeHandler("conditional_expression", this::fromConditionalExpression);
+        registerTSNodeHandler("comma_expression", this::fromCommaExpression);
+        registerTSNodeHandler("subscript_expression", this::fromSubscriptExpression);
+        registerTSNodeHandler("assignment_expression", this::fromAssignmentExpression);
+        registerTSNodeHandler("compound_literal_expression", node -> fromTSNode(node.getChildByFieldName("value")));
+        registerTSNodeHandler("declaration", this::fromDeclaration);
+        registerTSNodeHandler(List.of("identifier", "qualified_identifier", "field_expression", "namespace_identifier", "type_identifier", "field_identifier"), this::fromIdentifier);
+        registerTSNodeHandler("number_literal", this::fromNumberLiteral);
+        registerTSNodeHandler("char_literal", this::fromCharLiteral);
+        registerTSNodeHandler("string_literal", this::fromStringLiteral);
+        registerTSNodeHandler("user_defined_literal", this::fromUserDefinedLiteral);
+        registerTSNodeHandler("null", node -> new NullLiteral());
+        registerTSNodeHandler("true", node -> new BoolLiteral(true));
+        registerTSNodeHandler("concatenated_string", this::fromConcatenatedString);
+        registerTSNodeHandler("false", node -> new BoolLiteral(false));
+        registerTSNodeHandler("system_lib_string", node -> StringLiteral.fromEscaped(this.getCodePiece(node), StringLiteral.Type.NONE));
+        registerTSNodeHandler("initializer_list", this::fromInitializerList);
+        registerTSNodeHandler(List.of("primitive_type", "template_function", "placeholder_type_specifier", "sized_type_specifier", "type_descriptor"), this::fromType);
+        registerTSNodeHandler("sizeof_expression", this::fromSizeOf);
+        registerTSNodeHandler("compound_statement", this::fromBlock);
+        registerTSNodeHandler("new_expression", this::fromNewExpression);
+        registerTSNodeHandler("delete_expression", this::fromDeleteExpression);
+        registerTSNodeHandler("cast_expression", this::fromCastExpression);
+        registerTSNodeHandler("pointer_expression", this::fromPointerExpression);
+        registerTSNodeHandler("this", node -> new SelfReference("this"));
+        registerTSNodeHandler("offsetof_expression", this::fromOffsetOf);
+        registerTSNodeHandler("preproc_defined", node -> new FunctionCall(new SimpleIdentifier("defined"), (Expression) fromTSNode(node.getNamedChild(0))));
+        registerTSNodeHandler("preproc_include", this::fromPreprocInclude);
+        registerTSNodeHandler("comment", this::fromComment);
+        registerTSNodeHandler("if_statement", this::fromIfStatement);
+        registerTSNodeHandler("for_statement", this::fromForStatement);
+        registerTSNodeHandler("while_statement", this::fromWhile);
+        registerTSNodeHandler("break_statement", this::fromBreakStatement);
+        registerTSNodeHandler("continue_statement", this::fromContinueStatement);
+        registerTSNodeHandler("switch_statement", this::fromSwitchStatement);
+        registerTSNodeHandler("return_statement", this::fromReturn);
+        registerTSNodeHandler("for_range_loop", this::fromForRangeLoop);
     }
 
     @Override
-    public TSTree getTSTree() {
-        _initBackend();
-        return _parser.parseString(null, _code);
+    public void resetParserState() {
+        super.resetParserState();
+        ctx.set("binaryRecursive", -1);
     }
 
     @NotNull
     public synchronized MeaningTree getMeaningTree(String code) {
-        ctx.set("binaryRecursive", -1);
-        _code = code;
+        setCode(code);
+
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
-        if (!errors.isEmpty()) {
-            getConfigParameter(SkipErrors.class)
-                    .filter(Boolean::booleanValue)
-                    .orElseThrow(() -> new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors)));
+        if (!errors.isEmpty() && !getConfigParameter("skipErrors").asBoolean()) {
+            throw new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors));
         }
 
         Node node = parseTSNode(rootNode);
@@ -124,7 +159,7 @@ public class CppLanguage extends LanguageParser {
 
     @Override
     public MeaningTree getMeaningTree(TSNode node, String code) {
-        _code = code;
+        setCode(code);
         return new MeaningTree(parseTSNode(node));
     }
 
@@ -132,9 +167,7 @@ public class CppLanguage extends LanguageParser {
     public TSNode getRootNode() {
         TSNode result = super.getRootNode();
 
-        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
-
-        if (expressionMode) {
+        if (isExpressionMode()) {
             // В режиме выражений в код перед парсингом подставляется заглушка в виде точки входа
             TSNode func = result.getNamedChild(0);
             if (!func.getType().equals("function_definition") || !getCodePiece(func.getChildByFieldName("declarator")
@@ -168,60 +201,13 @@ public class CppLanguage extends LanguageParser {
             throw new UnsupportedParsingException("NULL Tree sitter node");
         }
 
-        Node createdNode = switch (node.getType()) {
-            case "ERROR", "parameter_pack_expansion" -> fromTSNode(node.getNamedChild(0));
-            case "translation_unit" -> fromTranslationUnit(node);
-            case "function_definition" -> fromFunction(node);
-            case "expression_statement"-> fromExpressionStatement(node);
-            case "binary_expression" -> fromBinaryExpression(node);
-            case "unary_expression" -> fromUnaryExpression(node);
-            case "parenthesized_expression" -> fromParenthesizedExpression(node);
-            case "update_expression" -> fromUpdateExpression(node);
-            case "call_expression" -> fromCallExpression(node);
-            case "conditional_expression" -> fromConditionalExpression(node);
-            case "comma_expression" -> fromCommaExpression(node);
-            case "subscript_expression" -> fromSubscriptExpression(node);
-            case "assignment_expression" -> fromAssignmentExpression(node);
-            case "compound_literal_expression" -> fromTSNode(node.getChildByFieldName("value"));
-            case "declaration" -> fromDeclaration(node);
-            case "identifier", "qualified_identifier", "field_expression", "namespace_identifier", "type_identifier", "field_identifier" -> fromIdentifier(node);
-            case "number_literal" -> fromNumberLiteral(node);
-            case "char_literal" -> fromCharLiteral(node);
-            case "string_literal" -> fromStringLiteral(node);
-            case "user_defined_literal" -> fromUserDefinedLiteral(node);
-            case "null" -> new NullLiteral();
-            case "true" -> new BoolLiteral(true);
-            case "concatenated_string" -> fromConcatenatedString(node);
-            case "false" -> new BoolLiteral(false);
-            case "system_lib_string" -> StringLiteral.fromEscaped(
-                    TreeSitterUtils.getCodePiece( _code, node), StringLiteral.Type.NONE
-            );
-            case "initializer_list" -> fromInitializerList(node);
-            case "primitive_type", "template_function", "placeholder_type_specifier", "sized_type_specifier", "type_descriptor" -> fromType(node);
-            case "sizeof_expression" -> fromSizeOf(node);
-            case "compound_statement" -> fromBlock(node);
-            case "new_expression" -> fromNewExpression(node);
-            case "delete_expression" -> fromDeleteExpression(node);
-            case "cast_expression" -> fromCastExpression(node);
-            case "pointer_expression" -> fromPointerExpression(node);
-            case "this" -> new SelfReference("this");
-            case "offsetof_expression" -> fromOffsetOf(node);
-            case "preproc_defined" -> new FunctionCall(new SimpleIdentifier("defined"), (Expression)
-                    fromTSNode(node.getNamedChild(0)));
-            case "preproc_include" -> fromPreprocInclude(node);
-            case "comment" -> fromComment(node);
-            case "if_statement" -> fromIfStatement(node);
-            case "for_statement" -> fromForStatement(node);
-            case "while_statement" -> fromWhile(node);
-            case "break_statement" -> fromBreakStatement(node);
-            case "continue_statement" -> fromContinueStatement(node);
-            case "switch_statement" -> fromSwitchStatement(node);
-            case "return_statement" -> fromReturn(node);
-            case "for_range_loop" -> fromForRangeLoop(node);
-            default -> throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
-        };
-        assignValue(node, createdNode);
-        return createdNode;
+        Optional<Node> fromRegistry = parseWithRegistry(node);
+        if (fromRegistry.isPresent()) {
+            Node createdNode = fromRegistry.get();
+            matchParserNodes(node, createdNode);
+            return createdNode;
+        }
+        throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
     }
 
     private Node fromPreprocInclude(@NotNull TSNode node) {
@@ -1335,7 +1321,7 @@ public class CppLanguage extends LanguageParser {
                 }
                 left = new IndexExpression(leftmost, BinaryExpression.
                         fromManyOperands(args.reversed().toArray(new Expression[0]), 0, AddOp.class), true);
-            } else if (getConfigParameter(ExpressionMode.class).orElse(false)) {
+            } else if (isExpressionMode()) {
                 return right;
             }
         }
@@ -1364,7 +1350,7 @@ public class CppLanguage extends LanguageParser {
                     && functionDefinition.getName().toString().equals("main")
             ) {
                 entryPoint = n;
-                if (!getConfigParameter(TranslationUnitMode.class).orElse(true)) {
+                if (!getConfigParameter("translationUnitMode").equalsValue("full")) {
                     n = new ProgramEntryPoint(List.of(functionDefinition.getBody().getNodes()), n);
                     return n;
                 }

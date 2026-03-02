@@ -1,10 +1,9 @@
 package org.vstu.meaningtree.languages;
 
-import org.treesitter.*;
+import org.treesitter.TSNode;
+import org.treesitter.TreeSitterPython;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
-import org.vstu.meaningtree.languages.configs.params.ExpressionMode;
-import org.vstu.meaningtree.languages.configs.params.SkipErrors;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
@@ -59,40 +58,74 @@ import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Stream;
 
-public class PythonLanguage extends LanguageParser {
-    private TSLanguage _language;
-    private TSParser _parser;
-
-    public PythonLanguage(LanguageTranslator translator) {
-        super(translator);
+public class PythonParser extends LanguageParser {
+    public PythonParser(LanguageTranslator translator) {
+        super(translator, new TreeSitterPython());
+        configureTsNodeHandlers();
     }
 
-    @Override
-    public TSTree getTSTree() {
-        _initBackend();
-        return _parser.parseString(null, _code);
-    }
-
-    private void _initBackend() {
-        if (_language == null) {
-            _language = new TreeSitterPython();
-            _parser = new TSParser();
-            _parser.setLanguage(_language);
-        }
+    private void configureTsNodeHandlers() {
+        registerTSNodeHandler("ERROR", node -> fromTSNode(node.getChild(0)));
+        registerTSNodeHandler("module", this::createEntryPoint);
+        registerTSNodeHandler("block", node -> fromCompoundTSNode(node, false));
+        registerTSNodeHandler("if_statement", this::fromIfStatementTSNode);
+        registerTSNodeHandler(List.of("expression_statement", "expression_list", "tuple_pattern"), this::fromExpressionSequencesTSNode);
+        registerTSNodeHandler("parenthesized_expression", this::fromParenthesizedExpressionTSNode);
+        registerTSNodeHandler("binary_operator", this::fromBinaryExpressionTSNode);
+        registerTSNodeHandler("unary_operator", this::fromUnaryExpressionTSNode);
+        registerTSNodeHandler("not_operator", this::fromNotOperatorTSNode);
+        registerTSNodeHandler(List.of("pass_statement", "ellipsis"), this::fromPassStatementOrEllipsis);
+        registerTSNodeHandler("integer", this::fromIntegerLiteralTSNode);
+        registerTSNodeHandler("float", this::fromFloatLiteralTSNode);
+        registerTSNodeHandler("identifier", this::fromIdentifier);
+        registerTSNodeHandler("keyword_argument", this::fromDefinitionArgument);
+        registerTSNodeHandler("delete_statement", node -> new DeleteStatement((Expression) fromTSNode(node.getChild(0))));
+        registerTSNodeHandler("comparison_operator", this::fromComparisonTSNode);
+        registerTSNodeHandler(List.of("list", "set", "tuple"), node -> fromList(node, node.getType()));
+        registerTSNodeHandler("dictionary", this::fromDictionary);
+        registerTSNodeHandler("string", this::fromString);
+        registerTSNodeHandler("interpolation", node -> fromTSNode(node.getNamedChild(0)));
+        registerTSNodeHandler("slice", this::fromSlice);
+        registerTSNodeHandler("for_statement", this::fromForLoop);
+        registerTSNodeHandler("class_definition", this::fromClass);
+        registerTSNodeHandler("comment", this::fromComment);
+        registerTSNodeHandler("boolean_operator", this::fromBooleanOperatorTSNode);
+        registerTSNodeHandler("none", node -> new NullLiteral());
+        registerTSNodeHandler("type", this::determineType);
+        registerTSNodeHandler("list_splat", node -> DefinitionArgument.listUnpacking((Expression) fromTSNode(node.getNamedChild(0))));
+        registerTSNodeHandler("dictionary_splat", node -> DefinitionArgument.dictUnpacking((Expression) fromTSNode(node.getNamedChild(0))));
+        registerTSNodeHandler("true", node -> new BoolLiteral(true));
+        registerTSNodeHandler("false", node -> new BoolLiteral(false));
+        registerTSNodeHandler("call", this::fromFunctionCall);
+        registerTSNodeHandler("break_statement", node -> new BreakStatement());
+        registerTSNodeHandler("continue_statement", node -> new ContinueStatement());
+        registerTSNodeHandler("subscript", this::fromIndexTSNode);
+        registerTSNodeHandler("dotted_name", this::fromDottedNameTSNode);
+        registerTSNodeHandler("aliased_import", node -> new Alias((Identifier) fromTSNode(node.getChildByFieldName("name")), (SimpleIdentifier) fromTSNode(node.getChildByFieldName("alias"))));
+        registerTSNodeHandler(List.of("import_statement", "import_from_statement"), this::fromImportNodes);
+        registerTSNodeHandler("attribute", this::fromAttributeTSNode);
+        registerTSNodeHandler("return_statement", this::fromReturnTSNode);
+        registerTSNodeHandler("conditional_expression", this::fromTernaryOperatorTSNode);
+        registerTSNodeHandler("named_expression", this::fromAssignmentExpressionTSNode);
+        registerTSNodeHandler(List.of("assignment", "augmented_assignment"), this::fromAssignmentStatementTSNode);
+        registerTSNodeHandler("function_definition", this::fromFunctionTSNode);
+        registerTSNodeHandler("decorated_definition", this::detectAnnotated);
+        registerTSNodeHandler("while_statement", this::fromWhileLoop);
+        registerTSNodeHandler("assert_statement", this::fromAssertTSNode);
+        registerTSNodeHandler(List.of("set_comprehension", "dictionary_comprehension", "list_comprehension", "generator_expression"), this::fromComprehension);
+        registerTSNodeHandler("match_statement", this::fromMatchStatement);
+        registerTSNodeHandler("pattern_list", this::fromPatternList);
     }
 
     @Override
     public synchronized MeaningTree getMeaningTree(String code) {
-        _code = code;
+        setCode(code);
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
-        if (!errors.isEmpty() && !getConfigParameter(SkipErrors.class).orElse(false)) {
+        if (!errors.isEmpty() && !getConfigParameter("skipErrors").asBoolean()) {
             throw new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors));
         }
         return new MeaningTree(parseTSNode(rootNode));
@@ -102,62 +135,13 @@ public class PythonLanguage extends LanguageParser {
         if (node.isNull()) {
             return null;
         }
-        String nodeType = node.getType();
-        Node createdNode = switch (nodeType) {
-            case "ERROR" -> fromTSNode(node.getChild(0));
-            case "module" -> createEntryPoint(node);
-            case "block" -> fromCompoundTSNode(node, false);
-            case "if_statement" -> fromIfStatementTSNode(node);
-            case "expression_statement", "expression_list", "tuple_pattern" -> fromExpressionSequencesTSNode(node);
-            case "parenthesized_expression" -> fromParenthesizedExpressionTSNode(node);
-            case "binary_operator" -> fromBinaryExpressionTSNode(node);
-            case "unary_operator" -> fromUnaryExpressionTSNode(node);
-            case "not_operator" -> fromNotOperatorTSNode(node);
-            case "pass_statement", "ellipsis" -> fromPassStatementOrEllipsis(node);
-            case "integer" -> fromIntegerLiteralTSNode(node);
-            case "float" -> fromFloatLiteralTSNode(node);
-            case "identifier" -> fromIdentifier(node);
-            case "keyword_argument" -> fromDefinitionArgument(node);
-            case "delete_statement" -> new DeleteStatement((Expression) fromTSNode(node.getChild(0)));
-            case "comparison_operator" -> fromComparisonTSNode(node);
-            case "list", "set", "tuple" -> fromList(node, node.getType());
-            case "dictionary" -> fromDictionary(node);
-            case "string" -> fromString(node);
-            case "interpolation" -> fromTSNode(node.getNamedChild(0));
-            case "slice" -> fromSlice(node);
-            case "for_statement" -> fromForLoop(node);
-            case "class_definition" -> fromClass(node);
-            case "comment" -> fromComment(node);
-            case "boolean_operator" -> fromBooleanOperatorTSNode(node);
-            case "none" -> new NullLiteral();
-            case "type" -> determineType(node);
-            case "list_splat" -> DefinitionArgument.listUnpacking((Expression) fromTSNode(node.getNamedChild(0)));
-            case "dictionary_splat" -> DefinitionArgument.dictUnpacking((Expression) fromTSNode(node.getNamedChild(0)));
-            case "true" -> new BoolLiteral(true);
-            case "false" -> new BoolLiteral(false);
-            case "call" -> fromFunctionCall(node);
-            case "break_statement" -> new BreakStatement();
-            case "continue_statement" -> new ContinueStatement();
-            case "subscript" -> fromIndexTSNode(node);
-            case "dotted_name" -> fromDottedNameTSNode(node);
-            case "aliased_import" -> new Alias((Identifier)fromTSNode(node.getChildByFieldName("name")), (SimpleIdentifier) fromTSNode(node.getChildByFieldName("alias")));
-            case "import_statement", "import_from_statement" -> fromImportNodes(node);
-            case "attribute"-> fromAttributeTSNode(node);
-            case "return_statement" -> fromReturnTSNode(node);
-            case "conditional_expression"-> fromTernaryOperatorTSNode(node);
-            case "named_expression" -> fromAssignmentExpressionTSNode(node);
-            case "assignment", "augmented_assignment" -> fromAssignmentStatementTSNode(node);
-            case "function_definition" -> fromFunctionTSNode(node);
-            case "decorated_definition" -> detectAnnotated(node);
-            case "while_statement" -> fromWhileLoop(node);
-            case "assert_statement" -> fromAssertTSNode(node);
-            case "set_comprehension", "dictionary_comprehension", "list_comprehension", "generator_expression" -> fromComprehension(node);
-            case "match_statement" -> fromMatchStatement(node);
-            case "pattern_list" -> fromPatternList(node);
-            case null, default -> throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));
-        };
-        assignValue(node, createdNode);
-        return createdNode;
+        Optional<Node> fromRegistry = parseWithRegistry(node);
+        if (fromRegistry.isPresent()) {
+            Node createdNode = fromRegistry.get();
+            matchParserNodes(node, createdNode);
+            return createdNode;
+        }
+        throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));
     }
 
     private Node fromPatternList(TSNode node) {
@@ -170,7 +154,7 @@ public class PythonLanguage extends LanguageParser {
 
     @Override
     public MeaningTree getMeaningTree(TSNode node, String code) {
-        _code = code;
+        setCode(code);
         return new MeaningTree(parseTSNode(node));
     }
 
@@ -676,7 +660,7 @@ public class PythonLanguage extends LanguageParser {
         List<Node> nodes = new ArrayList<>(List.of(compound.getNodes()));
         nodes.remove(entryPointIf); // entry point only as separate node!
 
-        boolean expressionMode = getConfigParameter(ExpressionMode.class).orElse(false);
+        boolean expressionMode = isExpressionMode();
 
         if (
                 (nodes.size() > 1 && expressionMode)

@@ -1,32 +1,84 @@
 package org.vstu.meaningtree.languages;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.treesitter.TSNode;
-import org.treesitter.TSTree;
+import org.treesitter.*;
 import org.vstu.meaningtree.MeaningTree;
+import org.vstu.meaningtree.languages.helpers.QueryableParser;
+import org.vstu.meaningtree.languages.helpers.query.CompiledTSQuery;
+import org.vstu.meaningtree.languages.helpers.query.ParseSession;
+import org.vstu.meaningtree.languages.helpers.query.QueryResult;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Hook;
+import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Function;
 
-abstract public class LanguageParser extends TranslatorComponent {
-    protected String _code = "";
+abstract public class LanguageParser extends TranslatorComponent implements QueryableParser {
+    private String _code = "";
     protected Map<int[], Object> _byteValueTags = new HashMap<>();
 
-    protected List<Hook<Pair<TSNode, Node>>> onNodeParsedHooks = new ArrayList<>();
+    protected TSParser _tsParser;
+    protected TSLanguage _tsLanguage;
+    private TSTree _tsTreeCache = null;
 
-    public LanguageParser(LanguageTranslator translator) {
+    private ParseSession _activeParseSession = null;
+    private ParseSession _latestParseSession = null;
+    private Hook<Pair<TSNode, Node>> _parseSessionHook = null;
+    private final Map<String, CompiledTSQuery> _queryCacheByText = new HashMap<>();
+    private final Map<String, CompiledTSQuery> _queryCacheById = new HashMap<>();
+
+    protected List<Hook<Pair<TSNode, Node>>> onNodeParsedHooks = new ArrayList<>();
+    private final Map<String, Function<TSNode, Node>> tsNodeHandlers = new LinkedHashMap<>();
+
+    public LanguageParser(LanguageTranslator translator, TSLanguage language) {
         super(translator);
+        _tsLanguage = language;
+        _tsParser = new TSParser();
+        _tsParser.setLanguage(language);
     }
 
-    public abstract TSTree getTSTree();
+    public String getCode() {
+        return _code;
+    }
+
+    public void resetParserState() {
+        _code = "";
+        _byteValueTags.clear();
+        _tsTreeCache = null;
+
+        if (_parseSessionHook != null) {
+            removeOnNodeParsedHook(_parseSessionHook);
+            _parseSessionHook = null;
+        }
+
+        _activeParseSession = null;
+        _latestParseSession = null;
+        rollbackContext();
+    }
+
+    public void setCode(String code) {
+        resetParserState();
+        _code = code;
+        _activeParseSession = new ParseSession(code);
+        _parseSessionHook = _activeParseSession;
+        registerOnNodeParsedHook(_parseSessionHook);
+    }
+
+    public TSTree getTSTree() {
+        if (_tsTreeCache == null) {
+            _tsTreeCache = _tsParser.parseString(null, _code);
+        }
+        return _tsTreeCache;
+    }
 
     public TSNode getRootNode() {
-        return getTSTree().getRootNode();
+        TSNode root = getTSTree().getRootNode();
+        if (_activeParseSession != null) {
+            _activeParseSession.setRootTsNode(root);
+        }
+        return root;
     }
 
     public abstract MeaningTree getMeaningTree(String code);
@@ -38,7 +90,7 @@ abstract public class LanguageParser extends TranslatorComponent {
         return getMeaningTree(code);
     }
 
-    protected void assignValue(TSNode originNode, Node createdNode) {
+    protected void matchParserNodes(TSNode originNode, Node createdNode) {
         int start = originNode.getStartByte();
         int end = originNode.getEndByte();
         List<int[]> toDelete = new ArrayList<>();
@@ -50,6 +102,11 @@ abstract public class LanguageParser extends TranslatorComponent {
         }
         for (int[] indexes : toDelete) {
             _byteValueTags.remove(indexes);
+        }
+        if (getConfigParameter("bytePositionAnnotations").asBoolean()) {
+            createdNode.setLabel(new Label(Label.BYTEPOS_ANNOTATED, new int[] {
+                    start,
+                    end - start}));
         }
     }
 
@@ -78,9 +135,9 @@ abstract public class LanguageParser extends TranslatorComponent {
 
     protected final Node parseTSNode(TSNode node) {
         var result = fromTSNode(node);
+        var pair = Pair.of(node, result);
 
         for (Hook<Pair<TSNode, Node>> hook : onNodeParsedHooks) {
-            var pair = Pair.of(node, result);
             if (hook.isTriggered(pair)) {
                 hook.accept(pair);
             }
@@ -96,11 +153,102 @@ abstract public class LanguageParser extends TranslatorComponent {
      */
     protected abstract Node fromTSNode(TSNode node);
 
+    protected final void registerTSNodeHandler(String tsNodeType, Function<TSNode, Node> handler) {
+        Objects.requireNonNull(tsNodeType, "tsNodeType must not be null");
+        Objects.requireNonNull(handler, "handler must not be null");
+        tsNodeHandlers.put(tsNodeType, handler);
+    }
+
+    protected final void registerTSNodeHandler(Collection<String> tsNodeTypes, Function<TSNode, Node> handler) {
+        Objects.requireNonNull(tsNodeTypes, "tsNodeTypes must not be null");
+        for (String tsNodeType : tsNodeTypes) {
+            registerTSNodeHandler(tsNodeType, handler);
+        }
+    }
+
+    protected final Optional<Function<TSNode, Node>> resolveTsNodeHandler(String tsNodeType) {
+        return Optional.ofNullable(tsNodeHandlers.get(tsNodeType));
+    }
+
+    protected final Optional<Node> parseWithRegistry(TSNode node) {
+        if (node == null || node.isNull()) {
+            return Optional.empty();
+        }
+        Function<TSNode, Node> handler = tsNodeHandlers.get(node.getType());
+        if (handler == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(handler.apply(node));
+    }
+
+    public final boolean supportsTSNodeType(String tsNodeType) {
+        return tsNodeHandlers.containsKey(tsNodeType);
+    }
+
+    public final Set<String> getRegisteredTSNodeTypes() {
+        return Set.copyOf(tsNodeHandlers.keySet());
+    }
+
     public boolean registerOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
         return onNodeParsedHooks.add(hook);
     }
 
     public boolean removeOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
         return onNodeParsedHooks.remove(hook);
+    }
+
+    void commitParseSession(MeaningTree meaningTree) {
+        if (_activeParseSession != null) {
+            _activeParseSession.setMeaningTree(meaningTree);
+            _latestParseSession = _activeParseSession;
+            _activeParseSession = null;
+
+            if (_parseSessionHook != null) {
+                removeOnNodeParsedHook(_parseSessionHook);
+                _parseSessionHook = null;
+            }
+        }
+    }
+
+    public ParseSession getLatestParseSession() {
+        if (_latestParseSession == null) {
+            throw new IllegalStateException("No parse session available. Parse source code first.");
+        }
+        return _latestParseSession;
+    }
+
+    public synchronized CompiledTSQuery compileQuery(String queryText) {
+        if (queryText == null || queryText.isBlank()) {
+            throw new IllegalArgumentException("Query text cannot be null or blank");
+        }
+        return _queryCacheByText.computeIfAbsent(queryText,
+                key -> new CompiledTSQuery(null, key, new TSQuery(_tsLanguage, key)));
+    }
+
+    public synchronized CompiledTSQuery compileQuery(String queryId, String queryText) {
+        if (queryId == null || queryId.isBlank()) {
+            return compileQuery(queryText);
+        }
+
+        CompiledTSQuery alreadyCompiled = _queryCacheById.get(queryId);
+        if (alreadyCompiled != null) {
+            if (!alreadyCompiled.getQueryText().equals(queryText)) {
+                throw new IllegalArgumentException("Query id `%s` is already bound to another query text".formatted(queryId));
+            }
+            return alreadyCompiled;
+        }
+
+        CompiledTSQuery compiled = compileQuery(queryText);
+        CompiledTSQuery namedCompiled = new CompiledTSQuery(queryId, compiled.getQueryText(), compiled.getQuery());
+        _queryCacheById.put(queryId, namedCompiled);
+        return namedCompiled;
+    }
+
+    public QueryResult query(String queryText) {
+        return query(compileQuery(queryText));
+    }
+
+    public QueryResult query(CompiledTSQuery compiledTSQuery) {
+        return getLatestParseSession().execute(Objects.requireNonNull(compiledTSQuery));
     }
 }

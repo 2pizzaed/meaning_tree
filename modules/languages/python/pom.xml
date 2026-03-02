@@ -16,7 +16,7 @@
         <dependency>
             <groupId>io.github.bonede</groupId>
             <artifactId>tree-sitter-python</artifactId>
-            <version>0.23.4</version>
+            <version>0.25.0</version>
         </dependency>
         <dependency>
             <groupId>org.vstu.meaningtree</groupId>

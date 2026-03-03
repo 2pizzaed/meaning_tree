@@ -38,7 +38,7 @@ public class SourceMapGenerator {
     private static final Set<Long> watermarked = new HashSet<>();
 
     private static final BiFunction<Node, String, String> watermarkingHook = (node, string) -> {
-        long id = node.hasLabel(Label.REMAPPED) ? (int) node.getLabel(Label.REMAPPED).getAttribute() : node.getId();
+        long id = node.hasLabel(Label.REMAPPED) ? node.getLabel(Label.REMAPPED).attributeAsLong() : node.getId();
         if (watermarked.contains(id)) {
             return string;
         }

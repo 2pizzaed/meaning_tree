@@ -28,7 +28,7 @@ public interface LabelAttachable {
         }
     }
 
-    void setLabel(Label label);
+    LabelAttachable setLabel(Label label);
 
     default void setLabel(short id) {
         setLabel(new Label(id));

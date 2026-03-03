@@ -65,7 +65,7 @@ public class PythonSpecialNodeTransformations {
         if (stmt instanceof CompoundStatement compound) {
             body = compound;
         } else {
-            body = new CompoundStatement(stmt);
+            body = (CompoundStatement) new CompoundStatement(stmt).remap(stmt);
         }
         _prepend_continue_with_expression(body, update);
         if (update != null) {
@@ -73,7 +73,7 @@ public class PythonSpecialNodeTransformations {
         }
         List<Node> result = new ArrayList<>();
         result.add((Node) initializer);
-        result.add(new WhileLoop(condition, body));
+        result.add(new WhileLoop(condition, body).remap(generalFor));
         if (needDeleting) {
             VariableDeclaration varDecl = (VariableDeclaration) initializer;
             for (VariableDeclarator declarator : varDecl.getDeclarators()) {

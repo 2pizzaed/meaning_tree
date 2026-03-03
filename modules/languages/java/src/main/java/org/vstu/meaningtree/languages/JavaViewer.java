@@ -1941,7 +1941,7 @@ public class JavaViewer extends LanguageViewer {
 
     private String getForRangeHeader(RangeForLoop forRangeLoop) {
         if (forRangeLoop.getRange().getType() == Range.Type.UP) {
-            String header = "int %s = %s; %s %s %s; %s";
+            String header = "int %s = %s; %s %s %s; %s"; //TODO: fix me. type may be long
             String compOperator = forRangeLoop.isExcludingStop() ? "<" : "<=";
             String result = header.formatted(
                     toString(forRangeLoop.getIdentifier()),

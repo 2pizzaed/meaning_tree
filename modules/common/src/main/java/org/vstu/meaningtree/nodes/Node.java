@@ -130,8 +130,9 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
     }
 
     @Override
-    public void setLabel(Label label) {
+    public Node setLabel(Label label) {
         _labels.add(label);
+        return this;
     }
 
     @Override
@@ -142,6 +143,10 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
     @Override
     public boolean hasLabel(short id) {
         return _labels.stream().anyMatch((Label l) -> l.getId() == id);
+    }
+
+    public Node remap(Node other) {
+        return setLabel(new Label(Label.REMAPPED, other.getId()));
     }
 
     @Override

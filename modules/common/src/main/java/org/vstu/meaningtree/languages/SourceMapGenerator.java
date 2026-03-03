@@ -13,6 +13,7 @@ import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.interfaces.NestedDeclaration;
 import org.vstu.meaningtree.nodes.modules.*;
 import org.vstu.meaningtree.serializers.json.JsonNodeTypeClassMapper;
+import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.SourceMap;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
@@ -37,7 +38,7 @@ public class SourceMapGenerator {
     private static final Set<Long> watermarked = new HashSet<>();
 
     private static final BiFunction<Node, String, String> watermarkingHook = (node, string) -> {
-        long id = node.getId(); // допустим, у Node есть getId()
+        long id = node.hasLabel(Label.REMAPPED) ? (int) node.getLabel(Label.REMAPPED).getAttribute() : node.getId();
         if (watermarked.contains(id)) {
             return string;
         }

@@ -33,9 +33,14 @@ public class Label {
     public static final short ORIGIN = 3;
 
     /**
-     * Показывает, какую байтовую позицию занимает узел в исходной строке. Содержит [offset, length]
+     * Показывает, какую байтовую позицию занимает узел в исходной строке. Содержит [offset, length] (массив int[])
      */
     public static final short BYTEPOS_ANNOTATED = 4;
+
+    /**
+     * Сигнализирует, что узел был преобразован в другой при viewing. Хранит оригинальный ast_id. Нужен для корректной генерации SourceMap
+     */
+    public static final short REMAPPED = 5;
 
     /**
      * Зарезервированный номер. Применяется в случае, если метка была не распознана
@@ -114,6 +119,42 @@ public class Label {
 
     public Object getAttribute() {
         return attribute;
+    }
+
+    public int attributeAsInt() {
+        return (int) attribute;
+    }
+
+    public String attributeAsString() {
+        return (String) attribute;
+    }
+
+    public String stringifyAttribute() {
+        return attribute.toString();
+    }
+
+    public boolean attributeAsBoolean() {
+        return (boolean) attribute;
+    }
+
+    public double attributeAsDouble() {
+        return (double) attribute;
+    }
+
+    public long attributeAsLong() {
+        return (long) attribute;
+    }
+
+    public long[] attributeAsLongArray() {
+        return (long[]) attribute;
+    }
+
+    public int[] attributeAsIntArray() {
+        return (int[]) attribute;
+    }
+
+    public <T> T attributeAs(Class<T> tClass) {
+        return (T) attribute;
     }
 
     public boolean hasAttribute() {

@@ -116,8 +116,9 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
     }
 
     @Override
-    public void setLabel(Label label) {
+    public MeaningTree setLabel(Label label) {
         _labels.add(label);
+        return this;
     }
 
     @Override

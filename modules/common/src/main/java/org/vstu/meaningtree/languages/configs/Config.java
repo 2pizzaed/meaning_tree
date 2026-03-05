@@ -14,7 +14,7 @@ import java.util.function.Predicate;
  */
 public class Config implements Iterable<ConfigParameter> {
     // param id -> param object
-    private final Map<String, ConfigParameter> parameters = new HashMap<>();
+    private final Map<String, ConfigParameter> parameters = new LinkedHashMap<>();
 
     /**
      * Создает конфигурацию из массива параметров.
@@ -63,8 +63,8 @@ public class Config implements Iterable<ConfigParameter> {
      * @return новая объединенная конфигурация
      */
     public Config merge(Config other) {
-        Set<ConfigParameter> newParameters = new HashSet<>(other.parameters.values());
-        newParameters.addAll(this.parameters.values());
+        Set<ConfigParameter> newParameters = new LinkedHashSet<>(this.parameters.values());
+        newParameters.addAll(other.parameters.values());
         return new Config(newParameters);
     }
 

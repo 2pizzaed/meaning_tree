@@ -116,4 +116,16 @@ public class ConfigParameter {
     public String toString() {
         return _id;
     }
+
+    @Override
+    public int hashCode() {
+        return _id.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        ConfigParameter that = (ConfigParameter) o;
+        return readOnly == that.readOnly && Objects.equals(_id, that._id) && _scope == that._scope && Objects.equals(_defaultValue, that._defaultValue) && Objects.equals(_value, that._value);
+    }
 }

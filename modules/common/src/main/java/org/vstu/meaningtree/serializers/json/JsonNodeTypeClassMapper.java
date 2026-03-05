@@ -193,6 +193,7 @@ public class JsonNodeTypeClassMapper {
         // Loops
         register("general_for_loop", GeneralForLoop.class);
         register("range_for_loop", RangeForLoop.class);
+        register("for_each_loop", ForEachLoop.class);
         register("while_loop", WhileLoop.class);
         register("do_while_loop", DoWhileLoop.class);
         register("infinite_loop", InfiniteLoop.class);

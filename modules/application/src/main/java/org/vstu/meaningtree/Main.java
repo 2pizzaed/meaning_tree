@@ -30,8 +30,6 @@ import org.vstu.meaningtree.utils.tokens.Token;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -64,8 +62,8 @@ public class Main {
         @Parameter(names = "--start-token-id", description = "Start id for token id counter")
         private long startTokenId = 0;
 
-        @Parameter(names = "--config", description = "Apply config from JSON file")
-        private String configPath = null;
+        @Parameter(names = "--config", description = "Apply config from JSON")
+        private String config = null;
 
         @Parameter(names = "--input-type", description = "Type of serialized object: meaning-tree, node")
         private String type = "meaning-tree";
@@ -144,8 +142,8 @@ public class Main {
         @Parameter(names = "--detailed-tokens", description = "Make tokens (if tokenize option is selected) with additional information (for expressions)")
         private boolean detailedTokens = false;
 
-        @Parameter(names = "--config", description = "Apply config from JSON file")
-        private String configPath = null;
+        @Parameter(names = "--config", description = "Apply config from JSON")
+        private String config = null;
 
         @Parameter(names = "--serialize", description = "Serialization format: json, xml, rdf, rdf-turtle, dot")
         private String serializeFormat;
@@ -288,8 +286,8 @@ public class Main {
         }
 
         Config config = new Config(cmd.translatorMode.getConfigEntry());
-        if (cmd.configPath != null) {
-            JsonElement element = JsonParser.parseString(Files.readString(Path.of(cmd.configPath)));
+        if (cmd.config != null) {
+            JsonElement element = JsonParser.parseString(cmd.config);
             Config jsonConfig = new ConfigBuilder().fromJson(translators.get(toLanguage), element.getAsJsonObject()).toConfig();
             config = config.merge(jsonConfig);
         }
@@ -371,8 +369,8 @@ public class Main {
         Config fromConfig = new Config(cmd.translatorMode.getConfigEntry(),
                 ConfigParameters.bytePositionAnnotations.withValue(cmd.saveBytes));
         Config toConfig = fromConfig.clone();
-        if (cmd.configPath != null) {
-            var element = JsonParser.parseString(Files.readString(Path.of(cmd.configPath))).getAsJsonObject();
+        if (cmd.config != null) {
+            var element = JsonParser.parseString(cmd.config).getAsJsonObject();
             var fromTranslatorClass = translators.get(fromLanguage);
             var toTranslatorClass = translators.get(toLanguage);
             JsonObject toJson = new JsonObject();
@@ -380,7 +378,8 @@ public class Main {
             for (String key : element.keySet()) {
                 if (ConfigParameters.exists(fromTranslatorClass, key)) {
                     fromJson.add(key, element.get(key));
-                } else if  (ConfigParameters.exists(toTranslatorClass, key)) {
+                }
+                if (ConfigParameters.exists(toTranslatorClass, key)) {
                     toJson.add(key, element.get(key));
                 }
             }

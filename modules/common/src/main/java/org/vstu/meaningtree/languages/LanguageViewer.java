@@ -26,11 +26,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
-/**
- * ПРЕДУПРЕЖДЕНИЕ: Не используйте в реализациях языков перегрузку toString для добавления отображения каждого узла
- * Это сломает многие фичи, т.к. toString(Node node) не только перенаправляет запросы к специальному методу,
- * но и добавляет логику хуков!
- */
 abstract public class LanguageViewer extends TranslatorComponent implements TemplateAwareViewer {
     @FunctionalInterface
     private interface InternalRenderer {

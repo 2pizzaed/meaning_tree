@@ -21,10 +21,7 @@ import org.vstu.meaningtree.nodes.expressions.bitwise.*;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
-import org.vstu.meaningtree.nodes.expressions.identifiers.QualifiedIdentifier;
-import org.vstu.meaningtree.nodes.expressions.identifiers.ScopedIdentifier;
-import org.vstu.meaningtree.nodes.expressions.identifiers.SelfReference;
-import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
+import org.vstu.meaningtree.nodes.expressions.identifiers.*;
 import org.vstu.meaningtree.nodes.expressions.literals.*;
 import org.vstu.meaningtree.nodes.expressions.logical.NotOp;
 import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitAndOp;
@@ -58,6 +55,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.FallthroughCa
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
+import org.vstu.meaningtree.nodes.statements.loops.control.GotoStatement;
 import org.vstu.meaningtree.nodes.types.GenericUserType;
 import org.vstu.meaningtree.nodes.types.NoReturn;
 import org.vstu.meaningtree.nodes.types.UnknownType;
@@ -123,6 +121,9 @@ public class CppParser extends LanguageParser {
         registerTSNodeHandler("switch_statement", this::fromSwitchStatement);
         registerTSNodeHandler("return_statement", this::fromReturn);
         registerTSNodeHandler("for_range_loop", this::fromForRangeLoop);
+        registerTSNodeHandler("labeled_statement", this::fromLabeledStmtNode);
+        registerTSNodeHandler("goto_statement", (tsNode) ->
+                new GotoStatement(new JumpLabel(getCodePiece(tsNode.getChildByFieldName("label")))));
     }
 
     @Override
@@ -214,6 +215,14 @@ public class CppParser extends LanguageParser {
         if (node.getChildCount() == 0)
             return new ReturnStatement();
         return new ReturnStatement((Expression) parseTSNode(node.getNamedChild(0)));
+    }
+
+    private Node fromLabeledStmtNode(TSNode node) {
+        Node inner = parseTSNode(node.getNamedChild(1));
+        if (inner instanceof Statement stmt) {
+            stmt.setJumpLabel(new JumpLabel(getCodePiece(node.getNamedChild(0))));
+        }
+        return inner;
     }
 
     private FunctionDefinition fromFunction(TSNode node) {

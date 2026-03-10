@@ -16,7 +16,6 @@ import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.*;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
@@ -198,14 +197,6 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
 
     protected final <T extends Node> void registerPostParsePreparation(Class<T> nodeType, UnaryOperator<T> preparation) {
         postParsePreparations.add(new HookUtils.NodePreparationEntry<>(nodeType, preparation));
-    }
-
-    protected final <T extends Node> void registerPostParsePreparation(Class<T> nodeType, Consumer<T> preparation) {
-        Objects.requireNonNull(preparation, "preparation must not be null");
-        registerPostParsePreparation(nodeType, node -> {
-            preparation.accept(node);
-            return node;
-        });
     }
 
     protected final Node applyPostParsePreparations(Node node) {

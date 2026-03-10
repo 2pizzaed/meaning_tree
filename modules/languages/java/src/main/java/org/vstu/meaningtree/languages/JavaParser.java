@@ -124,7 +124,7 @@ public class JavaParser extends LanguageParser {
         registerTSNodeHandler("character_literal", this::fromCharacterLiteralTSNode);
         registerTSNodeHandler("do_statement", this::fromDoStatementTSNode);
         registerTSNodeHandler("instanceof_expression", this::fromInstanceOfTSNode);
-        registerTSNodeHandler("labeled_statement", this::fromLabeledLoopTsNode);
+        registerTSNodeHandler("labeled_statement", this::fromLabeledStmtNode);
         registerTSNodeHandler("class_literal", this::fromClassLiteralTSNode);
         registerTSNodeHandler("enhanced_for_statement", this::fromEnhancedForStatementTSNode);
     }
@@ -248,7 +248,7 @@ public class JavaParser extends LanguageParser {
         return result;
     }
 
-    private Node fromLabeledLoopTsNode(TSNode node) {
+    private Node fromLabeledStmtNode(TSNode node) {
         Node inner = parseTSNode(node.getNamedChild(1));
         if (inner instanceof Statement stmt) {
             stmt.setJumpLabel(new JumpLabel(getCodePiece(node.getNamedChild(0))));

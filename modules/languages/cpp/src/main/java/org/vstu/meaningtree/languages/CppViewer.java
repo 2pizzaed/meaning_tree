@@ -70,7 +70,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator.POW;
@@ -172,26 +171,15 @@ public class CppViewer extends LanguageViewer {
             return code;
         });
 
-        registerPreRenderPreparation(UnaryExpression.class, (Consumer<UnaryExpression>)
-                (node) -> parenFiller.process(node));
-        registerPreRenderPreparation(BinaryExpression.class, (Consumer<BinaryExpression>)
-                (node) -> parenFiller.process(node));
-        registerPreRenderPreparation(IndexExpression.class, (Consumer<IndexExpression>)
-                (node) -> parenFiller.process(node));
-        registerPreRenderPreparation(TernaryOperator.class, (Consumer<TernaryOperator>)
-                (node) -> parenFiller.process(node));
-        registerPreRenderPreparation(CastTypeExpression.class, (Consumer<CastTypeExpression>)
-                (node) -> parenFiller.process(node));
-        registerPreRenderPreparation(MethodCall.class, (Consumer<MethodCall>)
-                (node) -> parenFiller.process(node));
-        registerPreRenderPreparation(QualifiedIdentifier.class, (Consumer<QualifiedIdentifier>)
-                (node) -> parenFiller.process(node));
-        registerPreRenderPreparation(MemberAccess.class, (Consumer<MemberAccess>)
-                (node) -> parenFiller.process(node));
-        registerPreRenderPreparation(BinaryComparison.class, (Consumer<BinaryComparison>)
-                (node) -> parenFiller.process(node));
-        registerPreRenderPreparation(AssignmentExpression.class, (Consumer<AssignmentExpression>)
-                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(UnaryExpression.class, parenFiller::process);
+        registerPreRenderPreparation(BinaryExpression.class, parenFiller::process);
+        registerPreRenderPreparation(IndexExpression.class, parenFiller::process);
+        registerPreRenderPreparation(TernaryOperator.class, parenFiller::process);
+        registerPreRenderPreparation(CastTypeExpression.class, parenFiller::process);
+        registerPreRenderPreparation(MethodCall.class, parenFiller::process);
+        registerPreRenderPreparation(QualifiedIdentifier.class, parenFiller::process);
+        registerPreRenderPreparation(MemberAccess.class, parenFiller::process);
+        registerPreRenderPreparation(AssignmentExpression.class, node -> (AssignmentExpression) parenFiller.process(node));
 
         registerUnsupportedFeature(new NonDirectionalRangeForFeature());
     }

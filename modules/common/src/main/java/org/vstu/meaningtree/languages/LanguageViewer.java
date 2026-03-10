@@ -23,7 +23,6 @@ import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
 import java.util.*;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 abstract public class LanguageViewer extends TranslatorComponent implements TemplateAwareViewer {
@@ -51,14 +50,6 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
 
     protected final <T extends Node> void registerPreRenderPreparation(Class<T> nodeType, UnaryOperator<T> preparation) {
         preRenderPreparations.add(new HookUtils.NodePreparationEntry<>(nodeType, preparation));
-    }
-
-    protected final <T extends Node> void registerPreRenderPreparation(Class<T> nodeType, Consumer<T> preparation) {
-        Objects.requireNonNull(preparation, "preparation must not be null");
-        registerPreRenderPreparation(nodeType, node -> {
-            preparation.accept(node);
-            return node;
-        });
     }
 
     protected final <T extends Node> void registerPostRenderPreparation(Class<T> nodeType, BiFunction<T, String, String> preparation) {
@@ -207,9 +198,6 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
 
     public final String toString(Node node) {
         Objects.requireNonNull(node);
-        if (node.hasLabel(Label.DUMMY)) {
-            return "";
-        }
         Node preparedNode = applyPreRenderPreparations(node);
         if (preparedNode.hasLabel(Label.DUMMY)) {
             return "";

@@ -3,6 +3,8 @@ package org.vstu.meaningtree.languages;
 import org.apache.commons.lang3.tuple.Pair;
 import org.treesitter.*;
 import org.vstu.meaningtree.MeaningTree;
+import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
+import org.vstu.meaningtree.languages.helpers.HookUtils;
 import org.vstu.meaningtree.languages.helpers.QueryableParser;
 import org.vstu.meaningtree.languages.helpers.query.CompiledTSQuery;
 import org.vstu.meaningtree.languages.helpers.query.ParseSession;
@@ -13,9 +15,13 @@ import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 
 import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 abstract public class LanguageParser extends TranslatorComponent implements QueryableParser {
+
     private String _code = "";
     protected Map<int[], Object> _byteValueTags = new HashMap<>();
 
@@ -29,8 +35,10 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
     private final Map<String, CompiledTSQuery> _queryCacheByText = new HashMap<>();
     private final Map<String, CompiledTSQuery> _queryCacheById = new HashMap<>();
 
-    protected List<Hook<Pair<TSNode, Node>>> onNodeParsedHooks = new ArrayList<>();
     private final Map<String, Function<TSNode, Node>> tsNodeHandlers = new LinkedHashMap<>();
+
+    protected List<Hook<Pair<TSNode, Node>>> onNodeParsedHooks = new ArrayList<>();
+    private final List<HookUtils.NodePreparationEntry<? extends Node>> postParsePreparations = new ArrayList<>();
 
     public LanguageParser(LanguageTranslator translator, TSLanguage language) {
         super(translator);
@@ -134,24 +142,23 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
     }
 
     protected final Node parseTSNode(TSNode node) {
-        var result = fromTSNode(node);
-        var pair = Pair.of(node, result);
-
-        for (Hook<Pair<TSNode, Node>> hook : onNodeParsedHooks) {
-            if (hook.isTriggered(pair)) {
-                hook.accept(pair);
-            }
+        if (node.isNull()) {
+            return null;
         }
-
-        return result;
+        Optional<Node> fromRegistry = parseWithRegistry(node);
+        if (fromRegistry.isPresent()) {
+            Node createdNode = applyPostParsePreparations(fromRegistry.get());
+            matchParserNodes(node, createdNode);
+            var pair = Pair.of(node, createdNode);
+            for (Hook<Pair<TSNode, Node>> hook : onNodeParsedHooks) {
+                if (hook.isTriggered(pair)) {
+                    hook.accept(pair);
+                }
+            }
+            return createdNode;
+        }
+        throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));
     }
-
-    /***
-     * This method may be called only in `fromTSNode` method! In other places, use parseTSNode
-     * @param node raw Tree-sitter node
-     * @return Meaning Tree Node
-     */
-    protected abstract Node fromTSNode(TSNode node);
 
     protected final void registerTSNodeHandler(String tsNodeType, Function<TSNode, Node> handler) {
         Objects.requireNonNull(tsNodeType, "tsNodeType must not be null");
@@ -189,11 +196,57 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
         return Set.copyOf(tsNodeHandlers.keySet());
     }
 
-    public boolean registerOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
+    protected final <T extends Node> void registerPostParsePreparation(Class<T> nodeType, UnaryOperator<T> preparation) {
+        postParsePreparations.add(new HookUtils.NodePreparationEntry<>(nodeType, preparation));
+    }
+
+    protected final <T extends Node> void registerPostParsePreparation(Class<T> nodeType, Consumer<T> preparation) {
+        Objects.requireNonNull(preparation, "preparation must not be null");
+        registerPostParsePreparation(nodeType, node -> {
+            preparation.accept(node);
+            return node;
+        });
+    }
+
+    protected final Node applyPostParsePreparations(Node node) {
+        Objects.requireNonNull(node, "node must not be null");
+        Node preparedNode = node;
+        for (HookUtils.NodePreparationEntry<? extends Node> preparation : postParsePreparations) {
+            if (!preparation.matches(preparedNode)) {
+                continue;
+            }
+            preparedNode = Objects.requireNonNull(
+                    preparation.apply(preparedNode),
+                    "Post-parse preparation returned null for node type " + preparedNode.getClass().getName()
+            );
+        }
+        return preparedNode;
+    }
+
+    boolean registerOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
         return onNodeParsedHooks.add(hook);
     }
 
-    public boolean removeOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
+    public final <T extends Node> Hook<Pair<TSNode, Node>> registerOnNodeParsedHook(Class<T> nodeType,
+                                                                                     BiConsumer<TSNode, T> hookAction) {
+        Objects.requireNonNull(nodeType, "nodeType must not be null");
+        Objects.requireNonNull(hookAction, "hookAction must not be null");
+        Hook<Pair<TSNode, Node>> typedHook = new Hook<>() {
+            @Override
+            public boolean isTriggered(Pair<TSNode, Node> object) {
+                return object != null && object.getRight() != null && nodeType.isAssignableFrom(object.getRight().getClass());
+            }
+
+            @Override
+            public void accept(Pair<TSNode, Node> object) {
+                hookAction.accept(object.getLeft(), nodeType.cast(object.getRight()));
+            }
+        };
+        registerOnNodeParsedHook(typedHook);
+        return typedHook;
+    }
+
+    boolean removeOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
         return onNodeParsedHooks.remove(hook);
     }
 

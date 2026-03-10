@@ -4,6 +4,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.languages.helpers.ContextualNodeRenderer;
+import org.vstu.meaningtree.languages.helpers.HookUtils;
 import org.vstu.meaningtree.languages.helpers.NodeRenderer;
 import org.vstu.meaningtree.languages.helpers.TemplateAwareViewer;
 import org.vstu.meaningtree.languages.helpers.templates.ClasspathTemplateRepository;
@@ -16,11 +17,14 @@ import org.vstu.meaningtree.languages.support.SupportIssue;
 import org.vstu.meaningtree.languages.support.SupportReport;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.ParenthesesFiller;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
 import java.util.*;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 /**
  * ПРЕДУПРЕЖДЕНИЕ: Не используйте в реализациях языков перегрузку toString для добавления отображения каждого узла
@@ -36,7 +40,9 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
     protected MeaningTree origin;
     protected ParenthesesFiller parenFiller;
 
-    private List<BiFunction<Node, String, String>> postProcessFunctions = new ArrayList<>();
+    private final List<HookUtils.NodePreparationEntry<? extends Node>> preRenderPreparations = new ArrayList<>();
+    private final List<HookUtils.PostRenderPreparationEntry<? extends Node>> postRenderPreparations = new ArrayList<>();
+
     private final List<FeatureSupport> supportRules = new ArrayList<>();
     private final Map<Class<? extends Node>, InternalRenderer> renderers = new LinkedHashMap<>();
 
@@ -48,15 +54,36 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
         this.parenFiller = new ParenthesesFiller(this::mapToToken);
     }
 
-    public boolean registerPostprocessFunction(BiFunction<Node, String, String> function) {
-        return this.postProcessFunctions.add(function);
+    protected final <T extends Node> void registerPreRenderPreparation(Class<T> nodeType, UnaryOperator<T> preparation) {
+        preRenderPreparations.add(new HookUtils.NodePreparationEntry<>(nodeType, preparation));
     }
 
-    public boolean removePostprocessFunction(BiFunction<Node, String, String> function) {
-        return this.postProcessFunctions.remove(function);
+    protected final <T extends Node> void registerPreRenderPreparation(Class<T> nodeType, Consumer<T> preparation) {
+        Objects.requireNonNull(preparation, "preparation must not be null");
+        registerPreRenderPreparation(nodeType, node -> {
+            preparation.accept(node);
+            return node;
+        });
     }
 
-    protected abstract String formString(Node node);
+    protected final <T extends Node> void registerPostRenderPreparation(Class<T> nodeType, BiFunction<T, String, String> preparation) {
+        postRenderPreparations.add(new HookUtils.PostRenderPreparationEntry<>(nodeType, preparation));
+    }
+
+    protected final Node applyPreRenderPreparations(Node node) {
+        Objects.requireNonNull(node, "node must not be null");
+        Node preparedNode = node;
+        for (HookUtils.NodePreparationEntry<? extends Node> preparation : preRenderPreparations) {
+            if (!preparation.matches(preparedNode)) {
+                continue;
+            }
+            preparedNode = Objects.requireNonNull(
+                    preparation.apply(preparedNode),
+                    "Pre-render preparation returned null for node type " + preparedNode.getClass().getName()
+            );
+        }
+        return preparedNode;
+    }
 
     protected final <T extends Node> void registerRenderer(Class<T> nodeType, NodeRenderer<T> renderer) {
         Objects.requireNonNull(nodeType, "nodeType must not be null");
@@ -122,8 +149,17 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
     }
 
     protected String applyHooks(Node node, String result) {
-        for (var function : postProcessFunctions) {
-            result = function.apply(node, result);
+        if (node == null) {
+            return result;
+        }
+        for (HookUtils.PostRenderPreparationEntry<? extends Node> preparation : postRenderPreparations) {
+            if (!preparation.matches(node)) {
+                continue;
+            }
+            result = Objects.requireNonNull(
+                    preparation.apply(node, result),
+                    "Post-render preparation returned null for node type " + node.getClass().getName()
+            );
         }
         return result;
     }
@@ -175,8 +211,16 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
     }
 
     public final String toString(Node node) {
-        var result = dispatchRenderer(node);
-        return applyHooks(node, result);
+        Objects.requireNonNull(node);
+        if (node.hasLabel(Label.DUMMY)) {
+            return "";
+        }
+        Node preparedNode = applyPreRenderPreparations(node);
+        if (preparedNode.hasLabel(Label.DUMMY)) {
+            return "";
+        }
+        String result = dispatchRenderer(preparedNode);
+        return applyHooks(preparedNode, result);
     }
 
     public abstract OperatorToken mapToToken(Expression expr);

@@ -57,7 +57,7 @@ public class SourceMapGenerator {
 
     public SourceMapGenerator(LanguageTranslator translator) {
         this.translator = translator.clone();
-        this.translator._viewer.registerPostprocessFunction(watermarkingHook);
+        this.translator._viewer.registerPostRenderPreparation(Node.class, watermarkingHook);
     }
 
     public SourceMap process(MeaningTree meaningTree) {

@@ -4,9 +4,11 @@ import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.expressions.comprehensions.Comprehension;
+import org.vstu.meaningtree.utils.InternalNode;
 
 import java.util.Objects;
 
+@InternalNode
 public class KeyValuePair extends Node implements Comprehension.ComprehensionItem {
     @TreeNode private Expression key;
     @TreeNode private Expression value;

@@ -9,9 +9,11 @@ import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.containers.ArrayType;
 import org.vstu.meaningtree.nodes.types.containers.OrderedDictionaryType;
+import org.vstu.meaningtree.utils.InternalNode;
 
 import java.util.Objects;
 
+@InternalNode
 public class DeclarationArgument extends Declaration {
     @TreeNode private Type type;
 

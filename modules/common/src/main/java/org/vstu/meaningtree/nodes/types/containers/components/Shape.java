@@ -4,11 +4,13 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.utils.InternalNode;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+@InternalNode
 public class Shape extends Node {
     // Количество измерений
     private final int dimensionCount;
@@ -70,7 +72,9 @@ public class Shape extends Node {
     @Override
     public Shape clone() {
         Shape obj = (Shape) super.clone();
-        obj.dimensions = new ArrayList<>(dimensions.stream().map(Expression::clone).toList());
+        obj.dimensions = new ArrayList<>(dimensions.stream()
+                .map(expr -> expr == null ? null : expr.clone())
+                .toList());
         return obj;
     }
 }

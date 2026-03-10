@@ -17,6 +17,7 @@ import org.vstu.meaningtree.languages.support.SupportIssue;
 import org.vstu.meaningtree.languages.support.SupportReport;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.utils.InternalNode;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.ParenthesesFiller;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
@@ -39,6 +40,21 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
 
     private final List<FeatureSupport> supportRules = new ArrayList<>();
     private final Map<Class<? extends Node>, InternalRenderer> renderers = new LinkedHashMap<>();
+
+    
+    private static final ClassValue<Boolean> INTERNAL_NODE_TYPE_CACHE = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            Class<?> current = type;
+            while (current != null && current != Object.class) {
+                if (current.isAnnotationPresent(InternalNode.class)) {
+                    return true;
+                }
+                current = current.getSuperclass();
+            }
+            return false;
+        }
+    };
 
     private TemplateRepository templateRepository;
     private TemplateEngine templateEngine;
@@ -160,7 +176,10 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
 
     protected List<SupportIssue> checkNodeSupport(Node node, FeatureContext context) {
         List<SupportIssue> issues = new ArrayList<>();
-        if (!hasRegisteredRenderer(node.getClass())) {
+        if (!hasRegisteredRenderer(node.getClass()) && context.checkNodeIsRegistered()) {
+            if (isInternalNodeTypeOrSuperclass(node.getClass())) {
+                return issues;
+            }
             issues.add(new SupportIssue(
                     translator.getLanguageName(),
                     node, null
@@ -180,21 +199,30 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
         return issues;
     }
 
-    public SupportReport analyzeSupport(Node node) {
-        return analyzeSupport(new MeaningTree(node));
+    private boolean isInternalNodeTypeOrSuperclass(Class<? extends Node> nodeType) {
+        return INTERNAL_NODE_TYPE_CACHE.get(nodeType);
     }
 
-    public SupportReport analyzeSupport(MeaningTree tree) {
+    public SupportReport analyzeSupport(Node node) {
+        return analyzeSupport(new MeaningTree(node), true);
+    }
+
+    public SupportReport analyzeSupport(MeaningTree tree, boolean includeNodeRegisterCheck) {
         List<SupportIssue> issues = new ArrayList<>();
         for (NodeInfo info : tree) {
             if (info == null || info.node() == null) {
                 continue;
             }
-            FeatureContext context = new FeatureContext(this, tree, info, info.node());
+            FeatureContext context = new FeatureContext(this, tree, info, info.node(), includeNodeRegisterCheck);
             issues.addAll(checkNodeSupport(info.node(), context));
         }
         return new SupportReport(issues);
     }
+
+    public SupportReport analyzeSupport(MeaningTree tree) {
+        return analyzeSupport(tree, true);
+    }
+
 
     public final String toString(Node node) {
         Objects.requireNonNull(node);
@@ -210,6 +238,7 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
 
     public String toString(MeaningTree mt) {
         origin = mt;
+        analyzeSupport(mt, false).throwAll();
         return toString(mt.getRootNode());
     }
 
@@ -268,3 +297,4 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
             }
     }
 }
+

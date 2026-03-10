@@ -4,9 +4,11 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.expressions.literals.IntegerLiteral;
+import org.vstu.meaningtree.utils.InternalNode;
 
 import java.util.Objects;
 
+@InternalNode
 public class Range extends Expression {
     @TreeNode @Nullable private Expression start;
     @TreeNode @Nullable private Expression stop;

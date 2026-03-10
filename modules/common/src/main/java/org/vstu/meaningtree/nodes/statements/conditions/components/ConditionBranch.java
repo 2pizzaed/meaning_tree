@@ -5,9 +5,11 @@ import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.interfaces.HasBodyStatement;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.utils.InternalNode;
 
 import java.util.Objects;
 
+@InternalNode
 public class ConditionBranch extends Statement implements HasBodyStatement {
     @TreeNode protected Expression condition;
     @TreeNode protected Statement body;

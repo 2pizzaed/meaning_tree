@@ -63,11 +63,14 @@ import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
-import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator.POW;
@@ -192,6 +195,7 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(InversionOp.class, this::toStringInversionOp);
         registerRenderer(LeftShiftOp.class, this::toStringLeftShiftOp);
         registerRenderer(RightShiftOp.class, this::toStringRightShiftOp);
+        registerRenderer(BinaryComparison.class, this::toStringBinaryComparison);
         registerRenderer(MultipleAssignmentStatement.class, this::toStringMultipleAssignmentStatement);
         registerRenderer(InfiniteLoop.class, this::toStringInfiniteLoop);
         registerRenderer(ExpressionSequence.class, this::toStringExpressionSequence);
@@ -210,26 +214,40 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(Shape.class, this::toStringShape);
         registerRenderer(FunctionDeclaration.class, this::toStringFunctionDeclaration);
         registerRenderer(DeclarationArgument.class, this::toStringDeclarationArgument);
+
+        registerPostRenderPreparation(Statement.class, (node, code) -> {
+            if (node.getJumpLabel() != null) {
+                return "%s:\n%s".formatted(node.getJumpLabel().getName(), code);
+            }
+            return code;
+        });
+
+        registerPreRenderPreparation(UnaryExpression.class, (Consumer<UnaryExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(BinaryExpression.class, (Consumer<BinaryExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(IndexExpression.class, (Consumer<IndexExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(TernaryOperator.class, (Consumer<TernaryOperator>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(CastTypeExpression.class, (Consumer<CastTypeExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(MethodCall.class, (Consumer<MethodCall>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(QualifiedIdentifier.class, (Consumer<QualifiedIdentifier>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(MemberAccess.class, (Consumer<MemberAccess>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(BinaryComparison.class, (Consumer<BinaryComparison>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(AssignmentExpression.class, (Consumer<AssignmentExpression>)
+                (node) -> parenFiller.process(node));
+
         registerUnsupportedFeature(new PointerSubtractionInUnpackFeature());
         registerUnsupportedFeature(new ForEachMultipleDeclaratorsFeature());
         registerUnsupportedFeature(new NonDirectionalRangeForFeature());
     }
 
-    @Override
-    public String formString(Node node) {
-        if (node instanceof UnaryExpression expr) {
-            node = parenFiller.process(expr);
-        }
-
-        Objects.requireNonNull(node);
-
-        // Для dummy узлов ничего не выводим
-        if (node.hasLabel(Label.DUMMY)) {
-            return "";
-        }
-
-        return dispatchRenderer(node);
-    }
 
     private String toStringEmptyStatement(EmptyStatement emptyStatement) {
         return "";
@@ -738,7 +756,6 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringTernaryOperator(TernaryOperator ternaryOperator) {
-        ternaryOperator = parenFiller.process(ternaryOperator);
         String condition = toString(ternaryOperator.getCondition());
         String consequence = toString(ternaryOperator.getThenExpr());
         String alternative = toString(ternaryOperator.getElseExpr());
@@ -746,7 +763,6 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringIndexExpression(IndexExpression indexExpression) {
-        indexExpression = parenFiller.process(indexExpression);
         Expression arrayName = indexExpression.getExpression();
         String name = toString(arrayName);
         String index = toString(indexExpression.getIndex());
@@ -754,7 +770,6 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringCastTypeExpression(CastTypeExpression castTypeExpression) {
-        castTypeExpression = parenFiller.process(castTypeExpression);
         String castType = toString(castTypeExpression.getCastType());
         String value = toString(castTypeExpression.getValue());
         return "(%s) %s".formatted(castType, value);
@@ -809,7 +824,6 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringMemberAccess(MemberAccess memberAccess) {
-        memberAccess = parenFiller.process(memberAccess);
         String object = toString(memberAccess.getExpression());
         String member = toString(memberAccess.getMember());
         return "%s.%s".formatted(object, member);
@@ -832,7 +846,6 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringMethodCall(MethodCall methodCall) {
-        methodCall = parenFiller.process(methodCall);
         String object = toString(methodCall.getObject());
         String methodName = toString(methodCall.getFunctionName());
 
@@ -1106,10 +1119,16 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringContinueStatement(ContinueStatement stmt) {
+        if (stmt.getJumpDestination() != null) {
+            return "continue %s;".formatted(stmt.getJumpDestination().getName());
+        }
         return "continue;";
     }
 
     private String toStringBreakStatement(BreakStatement stmt) {
+        if (stmt.getJumpDestination() != null) {
+            return "break %s;".formatted(stmt.getJumpDestination().getName());
+        }
         return "break;";
     }
 
@@ -1221,7 +1240,6 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toString(BinaryExpression expr, String sign) {
-        expr = parenFiller.process(expr);
         Expression left = expr.getLeft();
         Expression right = expr.getRight();
         if (expr instanceof PowOp) {
@@ -1446,7 +1464,6 @@ public class JavaViewer extends LanguageViewer {
     }
 
     public String toStringAssignmentExpression(AssignmentExpression expr) {
-        expr = (AssignmentExpression) parenFiller.process(expr);
         return toString(expr.getAugmentedOperator(), expr.getLValue(), expr.getRValue());
     }
 
@@ -1721,7 +1738,6 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringBinaryComparison(BinaryComparison binComp) {
-        binComp = (BinaryComparison) parenFiller.process(binComp);
         return switch (binComp) {
             case EqOp op -> toStringEqOp(op);
             case GeOp op -> toStringGeOp(op);
@@ -2128,7 +2144,6 @@ public class JavaViewer extends LanguageViewer {
     }
 
     public String toStringQualifiedIdentifier(QualifiedIdentifier qualIdent) {
-        qualIdent = parenFiller.process(qualIdent);
         StringBuilder builder = new StringBuilder();
         builder.append(toString(qualIdent.getScope()));
         builder.append("::");

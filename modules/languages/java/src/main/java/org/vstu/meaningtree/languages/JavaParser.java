@@ -77,7 +77,7 @@ public class JavaParser extends LanguageParser {
     }
 
     private void configureTsNodeHandlers() {
-        registerTSNodeHandler("ERROR", node -> fromTSNode(node.getChild(0)));
+        registerTSNodeHandler("ERROR", node -> parseTSNode(node.getChild(0)));
         registerTSNodeHandler("program", this::fromProgramTSNode);
         registerTSNodeHandler("block", this::fromBlockTSNode);
         registerTSNodeHandler("statement", this::fromStatementTSNode);
@@ -191,17 +191,6 @@ public class JavaParser extends LanguageParser {
     public MeaningTree getMeaningTree(TSNode node, String code) {
         setCode(code);
         return new MeaningTree(parseTSNode(node));
-    }
-
-    protected Node fromTSNode(TSNode node) {
-        Objects.requireNonNull(node);
-        Optional<Node> fromRegistry = parseWithRegistry(node);
-        if (fromRegistry.isPresent()) {
-            Node createdNode = fromRegistry.get();
-            matchParserNodes(node, createdNode);
-            return createdNode;
-        }
-        throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
     }
 
     private Node fromEnhancedForStatementTSNode(TSNode node) {
@@ -769,7 +758,7 @@ public class JavaParser extends LanguageParser {
         for (int i = 0; i < node.getChildCount(); i++) {
             if (node.getChild(i).getType().equals("marker_annotation")) {
                 annotations.add(new Annotation(
-                        (SimpleIdentifier) fromTSNode(node.getChild(i).getChildByFieldName("name")))
+                        (SimpleIdentifier) parseTSNode(node.getChild(i).getChildByFieldName("name")))
                 );
                 continue;
             }

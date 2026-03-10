@@ -58,7 +58,10 @@ import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.stream.Stream;
 
 public class PythonParser extends LanguageParser {
@@ -68,7 +71,7 @@ public class PythonParser extends LanguageParser {
     }
 
     private void configureTsNodeHandlers() {
-        registerTSNodeHandler("ERROR", node -> fromTSNode(node.getChild(0)));
+        registerTSNodeHandler("ERROR", node -> parseTSNode(node.getChild(0)));
         registerTSNodeHandler("module", this::createEntryPoint);
         registerTSNodeHandler("block", node -> fromCompoundTSNode(node, false));
         registerTSNodeHandler("if_statement", this::fromIfStatementTSNode);
@@ -82,12 +85,12 @@ public class PythonParser extends LanguageParser {
         registerTSNodeHandler("float", this::fromFloatLiteralTSNode);
         registerTSNodeHandler("identifier", this::fromIdentifier);
         registerTSNodeHandler("keyword_argument", this::fromDefinitionArgument);
-        registerTSNodeHandler("delete_statement", node -> new DeleteStatement((Expression) fromTSNode(node.getChild(0))));
+        registerTSNodeHandler("delete_statement", node -> new DeleteStatement((Expression) parseTSNode(node.getChild(0))));
         registerTSNodeHandler("comparison_operator", this::fromComparisonTSNode);
         registerTSNodeHandler(List.of("list", "set", "tuple"), node -> fromList(node, node.getType()));
         registerTSNodeHandler("dictionary", this::fromDictionary);
         registerTSNodeHandler("string", this::fromString);
-        registerTSNodeHandler("interpolation", node -> fromTSNode(node.getNamedChild(0)));
+        registerTSNodeHandler("interpolation", node -> parseTSNode(node.getNamedChild(0)));
         registerTSNodeHandler("slice", this::fromSlice);
         registerTSNodeHandler("for_statement", this::fromForLoop);
         registerTSNodeHandler("class_definition", this::fromClass);
@@ -95,8 +98,8 @@ public class PythonParser extends LanguageParser {
         registerTSNodeHandler("boolean_operator", this::fromBooleanOperatorTSNode);
         registerTSNodeHandler("none", node -> new NullLiteral());
         registerTSNodeHandler("type", this::determineType);
-        registerTSNodeHandler("list_splat", node -> DefinitionArgument.listUnpacking((Expression) fromTSNode(node.getNamedChild(0))));
-        registerTSNodeHandler("dictionary_splat", node -> DefinitionArgument.dictUnpacking((Expression) fromTSNode(node.getNamedChild(0))));
+        registerTSNodeHandler("list_splat", node -> DefinitionArgument.listUnpacking((Expression) parseTSNode(node.getNamedChild(0))));
+        registerTSNodeHandler("dictionary_splat", node -> DefinitionArgument.dictUnpacking((Expression) parseTSNode(node.getNamedChild(0))));
         registerTSNodeHandler("true", node -> new BoolLiteral(true));
         registerTSNodeHandler("false", node -> new BoolLiteral(false));
         registerTSNodeHandler("call", this::fromFunctionCall);
@@ -104,7 +107,7 @@ public class PythonParser extends LanguageParser {
         registerTSNodeHandler("continue_statement", node -> new ContinueStatement());
         registerTSNodeHandler("subscript", this::fromIndexTSNode);
         registerTSNodeHandler("dotted_name", this::fromDottedNameTSNode);
-        registerTSNodeHandler("aliased_import", node -> new Alias((Identifier) fromTSNode(node.getChildByFieldName("name")), (SimpleIdentifier) fromTSNode(node.getChildByFieldName("alias"))));
+        registerTSNodeHandler("aliased_import", node -> new Alias((Identifier) parseTSNode(node.getChildByFieldName("name")), (SimpleIdentifier) parseTSNode(node.getChildByFieldName("alias"))));
         registerTSNodeHandler(List.of("import_statement", "import_from_statement"), this::fromImportNodes);
         registerTSNodeHandler("attribute", this::fromAttributeTSNode);
         registerTSNodeHandler("return_statement", this::fromReturnTSNode);
@@ -131,23 +134,10 @@ public class PythonParser extends LanguageParser {
         return new MeaningTree(parseTSNode(rootNode));
     }
 
-    protected Node fromTSNode(TSNode node) {
-        if (node.isNull()) {
-            return null;
-        }
-        Optional<Node> fromRegistry = parseWithRegistry(node);
-        if (fromRegistry.isPresent()) {
-            Node createdNode = fromRegistry.get();
-            matchParserNodes(node, createdNode);
-            return createdNode;
-        }
-        throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));
-    }
-
     private Node fromPatternList(TSNode node) {
         List<Expression> expressions = new ArrayList<>();
         for (int i = 0; i < node.getNamedChildCount(); i++) {
-            expressions.add((Expression) fromTSNode(node.getNamedChild(i)));
+            expressions.add((Expression) parseTSNode(node.getNamedChild(i)));
         }
         return new ExpressionSequence(expressions);
     }
@@ -251,8 +241,8 @@ public class PythonParser extends LanguageParser {
     }
 
     private DefinitionArgument fromDefinitionArgument(TSNode node) {
-        SimpleIdentifier ident = (SimpleIdentifier) fromTSNode(node.getChildByFieldName("name"));
-        Expression expr = (Expression) fromTSNode(node.getChildByFieldName("value"));
+        SimpleIdentifier ident = (SimpleIdentifier) parseTSNode(node.getChildByFieldName("name"));
+        Expression expr = (Expression) parseTSNode(node.getChildByFieldName("value"));
         return new DefinitionArgument(ident, expr);
     }
 
@@ -322,7 +312,7 @@ public class PythonParser extends LanguageParser {
         List<Expression> exprs = new ArrayList<>();
         TSNode arguments = node.getChildByFieldName("arguments");
         if (arguments.getType().equals("generator_expression")) {
-            exprs.add((Expression) fromTSNode(arguments));
+            exprs.add((Expression) parseTSNode(arguments));
         } else {
             for (int i = 0; i < arguments.getNamedChildCount(); i++) {
                 String tsNodeChildType = arguments.getNamedChild(i).getType();
@@ -807,7 +797,7 @@ public class PythonParser extends LanguageParser {
             if (typeName.equals("Literal")) {
                 var literals = new ArrayList<Literal>();
                 for (int i = 0; i < genericTypeNode.getNamedChild(1).getNamedChildCount(); i++) {
-                    literals.add((Literal) fromTSNode(genericTypeNode.getNamedChild(1).getNamedChild(i).getNamedChild(0)));
+                    literals.add((Literal) parseTSNode(genericTypeNode.getNamedChild(1).getNamedChild(i).getNamedChild(0)));
                 }
                 var types = literals.stream().map(LiteralType::new).toList();
                 if (types.size() == 1) {
@@ -954,7 +944,7 @@ public class PythonParser extends LanguageParser {
                 // Вычисляем общий тип по всем выражениям
                 var evaluatedTypes = exprs.stream().map(expr -> ctx.inferType(expr)).toList();
                 Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? null :
-                        (Type) fromTSNode(node.getChildByFieldName("type"));
+                        (Type) parseTSNode(node.getChildByFieldName("type"));
                 if (declaredType == null) {
                     declaredType = SimpleTypeInferrer.chooseGeneralType(evaluatedTypes);
                 }
@@ -991,7 +981,7 @@ public class PythonParser extends LanguageParser {
             var scopeTable = ctx.getVisibilityScope();
             Type leftType = scopeTable.scope().getVariableType(variableName);
             Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? new UnknownType() :
-                    (Type) fromTSNode(node.getChildByFieldName("type"));
+                    (Type) parseTSNode(node.getChildByFieldName("type"));
             Type rightType = ctx.inferType(rightExpr); // already uses scopeTable by default
 
             if (declaredType != null && !(declaredType instanceof UnknownType)) {
@@ -1011,7 +1001,7 @@ public class PythonParser extends LanguageParser {
                 && augOp == AugmentedAssignmentOperator.NONE) {
             var scopeTable = ctx.getVisibilityScope();
             Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? new UnknownType() :
-                    (Type) fromTSNode(node.getChildByFieldName("type"));
+                    (Type) parseTSNode(node.getChildByFieldName("type"));
             scopeTable.scope().changeVariableType(variableName, declaredType);
             return new VariableDeclaration(declaredType, variableName, new NullLiteral());
         }

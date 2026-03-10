@@ -61,10 +61,13 @@ import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
-import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 
@@ -89,18 +92,12 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(FormatPrint.class, (node, tab) -> callsToString(node));
         registerTabRenderer(FormatInput.class, (node, tab) -> callsToString(node));
         registerTabRenderer(Identifier.class, (node, tab) -> identifierToString(node));
-        registerTabRenderer(IndexExpression.class, (indexExpr, tab) -> {
-            indexExpr = parenFiller.process(indexExpr);
-            return String.format("%s[%s]", toString(indexExpr.getExpression()), toString(indexExpr.getIndex()));
-        });
-        registerTabRenderer(MemberAccess.class, (memAccess, tab) -> {
-            memAccess = parenFiller.process(memAccess);
-            return String.format("%s.%s", toString(memAccess.getExpression()), toString(memAccess.getMember()));
-        });
-        registerTabRenderer(TernaryOperator.class, (ternary, tab) -> {
-            ternary = parenFiller.process(ternary);
-            return String.format("%s if %s else %s", toString(ternary.getThenExpr()), toString(ternary.getCondition()), toString(ternary.getElseExpr()));
-        });
+        registerTabRenderer(IndexExpression.class, (indexExpr, tab) ->
+                String.format("%s[%s]", toString(indexExpr.getExpression()), toString(indexExpr.getIndex())));
+        registerTabRenderer(MemberAccess.class, (memAccess, tab) ->
+                String.format("%s.%s", toString(memAccess.getExpression()), toString(memAccess.getMember())));
+        registerTabRenderer(TernaryOperator.class, (ternary, tab) ->
+                String.format("%s if %s else %s", toString(ternary.getThenExpr()), toString(ternary.getCondition()), toString(ternary.getElseExpr())));
         registerTabRenderer(ParenthesizedExpression.class, (paren, tab) -> String.format("(%s)", toString(paren.getExpression())));
         registerTabRenderer(ObjectNewExpression.class, (node, tab) -> callsToString(node));
         registerTabRenderer(ArrayNewExpression.class, (node, tab) -> callsToString(node));
@@ -140,6 +137,26 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(CastTypeExpression.class, (node, tab) -> callsToString(node));
         registerTabRenderer(Comprehension.class, (node, tab) -> comprehensionToString(node));
         registerTabRenderer(EmptyStatement.class, (node, tab) -> emptyStatementToString(node));
+
+        registerPreRenderPreparation(UnaryExpression.class, (Consumer<UnaryExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(BinaryExpression.class, (Consumer<BinaryExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(IndexExpression.class, (Consumer<IndexExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(TernaryOperator.class, (Consumer<TernaryOperator>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(CastTypeExpression.class, (Consumer<CastTypeExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(QualifiedIdentifier.class, (Consumer<QualifiedIdentifier>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(MemberAccess.class, (Consumer<MemberAccess>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(BinaryComparison.class, (Consumer<BinaryComparison>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(AssignmentExpression.class, (Consumer<AssignmentExpression>)
+                (node) -> parenFiller.process(node));
+
         registerUnsupportedFeature(new PointerSubtractionInUnpackFeature());
         registerUnsupportedFeature(new LabeledLoopFeature());
         registerUnsupportedFeature(new StatementJumpFeature());
@@ -147,18 +164,6 @@ public class PythonViewer extends LanguageViewer {
 
     private <T extends Node> void registerTabRenderer(Class<T> nodeType, ContextualNodeRenderer<T, Tab> renderer) {
         registerRenderer(nodeType, (T node, Tab tab) -> renderer.render(node, tab == null ? new Tab() : tab));
-    }
-
-    @Override
-    public String formString(Node node) {
-        Objects.requireNonNull(node);
-
-        // Для dummy узлов ничего не выводим
-        if (node.hasLabel(Label.DUMMY)) {
-            return "";
-        }
-
-        return toString(node, new Tab());
     }
 
     public String toString(Tab tab, Node ... nodes) {
@@ -174,8 +179,9 @@ public class PythonViewer extends LanguageViewer {
     }
 
     public String toString(Node node, Tab tab) {
-        String result = dispatchRenderer(node, tab);
-        result = this.applyHooks(node, result);
+        Node preparedNode = applyPreRenderPreparations(node);
+        String result = dispatchRenderer(preparedNode, tab);
+        result = this.applyHooks(preparedNode, result);
         return result;
     }
 
@@ -627,7 +633,6 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String assignmentExpressionToString(AssignmentExpression expr) {
-        expr = (AssignmentExpression) parenFiller.process(expr);
         if (!(expr.getLValue() instanceof SimpleIdentifier) || (expr.getRValue() instanceof AssignmentExpression)) {
             if (isExpressionMode()) {
                 return String.format("%s = %s", toString(expr.getLValue()), toString(expr.getRValue()));
@@ -819,7 +824,6 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String binaryOpToString(BinaryExpression node) {
-        node = parenFiller.process(node);
         String pattern = "";
         Expression left = node.getLeft();
         Expression right = node.getRight();
@@ -935,7 +939,6 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String unaryToString(UnaryExpression node) {
-        node = parenFiller.process(node);
         String pattern = "";
         Expression expr = node.getArgument();
 
@@ -1014,7 +1017,6 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String comparisonToString(BinaryComparison node) {
-        node = (BinaryComparison) parenFiller.process(node);
         String pattern = "";
         Expression left = node.getLeft();
         Expression right = node.getRight();

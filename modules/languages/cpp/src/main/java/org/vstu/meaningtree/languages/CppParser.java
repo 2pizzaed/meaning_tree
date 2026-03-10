@@ -69,8 +69,6 @@ import org.vstu.meaningtree.nodes.types.user.GenericClass;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 
 public class CppParser extends LanguageParser {
     public CppParser(LanguageTranslator translator) {
@@ -79,7 +77,7 @@ public class CppParser extends LanguageParser {
     }
 
     private void configureTsNodeHandlers() {
-        registerTSNodeHandler(List.of("ERROR", "parameter_pack_expansion"), node -> fromTSNode(node.getNamedChild(0)));
+        registerTSNodeHandler(List.of("ERROR", "parameter_pack_expansion"), node -> parseTSNode(node.getNamedChild(0)));
         registerTSNodeHandler("translation_unit", this::fromTranslationUnit);
         registerTSNodeHandler("function_definition", this::fromFunction);
         registerTSNodeHandler("expression_statement", this::fromExpressionStatement);
@@ -92,7 +90,7 @@ public class CppParser extends LanguageParser {
         registerTSNodeHandler("comma_expression", this::fromCommaExpression);
         registerTSNodeHandler("subscript_expression", this::fromSubscriptExpression);
         registerTSNodeHandler("assignment_expression", this::fromAssignmentExpression);
-        registerTSNodeHandler("compound_literal_expression", node -> fromTSNode(node.getChildByFieldName("value")));
+        registerTSNodeHandler("compound_literal_expression", node -> parseTSNode(node.getChildByFieldName("value")));
         registerTSNodeHandler("declaration", this::fromDeclaration);
         registerTSNodeHandler(List.of("identifier", "qualified_identifier", "field_expression", "namespace_identifier", "type_identifier", "field_identifier"), this::fromIdentifier);
         registerTSNodeHandler("number_literal", this::fromNumberLiteral);
@@ -114,7 +112,7 @@ public class CppParser extends LanguageParser {
         registerTSNodeHandler("pointer_expression", this::fromPointerExpression);
         registerTSNodeHandler("this", node -> new SelfReference("this"));
         registerTSNodeHandler("offsetof_expression", this::fromOffsetOf);
-        registerTSNodeHandler("preproc_defined", node -> new FunctionCall(new SimpleIdentifier("defined"), (Expression) fromTSNode(node.getNamedChild(0))));
+        registerTSNodeHandler("preproc_defined", node -> new FunctionCall(new SimpleIdentifier("defined"), (Expression) parseTSNode(node.getNamedChild(0))));
         registerTSNodeHandler("preproc_include", this::fromPreprocInclude);
         registerTSNodeHandler("comment", this::fromComment);
         registerTSNodeHandler("if_statement", this::fromIfStatement);
@@ -193,22 +191,6 @@ public class CppParser extends LanguageParser {
         return result;
     }
 
-    @NotNull
-    protected Node fromTSNode(@NotNull TSNode node) {
-        Objects.requireNonNull(node);
-
-        if (node.isNull()) {
-            throw new UnsupportedParsingException("NULL Tree sitter node");
-        }
-
-        Optional<Node> fromRegistry = parseWithRegistry(node);
-        if (fromRegistry.isPresent()) {
-            Node createdNode = fromRegistry.get();
-            matchParserNodes(node, createdNode);
-            return createdNode;
-        }
-        throw new UnsupportedParsingException(String.format("Can't parse %s this code:\n%s", node.getType(), getCodePiece(node)));
-    }
 
     private Node fromPreprocInclude(@NotNull TSNode node) {
         TSNode path = node.getChildByFieldName("path");
@@ -216,7 +198,7 @@ public class CppParser extends LanguageParser {
         if (path.getType().equals("system_lib_string")) {
             type = Include.IncludeType.POINTY_BRACKETS_FORM;
         }
-        return new Include((StringLiteral) fromTSNode(path), type);
+        return new Include((StringLiteral) parseTSNode(path), type);
     }
 
     private ForEachLoop fromForRangeLoop(TSNode node) {

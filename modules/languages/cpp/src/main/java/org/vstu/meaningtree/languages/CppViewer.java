@@ -56,6 +56,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.*;
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
+import org.vstu.meaningtree.nodes.statements.loops.control.GotoStatement;
 import org.vstu.meaningtree.nodes.types.GenericUserType;
 import org.vstu.meaningtree.nodes.types.NoReturn;
 import org.vstu.meaningtree.nodes.types.UnknownType;
@@ -63,14 +64,13 @@ import org.vstu.meaningtree.nodes.types.UserType;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
-import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator.POW;
@@ -154,8 +154,9 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(ArrayInitializer.class, this::toStringArrayInitializer);
         registerRenderer(ReturnStatement.class, this::toStringReturnStatement);
         registerRenderer(EmptyStatement.class, n -> "");
-        registerRenderer(BreakStatement.class, n -> "break;");
-        registerRenderer(ContinueStatement.class, n -> "continue;");
+        registerRenderer(BreakStatement.class, this::toStringBreakStatement);
+        registerRenderer(ContinueStatement.class, this::toStringContinueStatement);
+        registerRenderer(GotoStatement.class, this::toStringGotoStatement);
         registerRenderer(ForEachLoop.class, this::toStringForEachLoop);
         registerRenderer(VariableDeclarator.class, n -> toStringVariableDeclarator(n, new UnknownType()));
         registerRenderer(Shape.class, this::toStringShape);
@@ -163,6 +164,35 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(MatchValueCaseBlock.class, this::toStringCaseBlock);
         registerRenderer(DefaultCaseBlock.class, this::toStringCaseBlock);
         registerRenderer(CaseBlock.class, this::toStringCaseBlock);
+
+        registerPostRenderPreparation(Statement.class, (node, code) -> {
+            if (node.getJumpLabel() != null) {
+                return "%s:\n%s".formatted(node.getJumpLabel().getName(), code);
+            }
+            return code;
+        });
+
+        registerPreRenderPreparation(UnaryExpression.class, (Consumer<UnaryExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(BinaryExpression.class, (Consumer<BinaryExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(IndexExpression.class, (Consumer<IndexExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(TernaryOperator.class, (Consumer<TernaryOperator>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(CastTypeExpression.class, (Consumer<CastTypeExpression>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(MethodCall.class, (Consumer<MethodCall>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(QualifiedIdentifier.class, (Consumer<QualifiedIdentifier>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(MemberAccess.class, (Consumer<MemberAccess>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(BinaryComparison.class, (Consumer<BinaryComparison>)
+                (node) -> parenFiller.process(node));
+        registerPreRenderPreparation(AssignmentExpression.class, (Consumer<AssignmentExpression>)
+                (node) -> parenFiller.process(node));
+
         registerUnsupportedFeature(new NonDirectionalRangeForFeature());
     }
 
@@ -196,23 +226,13 @@ public class CppViewer extends LanguageViewer {
     }
 
     /*******************************************************************/
-    /* Перевод мининг три и узлов в строки */
+    /* Перевод MeaningTree и узлов в строки */
     @NotNull
     @Override
     public String toString(@NotNull MeaningTree meaningTree) {
         return toString(meaningTree.getRootNode());
     }
 
-    @NotNull
-    @Override
-    public String formString(@NotNull Node node) {
-        // Для dummy узлов ничего не выводим
-        if (node.hasLabel(Label.DUMMY)) {
-            return "";
-        }
-
-        return dispatchRenderer(node);
-    }
 
     private String toStringForEachLoop(ForEachLoop forEachLoop) {
         var type = toString(forEachLoop.getItem().getType());
@@ -490,13 +510,27 @@ public class CppViewer extends LanguageViewer {
 
     /*******************************************************************/
     /* Перевод операторов управления циклов */
+    @NotNull
+    private String toStringBreakStatement(BreakStatement stmt) {
+        if (stmt.getJumpLabel() != null) {
+            return toString(stmt.toGoto());
+        }
+        return "break;";
+    }
+
+    @NotNull
     private String toStringContinueStatement(ContinueStatement stmt) {
+        if (stmt.getJumpLabel() != null) {
+            return toString(stmt.toGoto());
+        }
         return "continue;";
     }
 
-    private String toStringBreakStatement(BreakStatement stmt) {
-        return "break;";
+    @NotNull
+    private String toStringGotoStatement(GotoStatement stmt) {
+        return "goto %s;".formatted(stmt.getJumpDestination());
     }
+
 
     /*******************************************************************/
     /* Перевод цикла while */
@@ -901,7 +935,6 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringMemberAccess(MemberAccess memAccess) {
-        memAccess = parenFiller.process(memAccess);
         String token = memAccess instanceof PointerMemberAccess ? "->" : ".";
         return String.format("%s%s%s",toString(memAccess.getExpression()), token, toString(memAccess.getMember()));
     }
@@ -972,7 +1005,6 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringCast(CastTypeExpression cast) {
-        cast = parenFiller.process(cast);
         return String.format("(%s) %s", toString(cast.getCastType()), toString(cast.getValue()));
     }
 
@@ -1137,7 +1169,6 @@ public class CppViewer extends LanguageViewer {
 
     @NotNull
     private String toStringIndexExpression(@NotNull IndexExpression indexExpression) {
-        indexExpression = parenFiller.process(indexExpression);
         String base = toString(indexExpression.getExpression());
         String indices = toString(indexExpression.getIndex());
         if (indexExpression.isPreferPointerRepresentation()) {
@@ -1167,7 +1198,6 @@ public class CppViewer extends LanguageViewer {
 
     @NotNull
     private String toStringTernaryOperator(@NotNull TernaryOperator ternaryOperator) {
-        ternaryOperator = parenFiller.process(ternaryOperator);
         String condition = toString(ternaryOperator.getCondition());
         String then = toString(ternaryOperator.getThenExpr());
         String else_ = toString(ternaryOperator.getElseExpr());
@@ -1199,9 +1229,6 @@ public class CppViewer extends LanguageViewer {
 
     @NotNull
     private String toStringFunctionCall(@NotNull FunctionCall functionCall) {
-        if (functionCall instanceof MethodCall call) {
-            functionCall = parenFiller.process(call);
-        }
         String functionName = toString(functionCall.getFunction());
         return functionName + "(" + toStringFunctionCallArgumentsList(functionCall.getArguments()) + ")";
     }
@@ -1213,7 +1240,6 @@ public class CppViewer extends LanguageViewer {
 
     @NotNull
     private String toStringAssignmentExpression(@NotNull AssignmentExpression assign) {
-        assign = (AssignmentExpression) parenFiller.process(assign);
         Expression left = assign.getLValue();
         Expression right = assign.getRValue();
         AugmentedAssignmentOperator op = assign.getAugmentedOperator();
@@ -1257,7 +1283,6 @@ public class CppViewer extends LanguageViewer {
             case SimpleIdentifier simpleIdentifier -> simpleIdentifier.getName();
             case ScopedIdentifier scopedIdentifier -> String.join(".", scopedIdentifier.getScopeResolution().stream().map(this::toStringIdentifier).toList());
             case QualifiedIdentifier qualifiedIdentifier -> {
-                qualifiedIdentifier = parenFiller.process(qualifiedIdentifier);
                 yield String.format("%s::%s", this.toStringIdentifier(qualifiedIdentifier.getScope()), this.toStringIdentifier(qualifiedIdentifier.getMember()));
             }
             default -> throw new IllegalStateException("Unexpected value: " + identifier);
@@ -1365,7 +1390,6 @@ public class CppViewer extends LanguageViewer {
                 && p.getExpression() instanceof InstanceOfOp op) {
             return String.format("dynamic_cast<%s>(%s) == nullptr", toString(op.getRight()), toString(op.getLeft()));
         }
-        unaryExpression = parenFiller.process(unaryExpression);
 
         String operator = switch (unaryExpression) {
             case NotOp op -> "!";
@@ -1410,7 +1434,6 @@ public class CppViewer extends LanguageViewer {
             return String.format("(long) (%s / %s)", toString(op.getLeft()), toString(op.getRight()));
         }
 
-        binaryExpression = parenFiller.process(binaryExpression);
         Expression left = binaryExpression.getLeft();
         Expression right = binaryExpression.getRight();
 

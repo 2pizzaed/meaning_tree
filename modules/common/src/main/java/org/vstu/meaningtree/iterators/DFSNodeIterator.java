@@ -37,6 +37,9 @@ public class DFSNodeIterator extends AbstractNodeIterator {
 
     public DFSNodeIterator(Node root, boolean includeRoot) {
         this.includeRoot = includeRoot;
+        if (root == null) {
+            return;
+        }
         if (includeRoot) {
             stack.push(new Frame(root, null, null, 0));
         } else {
@@ -66,8 +69,8 @@ public class DFSNodeIterator extends AbstractNodeIterator {
                     try {
                         if (fd instanceof NodeFieldDescriptor nfd) {
                             Node child = nfd.get();
-                            if (!checkEnterCondition(child, parentNode)) {
-                                break;
+                            if (child == null || !checkEnterCondition(child, parentNode)) {
+                                continue;
                             }
                             stack.push(new Frame(child, fd, frame.info, frame.info.depth() + 1));
                             return next(); // углубляемся дальше
@@ -89,8 +92,8 @@ public class DFSNodeIterator extends AbstractNodeIterator {
                     while (frame.nodeIterator.hasNext()) {
                         Node child = frame.nodeIterator.next();
                         frame.fieldIndex++;
-                        if (!checkEnterCondition(child, parentNode)) {
-                            break;
+                        if (child == null || !checkEnterCondition(child, parentNode)) {
+                            continue;
                         }
                         stack.push(new Frame(child, frame.currentField.withIndex(frame.fieldIndex), frame.info, frame.info.depth() + 1));
                         return next();
@@ -119,6 +122,9 @@ public class DFSNodeIterator extends AbstractNodeIterator {
             try {
                 if (fd instanceof NodeFieldDescriptor nfd) {
                     Node child = nfd.get();
+                    if (child == null) {
+                        continue;
+                    }
                     stack.push(new Frame(child, fd, frame.info, frame.info.depth() + 1));
                     prePushChildren(stack.peek());
                 } else if (fd instanceof ArrayFieldDescriptor afd) {
@@ -127,6 +133,9 @@ public class DFSNodeIterator extends AbstractNodeIterator {
                     while (iter.hasNext()) {
                         Node child = iter.next();
                         idx++;
+                        if (child == null) {
+                            continue;
+                        }
                         stack.push(new Frame(child, fd.withIndex(idx), frame.info, frame.info.depth() + 1));
                         prePushChildren(stack.peek());
                     }
@@ -136,6 +145,9 @@ public class DFSNodeIterator extends AbstractNodeIterator {
                     while (iter.hasNext()) {
                         Node child = iter.next();
                         idx++;
+                        if (child == null) {
+                            continue;
+                        }
                         stack.push(new Frame(child, fd.withIndex(idx), frame.info, frame.info.depth() + 1));
                         prePushChildren(stack.peek());
                     }

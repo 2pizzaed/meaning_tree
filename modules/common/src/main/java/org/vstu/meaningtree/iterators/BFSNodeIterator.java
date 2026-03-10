@@ -35,6 +35,9 @@ public class BFSNodeIterator extends AbstractNodeIterator {
 
     public BFSNodeIterator(Node root, boolean includeRoot) {
         this.includeRoot = includeRoot;
+        if (root == null) {
+            return;
+        }
         if (includeRoot) {
             queue.offer(new Frame(root, null, null, 0));
         } else {
@@ -56,7 +59,6 @@ public class BFSNodeIterator extends AbstractNodeIterator {
         }
 
         Frame frame = queue.poll();
-        Node parentNode = frame.parentField == null ? null : frame.parentField.getOwner();
 
         // Добавляем детей текущего узла в очередь
         enqueueChildren(frame.node, frame.info, frame.depth + 1);
@@ -65,6 +67,9 @@ public class BFSNodeIterator extends AbstractNodeIterator {
     }
 
     private void enqueueChildren(Node node, NodeInfo currentInfo, int depth) {
+        if (node == null) {
+            return;
+        }
         Node parentNode = currentInfo == null ? null : currentInfo.parentNode();
         for (FieldDescriptor fd : node.getFieldDescriptors().values()) {
             try {

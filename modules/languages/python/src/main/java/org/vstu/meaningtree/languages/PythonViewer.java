@@ -3,7 +3,9 @@ package org.vstu.meaningtree.languages;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.helpers.ContextualNodeRenderer;
+import org.vstu.meaningtree.languages.support.features.LabeledLoopFeature;
 import org.vstu.meaningtree.languages.support.features.PointerSubtractionInUnpackFeature;
+import org.vstu.meaningtree.languages.support.features.StatementJumpFeature;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.languages.utils.Tab;
 import org.vstu.meaningtree.nodes.*;
@@ -139,6 +141,8 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(Comprehension.class, (node, tab) -> comprehensionToString(node));
         registerTabRenderer(EmptyStatement.class, (node, tab) -> emptyStatementToString(node));
         registerUnsupportedFeature(new PointerSubtractionInUnpackFeature());
+        registerUnsupportedFeature(new LabeledLoopFeature());
+        registerUnsupportedFeature(new StatementJumpFeature());
     }
 
     private <T extends Node> void registerTabRenderer(Class<T> nodeType, ContextualNodeRenderer<T, Tab> renderer) {

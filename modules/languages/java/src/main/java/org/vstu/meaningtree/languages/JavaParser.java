@@ -24,6 +24,7 @@ import org.vstu.meaningtree.nodes.expressions.bitwise.*;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
+import org.vstu.meaningtree.nodes.expressions.identifiers.JumpLabel;
 import org.vstu.meaningtree.nodes.expressions.identifiers.ScopedIdentifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SelfReference;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
@@ -123,6 +124,7 @@ public class JavaParser extends LanguageParser {
         registerTSNodeHandler("character_literal", this::fromCharacterLiteralTSNode);
         registerTSNodeHandler("do_statement", this::fromDoStatementTSNode);
         registerTSNodeHandler("instanceof_expression", this::fromInstanceOfTSNode);
+        registerTSNodeHandler("labeled_statement", this::fromLabeledLoopTsNode);
         registerTSNodeHandler("class_literal", this::fromClassLiteralTSNode);
         registerTSNodeHandler("enhanced_for_statement", this::fromEnhancedForStatementTSNode);
     }
@@ -255,6 +257,14 @@ public class JavaParser extends LanguageParser {
         var result = new ObjectConstructorDefinition(null, name, List.of(), modifiers, parameters, body);
         result.getDeclaration().setAnnotations(annotations);
         return result;
+    }
+
+    private Node fromLabeledLoopTsNode(TSNode node) {
+        Node inner = parseTSNode(node.getNamedChild(1));
+        if (inner instanceof Statement stmt) {
+            stmt.setJumpLabel(new JumpLabel(getCodePiece(node.getNamedChild(0))));
+        }
+        return inner;
     }
 
     private Node fromTernaryExpressionTSNode(TSNode node) {

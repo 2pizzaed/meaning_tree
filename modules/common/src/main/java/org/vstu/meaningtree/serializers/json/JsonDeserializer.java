@@ -50,6 +50,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.*;
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
+import org.vstu.meaningtree.nodes.statements.loops.control.GotoStatement;
 import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
@@ -300,6 +301,10 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
 
         Node node = deserializeNodeByType(type, json);
 
+        if (node instanceof Statement stmt && json.has("jump_label")) {
+            stmt.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
+        }
+
         try {
             idField.setAccessible(true);
             idField.set(node, id);
@@ -515,6 +520,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     json.get("name").getAsString()
             );
             case "super_class_reference" -> new SuperClassReference();
+            case "jump_label" -> new JumpLabel(json.get("name").getAsString());
 
             // Expressions
             case "parenthesized_expression" -> new ParenthesizedExpression(
@@ -835,9 +841,6 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("condition")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
-                if (json.has("jump_label")) {
-                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
-                }
                 yield loop;
             }
             case "do_while_loop" -> {
@@ -845,9 +848,6 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         deserializeExpression(json.getAsJsonObject("condition")),
                         (Statement) deserialize(json.getAsJsonObject("body"))
                 );
-                if (json.has("jump_label")) {
-                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
-                }
                 yield loop;
             }
             case "general_for_loop" -> {
@@ -859,9 +859,6 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         ? deserializeExpression(json.getAsJsonObject("update")) : null;
                 Statement body = (Statement) deserialize(json.getAsJsonObject("body"));
                 var loop = new GeneralForLoop((HasInitialization) initializer, condition, update, body);
-                if (json.has("jump_label")) {
-                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
-                }
                 yield loop;
             }
             case "range_for_loop" -> {
@@ -870,9 +867,6 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     (SimpleIdentifier) deserialize(json.getAsJsonObject("identifier")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
-                if (json.has("jump_label")) {
-                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
-                }
                 yield loop;
             }
             case "for_each_loop" -> {
@@ -881,9 +875,6 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("container")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
-                if (json.has("jump_label")) {
-                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
-                }
                 yield loop;
             }
             case "infinite_loop" -> {
@@ -891,13 +882,22 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     (Statement) deserialize(json.getAsJsonObject("body")),
                     LoopType.valueOf(json.get("original_loop_type").getAsString())
                 );
-                if (json.has("jump_label")) {
-                    loop.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
-                }
                 yield loop;
             }
-            case "break_statement" -> new BreakStatement();
-            case "continue_statement" -> new ContinueStatement();
+            case "break_statement" -> {
+                if (json.has("jump_destination")) {
+                    yield new BreakStatement((JumpLabel) deserialize(json.getAsJsonObject("jump_destination")));
+                }
+                yield new BreakStatement();
+            }
+            case "continue_statement" -> {
+                if (json.has("jump_destination")) {
+                    yield new ContinueStatement((JumpLabel) deserialize(json.getAsJsonObject("jump_destination")));
+                }
+                yield new ContinueStatement();
+            }
+            case "goto_statement" -> new GotoStatement((JumpLabel)
+                    deserialize(json.getAsJsonObject("jump_destination")));
 
             // Types
             case "int_type" -> {

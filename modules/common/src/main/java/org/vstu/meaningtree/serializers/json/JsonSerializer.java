@@ -4,10 +4,7 @@ import com.google.gson.*;
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeSerializationException;
-import org.vstu.meaningtree.nodes.Comment;
-import org.vstu.meaningtree.nodes.Node;
-import org.vstu.meaningtree.nodes.ProgramEntryPoint;
-import org.vstu.meaningtree.nodes.Type;
+import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
@@ -40,6 +37,7 @@ import org.vstu.meaningtree.nodes.modules.*;
 import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.CompoundAssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ListUnpackingAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
@@ -50,6 +48,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.FallthroughCa
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
+import org.vstu.meaningtree.nodes.statements.loops.control.GotoStatement;
 import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.ArrayType;
@@ -260,6 +259,8 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case ReturnStatement stmt -> serializeReturnStatement(stmt);
             case CompoundAssignmentStatement stmt -> serializeCompoundAssignmentStatement(stmt);
             case MultipleAssignmentStatement stmt -> serializeMultipleAssignmentStatement(stmt);
+            case ListUnpackingAssignmentStatement stmt -> serializeListUnpackingAssignmentStatement(stmt);
+            case ListUnpackingVariableDeclaration stmt -> serializeListUnpackingVariableDeclaration(stmt);
 
             case BasicCaseBlock caseBlock -> serializeBasicCaseBlock(caseBlock);
             case DefaultCaseBlock defaultCaseBlock -> serializeDefaultCaseBlock(defaultCaseBlock);
@@ -343,6 +344,10 @@ public class JsonSerializer implements Serializer<JsonObject> {
         var labels = node.getAllLabels();
         if (!labels.isEmpty()) {
             json.add("labels", serializeLabels(labels));
+        }
+
+        if (node instanceof Statement stmt && stmt.getJumpLabel() != null) {
+            json.add("jump_label", serialize(stmt.getJumpLabel()));
         }
 
         return json;
@@ -1038,7 +1043,6 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
 
         json.add("body", serialize(stmt.getBody()));
-        json.add("jump_label", serialize(stmt.getJumpLabel()));
         json.addProperty("id", stmt.getId());
         return json;
     }
@@ -1070,7 +1074,6 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("range", serialize(stmt.getRange()));
         json.add("body", serialize(stmt.getBody()));
 
-        json.add("jump_label", serialize(stmt.getJumpLabel()));
         json.addProperty("id", stmt.getId());
         return json;
     }
@@ -1083,7 +1086,6 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("item", serialize(stmt.getItem()));
         json.add("container", serialize(stmt.getExpression()));
         json.add("body", serialize(stmt.getBody()));
-        json.add("jump_label", serialize(stmt.getJumpLabel()));
 
         return json;
     }
@@ -1095,7 +1097,6 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
         json.add("condition", serialize(stmt.getCondition()));
         json.add("body", serialize(stmt.getBody()));
-        json.add("jump_label", serialize(stmt.getJumpLabel()));
 
         json.addProperty("id", stmt.getId());
         return json;
@@ -1106,6 +1107,49 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
+        if (stmt.getJumpDestination() != null) {
+            json.add("jump_destination", serialize(stmt.getJumpDestination()));
+        }
+
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeListUnpackingVariableDeclaration(@NotNull ListUnpackingVariableDeclaration stmt) {
+        JsonObject json = new JsonObject();
+
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
+        JsonArray identifiers = new JsonArray();
+        for (var name : stmt.getVariableNames()) {
+            identifiers.add(serialize(name));
+        }
+        json.add("variable_names", identifiers);
+        json.add("value", serialize(stmt.getValue()));
+
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeListUnpackingAssignmentStatement(@NotNull ListUnpackingAssignmentStatement stmt) {
+        JsonObject json = new JsonObject();
+
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
+        JsonArray identifiers = new JsonArray();
+        for (var name : stmt.getVariableNames()) {
+            identifiers.add(serialize(name));
+        }
+        json.add("variable_names", identifiers);
+        json.add("value", serialize(stmt.getValue()));
+
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeGotoStatement(@NotNull GotoStatement stmt) {
+        JsonObject json = new JsonObject();
+
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
+        json.add("jump_destination", serialize(stmt.getJumpDestination()));
 
         return json;
     }
@@ -1115,6 +1159,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
+        if (stmt.getJumpDestination() != null) {
+            json.add("jump_destination", serialize(stmt.getJumpDestination()));
+        }
 
         return json;
     }
@@ -1145,7 +1192,6 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
         json.add("body", serialize(stmt.getBody()));
         json.add("condition", serialize(stmt.getCondition()));
-        json.add("jump_label", serialize(stmt.getJumpLabel()));
 
         json.addProperty("id", stmt.getId());
         return json;
@@ -1984,7 +2030,6 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(loop));
         json.add("body", serialize(loop.getBody()));
-        json.add("jump_label", serialize(loop.getJumpLabel()));
         json.addProperty("original_loop_type", enumToValue(loop.getLoopType()));
         return json;
     }

@@ -332,6 +332,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case ContinueStatement stmt -> serializeContinueStatement(stmt);
             case SwitchStatement switchStatement -> serializeSwitchStatement(switchStatement);
             case DoWhileLoop doWhileLoop -> serializeDoWhileLoop(doWhileLoop);
+            case GotoStatement stmt -> serializeGotoStatement(stmt);
 
             case ProgramEntryPoint entryPoint -> serializeProgramEntryPoint(entryPoint);
             case Comment comment -> serializeComment(comment);

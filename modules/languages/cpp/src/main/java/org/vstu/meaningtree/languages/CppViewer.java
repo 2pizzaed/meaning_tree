@@ -7,6 +7,7 @@ import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
+import org.vstu.meaningtree.nodes.declarations.ListUnpackingVariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
@@ -49,6 +50,7 @@ import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ListUnpackingAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
@@ -163,6 +165,10 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(MatchValueCaseBlock.class, this::toStringCaseBlock);
         registerRenderer(DefaultCaseBlock.class, this::toStringCaseBlock);
         registerRenderer(CaseBlock.class, this::toStringCaseBlock);
+        registerRenderer(ListUnpackingVariableDeclaration.class,
+                (node) -> toString(node.toVariableDeclaration()));
+        registerRenderer(ListUnpackingAssignmentStatement.class,
+                (node) -> toString(node.toMultipleAssignmentStstement()));
 
         registerPostRenderPreparation(Statement.class, (node, code) -> {
             if (node.getJumpLabel() != null) {

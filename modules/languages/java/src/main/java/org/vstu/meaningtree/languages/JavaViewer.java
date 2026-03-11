@@ -52,6 +52,7 @@ import org.vstu.meaningtree.nodes.statements.EmptyStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.ReturnStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ListUnpackingAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
@@ -213,6 +214,10 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(Shape.class, this::toStringShape);
         registerRenderer(FunctionDeclaration.class, this::toStringFunctionDeclaration);
         registerRenderer(DeclarationArgument.class, this::toStringDeclarationArgument);
+        registerRenderer(ListUnpackingVariableDeclaration.class,
+                (node) -> toString(node.toVariableDeclaration()));
+        registerRenderer(ListUnpackingAssignmentStatement.class,
+                (node) -> toString(node.toMultipleAssignmentStstement()));
 
         registerPostRenderPreparation(Statement.class, (node, code) -> {
             if (node.getJumpLabel() != null) {

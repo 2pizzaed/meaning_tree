@@ -9,12 +9,13 @@ import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
+import org.vstu.meaningtree.nodes.interfaces.HasVariableDeclaration;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class VariableDeclaration extends Declaration implements HasInitialization {
+public class VariableDeclaration extends Declaration implements HasInitialization, HasVariableDeclaration {
     @TreeNode protected Type type;
     @TreeNode protected List<VariableDeclarator> variableDeclaratorList;
 

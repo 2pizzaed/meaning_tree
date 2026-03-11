@@ -47,6 +47,7 @@ import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.modules.*;
 import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ListUnpackingAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
@@ -112,6 +113,8 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(Comment.class, (node, tab) -> commentToString(node));
         registerTabRenderer(Literal.class, (node, tab) -> literalToString(node));
         registerTabRenderer(SizeofExpression.class, (node, tab) -> callsToString(node));
+        registerTabRenderer(ListUnpackingVariableDeclaration.class, (node, tab) -> listUnpackingVariableToString(node));
+        registerTabRenderer(ListUnpackingAssignmentStatement.class, (node, tab) -> listUnpackingAssignmentToString(node));
         registerTabRenderer(AssignmentStatement.class, (node, tab) -> assignmentToString(node));
         registerTabRenderer(VariableDeclaration.class, (node, tab) -> variableDeclarationToString(node));
         registerTabRenderer(ForLoop.class, this::loopToString);
@@ -303,6 +306,20 @@ public class PythonViewer extends LanguageViewer {
             return toString(new MethodDefinition(method, new CompoundStatement()), tab);
         }
         return toString(new FunctionDefinition(decl, new CompoundStatement()), tab);
+    }
+
+    private String listUnpackingVariableToString(ListUnpackingVariableDeclaration decl) {
+        return "%s = %s".formatted(String.join(", ",
+                decl.getVariableNames().stream().map(this::toString).toArray(String[]::new)),
+                toString(decl.getValue())
+        );
+    }
+
+    private String listUnpackingAssignmentToString(ListUnpackingAssignmentStatement decl) {
+        return "%s = %s".formatted(String.join(", ",
+                        decl.getVariableNames().stream().map(this::toString).toArray(String[]::new)),
+                toString(decl.getValue())
+        );
     }
 
     private String classToString(ClassDefinition def, Tab tab) {

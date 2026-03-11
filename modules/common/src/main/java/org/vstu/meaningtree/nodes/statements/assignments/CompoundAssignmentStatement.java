@@ -2,12 +2,13 @@ package org.vstu.meaningtree.nodes.statements.assignments;
 
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.nodes.interfaces.HasAssignmentEffect;
 import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 
 import java.util.List;
 import java.util.Objects;
 
-public class CompoundAssignmentStatement extends Node implements HasInitialization {
+public class CompoundAssignmentStatement extends Node implements HasInitialization, HasAssignmentEffect {
     /**
      * This node used only in case of compound assignment in for header
      * Example: for(a = 1, b = 3; i < 3; i++)

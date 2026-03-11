@@ -2,12 +2,13 @@ package org.vstu.meaningtree.nodes.statements.assignments;
 
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Statement;
+import org.vstu.meaningtree.nodes.interfaces.HasAssignmentEffect;
 import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 
 import java.util.List;
 import java.util.Objects;
 
-public class MultipleAssignmentStatement extends Statement implements HasInitialization {
+public class MultipleAssignmentStatement extends Statement implements HasInitialization, HasAssignmentEffect {
     // Множественное присваивание (применяется в Python)
     @TreeNode private List<AssignmentStatement> statements;
 

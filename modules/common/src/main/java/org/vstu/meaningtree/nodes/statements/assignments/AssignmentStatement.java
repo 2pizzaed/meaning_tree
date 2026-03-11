@@ -5,11 +5,12 @@ import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.expressions.other.AssignmentExpression;
+import org.vstu.meaningtree.nodes.interfaces.HasAssignmentEffect;
 import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 
 import java.util.Objects;
 
-public class AssignmentStatement extends Statement implements HasInitialization {
+public class AssignmentStatement extends Statement implements HasInitialization, HasAssignmentEffect {
     @TreeNode private Expression lvalue;
     @TreeNode private Expression rvalue;
     @TreeNode private AugmentedAssignmentOperator operatorType;

@@ -3,6 +3,7 @@ package org.vstu.meaningtree.utils.scopes;
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.Annotation;
+import org.vstu.meaningtree.nodes.declarations.ListUnpackingVariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -22,11 +23,14 @@ import org.vstu.meaningtree.nodes.expressions.math.DivOp;
 import org.vstu.meaningtree.nodes.expressions.other.*;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
+import org.vstu.meaningtree.nodes.interfaces.HasAssignmentEffect;
 import org.vstu.meaningtree.nodes.interfaces.HasBodyStatement;
 import org.vstu.meaningtree.nodes.modules.PackageDeclaration;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.CompoundAssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
 import org.vstu.meaningtree.nodes.types.UnknownType;
@@ -412,13 +416,23 @@ public class SimpleTypeInferrer {
         return inference(expression, new ScopeTable());
     }
 
-    public static void inference(@NotNull AssignmentStatement assignmentStatement, @NotNull ScopeTable scope) {
-        AssignmentExpression assignmentExpression = new AssignmentExpression(
-                assignmentStatement.getLValue(),
-                assignmentStatement.getRValue(),
-                assignmentStatement.getAugmentedOperator()
-        );
-        inference(assignmentExpression, scope);
+    public static void inference(@NotNull HasAssignmentEffect stmt, @NotNull ScopeTable scope) {
+        if (stmt instanceof AssignmentStatement assignmentStatement) {
+            AssignmentExpression assignmentExpression = new AssignmentExpression(
+                    assignmentStatement.getLValue(),
+                    assignmentStatement.getRValue(),
+                    assignmentStatement.getAugmentedOperator()
+            );
+            inference(assignmentExpression, scope);
+        } else if (stmt instanceof CompoundAssignmentStatement compoundAssignmentStatement) {
+            for (AssignmentStatement assignment : compoundAssignmentStatement.getAssignments()) {
+                inference((HasAssignmentEffect) assignment, scope);
+            }
+        } else if (stmt instanceof MultipleAssignmentStatement multipleAssignmentStatement) {
+            for (AssignmentStatement assignment : multipleAssignmentStatement.getStatements()) {
+                inference((HasAssignmentEffect) assignment, scope);
+            }
+        }
     }
 
     public static void inference(@NotNull CompoundStatement compoundStatement, @NotNull ScopeTable scope) {
@@ -498,6 +512,7 @@ public class SimpleTypeInferrer {
             case VariableDeclaration variableDeclaration -> inference(variableDeclaration, scope);
             case DeclarationArgument declarationArgument -> inference(declarationArgument, scope);
             case SeparatedVariableDeclaration separatedVariableDeclaration -> inference(separatedVariableDeclaration, scope);
+            case ListUnpackingVariableDeclaration listUnpackingVariableDeclaration -> inference(listUnpackingVariableDeclaration, scope);
             case PackageDeclaration packageDeclaration -> {} // do nothing
             default -> throw new IllegalStateException("Unexpected declaration type: " + declaration.getClass());
         }
@@ -506,6 +521,13 @@ public class SimpleTypeInferrer {
     public static void inference(@NotNull SeparatedVariableDeclaration varDecl, @NotNull ScopeTable scope) {
         for (var variableDeclaration : varDecl.getDeclarations()) {
             inference(variableDeclaration, scope);
+        }
+    }
+
+    public static void inference(@NotNull ListUnpackingVariableDeclaration decl, @NotNull ScopeTable scope) {
+        inference(decl.getValue(), scope);
+        for (var ident : decl.getVariableNames()) {
+            inference(ident, scope);
         }
     }
 
@@ -530,7 +552,7 @@ public class SimpleTypeInferrer {
     public static void inference(@NotNull Node node, @NotNull ScopeTable scope) {
         switch (node) {
             case ExpressionStatement expressionStatement -> inference(expressionStatement.getExpression(), scope);
-            case AssignmentStatement assignmentStatement -> inference(assignmentStatement, scope);
+            case HasAssignmentEffect assignmentStatement -> inference(assignmentStatement, scope);
             case Annotation annotation -> inference(List.of(annotation.getArguments()), scope);
             case CompoundStatement compoundStatement -> inference(compoundStatement, scope);
             case IfStatement ifStatement -> inference(ifStatement, scope);

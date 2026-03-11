@@ -35,6 +35,7 @@ import org.vstu.meaningtree.nodes.io.PrintValues;
 import org.vstu.meaningtree.nodes.modules.*;
 import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ListUnpackingAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
@@ -930,10 +931,7 @@ public class PythonParser extends LanguageParser {
             } else {
                 exprs.add((Expression) parseTSNode(rightNode));
             }
-            while (exprs.size() < idents.size()) {
-                exprs.add(new NullLiteral());
-            }
-            if (idents.size() < exprs.size()) {
+            if (idents.size() != exprs.size() && exprs.size() != 1) {
                 throw new UnsupportedParsingException("Invalid using of unpacking construction");
             }
 
@@ -949,6 +947,10 @@ public class PythonParser extends LanguageParser {
                     declaredType = SimpleTypeInferrer.chooseGeneralType(evaluatedTypes);
                 }
 
+                if (exprs.size() == 1) {
+                    return new ListUnpackingVariableDeclaration(declaredType, exprs.get(0), idents);
+                }
+
                 // Регистрируем все переменные и создаём декларатор-ы
                 List<VariableDeclarator> decls = new ArrayList<>();
                 for (int i = 0; i < idents.size(); i++) {
@@ -962,6 +964,9 @@ public class PythonParser extends LanguageParser {
 
             // Иначе — обычный multiple assignment
             List<AssignmentStatement> stmts = new ArrayList<>();
+            if (exprs.size() == 1) {
+                return new ListUnpackingAssignmentStatement(exprs.get(0), idents);
+            }
             for (int i = 0; i < idents.size(); i++) {
                 stmts.add(new AssignmentStatement(idents.get(i), exprs.get(i), augOp));
             }

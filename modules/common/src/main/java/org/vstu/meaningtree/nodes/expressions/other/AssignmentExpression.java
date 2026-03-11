@@ -3,12 +3,13 @@ package org.vstu.meaningtree.nodes.expressions.other;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
+import org.vstu.meaningtree.nodes.interfaces.HasAssignmentEffect;
 import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 
 import java.util.Objects;
 
-public class AssignmentExpression extends BinaryExpression implements HasInitialization {
+public class AssignmentExpression extends BinaryExpression implements HasInitialization, HasAssignmentEffect {
     private AugmentedAssignmentOperator operatorType;
 
     public AssignmentExpression(Expression id, Expression value, AugmentedAssignmentOperator op) {

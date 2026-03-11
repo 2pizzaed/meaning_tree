@@ -261,6 +261,14 @@ public abstract class LanguageTranslator implements Cloneable {
         }
     }
 
+    public TokenList getCodeAsTokens(String code,
+                                     boolean enableWhitespaces,
+                                     boolean skipPreparations) {
+        var tokenizer = getTokenizer().setEnabledNavigablePseudoTokens(enableWhitespaces);
+        return tokenizer.tokenize(code, skipPreparations);
+    }
+
+
     public TokenList getCodeAsTokens(MeaningTree mt,
                                      boolean enableWhitespaces) {
         return getCodeAsTokens(mt, enableWhitespaces, true, false);

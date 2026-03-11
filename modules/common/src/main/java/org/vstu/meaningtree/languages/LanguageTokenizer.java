@@ -290,7 +290,7 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
                 for (int k = 0; k < whites.length(); k++) {
                     char white = whites.charAt(k);
                     if (white == '\n') {
-                        if (buffer.length() > 0 && !buffer.toString().equals(" ")) {
+                        if (!buffer.isEmpty() && !buffer.toString().equals(" ")) {
                             tokens.add(new Whitespace(buffer.toString(), TokenType.UNKNOWN));
                             buffer.delete(0, buffer.length());
                         }
@@ -299,7 +299,7 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
                         buffer.append(white);
                     }
                 }
-                if (buffer.length() > 0 && !buffer.toString().equals(" ")) {
+                if (!buffer.isEmpty() && !buffer.toString().equals(" ")) {
                     tokens.add(new Whitespace(buffer.toString(), TokenType.UNKNOWN));
                 }
             }

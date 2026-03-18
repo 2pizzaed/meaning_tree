@@ -11,4 +11,7 @@ public interface FeatureSupport {
     default boolean matches(Node node) {
         return matches(node, null);
     }
+    default FeatureIssueLevel issueLevel() {
+        return FeatureIssueLevel.CRITICAL;
+    }
 }

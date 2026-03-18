@@ -34,6 +34,10 @@ public abstract class TranslatorComponent {
         return getConfigParameter("translationUnitMode").asString().equals("expression");
     }
 
+    public LanguageTranslator getTranslator() {
+        return translator;
+    }
+
     protected boolean getConfigFlag(String id) {
         return getConfigParameter(id).asBoolean();
     }

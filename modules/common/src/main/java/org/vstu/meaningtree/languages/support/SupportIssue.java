@@ -26,6 +26,10 @@ public final class SupportIssue {
         return node;
     }
 
+    public boolean requiresThrow() {
+        return feature.issueLevel() != FeatureIssueLevel.WARNING;
+    }
+
     @Nullable
     public FeatureSupport feature() {
         return feature;

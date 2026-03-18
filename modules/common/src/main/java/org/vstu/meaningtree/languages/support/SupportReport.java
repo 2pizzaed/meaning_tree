@@ -27,6 +27,9 @@ public final class SupportReport {
     public void throwAll() {
         StringBuilder builder = new StringBuilder("Given meaning tree has incompatible features listed below:\n");
         for (var issue : issues) {
+            if (!issue.requiresThrow()) {
+                continue;
+            }
             String prefix = "[%s]:".formatted(issue.feature() == null ? issue.relatedNode().getNodeUniqueName() :
                     issue.feature().getClass().getSimpleName());
             builder.append("%s %s".formatted(prefix, issue.message())).append("\n");

@@ -64,7 +64,7 @@ public class ScopeTableElement {
      * Хранилище всех доступных типов в текущей области.
      */
     @NotNull
-    private final Map<Identifier, Type> availableTypes;
+    private final Map<Identifier, Type> availableDeclaredTypes;
 
     /**
      * Все импорты в данной области видимости
@@ -82,7 +82,7 @@ public class ScopeTableElement {
         this.parent = parent;
         this.owner = owner;
         this.variables = new HashMap<>();
-        this.availableTypes = new HashMap<>();
+        this.availableDeclaredTypes = new HashMap<>();
         this.definitions = new HashMap<>();
         this.typeDeclarations = new HashMap<>();
         this.variableDeclarations = new HashMap<>();
@@ -104,7 +104,7 @@ public class ScopeTableElement {
     }
 
     public Map<Identifier, Type> allTypes() {
-        return Map.copyOf(availableTypes);
+        return Map.copyOf(availableDeclaredTypes);
     }
 
     public Map<Type, Declaration> allTypeDeclarations() {
@@ -137,15 +137,15 @@ public class ScopeTableElement {
     }
 
     /**
-     * Добавляет метод с указанным возвращаемым типом
+     * Регистрирует тип в области видимости
      * @param type       тип, который нужно регистрировать {@code null}
      */
     public Identifier registerType(@NotNull Identifier name, @NotNull Type type) {
-        if (!availableTypes.containsValue(type)) {
-            availableTypes.put(name, type);
+        if (!availableDeclaredTypes.containsValue(type)) {
+            availableDeclaredTypes.put(name, type);
             return name;
         } else {
-            for (var pair : availableTypes.entrySet()) {
+            for (var pair : availableDeclaredTypes.entrySet()) {
                 if (pair.getValue().equals(type)) {
                     return pair.getKey();
                 }
@@ -270,7 +270,7 @@ public class ScopeTableElement {
      */
     @NotNull
     public Map<Identifier, Type> getCurrentAvailableTypes() {
-        return availableTypes;
+        return availableDeclaredTypes;
     }
 
     public Optional<Declaration> findDeclaration(@NotNull SimpleIdentifier name, Class<? extends Declaration> clazz) {
@@ -327,8 +327,8 @@ public class ScopeTableElement {
     }
 
     public Optional<Type> findType(@NotNull Identifier name) {
-        if (availableTypes.containsValue(name)) {
-            return Optional.of(availableTypes.get(name));
+        if (availableDeclaredTypes.containsValue(name)) {
+            return Optional.of(availableDeclaredTypes.get(name));
         }
         if (parent != null) {
             return parent.findType(name);
@@ -337,7 +337,7 @@ public class ScopeTableElement {
     }
 
     public Optional<Declaration> findTypeDeclaration(@NotNull Type type) {
-       if (!availableTypes.containsValue(type) && parent != null) {
+       if (!availableDeclaredTypes.containsValue(type) && parent != null) {
            return parent.findTypeDeclaration(type);
        }
        if (typeDeclarations.containsValue(type)) {

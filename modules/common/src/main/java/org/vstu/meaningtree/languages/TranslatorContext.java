@@ -97,11 +97,17 @@ public class TranslatorContext {
         ctxVariables.remove(name);
     }
 
-    public Optional<Type> lookupType(Identifier typeName) {
-        return lookupType(typeName, false);
+    public Optional<Type> lookupRegisteredType(Identifier typeName) {
+        return lookupRegisteredType(typeName, false);
     }
 
-    public Optional<Type> lookupType(Identifier typeName, boolean useGlobalScope) {
+    /***
+     * Ищет зарегистрированный тип данных (чаще всего, UserType) по идентификатору
+     * @param typeName идентификатор типа
+     * @param useGlobalScope искать ли в глобальной области
+     * @return найденный (или нет) тип
+     */
+    public Optional<Type> lookupRegisteredType(Identifier typeName, boolean useGlobalScope) {
         if (useGlobalScope) {
             return globalScope.scope().findType(typeName);
         } else {

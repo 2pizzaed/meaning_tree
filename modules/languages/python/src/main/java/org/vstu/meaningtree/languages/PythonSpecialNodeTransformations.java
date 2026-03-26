@@ -79,6 +79,9 @@ public class PythonSpecialNodeTransformations {
                 result.add(new DeleteStatement(declarator.getIdentifier()));
             }
         }
+        if (initializer == null) {
+            return new Node[] {new WhileLoop(condition, body)};
+        }
         return new Node[] {initializer, new WhileLoop(condition, body)};
     }
 

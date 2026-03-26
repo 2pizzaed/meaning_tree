@@ -21,7 +21,7 @@ public class GeneralForLoop extends ForLoop {
 
     public GeneralForLoop(@Nullable Node initializer, @Nullable Expression condition,
                           @Nullable Expression update, Statement body) {
-        if (!(initializer instanceof Expression || initializer instanceof HasInitialization)) {
+        if (!(initializer == null || initializer instanceof Expression || initializer instanceof HasInitialization)) {
             throw new MeaningTreeException("GeneralForLoop initializer requires an expression or HasInitialization");
         }
         this.initializer = initializer;

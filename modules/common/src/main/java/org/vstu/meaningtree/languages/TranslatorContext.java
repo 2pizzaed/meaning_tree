@@ -260,19 +260,22 @@ public class TranslatorContext {
             return ctx.activeBodyConstructors.size();
         }
 
-        public void add(Node node) {
+        public BodyConstructor add(Node node) {
             nodes.add(node);
             setNodeHook(node);
+            return this;
         }
 
-        public void insert(int index, Node node) {
+        public BodyConstructor insert(int index, Node node) {
             nodes.add(index, node);
             setNodeHook(node);
+            return this;
         }
 
-        public void substitute(int index, Node node) {
+        public BodyConstructor substitute(int index, Node node) {
             nodes.set(index, node);
             setNodeHook(node);
+            return this;
         }
 
         private void postprocess() {

@@ -27,7 +27,7 @@ public final class SupportIssue {
     }
 
     public boolean requiresThrow() {
-        return feature.issueLevel() != FeatureIssueLevel.WARNING;
+        return feature == null || feature.issueLevel() != FeatureIssueLevel.WARNING;
     }
 
     @Nullable

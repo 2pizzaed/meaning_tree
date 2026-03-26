@@ -152,6 +152,7 @@ public class PythonViewer extends LanguageViewer {
         registerUnsupportedFeature(new PointerSubtractionInUnpackFeature());
         registerUnsupportedFeature(new LabeledLoopFeature());
         registerUnsupportedFeature(new StatementJumpFeature());
+        registerUnsupportedFeature(FallthroughCaseBlock.class);
     }
 
     private <T extends Node> void registerTabRenderer(Class<T> nodeType, ContextualNodeRenderer<T, Tab> renderer) {

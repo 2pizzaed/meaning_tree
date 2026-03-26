@@ -39,6 +39,7 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
     private final List<HookUtils.PostRenderPreparationEntry<? extends Node>> postRenderPreparations = new ArrayList<>();
 
     private final List<FeatureSupport> supportRules = new ArrayList<>();
+    private final List<Class<? extends Node>> explicitUnsupportedNodes = new ArrayList<>();
     private final Map<Class<? extends Node>, InternalRenderer> renderers = new LinkedHashMap<>();
 
     
@@ -174,10 +175,19 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
         supportRules.add(feature);
     }
 
+    protected void registerUnsupportedFeature(Class<? extends Node> feature) {
+        /**
+         * Учтите, что этим методом обычно вносятся вспомогательные узлы, которые транслятор по умолчанию считает поддерживаемыми, но они вдруг не поддерживаются у вас
+         * Полиморфные проверки не поддерживаются
+         */
+        explicitUnsupportedNodes.add(feature);
+    }
+
     protected List<SupportIssue> checkNodeSupport(Node node, FeatureContext context) {
         List<SupportIssue> issues = new ArrayList<>();
-        if (!hasRegisteredRenderer(node.getClass()) && context.checkNodeIsRegistered()) {
-            if (isInternalNodeTypeOrSuperclass(node.getClass())) {
+        boolean isExplicitlyForbidden = explicitUnsupportedNodes.contains(node.getClass());
+        if (!hasRegisteredRenderer(node.getClass()) && context.checkNodeIsRegistered() || isExplicitlyForbidden) {
+            if (isInternalNodeTypeOrSuperclass(node.getClass()) && !isExplicitlyForbidden) {
                 return issues;
             }
             issues.add(new SupportIssue(
@@ -222,7 +232,6 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
     public SupportReport analyzeSupport(MeaningTree tree) {
         return analyzeSupport(tree, true);
     }
-
 
     public final String toString(Node node) {
         Objects.requireNonNull(node);

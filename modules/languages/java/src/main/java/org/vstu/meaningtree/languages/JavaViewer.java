@@ -39,7 +39,6 @@ import org.vstu.meaningtree.nodes.expressions.other.*;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
-import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 import org.vstu.meaningtree.nodes.io.FormatInput;
 import org.vstu.meaningtree.nodes.io.FormatPrint;
 import org.vstu.meaningtree.nodes.io.InputCommand;
@@ -107,6 +106,7 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(ListLiteral.class, this::toStringListLiteral);
         registerRenderer(SetLiteral.class, this::toStringSetLiteral);
         registerRenderer(DictionaryLiteral.class, this::toStringDictionaryLiteral);
+        registerRenderer(MultipleAssignmentStatement.class, this::toStringMultipleAssignmentStatement);
         registerRenderer(PlainCollectionLiteral.class, this::toStringPlainCollectionLiteral);
         registerRenderer(InterpolatedStringLiteral.class, this::toStringInterpolatedStringLiteral);
         registerRenderer(FloatLiteral.class, this::toStringFloatLiteral);
@@ -1823,39 +1823,29 @@ public class JavaViewer extends LanguageViewer {
         return builder.toString();
     }
 
-    private String toStringHasInitialization(HasInitialization init) {
-        String result = switch (init) {
-            case AssignmentExpression expr -> toStringAssignmentExpression(expr);
-            case AssignmentStatement stmt -> toStringAssignmentStatement(stmt);
-            case VariableDeclaration decl -> toStringVariableDeclaration(decl);
-            case MultipleAssignmentStatement multipleAssignmentStatement -> {
-                // Трансляция MultipleAssignmentStatement по умолчанию не подходит -
-                // в результате будут получены присваивания, написанные через точку с запятой.
-                // Поэтому вручную получаем список присваиваний и создаем правильное отображение.
-                StringBuilder builder = new StringBuilder();
+    private String toStringHasInitialization(MultipleAssignmentStatement multipleAssignmentStatement) {
+        // Трансляция MultipleAssignmentStatement по умолчанию не подходит -
+        // в результате будут получены присваивания, написанные через точку с запятой.
+        // Поэтому вручную получаем список присваиваний и создаем правильное отображение.
+        StringBuilder builder = new StringBuilder();
 
-                for (AssignmentStatement assignmentStatement : multipleAssignmentStatement.getStatements()) {
-                    AssignmentExpression assignmentExpression = new AssignmentExpression(
-                            assignmentStatement.getLValue(),
-                            assignmentStatement.getRValue()
-                    );
-                    builder
-                            .append(toString(assignmentExpression))
-                            .append(", ");
-                }
+        for (AssignmentStatement assignmentStatement : multipleAssignmentStatement.getStatements()) {
+            AssignmentExpression assignmentExpression = new AssignmentExpression(
+                    assignmentStatement.getLValue(),
+                    assignmentStatement.getRValue()
+            );
+            builder
+                    .append(toString(assignmentExpression))
+                    .append(", ");
+        }
 
-                // Удаляем лишние пробел и запятую в конце последнего присвоения
-                if (builder.length() > 2) {
-                    builder.deleteCharAt(builder.length() - 1);
-                    builder.deleteCharAt(builder.length() - 1);
-                }
+        // Удаляем лишние пробел и запятую в конце последнего присвоения
+        if (builder.length() > 2) {
+            builder.deleteCharAt(builder.length() - 1);
+            builder.deleteCharAt(builder.length() - 1);
+        }
 
-                yield builder.toString();
-            }
-            default -> throw new IllegalStateException("Unexpected value: " + init);
-        };
-        result = this.applyHooks((Node) init, result);
-        return result;
+        return builder.toString();
     }
 
     public String toStringGeneralForLoop(GeneralForLoop generalForLoop) {

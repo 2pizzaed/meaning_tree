@@ -41,7 +41,6 @@ import org.vstu.meaningtree.nodes.expressions.pointers.PointerMemberAccess;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
-import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 import org.vstu.meaningtree.nodes.io.FormatPrint;
 import org.vstu.meaningtree.nodes.io.InputCommand;
 import org.vstu.meaningtree.nodes.io.PrintCommand;
@@ -161,6 +160,7 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(ForEachLoop.class, this::toStringForEachLoop);
         registerRenderer(VariableDeclarator.class, n -> toStringVariableDeclarator(n, new UnknownType()));
         registerRenderer(Shape.class, this::toStringShape);
+        registerRenderer(MultipleAssignmentStatement.class, this::toStringMultipleAssignmentStatement);
         registerRenderer(ConditionBranch.class, this::toStringConditionBranch);
         registerRenderer(MatchValueCaseBlock.class, this::toStringCaseBlock);
         registerRenderer(DefaultCaseBlock.class, this::toStringCaseBlock);
@@ -620,39 +620,29 @@ public class CppViewer extends LanguageViewer {
         return builder.toString();
     }
 
-    private String toStringHasInitialization(HasInitialization init) {
-        String result = switch (init) {
-            case AssignmentExpression expr -> toStringAssignmentExpression(expr);
-            case AssignmentStatement stmt -> toStringAssignmentStatement(stmt);
-            case VariableDeclaration decl -> toString(decl);
-            case MultipleAssignmentStatement multipleAssignmentStatement -> {
-                // Трансляция MultipleAssignmentStatement по умолчанию не подходит -
-                // в результате будут получены присваивания, написанные через точку с запятой.
-                // Поэтому вручную получаем список присваиваний и создаем правильное отображение.
-                StringBuilder builder = new StringBuilder();
+    private String toStringMultipleAssignmentStatement(MultipleAssignmentStatement multipleAssignmentStatement) {
+        // Трансляция MultipleAssignmentStatement по умолчанию не подходит -
+        // в результате будут получены присваивания, написанные через точку с запятой.
+        // Поэтому вручную получаем список присваиваний и создаем правильное отображение.
+        StringBuilder builder = new StringBuilder();
 
-                for (AssignmentStatement assignmentStatement : multipleAssignmentStatement.getStatements()) {
-                    AssignmentExpression assignmentExpression = new AssignmentExpression(
-                            assignmentStatement.getLValue(),
-                            assignmentStatement.getRValue()
-                    );
-                    builder
-                            .append(toStringAssignmentExpression(assignmentExpression))
-                            .append(", ");
-                }
+        for (AssignmentStatement assignmentStatement : multipleAssignmentStatement.getStatements()) {
+            AssignmentExpression assignmentExpression = new AssignmentExpression(
+                    assignmentStatement.getLValue(),
+                    assignmentStatement.getRValue()
+            );
+            builder
+                    .append(toStringAssignmentExpression(assignmentExpression))
+                    .append(", ");
+        }
 
-                // Удаляем лишние пробел и запятую в конце последнего присвоения
-                if (builder.length() > 2) {
-                    builder.deleteCharAt(builder.length() - 1);
-                    builder.deleteCharAt(builder.length() - 1);
-                }
+        // Удаляем лишние пробел и запятую в конце последнего присвоения
+        if (builder.length() > 2) {
+            builder.deleteCharAt(builder.length() - 1);
+            builder.deleteCharAt(builder.length() - 1);
+        }
 
-                yield builder.toString();
-            }
-            default -> throw new IllegalStateException("Unexpected value: " + init);
-        };
-        result = this.applyHooks((Node)init, result);
-        return result;
+        return builder.toString();
     }
 
     private String getForRangeUpdate(RangeForLoop forRangeLoop) {

@@ -27,6 +27,10 @@ public class Tab {
         return new Tab(level-1, whitespaceCount);
     }
 
+    public String concat(String other) {
+        return toString().concat(other);
+    }
+
     @Override
     public String toString() {
         if (level <= 0) {

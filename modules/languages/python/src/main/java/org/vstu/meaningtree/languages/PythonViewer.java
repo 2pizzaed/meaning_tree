@@ -485,21 +485,21 @@ public class PythonViewer extends LanguageViewer {
                             rangeFunctionToString(rangeFor.getRange())
                     )
             );
-            builder.append(toString(rangeFor.getBody(), tab));
+            builder.append(branchStmtToString(rangeFor.getBody(), tab));
         } else if (stmt instanceof GeneralForLoop generalFor) {
             return toString(tab, PythonSpecialNodeTransformations.representGeneralFor(generalFor));
         } else if (stmt instanceof DoWhileLoop doWhile) {
             return toString(PythonSpecialNodeTransformations.representDoWhile(doWhile));
         } else if (stmt instanceof WhileLoop whileLoop) {
             builder.append(String.format("while %s:\n", toString(whileLoop.getCondition())));
-            builder.append(toString(whileLoop.getBody(), tab));
+            builder.append(branchStmtToString(whileLoop.getBody(), tab));
         } else if (stmt instanceof ForEachLoop forEachLoop) {
             List<Expression> identifiers = new ArrayList<>();
             for (VariableDeclarator decl : forEachLoop.getItem().getDeclarators()) {
                 identifiers.add(decl.getIdentifier());
             }
             builder.append(String.format("for %s in %s:\n", argumentsToString(identifiers), toString(forEachLoop.getExpression())));
-            builder.append(toString(forEachLoop.getBody(), tab));
+            builder.append(branchStmtToString(forEachLoop.getBody(), tab));
         } else if (stmt instanceof SwitchStatement switchStmt) {
             tab = tab.up();
             builder.append(String.format("match %s:\n", toString(switchStmt.getTargetExpression())));
@@ -514,7 +514,7 @@ public class PythonViewer extends LanguageViewer {
                                         "%scase %s:\n%s\n",
                                         tab,
                                         toString(basicCaseBlock.getMatchValue()),
-                                        toString(basicCaseBlock.getBody(), tab)
+                                        branchStmtToString(basicCaseBlock.getBody(), tab)
                                 )
                         );
                     }
@@ -536,7 +536,7 @@ public class PythonViewer extends LanguageViewer {
             }
         } else if (stmt instanceof InfiniteLoop infLoop) {
             builder.append("while True:\n");
-            builder.append(toString(infLoop.getBody(), tab));
+            builder.append(branchStmtToString(infLoop.getBody(), tab));
         }
         return builder.toString();
     }
@@ -919,27 +919,34 @@ public class PythonViewer extends LanguageViewer {
         return String.join(", ", exprStrings);
     }
 
+    private String branchStmtToString(Statement branchStmt, Tab tab) {
+        if (branchStmt instanceof CompoundStatement) {
+            return toString(branchStmt, tab);
+        }
+        return tab.concat(toString(branchStmt, tab));
+    }
+
     private String conditionToString(IfStatement node, Tab tab) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < node.getBranches().size(); i++) {
             ConditionBranch branch = node.getBranches().get(i);
             if (i == 0) {
                 if (!(branch.getBody() instanceof CompoundStatement))
-                    sb.append(String.format("if %s:\n%s\n", toString(branch.getCondition()), toString(branch.getBody(), tab.up())));
+                    sb.append(String.format("if %s:\n%s\n", toString(branch.getCondition()), branchStmtToString(branch.getBody(), tab.up())));
                 else
-                    sb.append(String.format("if %s:\n%s\n", toString(branch.getCondition()), toString(branch.getBody(), tab)));
+                    sb.append(String.format("if %s:\n%s\n", toString(branch.getCondition()), branchStmtToString(branch.getBody(), tab)));
             } else {
                 if (!(branch.getBody() instanceof CompoundStatement))
-                    sb.append(String.format("%selif %s:\n%s\n", tab, toString(branch.getCondition()), toString(branch.getBody(), tab.up())));
+                    sb.append(String.format("%selif %s:\n%s\n", tab, toString(branch.getCondition()), branchStmtToString(branch.getBody(), tab.up())));
                 else
-                    sb.append(String.format("%selif %s:\n%s\n", tab, toString(branch.getCondition()), toString(branch.getBody(), tab)));
+                    sb.append(String.format("%selif %s:\n%s\n", tab, toString(branch.getCondition()), branchStmtToString(branch.getBody(), tab)));
             }
         }
         if (node.hasElseBranch()) {
             if (!(node.getElseBranch() instanceof CompoundStatement))
-                sb.append(String.format("%selse:\n%s\n", tab, toString(node.getElseBranch(), tab.up())));
+                sb.append(String.format("%selse:\n%s\n", tab, branchStmtToString(node.getElseBranch(), tab.up())));
             else
-                sb.append(String.format("%selse:\n%s\n", tab, toString(node.getElseBranch(), tab)));
+                sb.append(String.format("%selse:\n%s\n", tab, branchStmtToString(node.getElseBranch(), tab)));
         }
         return sb.toString().stripTrailing();
     }

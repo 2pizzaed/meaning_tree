@@ -36,6 +36,7 @@ import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
 import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
+import org.vstu.meaningtree.nodes.interfaces.HasVariableDeclaration;
 import org.vstu.meaningtree.nodes.io.*;
 import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
@@ -553,15 +554,21 @@ public class CppParser extends LanguageParser {
         // Берем ребенка под индексом 1, чтобы избежать захвата скобок, а значит
         // неправильного парсинга (получаем выражение в скобках в качестве условия, а не просто выражение)
         Expression condition = (Expression) parseTSNode(node.getChildByFieldName("condition").getChild(1));
-        Statement consequence = (Statement) parseTSNode(node.getChildByFieldName("consequence"));
+        Node consequence = parseTSNode(node.getChildByFieldName("consequence"));
+        Statement consequenceStmt;
+        if (consequence instanceof HasVariableDeclaration) {
+            consequenceStmt = ctx.createNodeBody().add(consequence).build();
+        } else {
+            consequenceStmt = (Statement) consequence;
+        }
 
         TSNode alternativeNode = node.getChildByFieldName("alternative");
         if (alternativeNode.isNull()) {
-            return new IfStatement(condition, consequence);
+            return new IfStatement(condition, consequenceStmt);
         }
 
         Statement alternative = (Statement) parseTSNode(alternativeNode.getChild(1));
-        return new IfStatement(condition, consequence, alternative);
+        return new IfStatement(condition, consequenceStmt, alternative);
     }
 
     private Node fromConcatenatedString(TSNode node) {

@@ -35,7 +35,6 @@ import org.vstu.meaningtree.nodes.expressions.pointers.PointerMemberAccess;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
-import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 import org.vstu.meaningtree.nodes.io.*;
 import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
@@ -858,7 +857,8 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 Expression update = json.has("update") && !json.get("update").isJsonNull()
                         ? deserializeExpression(json.getAsJsonObject("update")) : null;
                 Statement body = (Statement) deserialize(json.getAsJsonObject("body"));
-                var loop = new GeneralForLoop((HasInitialization) initializer, condition, update, body);
+                var loop = new GeneralForLoop(
+                        initializer, condition, update, body);
                 yield loop;
             }
             case "range_for_loop" -> {

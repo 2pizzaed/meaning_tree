@@ -1865,7 +1865,7 @@ public class JavaViewer extends LanguageViewer {
 
         boolean addSemi = true;
         if (generalForLoop.hasInitializer()) {
-            String init = toStringHasInitialization(generalForLoop.getInitializer());
+            String init = toString(generalForLoop.getInitializer());
             if (generalForLoop.getInitializer() instanceof VariableDeclaration) {
                 addSemi = false;
             }

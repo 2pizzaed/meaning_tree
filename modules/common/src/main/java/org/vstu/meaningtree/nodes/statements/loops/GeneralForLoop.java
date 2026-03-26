@@ -12,15 +12,18 @@ import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import java.util.Objects;
 
 public class GeneralForLoop extends ForLoop {
-    @TreeNode @Nullable private HasInitialization initializer;
+    @TreeNode @Nullable private Node initializer;
 
     @TreeNode @Nullable private Expression condition;
 
     @TreeNode @Nullable private final Expression update;
     @TreeNode private Statement body;
 
-    public GeneralForLoop(@Nullable HasInitialization initializer, @Nullable Expression condition,
+    public GeneralForLoop(@Nullable Node initializer, @Nullable Expression condition,
                           @Nullable Expression update, Statement body) {
+        if (!(initializer instanceof Expression || initializer instanceof HasInitialization)) {
+            throw new MeaningTreeException("GeneralForLoop initializer requires an expression or HasInitialization");
+        }
         this.initializer = initializer;
         this.condition = condition;
         this.update = update;
@@ -35,16 +38,35 @@ public class GeneralForLoop extends ForLoop {
         return (CompoundStatement) body;
     }
 
+    public boolean hasInitialization() {
+        return initializer != null && initializer instanceof HasInitialization;
+    }
+
+    public boolean hasInitializerAsExpression() {
+        return initializer != null && initializer instanceof Expression;
+    }
+
     public boolean hasInitializer() {
         return initializer != null;
     }
 
-    public HasInitialization getInitializer() {
-        if (!hasInitializer()) {
+    public Node getInitializer() {
+        return initializer;
+    }
+
+    public HasInitialization getInitialization() {
+        if (!hasInitialization()) {
             throw new MeaningTreeException("No initializer");
         }
 
-        return initializer;
+        return (HasInitialization) initializer;
+    }
+
+    public Expression getInitializerAsExpression() {
+        if (!hasInitializerAsExpression()) {
+            throw new MeaningTreeException("No expression in initializer place");
+        }
+        return (Expression) initializer;
     }
 
     public boolean hasCondition() {
@@ -89,7 +111,7 @@ public class GeneralForLoop extends ForLoop {
 
     public GeneralForLoop clone() {
         var clone = (GeneralForLoop) super.clone();
-        clone.initializer = (HasInitialization) ((Node)initializer).clone();
+        clone.initializer = initializer.clone();
         clone.condition = condition.clone();
         return clone;
     }

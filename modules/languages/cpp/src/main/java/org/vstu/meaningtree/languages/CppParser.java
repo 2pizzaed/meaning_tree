@@ -35,7 +35,6 @@ import org.vstu.meaningtree.nodes.expressions.pointers.PointerMemberAccess;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
-import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 import org.vstu.meaningtree.nodes.interfaces.HasVariableDeclaration;
 import org.vstu.meaningtree.nodes.io.*;
 import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
@@ -395,7 +394,7 @@ public class CppParser extends LanguageParser {
     }
 
     private Loop fromForStatement(TSNode node) {
-        HasInitialization init = null;
+        Node init = null;
         Expression condition = null;
         Expression update = null;
 
@@ -403,7 +402,7 @@ public class CppParser extends LanguageParser {
             List<TSNode> assignments = getChildrenByFieldName(node, "initializer");
 
             if (assignments.size() == 1) {
-                init = (HasInitialization) parseTSNode(assignments.getFirst());
+                init = parseTSNode(assignments.getFirst());
             }
             else if (assignments.size() > 1) {
                 List<AssignmentStatement> assignmentStatements =
@@ -457,7 +456,7 @@ public class CppParser extends LanguageParser {
     }
 
     @Nullable
-    private RangeForLoop tryMakeRangeForLoop(HasInitialization init,
+    private RangeForLoop tryMakeRangeForLoop(Node init,
                                              Expression condition,
                                              Expression update,
                                              Statement body) {

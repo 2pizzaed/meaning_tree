@@ -23,7 +23,6 @@ import org.vstu.meaningtree.nodes.expressions.logical.NotOp;
 import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitAndOp;
 import org.vstu.meaningtree.nodes.expressions.other.AssignmentExpression;
 import org.vstu.meaningtree.nodes.interfaces.HasBodyStatement;
-import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.DeleteStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
@@ -43,7 +42,7 @@ import java.util.*;
 public class PythonSpecialNodeTransformations {
     public static Node[] representGeneralFor(GeneralForLoop generalFor) {
         boolean needDeleting = false;
-        HasInitialization initializer = null;
+        Node initializer = null;
         if (generalFor.hasInitializer()) {
             initializer = generalFor.getInitializer();
             needDeleting = initializer instanceof VariableDeclaration;
@@ -72,7 +71,7 @@ public class PythonSpecialNodeTransformations {
             body.insert(body.getLength(), update);
         }
         List<Node> result = new ArrayList<>();
-        result.add((Node) initializer);
+        result.add(initializer);
         result.add(new WhileLoop(condition, body).remap(generalFor));
         if (needDeleting) {
             VariableDeclaration varDecl = (VariableDeclaration) initializer;
@@ -80,7 +79,7 @@ public class PythonSpecialNodeTransformations {
                 result.add(new DeleteStatement(declarator.getIdentifier()));
             }
         }
-        return new Node[] {(Node)initializer, new WhileLoop(condition, body)};
+        return new Node[] {initializer, new WhileLoop(condition, body)};
     }
 
     private static void _prepend_continue_with_expression(CompoundStatement compound, Node update) {

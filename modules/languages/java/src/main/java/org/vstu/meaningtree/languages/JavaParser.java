@@ -37,7 +37,6 @@ import org.vstu.meaningtree.nodes.expressions.newexpr.ArrayNewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
 import org.vstu.meaningtree.nodes.expressions.other.*;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
-import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
 import org.vstu.meaningtree.nodes.interfaces.HasVariableDeclaration;
 import org.vstu.meaningtree.nodes.io.PrintCommand;
 import org.vstu.meaningtree.nodes.io.PrintValues;
@@ -896,7 +895,7 @@ public class JavaParser extends LanguageParser {
     }
 
     @Nullable
-    private RangeForLoop tryMakeRangeForLoop(HasInitialization init,
+    private RangeForLoop tryMakeRangeForLoop(Node init,
                                              Expression condition,
                                              Expression update,
                                              Statement body) {
@@ -991,7 +990,7 @@ public class JavaParser extends LanguageParser {
     }
 
     private Loop fromForStatementTSNode(TSNode node) {
-        HasInitialization init = null;
+        Node init = null;
         Expression condition = null;
         Expression update = null;
 
@@ -999,7 +998,7 @@ public class JavaParser extends LanguageParser {
             List<TSNode> assignments = getChildrenByFieldName(node, "init");
 
             if (assignments.size() == 1) {
-                init = (HasInitialization) parseTSNode(assignments.getFirst());
+                init = parseTSNode(assignments.getFirst());
             }
             else if (assignments.size() > 1) {
                 List<AssignmentStatement> assignmentStatements =

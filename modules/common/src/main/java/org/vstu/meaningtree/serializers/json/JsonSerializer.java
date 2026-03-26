@@ -1032,7 +1032,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
 
         if (stmt.hasInitializer()) {
-            json.add("initializer", serialize((Node) stmt.getInitializer()));
+            json.add("initializer", serialize(stmt.getInitializer()));
         }
 
         if (stmt.hasCondition()) {

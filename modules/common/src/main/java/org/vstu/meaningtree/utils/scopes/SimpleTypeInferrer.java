@@ -227,6 +227,7 @@ public class SimpleTypeInferrer {
     private static List<Expression> expressionChildren(@NotNull Expression expression) {
         return expression.allChildren()
                 .stream()
+                .filter(node -> node instanceof Expression)
                 .map(node -> (Expression) node)
                 .toList();
     }

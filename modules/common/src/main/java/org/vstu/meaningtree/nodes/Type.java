@@ -1,6 +1,9 @@
 package org.vstu.meaningtree.nodes;
 
 import org.vstu.meaningtree.nodes.expressions.Identifier;
+import org.vstu.meaningtree.nodes.types.builtin.CharacterType;
+import org.vstu.meaningtree.nodes.types.builtin.PointerType;
+import org.vstu.meaningtree.nodes.types.containers.ArrayType;
 
 import java.util.Objects;
 
@@ -58,5 +61,10 @@ public abstract class Type extends Identifier {
     @Override
     public String internalRepresentation() {
         return getClass().getSimpleName();
+    }
+
+    public static boolean isCStyleString(Type t) {
+        return (t instanceof PointerType ptr && ptr.getTargetType() instanceof CharacterType) ||
+                (t instanceof ArrayType arr && arr.getDimensionsCount() == 1 && arr.getItemType() instanceof CharacterType);
     }
 }

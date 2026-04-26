@@ -59,10 +59,7 @@ import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Stream;
 
 public class PythonParser extends LanguageParser {
@@ -338,6 +335,14 @@ public class PythonParser extends LanguageParser {
             return new InstanceOfOp(exprs.getFirst(), type);
         } else if (getCodePiece(tsNode).equals("matmul") && exprs.size() == 2) {
             return new MatMulOp(exprs.getFirst(), exprs.get(1));
+        }
+
+        // Проверка, что вызов - приведение типа
+        Optional<Type> assumedType = Optional.ofNullable(determineType(tsNode));
+        if (assumedType.isEmpty() && name instanceof Identifier i) assumedType = ctx.lookupRegisteredType(i);
+
+        if (assumedType.isPresent() && !(assumedType.get() instanceof UnknownType || assumedType.get() instanceof UserType) && exprs.size() == 1) {
+            return new CastTypeExpression(assumedType.get(), exprs.getFirst());
         }
 
         if (name instanceof ScopedIdentifier scoped && scoped.getScopeResolution().size() > 1) {

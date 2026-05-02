@@ -1,34 +1,26 @@
 package org.vstu.meaningtree.languages;
 
-import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.nodes.*;
-import org.vstu.meaningtree.nodes.declarations.EnumDeclaration;
-import org.vstu.meaningtree.nodes.declarations.FieldDeclaration;
-import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
-import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
-import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
-import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.modules.Import;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
-import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
 
 import java.lang.reflect.Method;
 import java.util.*;
 
 public class TranslatorContext {
-    private TranslatorComponent owner;
-    private LanguageTranslator translator;
-    private LanguageTokenizer tokenizer = null;
+    protected TranslatorComponent owner;
+    protected LanguageTranslator translator;
+    protected LanguageTokenizer tokenizer = null;
 
-    private ScopeTable globalScope;
-    private ScopeTable visibilityScope;
+    protected ScopeTable globalScope;
+    protected ScopeTable visibilityScope;
 
-    private Deque<BodyConstructor> activeBodyConstructors = new ArrayDeque<>();
+    protected Deque<BodyConstructor> activeBodyConstructors = new ArrayDeque<>();
     private Map<String, Object> ctxVariables = new HashMap<>();
     private List<Import> imports = new ArrayList<>();
 
@@ -47,7 +39,14 @@ public class TranslatorContext {
     }
 
     public BodyConstructor getNearestUnfilledBody() {
-        return activeBodyConstructors.getLast();
+        return activeBodyConstructors.getFirst();
+    }
+
+    public StringBodyConstructor getNearestUnfilledViewerBody() {
+        if (!(owner instanceof LanguageViewer)) {
+            throw new IllegalStateException("This method is applicable only for language viewers");
+        }
+        return (StringBodyConstructor) activeBodyConstructors.getFirst();
     }
 
     /**
@@ -85,8 +84,7 @@ public class TranslatorContext {
 
     public boolean check(String name, Object value) {
         var ctxVar = get(name, value.getClass());
-        if (ctxVar.isEmpty()) return false;
-        return ctxVar.get().equals(value);
+        return ctxVar.map(o -> o.equals(value)).orElse(false);
     }
 
     public void set(String name, Object value) {
@@ -116,7 +114,7 @@ public class TranslatorContext {
     }
 
     public Optional<VariableDeclaration> lookupVariable(String variableName) {
-        return lookupVariable(variableName);
+        return lookupVariable(variableName, null);
     }
 
     public Optional<VariableDeclaration> lookupVariable(String variableName, Type varType) {
@@ -232,135 +230,22 @@ public class TranslatorContext {
         return BodyConstructor.createFrom(this, false, entryPoint);
     }
 
+    public StringBodyConstructor viewingIterateBody(CompoundStatement compoundStatement) {
+        return viewingIterateBody(compoundStatement.getNodeList());
+    }
+
+    public StringBodyConstructor viewingIterateBody(ProgramEntryPoint entryPoint) {
+        return viewingIterateBody(entryPoint.getBody());
+    }
+
+    public StringBodyConstructor viewingIterateBody(List<Node> entryPoint) {
+        return StringBodyConstructor.createFrom(this, false, entryPoint);
+    }
+
     public BodyConstructor startWalkCompoundStatement(CompoundStatement compoundStatement, boolean newScope) {
         var res = new BodyConstructor(this, newScope);
         res.nodes = new ArrayList<>(List.of(compoundStatement.getNodes()));
         return res;
     }
 
-    public static class BodyConstructor implements Iterable<Node> {
-        private TranslatorContext ctx;
-        private boolean newScope;
-        private ScopeTableElement scope;
-        private List<Node> nodes = new ArrayList<>();
-
-        public BodyConstructor(TranslatorContext ctx, boolean newScope) {
-            this.ctx = ctx;
-            this.newScope = newScope;
-            ctx.activeBodyConstructors.push(this);
-            if (newScope) ctx.enterNewScope();
-            scope = ctx.visibilityScope.scope();
-        }
-
-        public boolean isAlive() {
-            return ctx.activeBodyConstructors.contains(this);
-        }
-
-        public int count() {
-            return ctx.activeBodyConstructors.size();
-        }
-
-        public BodyConstructor add(Node node) {
-            nodes.add(node);
-            setNodeHook(node);
-            return this;
-        }
-
-        public BodyConstructor insert(int index, Node node) {
-            nodes.add(index, node);
-            setNodeHook(node);
-            return this;
-        }
-
-        public BodyConstructor substitute(int index, Node node) {
-            nodes.set(index, node);
-            setNodeHook(node);
-            return this;
-        }
-
-        private void postprocess() {
-            ctx.activeBodyConstructors.remove(this);
-            if (newScope) {
-                ctx.leaveScope();
-            }
-        }
-
-        public static BodyConstructor createFrom(TranslatorContext ctx, boolean newScope, List<Node> nodes) {
-            var result = new BodyConstructor(ctx, newScope);
-            result.nodes = new ArrayList<>(nodes);
-            return result;
-        }
-
-        private void setNodeHook(Node node) {
-            if (node instanceof ClassDefinition def) {
-                for (Node clsComponent : def.getBody().getNodes()) {
-                    if (clsComponent instanceof FieldDeclaration field) {
-                        field.setParentDeclaration(def.getDeclaration());
-                    } else if (clsComponent instanceof MethodDefinition method) {
-                        method.getDeclaration().setParentDeclaration(def.getDeclaration());
-                    }
-                }
-                ctx.visibilityScope.scope().registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
-            } else if (node instanceof FunctionDefinition def) {
-                ctx.visibilityScope.scope().registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
-            } else if (node instanceof MethodDefinition def) {
-                ctx.visibilityScope.scope().registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
-            } else if (node instanceof VariableDeclaration varDecl) {
-                ctx.visibilityScope.scope().registerVariable(varDecl);
-            } else if (node instanceof SeparatedVariableDeclaration sepDecl) {
-                ctx.visibilityScope.scope().registerVariable(sepDecl);
-            } else if (node instanceof EnumDeclaration decl) {
-                ctx.visibilityScope.scope().registerDeclaration(decl.getName().getSimpleIdentifierOrThrow(), decl);
-            } else if (node instanceof Import imprt) {
-                ctx.visibilityScope.scope().registerImport(imprt);
-            }
-            ctx.processInfer(node);
-        }
-
-        public CompoundStatement build() {
-            postprocess();
-            return new CompoundStatement(nodes);
-        }
-
-        public void setScopeOwner(Node owner) {
-            if (newScope) scope.setOwner(owner);
-        }
-
-        public List<Node> getNodes() {
-            postprocess();
-            return List.copyOf(nodes);
-        }
-
-        class BodyConstructorIterator implements Iterator<Node> {
-            private final Iterator<Node> base;
-            private final BodyConstructor parent;
-
-            public BodyConstructorIterator(Iterator<Node> base, BodyConstructor parent) {
-                this.base = base;
-                this.parent = parent;
-            }
-
-            @Override
-            public boolean hasNext() {
-                return base.hasNext();
-            }
-
-            @Override
-            public Node next() {
-                Node value = base.next();
-                parent.setNodeHook(value);
-                return value;
-            }
-
-            @Override
-            public void remove() {
-                base.remove();
-            }
-        }
-
-        @Override
-        public @NotNull Iterator<Node> iterator() {
-            return new BodyConstructorIterator(nodes.iterator(), this);
-        }
-    }
 }

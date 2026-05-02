@@ -561,11 +561,11 @@ public class JavaViewer extends LanguageViewer {
         }
 
         increaseIndentLevel();
-        for (Node node : nodes) {
-            builder
-                    .append(indent(toString(node)))
-                    .append("\n");
+        var constructor = ctx.viewingIterateBody(nodes);
+        for (Node node : constructor) {
+            constructor.appendString(indent(toString(node)));
         }
+        builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
         decreaseIndentLevel();
 
         if (_openBracketOnSameLine) {
@@ -1663,15 +1663,16 @@ public class JavaViewer extends LanguageViewer {
         StringBuilder builder = new StringBuilder();
         builder.append("{\n");
         increaseIndentLevel();
-        for (Node node : ctx.iterateBody(stmt)) {
+        var constructor = ctx.viewingIterateBody(stmt);
+        for (Node node : constructor) {
             String s = toString(node);
             if (s.isEmpty()) {
                 continue;
             }
 
-            s = indent(String.format("%s\n", s));
-            builder.append(s);
+            constructor.appendString(indent(s));
         }
+        builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
         decreaseIndentLevel();
         builder.append(indent("}"));
         return builder.toString();
@@ -2024,9 +2025,11 @@ public class JavaViewer extends LanguageViewer {
             _methodReturnType = new NoReturn();
             increaseIndentLevel();
 
-            for (var node : mainBody.getNodes()) {
-                builder.append(indent(toString(node))).append("\n");
+            var constructor = ctx.viewingIterateBody(mainBody);
+            for (var node : constructor) {
+                constructor.appendString(indent(toString(node)));
             }
+            builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
 
             _methodReturnType = null;
 
@@ -2037,19 +2040,23 @@ public class JavaViewer extends LanguageViewer {
             builder.append(indent("public static void main(String[] args) {\n"));
             increaseIndentLevel();
 
-            for (var node : notMethods) {
-                builder.append(indent(toString(node))).append("\n");
+            var constructor = ctx.viewingIterateBody(notMethods);
+            for (var node : constructor) {
+                constructor.appendString(indent(toString(node)));
             }
+            builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
 
             decreaseIndentLevel();
             builder.append(indent("}\n"));
         }
 
         // Вставляем все другие методы
-        for (MethodDefinition method : otherMethods) {
-            builder.append(indent(toString(method)));
-            builder.append("\n");
+        var otherMethodsConstructor = ctx.viewingIterateBody(otherMethods);
+        for (Node methodMode : otherMethods) {
+            MethodDefinition method = (MethodDefinition) methodMode;
+            otherMethodsConstructor.appendString(indent(toString(method)));
         }
+        builder.append(String.join("\n", otherMethodsConstructor.stringBuffer())).append("\n");
 
         decreaseIndentLevel();
         builder.append("}\n");
@@ -2072,8 +2079,8 @@ public class JavaViewer extends LanguageViewer {
         return null;
     }
 
-    private List<MethodDefinition> getOtherMethods(List<Node> nodes) {
-        var methods = new ArrayList<MethodDefinition>();
+    private List<Node> getOtherMethods(List<Node> nodes) {
+        var methods = new ArrayList<Node>();
 
         for (var node : nodes) {
             if (node instanceof FunctionDefinition functionDefinition

@@ -417,11 +417,11 @@ public class CppViewer extends LanguageViewer {
 
             increaseIndentLevel();
 
-            for (Node node : nodesList) {
-                builder
-                        .append(indent(toString(node)))
-                        .append("\n");
+            var constructor = ctx.viewingIterateBody(nodesList);
+            for (Node node : constructor) {
+                constructor.appendString(indent(toString(node)));
             }
+            builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
 
             if (caseBlock instanceof BasicCaseBlock || caseBlock instanceof DefaultCaseBlock) {
                 builder.append(indent("break;"));
@@ -747,15 +747,17 @@ public class CppViewer extends LanguageViewer {
         increaseIndentLevel();
         
         // Use direct list of nodes instead of DFS traversal to maintain order
-        for (Node node : ctx.iterateBody(stmt)) {
+        var constructor = ctx.viewingIterateBody(stmt);
+        for (Node node : constructor) {
             String s = toString(node);
             if (s.isEmpty()) {
                 continue;
             }
 
-            s = indent(String.format("%s\n", s));
-            builder.append(s);
+            constructor.appendString(indent(s));
         }
+
+        builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
         
         decreaseIndentLevel();
         builder.append(indent("}"));
@@ -1060,14 +1062,18 @@ public class CppViewer extends LanguageViewer {
             for (Node node : notMethods) {
                 mainBody.insert(mainBody.getLength(), node);
             }
-            for (var node : mainBody.getNodes()) {
-                builder.append(indent(toString(node))).append("\n");
+            var constructor = ctx.viewingIterateBody(mainBody);
+            for (var node : constructor) {
+                constructor.appendString(indent(toString(node)));
             }
+            builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
         }
         else {
-            for (var node : notMethods) {
-                builder.append(indent(toString(node))).append("\n");
+            var constructor = ctx.viewingIterateBody(notMethods);
+            for (var node : constructor) {
+                constructor.appendString(indent(toString(node)));
             }
+            builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
         }
 
         decreaseIndentLevel();

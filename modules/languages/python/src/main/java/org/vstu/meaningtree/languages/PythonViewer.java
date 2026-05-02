@@ -992,12 +992,13 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String blockToString(CompoundStatement node, Tab tab) {
-        StringBuilder builder = new StringBuilder();
         tab = tab.up();
         if (node.getNodes().length == 0) {
             return tab.toString().concat("pass");
         }
-        for (Node child : ctx.iterateBody(node)) {
+        var constructor = ctx.viewingIterateBody(node);
+        for (Node child : constructor) {
+            StringBuilder builder = new StringBuilder();
             builder.append(tab);
             if (child instanceof CompoundStatement) {
                 // Схлопываем лишний таб, так как блоки как самостоятельная сущность в Python не поддерживаются
@@ -1005,17 +1006,18 @@ public class PythonViewer extends LanguageViewer {
             } else {
                 builder.append(toString(child, tab));
             }
-            builder.append('\n');
+            constructor.appendString(builder.toString());
         }
-        return builder.toString().stripTrailing();
+        return String.join("\n", constructor.stringBuffer()).stripTrailing();
     }
 
     private String nodeListToString(List<Node> nodes, Tab tab) {
-        StringBuilder builder = new StringBuilder();
         if (nodes.isEmpty()) {
             return "pass";
         }
-        for (Node child : ctx.iterateBody(nodes)) {
+        var constructor = ctx.viewingIterateBody(nodes);
+        for (Node child : constructor) {
+            StringBuilder builder = new StringBuilder();
             builder.append(tab);
             if (child instanceof CompoundStatement) {
                 // Схлопываем лишний таб, так как блоки как самостоятельная сущность в Python не поддерживаются
@@ -1025,9 +1027,9 @@ public class PythonViewer extends LanguageViewer {
                 var result = toString(child, tab);
                 builder.append(result);
             }
-            builder.append('\n');
+            constructor.appendString(builder.toString());
         }
-        return builder.toString().stripTrailing();
+        return String.join("\n", constructor.stringBuffer()).stripTrailing();
     }
 
     private String comparisonToString(BinaryComparison node) {

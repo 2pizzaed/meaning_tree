@@ -161,7 +161,7 @@ group: Operators
         c++:
             x = a << b;
 
-    case: BitwiseOr:
+    case: BitwiseOr
         c++:
             x = a | b;
 
@@ -196,7 +196,7 @@ group: Operators
         c++:
             x = a && b;
 
-    case: LogicalOr:
+    case: LogicalOr
         c++:
             x = a || b;
 
@@ -422,70 +422,70 @@ group: Pointers
             a->b;
 
 group: ComplexExpressionTest
-    case: ComplexTest1:
+    case: ComplexTest1
         c++:
             *(a).b + *(expression) * *(a ^ b);
 
         c++:
             *(a).b + *(expression) * *(a ^ b);
 
-    case: ComplexTest2:
+    case: ComplexTest2
         c++:
             a + b * (c - d / e);
 
         c++:
             a + b * (c - d / e);
 
-    case: ComplexTest3:
+    case: ComplexTest3
         c++:
             int x = a + (b ? c : d) * e;
 
         c++:
             int x = a + (b ? c : d) * e;
 
-    case: ComplexTest4:
+    case: ComplexTest4
         c++:
             ++(*(p->field) + *(q->member));
 
         c++:
             ++(*(p->field) + *(q->member));
 
-    case: ComplexTest5:
+    case: ComplexTest5
         c++:
             a.b.c + (d[e] * f) - g.h;
 
         c++:
             a.b.c + (d[e] * f) - g.h;
 
-    case: ComplexTest6:
+    case: ComplexTest6
         c++:
             int y = (a & b) | (c ^ d);
 
         c++:
             int y = (a & b) | (c ^ d);
 
-    case: ComplexTest7:
+    case: ComplexTest7
         c++:
-            (a->*(p1)) + ((b + c)->*(p2));
+            ((*a).*p1) + ((*(b + c)).*p2);
 
         c++:
-            (a->*(p1)) + ((b + c)->*(p2));
+            ((*a).*p1) + ((*(b + c)).*p2);
 
-    case: ComplexTest8:
-        c++:
-            f(g(h(i))) + j * k;
-
+    case: ComplexTest8
         c++:
             f(g(h(i))) + j * k;
 
-    case: ComplexTest9:
+        c++:
+            f(g(h(i))) + j * k;
+
+    case: ComplexTest9
         c++:
             (x ? y : z) + ((a++) * (--b));
 
         c++:
             (x ? y : z) + ((a++) * (--b));
 
-    case: ComplexTest10:
+    case: ComplexTest10
         c++:
             x = (a + b) * (c - d) / e;
 

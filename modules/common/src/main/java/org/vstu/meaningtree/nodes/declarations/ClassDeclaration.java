@@ -17,12 +17,34 @@ public class ClassDeclaration extends Declaration {
     @TreeNode protected Identifier name;
     @TreeNode protected List<Type> parentTypes;
     @TreeNode protected List<Type> typeParameters; // for generic type
+    @TreeNode protected UserType typeNode;
 
     public ClassDeclaration(List<DeclarationModifier> modifiers, Identifier name, List<Type> typeParameters, Type ... parents) {
+        this(modifiers, name, typeParameters,
+                typeParameters.isEmpty()
+                        ? new Class(name)
+                        : new GenericClass(name, typeParameters.toArray(new Type[0])),
+                parents);
+    }
+
+    protected ClassDeclaration(List<DeclarationModifier> modifiers,
+                               Identifier name,
+                               List<Type> typeParameters,
+                               UserType typeNode,
+                               Type ... parents) {
         this.modifiers = List.copyOf(modifiers);
         this.name = name;
         this.typeParameters = List.copyOf(typeParameters);
+        this.typeNode = typeNode;
         parentTypes = List.of(parents);
+    }
+
+    public static ClassDeclaration withTypeNode(List<DeclarationModifier> modifiers,
+                                                Identifier name,
+                                                List<Type> typeParameters,
+                                                UserType typeNode,
+                                                Type ... parents) {
+        return new ClassDeclaration(modifiers, name, typeParameters, typeNode, parents);
     }
 
     public ClassDeclaration(List<DeclarationModifier> modifiers, Identifier name, Type ... parents) {
@@ -54,22 +76,19 @@ public class ClassDeclaration extends Declaration {
     }
 
     public UserType getTypeNode() {
-        if (isGeneric()) {
-            return new GenericClass(name, getTypeParameters().toArray(new Type[0]));
-        }
-        return new Class(name);
+        return typeNode;
     }
 
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof ClassDeclaration nodeInfos)) return false;
         if (!super.equals(o)) return false;
-        return Objects.equals(modifiers, nodeInfos.modifiers) && Objects.equals(name, nodeInfos.name) && Objects.equals(parentTypes, nodeInfos.parentTypes) && Objects.equals(typeParameters, nodeInfos.typeParameters);
+        return Objects.equals(modifiers, nodeInfos.modifiers) && Objects.equals(name, nodeInfos.name) && Objects.equals(parentTypes, nodeInfos.parentTypes) && Objects.equals(typeParameters, nodeInfos.typeParameters) && Objects.equals(typeNode, nodeInfos.typeNode);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), modifiers, name, parentTypes, typeParameters);
+        return Objects.hash(super.hashCode(), modifiers, name, parentTypes, typeParameters, typeNode);
     }
 
     public ClassDeclaration clone() {
@@ -78,6 +97,7 @@ public class ClassDeclaration extends Declaration {
         clone.name = name;
         clone.typeParameters = typeParameters.stream().map(Type::clone).toList();
         clone.parentTypes = parentTypes.stream().map(Type::clone).toList();
+        clone.typeNode = typeNode.clone();
         return clone;
     }
 }

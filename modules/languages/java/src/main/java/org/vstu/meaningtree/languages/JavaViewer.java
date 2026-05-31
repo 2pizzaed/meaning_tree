@@ -1467,11 +1467,11 @@ public class JavaViewer extends LanguageViewer {
 
         if (leftValue instanceof SimpleIdentifier identifier
                 && assignmentOperator == AugmentedAssignmentOperator.NONE) {
-            Type variableType = ctx.getVisibilityScope().scope().getVariableType(identifier);
+            Type variableType = ctx.getVisibilityScope().getVariableType(identifier);
             // Objects.requireNonNull(variableType);
 
             if (variableType == null && _autoVariableDeclaration) {
-                variableType = ctx.getVisibilityScope().scope().findType(identifier).orElseThrow();
+                variableType = ctx.getVisibilityScope().findType(identifier).orElseThrow();
 
                 String typeName = toString(variableType);
                 String variableName = toString(identifier);
@@ -1591,7 +1591,7 @@ public class JavaViewer extends LanguageViewer {
         if (variableType instanceof UnknownType)
             variableType = type;
 
-        ctx.getVisibilityScope().scope().changeVariableType(
+        ctx.getVisibilityScope().changeVariableType(
                 identifier,
                 SimpleTypeInferrer.chooseGeneralType(variableType, type)
         );

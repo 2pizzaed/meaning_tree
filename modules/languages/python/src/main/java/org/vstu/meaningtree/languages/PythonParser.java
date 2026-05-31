@@ -858,14 +858,14 @@ public class PythonParser extends LanguageParser {
 
         if (left instanceof SimpleIdentifier variableName && right != null) {
             var scopeTable = ctx.getVisibilityScope();
-            var leftType = scopeTable.scope().getVariableType(variableName);
+            var leftType = scopeTable.getVariableType(variableName);
             var rightType = ctx.inferType(right); // already uses scopeTable by default
 
             if (leftType == null || leftType instanceof UnknownType) {
-                scopeTable.scope().changeVariableType(variableName, rightType);
+                scopeTable.changeVariableType(variableName, rightType);
             }
             else {
-                scopeTable.scope().changeVariableType(
+                scopeTable.changeVariableType(
                         variableName,
                         SimpleTypeInferrer.chooseGeneralType(leftType, rightType)
                 );
@@ -941,7 +941,7 @@ public class PythonParser extends LanguageParser {
             }
 
             boolean allNew = augOp == AugmentedAssignmentOperator.NONE
-                    && idents.stream().allMatch(id -> ctx.getVisibilityScope().scope().getVariableType((SimpleIdentifier) id) == null);
+                    && idents.stream().allMatch(id -> ctx.getVisibilityScope().getVariableType((SimpleIdentifier) id) == null);
 
             if (allNew) {
                 // Вычисляем общий тип по всем выражениям
@@ -961,7 +961,7 @@ public class PythonParser extends LanguageParser {
                 for (int i = 0; i < idents.size(); i++) {
                     Identifier id = idents.get(i);
                     Expression init = exprs.get(i);
-                    ctx.getVisibilityScope().scope().changeVariableType((SimpleIdentifier) id, declaredType);
+                    ctx.getVisibilityScope().changeVariableType((SimpleIdentifier) id, declaredType);
                     decls.add(new VariableDeclarator((SimpleIdentifier) id, init));
                 }
                 return new VariableDeclaration(declaredType, decls);
@@ -989,19 +989,19 @@ public class PythonParser extends LanguageParser {
                 && rightExpr != null
                 && augOp == AugmentedAssignmentOperator.NONE) {
             var scopeTable = ctx.getVisibilityScope();
-            Type leftType = scopeTable.scope().getVariableType(variableName);
+            Type leftType = scopeTable.getVariableType(variableName);
             Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? new UnknownType() :
                     (Type) parseTSNode(node.getChildByFieldName("type"));
             Type rightType = ctx.inferType(rightExpr); // already uses scopeTable by default
 
             if (declaredType != null && !(declaredType instanceof UnknownType)) {
-                scopeTable.scope().changeVariableType(variableName, declaredType);
+                scopeTable.changeVariableType(variableName, declaredType);
                 return new VariableDeclaration(declaredType, variableName, rightExpr);
             } else if (leftType == null) {
-                scopeTable.scope().changeVariableType(variableName, rightType);
+                scopeTable.changeVariableType(variableName, rightType);
                 return new VariableDeclaration(rightType, variableName, rightExpr);
             } else {
-                scopeTable.scope().changeVariableType(
+                scopeTable.changeVariableType(
                         variableName,
                         SimpleTypeInferrer.chooseGeneralType(List.of(leftType, rightType, declaredType))
                 );
@@ -1012,7 +1012,7 @@ public class PythonParser extends LanguageParser {
             var scopeTable = ctx.getVisibilityScope();
             Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? new UnknownType() :
                     (Type) parseTSNode(node.getChildByFieldName("type"));
-            scopeTable.scope().changeVariableType(variableName, declaredType);
+            scopeTable.changeVariableType(variableName, declaredType);
             return new VariableDeclaration(declaredType, variableName, new NullLiteral());
         }
 

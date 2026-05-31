@@ -11,7 +11,6 @@ import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
 import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
 import org.vstu.meaningtree.nodes.modules.Import;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
-import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -20,7 +19,6 @@ import java.util.List;
 public class BodyConstructor implements Iterable<Node> {
     protected TranslatorContext ctx;
     private boolean newScope;
-    private ScopeTableElement scope;
     protected List<Node> nodes = new ArrayList<>();
     protected BodyConstructorIterator iterator = null;
 
@@ -29,7 +27,6 @@ public class BodyConstructor implements Iterable<Node> {
         this.newScope = newScope;
         ctx.activeBodyConstructors.push(this);
         if (newScope) ctx.enterNewScope();
-        scope = ctx.visibilityScope.scope();
     }
 
     public boolean isAlive() {
@@ -112,17 +109,17 @@ public class BodyConstructor implements Iterable<Node> {
                     method.getDeclaration().setParentDeclaration(def.getDeclaration());
                 }
             }
-            ctx.visibilityScope.scope().registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
+            ctx.visibilityScope.registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
         } else if (node instanceof FunctionDefinition def) {
-            ctx.visibilityScope.scope().registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
+            ctx.visibilityScope.registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
         } else if (node instanceof VariableDeclaration varDecl) {
-            ctx.visibilityScope.scope().registerVariable(varDecl);
+            ctx.visibilityScope.registerVariable(varDecl);
         } else if (node instanceof SeparatedVariableDeclaration sepDecl) {
-            ctx.visibilityScope.scope().registerVariable(sepDecl);
+            ctx.visibilityScope.registerVariable(sepDecl);
         } else if (node instanceof EnumDeclaration decl) {
-            ctx.visibilityScope.scope().registerDeclaration(decl.getName().getSimpleIdentifierOrThrow(), decl);
+            ctx.visibilityScope.registerDeclaration(decl.getName().getSimpleIdentifierOrThrow(), decl);
         } else if (node instanceof Import imprt) {
-            ctx.visibilityScope.scope().registerImport(imprt);
+            ctx.visibilityScope.registerImport(imprt);
         }
         ctx.processInfer(node);
     }
@@ -133,7 +130,7 @@ public class BodyConstructor implements Iterable<Node> {
     }
 
     public void setScopeOwner(Node owner) {
-        if (newScope) scope.setOwner(owner);
+        if (newScope) ctx.visibilityScope.setCurrentScopeOwner(owner);
     }
 
     public List<Node> getNodes() {

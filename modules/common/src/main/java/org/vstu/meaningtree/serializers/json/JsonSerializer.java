@@ -10,6 +10,7 @@ import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
+import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
 import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
@@ -30,6 +31,7 @@ import org.vstu.meaningtree.nodes.expressions.pointers.PointerMemberAccess;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
+import org.vstu.meaningtree.nodes.interfaces.NestedDeclaration;
 import org.vstu.meaningtree.nodes.io.*;
 import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
@@ -60,12 +62,17 @@ import org.vstu.meaningtree.utils.BytePosition;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.SourceMap;
 import org.vstu.meaningtree.utils.TransliterationUtils;
+import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.tokens.*;
 
 import java.util.Collection;
 import java.util.Objects;
 
 public class JsonSerializer implements Serializer<JsonObject> {
+    /* -----------------------------
+    |      Tree and source map      |
+    ------------------------------ */
+
     @Override
     public JsonObject serialize(MeaningTree mt) {
         JsonObject root = new JsonObject();
@@ -82,7 +89,6 @@ public class JsonSerializer implements Serializer<JsonObject> {
     @Override
     public JsonObject serialize(SourceMap sourceMap) {
         JsonObject root = new JsonObject();
-        Gson gson = new Gson();
         root.addProperty("type", "source_map");
         root.add("origin", serialize(sourceMap.root()));
         root.addProperty("source_code", sourceMap.code());
@@ -95,12 +101,182 @@ public class JsonSerializer implements Serializer<JsonObject> {
             map.add(entry.getKey().toString(), pair);
         }
         root.add("byte_positions", map);
-        root.add("declarations", gson.toJsonTree(sourceMap.definitions()));
-        root.add("imports", gson.toJsonTree(sourceMap.imports()));
-        root.add("user_type_hierarchy", gson.toJsonTree(sourceMap.userTypeHierarchy()));
+        root.add("scope_table", serialize(sourceMap.scopeTable()));
 
         return root;
     }
+
+    public JsonObject serialize(ScopeTable scopeTable) {
+        JsonObject root = new JsonObject();
+        root.addProperty("type", "scope_table");
+
+        JsonObject symbols = new JsonObject();
+        JsonArray declarations = new JsonArray();
+        for (var entry : scopeTable.allDeclarations().entrySet()) {
+            JsonObject item = new JsonObject();
+            item.add("name", serializeScopeIdentifier(entry.getKey()));
+            item.add("declaration", serializeScopeNode(entry.getValue()));
+            declarations.add(item);
+        }
+        symbols.add("declarations", declarations);
+
+        JsonArray definitions = new JsonArray();
+        for (var entry : scopeTable.allDefinitions().entrySet()) {
+            JsonObject item = new JsonObject();
+            item.add("declaration", serializeScopeNode(entry.getKey()));
+            item.add("definition", serializeScopeNode(entry.getValue()));
+            definitions.add(item);
+        }
+        symbols.add("definitions", definitions);
+        root.add("symbols", symbols);
+
+        JsonObject types = new JsonObject();
+        JsonArray declaredTypes = new JsonArray();
+        for (var entry : scopeTable.allTypes().entrySet()) {
+            JsonObject item = new JsonObject();
+            item.add("name", serializeScopeIdentifier(entry.getKey()));
+            item.add("type_ref", serialize(entry.getValue()));
+            declaredTypes.add(item);
+        }
+        types.add("declared_types", declaredTypes);
+
+        JsonArray typeDeclarations = new JsonArray();
+        for (var entry : scopeTable.allTypeDeclarations().entrySet()) {
+            JsonObject item = new JsonObject();
+            item.add("type_ref", serialize(entry.getKey()));
+            item.add("declaration", serializeScopeNode(entry.getValue()));
+            typeDeclarations.add(item);
+        }
+        types.add("type_declarations", typeDeclarations);
+        types.add("hierarchy", serializeTypeHierarchy(scopeTable));
+        root.add("types", types);
+
+        JsonObject importIndex = new JsonObject();
+        JsonArray imports = new JsonArray();
+        for (Import importNode : scopeTable.allImports()) {
+            imports.add(serializeScopeImport(importNode));
+        }
+        importIndex.add("items", imports);
+        root.add("imports", importIndex);
+
+        return root;
+    }
+
+    private JsonArray serializeTypeHierarchy(ScopeTable scopeTable) {
+        JsonArray hierarchy = new JsonArray();
+        for (var entry : scopeTable.userTypeHierarchy().entrySet()) {
+            JsonObject item = new JsonObject();
+            item.add("type_ref", serialize(entry.getKey()));
+
+            JsonArray parents = new JsonArray();
+            for (var parent : entry.getValue()) {
+                parents.add(serialize(parent));
+            }
+            item.add("parents", parents);
+            hierarchy.add(item);
+        }
+        return hierarchy;
+    }
+
+    private JsonObject serializeScopeNode(Node node) {
+        JsonObject json = new JsonObject();
+        if (node == null) {
+            return json;
+        }
+
+        json.addProperty("node_type", JsonNodeTypeClassMapper.getTypeForNode(node));
+        json.addProperty("ast_id", node.getId());
+
+        if (node instanceof Declaration declaration) {
+            String identifier = declarationIdentifier(declaration);
+            if (identifier != null) {
+                json.addProperty("identifier", identifier);
+            }
+            if (declaration instanceof NestedDeclaration<?> nested && nested.getParentDeclaration() != null) {
+                json.addProperty("parent_declaration_ast_id", nested.getParentDeclaration().getId());
+            }
+        } else if (node instanceof Definition definition) {
+            String identifier = declarationIdentifier(definition.getDeclaration());
+            if (identifier != null) {
+                json.addProperty("identifier", identifier);
+            }
+            json.addProperty("declaration_ast_id", definition.getDeclaration().getId());
+        } else if (node instanceof Type type) {
+            json.addProperty("repr_name", type.internalRepresentation());
+            json.addProperty("is_const", type.isConst());
+            json.addProperty("is_safe_reference", type.isSafeReference());
+        } else if (node instanceof Identifier identifier) {
+            json.add("identifier", serializeScopeIdentifier(identifier));
+        }
+
+        return json;
+    }
+
+    private JsonObject serializeScopeImport(Import importNode) {
+        JsonObject json = serializeScopeNode(importNode);
+        switch (importNode) {
+            case ImportMembersFromModule memberImport -> {
+                json.addProperty("module_name", memberImport.getModuleName().internalRepresentation());
+                JsonArray members = new JsonArray();
+                for (Identifier member : memberImport.getMembers()) {
+                    members.add(member.internalRepresentation());
+                }
+                json.add("members", members);
+                json.addProperty("is_static", memberImport instanceof StaticImportMembersFromModule);
+                json.addProperty("all_content_include", false);
+            }
+            case ImportModule moduleImport -> {
+                json.addProperty("module_name", moduleImport.getModuleName().internalRepresentation());
+                json.addProperty("is_static", moduleImport instanceof StaticImportAll);
+                json.addProperty("all_content_include", false);
+            }
+            case Include include -> {
+                json.addProperty("file_name", include.getFileName().getUnescapedValue());
+                json.addProperty("is_static", false);
+                json.addProperty("all_content_include", true);
+            }
+            case ImportModules modules -> {
+                JsonArray moduleNames = new JsonArray();
+                for (Identifier moduleName : modules.getModulesNames()) {
+                    moduleNames.add(moduleName.internalRepresentation());
+                }
+                json.add("modules", moduleNames);
+                json.addProperty("is_static", false);
+                json.addProperty("all_content_include", false);
+            }
+            default -> {
+            }
+        }
+        return json;
+    }
+
+    private JsonElement serializeScopeIdentifier(Identifier identifier) {
+        if (identifier == null) {
+            return JsonNull.INSTANCE;
+        }
+        return new JsonPrimitive(identifier.internalRepresentation());
+    }
+
+    private String declarationIdentifier(Declaration declaration) {
+        return switch (declaration) {
+            case ClassDeclaration classDeclaration -> classDeclaration.getName().internalRepresentation();
+            case FunctionDeclaration functionDeclaration -> functionDeclaration.getName().internalRepresentation();
+            case EnumDeclaration enumDeclaration -> enumDeclaration.getName().internalRepresentation();
+            case VariableDeclaration variableDeclaration -> variableDeclaration.getFirstDeclarator() == null
+                    ? null
+                    : variableDeclaration.getFirstDeclarator().getIdentifier().getName();
+            case SeparatedVariableDeclaration separatedVariableDeclaration -> separatedVariableDeclaration.getDeclarations().isEmpty()
+                    ? null
+                    : declarationIdentifier(separatedVariableDeclaration.getDeclarations().getFirst());
+            case DeclarationArgument declarationArgument -> declarationArgument.getName().getName();
+            case PackageDeclaration packageDeclaration -> packageDeclaration.getPackageName().internalRepresentation();
+            default -> null;
+        };
+    }
+
+    /* -----------------------------
+    |            Tokens             |
+    ------------------------------ */
 
     @Override
     public JsonObject serialize(TokenList tokenList) {
@@ -164,6 +340,10 @@ public class JsonSerializer implements Serializer<JsonObject> {
         arr.add(pos.length());
         return arr;
     }
+
+    /* -----------------------------
+    |           AST nodes           |
+    ------------------------------ */
 
     @Override
     public JsonObject serialize(Node node) {
@@ -1687,6 +1867,10 @@ public class JsonSerializer implements Serializer<JsonObject> {
         return json;
     }
 
+    /* -----------------------------
+    |             Types             |
+    ------------------------------ */
+
     private JsonObject serializeType(@NotNull Type t) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(t));
@@ -1807,6 +1991,10 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("elements", items);
         return json;
     }
+
+    /* -----------------------------
+    |   Definitions and declarations |
+    ------------------------------ */
 
     @NotNull
     private JsonObject serializeClassDefinition(@NotNull ClassDefinition def) {

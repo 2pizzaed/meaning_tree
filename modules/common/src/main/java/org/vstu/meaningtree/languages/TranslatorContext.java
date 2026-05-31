@@ -106,11 +106,7 @@ public class TranslatorContext {
      * @return найденный (или нет) тип
      */
     public Optional<Type> lookupRegisteredType(Identifier typeName, boolean useGlobalScope) {
-        if (useGlobalScope) {
-            return globalScope.scope().findType(typeName);
-        } else {
-            return visibilityScope.scope().findType(typeName);
-        }
+        return (useGlobalScope ? globalScope : visibilityScope).findType(typeName);
     }
 
     public Optional<VariableDeclaration> lookupVariable(String variableName) {
@@ -118,7 +114,7 @@ public class TranslatorContext {
     }
 
     public Optional<VariableDeclaration> lookupVariable(String variableName, Type varType) {
-       return visibilityScope.scope().getVariableDeclaration(new SimpleIdentifier(variableName), varType);
+       return visibilityScope.getVariableDeclaration(new SimpleIdentifier(variableName), varType);
     }
 
     public Optional<Definition> lookupDefinition(String definitionName) {
@@ -126,19 +122,19 @@ public class TranslatorContext {
     }
 
     public Optional<Definition> lookupDefinition(String definitionName, Class<? extends Declaration> type) {
-        return visibilityScope.scope().findDefinition(new SimpleIdentifier(definitionName), type);
+        return visibilityScope.findDefinition(new SimpleIdentifier(definitionName), type);
     }
 
     public Optional<Declaration> lookupDeclaration(String declarationName) {
-        return visibilityScope.scope().findDeclaration(new SimpleIdentifier(declarationName), null);
+        return visibilityScope.findDeclaration(new SimpleIdentifier(declarationName), null);
     }
 
     public Optional<Declaration> lookupDeclaration(Type type) {
-        return visibilityScope.scope().findTypeDeclaration(type);
+        return visibilityScope.findTypeDeclaration(type);
     }
 
     public Optional<Declaration> lookupDeclaration(String declarationName, Class<? extends Declaration> type) {
-        return visibilityScope.scope().findDeclaration(new SimpleIdentifier(declarationName), type);
+        return visibilityScope.findDeclaration(new SimpleIdentifier(declarationName), type);
     }
 
     public List<Class<? extends Node>> getTranslatingNodeTypeHierarchy() {
@@ -189,6 +185,10 @@ public class TranslatorContext {
     }
 
     public ScopeTable getVisibilityScope() {
+        return visibilityScope;
+    }
+
+    public ScopeTable getScopeTable() {
         return visibilityScope;
     }
 

@@ -10,7 +10,7 @@ public abstract class BinaryComparison extends BinaryExpression {
     }
 
     @Override
-    public boolean evaluatesToBoolean() {
+    public boolean canBeEvaluatedToBoolean() {
         return true;
     }
 

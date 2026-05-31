@@ -31,7 +31,7 @@ public class CompoundComparison extends Expression {
     }
 
     @Override
-    public boolean evaluatesToBoolean() {
+    public boolean canBeEvaluatedToBoolean() {
         return true;
     }
 

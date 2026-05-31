@@ -35,7 +35,7 @@ public class BoolLiteral extends Literal {
     }
 
     @Override
-    public boolean evaluatesToBoolean() {
+    public boolean canBeEvaluatedToBoolean() {
         return true;
     }
 }

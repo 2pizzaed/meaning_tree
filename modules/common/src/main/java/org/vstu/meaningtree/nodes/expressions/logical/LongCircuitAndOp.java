@@ -9,7 +9,7 @@ public class LongCircuitAndOp extends BinaryExpression {
     }
 
     @Override
-    public boolean evaluatesToBoolean() {
+    public boolean canBeEvaluatedToBoolean() {
         return true;
     }
 }

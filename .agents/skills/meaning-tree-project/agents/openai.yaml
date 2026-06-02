@@ -1,0 +1,4 @@
+interface:
+  display_name: "MeaningTree Project"
+  short_description: "Study and work with the MeaningTree Java project, including CLI usage."
+  default_prompt: "Use the MeaningTree Project skill to inspect architecture, modules, translators, serializers, tests, Maven build, CLI behavior, local Maven source jars, and optional docs when explicitly requested."

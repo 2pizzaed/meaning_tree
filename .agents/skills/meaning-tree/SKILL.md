@@ -1,13 +1,13 @@
 ---
-name: meaning-tree-project
-description: Work with the MeaningTree Java project as a whole. Use when Codex needs to study or modify project architecture, modules, translators, semantic AST nodes, serializers, tests, Maven build, or the command-line application; run, debug, explain, or generate MeaningTree CLI commands; inspect local Maven source jars for project or dependency sources; or optionally consult external MeaningTree documentation only when the user explicitly asks for docs.
+name: meaning-tree
+description: Work with the Meaning Tree Java project as a whole. Use when Codex needs to study or modify project architecture, modules, translators, semantic AST nodes, serializers, tests, Maven build, or the command-line application; run, debug, explain, or generate MeaningTree CLI commands; inspect local Maven source jars for project or dependency sources; or optionally consult external MeaningTree documentation only when the user explicitly asks for docs.
 ---
 
-# MeaningTree Project
+# Meaning Tree Project
 
 ## Purpose
 
-MeaningTree is a Java library and console application for parsing, analyzing, serializing, and translating source code through a common semantic/universal AST representation called a meaning tree.
+Meaning Tree is a Java library and console application for parsing, analyzing, serializing, and translating source code through a common semantic/universal AST representation called a meaning tree.
 
 Use this skill for both project-wide code investigation and CLI work. Treat the CLI as one entry point into the broader Maven project, not as the whole project.
 

@@ -125,8 +125,13 @@ public class BodyConstructor implements Iterable<Node> {
     }
 
     public CompoundStatement build() {
+        CompoundStatement body = new CompoundStatement(nodes);
+        if (newScope) {
+            ctx.visibilityScope.setCurrentScopeOwner(body);
+            body.bindScope(ctx.visibilityScope.scope());
+        }
         postprocess();
-        return new CompoundStatement(nodes);
+        return body;
     }
 
     public void setScopeOwner(Node owner) {

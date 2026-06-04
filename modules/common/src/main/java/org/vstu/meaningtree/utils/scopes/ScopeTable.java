@@ -12,13 +12,11 @@ import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.modules.Import;
+import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.types.UserType;
 
 import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 /**
  * {@code TypeScope} управляет стеком областей видимости типов,
@@ -43,6 +41,11 @@ public class ScopeTable implements Serializable {
     @NotNull
     private final ImportIndex imports;
 
+    @NotNull
+    private final Map<Long, ScopeTableElement> scopes;
+
+    private long nextScopeId;
+
     /**
      * Текущая область сущностей.
      */
@@ -56,7 +59,9 @@ public class ScopeTable implements Serializable {
         this.symbols = new SymbolIndex();
         this.types = new TypeIndex();
         this.imports = new ImportIndex();
-        this.current = new ScopeTableElement(null);
+        this.scopes = new LinkedHashMap<>();
+        this.nextScopeId = 1;
+        this.current = createScope(null, null);
     }
 
     /**
@@ -70,8 +75,7 @@ public class ScopeTable implements Serializable {
      * Входит в новую область видимости, связанную с AST-узлом.
      */
     public void enter(@Nullable Node owner) {
-        current = new ScopeTableElement(current);
-        current.setOwner(owner);
+        current = createScope(current, owner);
     }
 
     /**
@@ -105,6 +109,40 @@ public class ScopeTable implements Serializable {
 
     public ScopeTableElement scope() {
         return current;
+    }
+
+    public Collection<ScopeTableElement> allScopes() {
+        return List.copyOf(scopes.values());
+    }
+
+    public Optional<ScopeTableElement> findScope(long id) {
+        return Optional.ofNullable(scopes.get(id));
+    }
+
+    public long currentScopeId() {
+        return current.getId();
+    }
+
+    public ScopeTableElement restoreScope(long id, @Nullable Long parentId, @Nullable Node owner) {
+        ScopeTableElement existing = scopes.get(id);
+        if (existing != null) {
+            existing.setOwner(owner);
+            return existing;
+        }
+
+        ScopeTableElement parent = parentId == null ? null : scopes.get(parentId);
+        ScopeTableElement restored = new ScopeTableElement(id, parent, owner);
+        scopes.put(id, restored);
+        nextScopeId = Math.max(nextScopeId, id + 1);
+        return restored;
+    }
+
+    public void setCurrentScope(long id) {
+        ScopeTableElement scope = scopes.get(id);
+        if (scope == null) {
+            throw new IllegalArgumentException("Unknown scope id: " + id);
+        }
+        current = scope;
     }
 
     public void setCurrentScopeOwner(@Nullable Node owner) {
@@ -305,5 +343,14 @@ public class ScopeTable implements Serializable {
     @Override
     public String toString() {
         return current.toString();
+    }
+
+    private ScopeTableElement createScope(@Nullable ScopeTableElement parent, @Nullable Node owner) {
+        ScopeTableElement scope = new ScopeTableElement(nextScopeId++, parent, owner);
+        scopes.put(scope.getId(), scope);
+        if (owner instanceof CompoundStatement compoundStatement) {
+            compoundStatement.bindScope(scope);
+        }
+        return scope;
     }
 }

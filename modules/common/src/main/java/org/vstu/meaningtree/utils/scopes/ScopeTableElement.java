@@ -18,6 +18,7 @@ import org.vstu.meaningtree.nodes.types.UnknownType;
 
 import java.io.Serializable;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Lexical scope frame. Program-wide declarations, imports and type registries
@@ -25,11 +26,15 @@ import java.util.*;
  * extensions and links to parent frames.
  */
 public class ScopeTableElement implements Serializable {
+    private static final AtomicLong ID_GENERATOR = new AtomicLong();
+
+    private final long id;
+
     @Nullable
     private final ScopeTableElement parent;
 
     @Nullable
-    private Node owner;
+    private transient Node owner;
 
     @NotNull
     private final Map<SimpleIdentifier, Type> variables;
@@ -46,22 +51,48 @@ public class ScopeTableElement implements Serializable {
     @NotNull
     private final Map<Type, Declaration> typeDeclarations;
 
-    public ScopeTableElement(@Nullable ScopeTableElement parent, @Nullable Node owner) {
+    public ScopeTableElement(long id, @Nullable ScopeTableElement parent, @Nullable Node owner) {
+        this.id = id;
+        ID_GENERATOR.updateAndGet(current -> Math.max(current, id));
         this.parent = parent;
-        this.owner = owner;
         this.variables = new HashMap<>();
         this.variableDeclarations = new HashMap<>();
         this.localDeclarations = new HashMap<>();
         this.declaredTypes = new HashMap<>();
         this.typeDeclarations = new HashMap<>();
+        setOwner(owner);
+    }
+
+    public ScopeTableElement(@Nullable ScopeTableElement parent, @Nullable Node owner) {
+        this(ID_GENERATOR.incrementAndGet(), parent, owner);
     }
 
     public ScopeTableElement(@Nullable ScopeTableElement parent) {
         this(parent, null);
     }
 
+    public long getId() {
+        return id;
+    }
+
     public Map<Identifier, Declaration> allDeclarations() {
         return Map.copyOf(new HashMap<Identifier, Declaration>(localDeclarations));
+    }
+
+    public Map<SimpleIdentifier, Type> allVariables() {
+        return Map.copyOf(variables);
+    }
+
+    public Map<SimpleIdentifier, VariableDeclaration> allVariableDeclarations() {
+        return Map.copyOf(variableDeclarations);
+    }
+
+    public Map<Identifier, Type> allTypes() {
+        return Map.copyOf(declaredTypes);
+    }
+
+    public Map<Type, Declaration> allTypeDeclarations() {
+        return Map.copyOf(typeDeclarations);
     }
 
     public void registerVariable(@NotNull VariableDeclaration variableDeclaration) {
@@ -74,6 +105,15 @@ public class ScopeTableElement implements Serializable {
     public void registerVariable(@NotNull SeparatedVariableDeclaration variableDeclaration) {
         for (var varDecl : variableDeclaration.getDeclarations()) {
             registerVariable(varDecl);
+        }
+    }
+
+    public void restoreVariable(@NotNull SimpleIdentifier name,
+                                @NotNull Type type,
+                                @Nullable VariableDeclaration declaration) {
+        variables.put(name, type);
+        if (declaration != null) {
+            variableDeclarations.put(name, declaration);
         }
     }
 
@@ -98,6 +138,10 @@ public class ScopeTableElement implements Serializable {
             }
         }
         return name;
+    }
+
+    public void registerTypeDeclaration(@NotNull Type type, @NotNull Declaration declaration) {
+        typeDeclarations.put(type, declaration);
     }
 
     public void removeVariable(@NotNull SimpleIdentifier name) {
@@ -265,6 +309,9 @@ public class ScopeTableElement implements Serializable {
 
     public void setOwner(@Nullable Node node) {
         this.owner = node;
+        if (node instanceof CompoundStatement compoundStatement) {
+            compoundStatement.bindScope(this);
+        }
     }
 
     @Override

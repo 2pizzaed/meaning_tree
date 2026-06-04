@@ -57,6 +57,7 @@ import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.serializers.model.Deserializer;
 import org.vstu.meaningtree.utils.*;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
+import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 import org.vstu.meaningtree.utils.tokens.*;
 
 import java.lang.reflect.Field;
@@ -195,7 +196,56 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             scopeTable.registerImport(resolveScopeNode(item, Import.class));
         }
 
+        restoreScopes(json, scopeTable);
+        if (json.has("current_scope_id") && !json.get("current_scope_id").isJsonNull()) {
+            scopeTable.setCurrentScope(json.get("current_scope_id").getAsLong());
+        }
+
         return scopeTable;
+    }
+
+    private void restoreScopes(JsonObject json, ScopeTable scopeTable) {
+        for (JsonObject item : arrayObjects(json, "scopes")) {
+            long id = item.get("id").getAsLong();
+            Long parentId = item.has("parent_id") && !item.get("parent_id").isJsonNull()
+                    ? item.get("parent_id").getAsLong()
+                    : null;
+            Node owner = item.has("owner_ast_id") && !item.get("owner_ast_id").isJsonNull()
+                    ? nodeCache.get(item.get("owner_ast_id").getAsLong())
+                    : null;
+            scopeTable.restoreScope(id, parentId, owner);
+        }
+
+        for (JsonObject item : arrayObjects(json, "scopes")) {
+            ScopeTableElement scope = scopeTable.findScope(item.get("id").getAsLong()).orElseThrow();
+
+            for (JsonObject variable : arrayObjects(item, "variables")) {
+                SimpleIdentifier name = deserializeScopeSimpleIdentifier(variable.get("name"));
+                Type type = resolveScopeType(variable.getAsJsonObject("type_ref"));
+                VariableDeclaration declaration = variable.has("declaration") && !variable.get("declaration").isJsonNull()
+                        ? resolveScopeNode(variable.getAsJsonObject("declaration"), VariableDeclaration.class)
+                        : null;
+                scope.restoreVariable(name, type, declaration);
+            }
+
+            for (JsonObject declarationItem : arrayObjects(item, "declarations")) {
+                SimpleIdentifier name = deserializeScopeSimpleIdentifier(declarationItem.get("name"));
+                Declaration declaration = resolveScopeNode(declarationItem.getAsJsonObject("declaration"), Declaration.class);
+                scope.registerDeclaration(name, declaration);
+            }
+
+            for (JsonObject typeItem : arrayObjects(item, "declared_types")) {
+                Identifier name = deserializeScopeIdentifier(typeItem.get("name"));
+                Type type = resolveScopeType(typeItem.getAsJsonObject("type_ref"));
+                scope.registerType(name, type);
+            }
+
+            for (JsonObject typeDeclarationItem : arrayObjects(item, "type_declarations")) {
+                Type type = resolveScopeType(typeDeclarationItem.getAsJsonObject("type_ref"));
+                Declaration declaration = resolveScopeNode(typeDeclarationItem.getAsJsonObject("declaration"), Declaration.class);
+                scope.registerTypeDeclaration(type, declaration);
+            }
+        }
     }
 
     private JsonObject objectSection(JsonObject json, String fieldName) {

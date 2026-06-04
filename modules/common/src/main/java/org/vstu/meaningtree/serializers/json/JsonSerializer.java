@@ -63,6 +63,7 @@ import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.SourceMap;
 import org.vstu.meaningtree.utils.TransliterationUtils;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
+import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 import org.vstu.meaningtree.utils.tokens.*;
 
 import java.util.Collection;
@@ -109,6 +110,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     public JsonObject serialize(ScopeTable scopeTable) {
         JsonObject root = new JsonObject();
         root.addProperty("type", "scope_table");
+        root.addProperty("current_scope_id", scopeTable.currentScopeId());
 
         JsonObject symbols = new JsonObject();
         JsonArray declarations = new JsonArray();
@@ -158,8 +160,70 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
         importIndex.add("items", imports);
         root.add("imports", importIndex);
+        root.add("scopes", serializeScopes(scopeTable));
 
         return root;
+    }
+
+    private JsonArray serializeScopes(ScopeTable scopeTable) {
+        JsonArray scopes = new JsonArray();
+        for (ScopeTableElement scope : scopeTable.allScopes()) {
+            JsonObject item = new JsonObject();
+            item.addProperty("id", scope.getId());
+            if (scope.getParent() != null) {
+                item.addProperty("parent_id", scope.getParent().getId());
+            } else {
+                item.add("parent_id", JsonNull.INSTANCE);
+            }
+            if (scope.getOwner() != null) {
+                item.addProperty("owner_ast_id", scope.getOwner().getId());
+            } else {
+                item.add("owner_ast_id", JsonNull.INSTANCE);
+            }
+
+            JsonArray variables = new JsonArray();
+            for (var entry : scope.allVariables().entrySet()) {
+                JsonObject variable = new JsonObject();
+                variable.add("name", serializeScopeIdentifier(entry.getKey()));
+                variable.add("type_ref", serialize(entry.getValue()));
+                VariableDeclaration declaration = scope.allVariableDeclarations().get(entry.getKey());
+                if (declaration != null) {
+                    variable.add("declaration", serializeScopeNode(declaration));
+                }
+                variables.add(variable);
+            }
+            item.add("variables", variables);
+
+            JsonArray declarations = new JsonArray();
+            for (var entry : scope.allDeclarations().entrySet()) {
+                JsonObject declaration = new JsonObject();
+                declaration.add("name", serializeScopeIdentifier(entry.getKey()));
+                declaration.add("declaration", serializeScopeNode(entry.getValue()));
+                declarations.add(declaration);
+            }
+            item.add("declarations", declarations);
+
+            JsonArray declaredTypes = new JsonArray();
+            for (var entry : scope.allTypes().entrySet()) {
+                JsonObject type = new JsonObject();
+                type.add("name", serializeScopeIdentifier(entry.getKey()));
+                type.add("type_ref", serialize(entry.getValue()));
+                declaredTypes.add(type);
+            }
+            item.add("declared_types", declaredTypes);
+
+            JsonArray typeDeclarations = new JsonArray();
+            for (var entry : scope.allTypeDeclarations().entrySet()) {
+                JsonObject typeDeclaration = new JsonObject();
+                typeDeclaration.add("type_ref", serialize(entry.getKey()));
+                typeDeclaration.add("declaration", serializeScopeNode(entry.getValue()));
+                typeDeclarations.add(typeDeclaration);
+            }
+            item.add("type_declarations", typeDeclarations);
+
+            scopes.add(item);
+        }
+        return scopes;
     }
 
     private JsonArray serializeTypeHierarchy(ScopeTable scopeTable) {
@@ -1153,6 +1217,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     private JsonObject serializeCompoundStatement(@NotNull CompoundStatement stmt) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
+        stmt.getScopeId().ifPresent(scopeId -> json.addProperty("scope_id", scopeId));
 
         JsonArray statements = new JsonArray();
         for (var statement : stmt.getNodes()) {

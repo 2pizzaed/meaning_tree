@@ -131,6 +131,52 @@ public class ScopeTableTests {
                 .count());
     }
 
+    @Test
+    void compoundStatementScopeRoundTripRestoresBodyBinding() {
+        FunctionDeclaration local = functionDeclaration("local");
+        CompoundStatement body = new CompoundStatement(List.of(local));
+        ScopeTable scope = new ScopeTable();
+        scope.enter(body);
+        scope.registerDeclaration(local.getName(), local);
+
+        assertTrue(body.getScope().isPresent());
+
+        ProgramEntryPoint root = new ProgramEntryPoint(List.of(body));
+        SourceMap sourceMap = new SourceMap(
+                "{ local }",
+                root,
+                Map.<Long, Pair<Integer, Integer>>of(),
+                scope,
+                "test"
+        );
+
+        JsonObject json = new JsonSerializer().serialize(sourceMap);
+        JsonObject serializedScopeTable = json.getAsJsonObject("scope_table");
+        assertEquals(2, serializedScopeTable.getAsJsonArray("scopes").size());
+        assertTrue(json.getAsJsonObject("origin")
+                .getAsJsonArray("body")
+                .get(0)
+                .getAsJsonObject()
+                .has("scope_id"));
+
+        SourceMap restored = new JsonDeserializer().deserializeSourceMap(json);
+        CompoundStatement restoredBody = StreamSupport.stream(restored.root().spliterator(), false)
+                .map(nodeInfo -> nodeInfo.node())
+                .filter(CompoundStatement.class::isInstance)
+                .map(CompoundStatement.class::cast)
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(restoredBody.getScope().isPresent());
+        assertEquals(
+                restoredBody.getScope().orElseThrow().getId(),
+                restored.scopeTable().currentScopeId()
+        );
+        assertTrue(restored.scopeTable()
+                .findDeclaration(local.getName(), FunctionDeclaration.class, ScopeLookupMode.CURRENT)
+                .isPresent());
+    }
+
     private static FunctionDeclaration functionDeclaration(String name) {
         return new FunctionDeclaration(new SimpleIdentifier(name), new UnknownType(), List.of());
     }

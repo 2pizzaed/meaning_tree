@@ -212,16 +212,19 @@ public class ExpressionValueEvaluator {
             return remember(expression, ExpressionValueEstimate.possible(Set.of(Boolean.TRUE, Boolean.FALSE), false), env);
         }
         ComparisonModel comparison = extractComparison(unwrapped, env, contextNode);
-        if (comparison != null && env.containsKey(comparison.identifier().getName())) {
-            return remember(
-                    expression,
-                    ExpressionValueEstimate.exact(testCondition(
-                            env.get(comparison.identifier().getName()),
-                            comparison.bound(),
-                            comparison.operator()
-                    )),
-                    env
-            );
+        if (comparison != null) {
+            if (env.containsKey(comparison.identifier().getName())) {
+                return remember(
+                        expression,
+                        ExpressionValueEstimate.exact(testCondition(
+                                env.get(comparison.identifier().getName()),
+                                comparison.bound(),
+                                comparison.operator()
+                        )),
+                        env
+                );
+            }
+            return remember(expression, ExpressionValueEstimate.possible(Set.of(Boolean.TRUE, Boolean.FALSE), false), env);
         }
         return ExpressionValueEstimate.unknown();
     }

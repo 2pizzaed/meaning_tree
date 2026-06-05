@@ -273,7 +273,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             json.add("identifier", serializeScopeIdentifier(identifier));
         }
 
-        return json;
+        return withNodeMetadata(node, json);
     }
 
     private JsonObject serializeScopeImport(Import importNode) {
@@ -2306,6 +2306,46 @@ public class JsonSerializer implements Serializer<JsonObject> {
     private JsonObject withLoopMetadata(@NotNull Loop loop, @NotNull JsonObject json) {
         loop.getIterationEstimate().ifPresent(estimate -> json.add("iteration_estimate", serializeLoopIterationEstimate(estimate)));
         return json;
+    }
+
+    @NotNull
+    private JsonObject withNodeMetadata(@NotNull Node node, @NotNull JsonObject json) {
+        if (node instanceof Expression expression) {
+            expression.getValueEstimate().ifPresent(estimate -> json.add("value_estimate", serializeExpressionValueEstimate(estimate)));
+        }
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeExpressionValueEstimate(@NotNull ExpressionValueEstimate<?> estimate) {
+        JsonObject json = new JsonObject();
+        json.add("exact_value", estimate.exactValue().map(this::serializeEstimateValue).orElse(JsonNull.INSTANCE));
+        JsonArray possibleValues = new JsonArray();
+        for (Object value : estimate.possibleValues()) {
+            possibleValues.add(serializeEstimateValue(value));
+        }
+        json.add("possible_values", possibleValues);
+        json.addProperty("reliable", estimate.reliable());
+        return json;
+    }
+
+    private JsonElement serializeEstimateValue(Object value) {
+        if (value == null) {
+            return JsonNull.INSTANCE;
+        }
+        if (value instanceof Boolean boolValue) {
+            return new JsonPrimitive(boolValue);
+        }
+        if (value instanceof Number numberValue) {
+            return new JsonPrimitive(numberValue);
+        }
+        if (value instanceof Character charValue) {
+            return new JsonPrimitive(charValue);
+        }
+        if (value instanceof String stringValue) {
+            return new JsonPrimitive(stringValue);
+        }
+        throw new MeaningTreeSerializationException("Unsupported expression estimate value: " + value.getClass().getName());
     }
 
     public static String enumToValue(Enum<?> e) {

@@ -8,12 +8,6 @@ public abstract class BinaryComparison extends BinaryExpression {
     public BinaryComparison(Expression left, Expression right) {
         super(left, right);
     }
-
-    @Override
-    public boolean canBeEvaluatedToBoolean() {
-        return true;
-    }
-
     public Expression inverse() {
         if (this instanceof GtOp) {
             return new LeOp(left, right);

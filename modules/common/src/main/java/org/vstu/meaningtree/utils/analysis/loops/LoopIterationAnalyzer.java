@@ -14,17 +14,14 @@ import org.vstu.meaningtree.nodes.expressions.UnaryExpression;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
-import org.vstu.meaningtree.nodes.expressions.literals.*;
-import org.vstu.meaningtree.nodes.expressions.logical.NotOp;
-import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitAndOp;
-import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitOrOp;
-import org.vstu.meaningtree.nodes.expressions.math.AddOp;
-import org.vstu.meaningtree.nodes.expressions.math.SubOp;
 import org.vstu.meaningtree.nodes.expressions.other.AssignmentExpression;
 import org.vstu.meaningtree.nodes.expressions.other.Range;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
-import org.vstu.meaningtree.nodes.expressions.unary.*;
+import org.vstu.meaningtree.nodes.expressions.unary.PostfixDecrementOp;
+import org.vstu.meaningtree.nodes.expressions.unary.PostfixIncrementOp;
+import org.vstu.meaningtree.nodes.expressions.unary.PrefixDecrementOp;
+import org.vstu.meaningtree.nodes.expressions.unary.PrefixIncrementOp;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.Loop;
@@ -35,38 +32,39 @@ import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.GotoStatement;
+import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEvaluator;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
-import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 
 import java.util.*;
 
 public class LoopIterationAnalyzer {
     public void analyze(MeaningTree tree, ScopeTable scopeTable) {
+        ExpressionValueEvaluator evaluator = new ExpressionValueEvaluator(tree, scopeTable);
         for (NodeInfo info : tree) {
             if (info.node() instanceof Loop loop) {
-                loop.setIterationEstimate(analyzeLoop(loop, tree, scopeTable));
+                loop.setIterationEstimate(analyzeLoop(loop, evaluator));
             }
         }
     }
 
-    private LoopIterationEstimate analyzeLoop(Loop loop, MeaningTree tree, ScopeTable scopeTable) {
+    private LoopIterationEstimate analyzeLoop(Loop loop, ExpressionValueEvaluator evaluator) {
         if (loop instanceof InfiniteLoop infiniteLoop) {
             return analyzeInfiniteLoop(infiniteLoop);
         }
         if (loop instanceof RangeForLoop rangeForLoop) {
-            return analyzeRangeForLoop(rangeForLoop, tree, scopeTable);
+            return analyzeRangeForLoop(rangeForLoop, evaluator);
         }
         if (loop instanceof ForEachLoop forEachLoop) {
-            return analyzeForEachLoop(forEachLoop, tree, scopeTable);
+            return analyzeForEachLoop(forEachLoop, evaluator);
         }
         if (loop instanceof GeneralForLoop generalForLoop) {
-            return analyzeGeneralForLoop(generalForLoop, tree, scopeTable);
+            return analyzeGeneralForLoop(generalForLoop, evaluator);
         }
         if (loop instanceof WhileLoop whileLoop) {
-            return analyzeWhileLoop(whileLoop, tree, scopeTable);
+            return analyzeWhileLoop(whileLoop, evaluator);
         }
         if (loop instanceof DoWhileLoop doWhileLoop) {
-            return analyzeDoWhileLoop(doWhileLoop, tree, scopeTable);
+            return analyzeDoWhileLoop(doWhileLoop, evaluator);
         }
         return LoopIterationEstimate.unknown();
     }
@@ -78,10 +76,10 @@ public class LoopIterationAnalyzer {
         return LoopIterationEstimate.ofKind(LoopIterationCount.INFINITE, true, Range.Direction.UNKNOWN);
     }
 
-    private LoopIterationEstimate analyzeRangeForLoop(RangeForLoop loop, MeaningTree tree, ScopeTable scopeTable) {
-        Range.Direction direction = inferRangeDirection(loop.getRange(), tree, scopeTable, loop);
-        OptionalLong startOpt = evaluateAsLong(loop.getStart(), Map.of(), tree, scopeTable, loop);
-        OptionalLong stopOpt = evaluateAsLong(loop.getStop(), Map.of(), tree, scopeTable, loop);
+    private LoopIterationEstimate analyzeRangeForLoop(RangeForLoop loop, ExpressionValueEvaluator evaluator) {
+        Range.Direction direction = inferRangeDirection(loop.getRange(), evaluator, loop);
+        OptionalLong startOpt = evaluator.evaluateAsLong(loop.getStart(), Map.of(), loop);
+        OptionalLong stopOpt = evaluator.evaluateAsLong(loop.getStop(), Map.of(), loop);
         LoopIterationEstimate estimate;
         if (startOpt.isEmpty() || stopOpt.isEmpty()) {
             estimate = LoopIterationEstimate.ofKind(
@@ -92,7 +90,7 @@ public class LoopIterationAnalyzer {
             return syncRangeMetadata(loop.getRange(), estimate);
         }
 
-        long step = evaluateRangeStep(loop.getRange(), tree, scopeTable, loop);
+        long step = evaluateRangeStep(loop.getRange(), evaluator, loop);
         estimate = estimateMonotonicLoop(
                 startOpt.getAsLong(),
                 stopOpt.getAsLong(),
@@ -103,25 +101,25 @@ public class LoopIterationAnalyzer {
         return syncRangeMetadata(loop.getRange(), estimate);
     }
 
-    private LoopIterationEstimate analyzeForEachLoop(ForEachLoop loop, MeaningTree tree, ScopeTable scopeTable) {
-        OptionalLong size = evaluateCollectionSize(loop.getExpression(), tree, scopeTable, loop);
+    private LoopIterationEstimate analyzeForEachLoop(ForEachLoop loop, ExpressionValueEvaluator evaluator) {
+        OptionalLong size = evaluator.evaluateCollectionSize(loop.getExpression(), loop);
         return size.isPresent()
                 ? LoopIterationEstimate.exact(size.getAsLong())
                 : LoopIterationEstimate.ofKind(LoopIterationCount.MANY, false);
     }
 
-    private LoopIterationEstimate analyzeGeneralForLoop(GeneralForLoop loop, MeaningTree tree, ScopeTable scopeTable) {
-        ComparisonModel comparison = extractComparison(loop.getCondition(), Map.of(), tree, scopeTable, loop);
+    private LoopIterationEstimate analyzeGeneralForLoop(GeneralForLoop loop, ExpressionValueEvaluator evaluator) {
+        ExpressionValueEvaluator.ComparisonModel comparison = evaluator.extractComparison(loop.getCondition(), Map.of(), loop);
         if (comparison == null) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
 
-        Optional<VariableState> variableState = extractInitializer(loop.getInitializer(), comparison.identifier(), tree, scopeTable, loop);
+        Optional<VariableState> variableState = extractInitializer(loop.getInitializer(), comparison.identifier(), evaluator, loop);
         if (variableState.isEmpty()) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
 
-        OptionalLong stepOpt = extractStep(loop.getUpdate(), comparison.identifier(), Map.of(comparison.identifier().getName(), variableState.get().value()), tree, scopeTable, loop);
+        OptionalLong stepOpt = extractStep(loop.getUpdate(), comparison.identifier(), Map.of(comparison.identifier().getName(), variableState.get().value()), evaluator, loop);
         if (stepOpt.isEmpty()) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
@@ -139,8 +137,8 @@ public class LoopIterationAnalyzer {
         );
     }
 
-    private LoopIterationEstimate analyzeWhileLoop(WhileLoop loop, MeaningTree tree, ScopeTable scopeTable) {
-        Optional<Boolean> constantCondition = evaluateAsBoolean(loop.getCondition(), Map.of(), tree, scopeTable, loop);
+    private LoopIterationEstimate analyzeWhileLoop(WhileLoop loop, ExpressionValueEvaluator evaluator) {
+        Optional<Boolean> constantCondition = evaluator.evaluateAsBoolean(loop.getCondition(), Map.of(), loop);
         if (constantCondition.isPresent()) {
             return constantCondition.get()
                     ? LoopIterationEstimate.ofKind(
@@ -151,17 +149,17 @@ public class LoopIterationAnalyzer {
                     : LoopIterationEstimate.exact(0);
         }
 
-        ComparisonModel comparison = extractComparison(loop.getCondition(), Map.of(), tree, scopeTable, loop);
+        ExpressionValueEvaluator.ComparisonModel comparison = evaluator.extractComparison(loop.getCondition(), Map.of(), loop);
         if (comparison == null) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
 
-        Optional<VariableState> initialState = findStateBeforeLoop(loop, comparison.identifier(), tree, scopeTable);
+        Optional<VariableState> initialState = findStateBeforeLoop(loop, comparison.identifier(), evaluator);
         if (initialState.isEmpty()) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
 
-        OptionalLong stepOpt = extractSingleBodyStep(loop.getBody(), comparison.identifier(), initialState.get().declarationType(), Map.of(comparison.identifier().getName(), initialState.get().value()), tree, scopeTable, loop);
+        OptionalLong stepOpt = extractSingleBodyStep(loop.getBody(), comparison.identifier(), initialState.get().declarationType(), Map.of(comparison.identifier().getName(), initialState.get().value()), evaluator, loop);
         if (stepOpt.isEmpty()) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
@@ -175,25 +173,25 @@ public class LoopIterationAnalyzer {
         );
     }
 
-    private LoopIterationEstimate analyzeDoWhileLoop(DoWhileLoop loop, MeaningTree tree, ScopeTable scopeTable) {
-        Optional<Boolean> constantCondition = evaluateAsBoolean(loop.getCondition(), Map.of(), tree, scopeTable, loop);
+    private LoopIterationEstimate analyzeDoWhileLoop(DoWhileLoop loop, ExpressionValueEvaluator evaluator) {
+        Optional<Boolean> constantCondition = evaluator.evaluateAsBoolean(loop.getCondition(), Map.of(), loop);
         if (constantCondition.isPresent() && !constantCondition.get()) {
             return LoopIterationEstimate.exact(1);
         }
 
-        ComparisonModel comparison = extractComparison(loop.getCondition(), Map.of(), tree, scopeTable, loop);
+        ExpressionValueEvaluator.ComparisonModel comparison = evaluator.extractComparison(loop.getCondition(), Map.of(), loop);
         if (comparison == null) {
             return constantCondition.orElse(false)
                     ? LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false)
                     : LoopIterationEstimate.ofKind(LoopIterationCount.MANY, false);
         }
 
-        Optional<VariableState> initialState = findStateBeforeLoop(loop, comparison.identifier(), tree, scopeTable);
+        Optional<VariableState> initialState = findStateBeforeLoop(loop, comparison.identifier(), evaluator);
         if (initialState.isEmpty()) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
 
-        OptionalLong stepOpt = extractSingleBodyStep(loop.getBody(), comparison.identifier(), initialState.get().declarationType(), Map.of(comparison.identifier().getName(), initialState.get().value()), tree, scopeTable, loop);
+        OptionalLong stepOpt = extractSingleBodyStep(loop.getBody(), comparison.identifier(), initialState.get().declarationType(), Map.of(comparison.identifier().getName(), initialState.get().value()), evaluator, loop);
         if (stepOpt.isEmpty()) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
@@ -227,13 +225,12 @@ public class LoopIterationAnalyzer {
 
     private Optional<VariableState> extractInitializer(@Nullable Node initializer,
                                                        SimpleIdentifier identifier,
-                                                       MeaningTree tree,
-                                                       ScopeTable scopeTable,
+                                                       ExpressionValueEvaluator evaluator,
                                                        Loop contextLoop) {
         if (initializer instanceof VariableDeclaration declaration) {
             for (VariableDeclarator declarator : declaration.getDeclarators()) {
                 if (identifier.equals(declarator.getIdentifier()) && declarator.hasInitialization()) {
-                    OptionalLong value = evaluateAsLong(declarator.getRValue(), Map.of(), tree, scopeTable, contextLoop);
+                    OptionalLong value = evaluator.evaluateAsLong(declarator.getRValue(), Map.of(), contextLoop);
                     if (value.isPresent()) {
                         return Optional.of(new VariableState(value.getAsLong(), declaration.getType()));
                     }
@@ -241,7 +238,7 @@ public class LoopIterationAnalyzer {
             }
         } else if (initializer instanceof AssignmentStatement assignment) {
             if (isIdentifier(assignment.getLValue(), identifier)) {
-                OptionalLong value = evaluateAssignedValue(assignment, Map.of(), tree, scopeTable, contextLoop);
+                OptionalLong value = evaluateAssignedValue(assignment, Map.of(), evaluator, contextLoop);
                 if (value.isPresent()) {
                     return Optional.of(new VariableState(value.getAsLong(), null));
                 }
@@ -249,7 +246,7 @@ public class LoopIterationAnalyzer {
         } else if (initializer instanceof CompoundAssignmentStatement compound) {
             for (AssignmentStatement assignment : compound.getAssignments()) {
                 if (isIdentifier(assignment.getLValue(), identifier)) {
-                    OptionalLong value = evaluateAssignedValue(assignment, Map.of(), tree, scopeTable, contextLoop);
+                    OptionalLong value = evaluateAssignedValue(assignment, Map.of(), evaluator, contextLoop);
                     if (value.isPresent()) {
                         return Optional.of(new VariableState(value.getAsLong(), null));
                     }
@@ -261,8 +258,8 @@ public class LoopIterationAnalyzer {
 
     private Optional<VariableState> findStateBeforeLoop(Loop loop,
                                                         SimpleIdentifier identifier,
-                                                        MeaningTree tree,
-                                                        ScopeTable scopeTable) {
+                                                        ExpressionValueEvaluator evaluator) {
+        MeaningTree tree = evaluator.getTree();
         NodeInfo loopInfo = tree.getNodeById(loop.getId());
         if (loopInfo == null || !(loopInfo.parentNode() instanceof CompoundStatement parentBody) || loopInfo.field() == null || !loopInfo.field().isIndexed()) {
             return Optional.empty();
@@ -278,11 +275,9 @@ public class LoopIterationAnalyzer {
         if (previous instanceof VariableDeclaration declaration) {
             for (VariableDeclarator declarator : declaration.getDeclarators()) {
                 if (identifier.equals(declarator.getIdentifier()) && declarator.hasInitialization()) {
-                    OptionalLong value = evaluateAsLong(
+                    OptionalLong value = evaluator.evaluateAsLong(
                             declarator.getRValue(),
                             Map.of(),
-                            tree,
-                            scopeTable,
                             loop
                     );
                     if (value.isPresent()) {
@@ -291,9 +286,9 @@ public class LoopIterationAnalyzer {
                 }
             }
         } else if (previous instanceof AssignmentStatement assignment && isIdentifier(assignment.getLValue(), identifier)) {
-            OptionalLong value = evaluateAssignedValue(assignment, Map.of(), tree, scopeTable, loop);
+            OptionalLong value = evaluateAssignedValue(assignment, Map.of(), evaluator, loop);
             if (value.isPresent()) {
-                return Optional.of(new VariableState(value.getAsLong(), visibleType(identifier, loop, tree, scopeTable)));
+                return Optional.of(new VariableState(value.getAsLong(), evaluator.visibleType(identifier, loop)));
             }
         }
 
@@ -304,8 +299,7 @@ public class LoopIterationAnalyzer {
                                                SimpleIdentifier identifier,
                                                @Nullable Node declarationType,
                                                Map<String, Long> env,
-                                               MeaningTree tree,
-                                               ScopeTable scopeTable,
+                                               ExpressionValueEvaluator evaluator,
                                                Loop contextLoop) {
         if (!isBodyStable(body, identifier, declarationType)) {
             return OptionalLong.empty();
@@ -314,7 +308,7 @@ public class LoopIterationAnalyzer {
         Long foundStep = null;
         for (NodeInfo info : body.iterate(true)) {
             Node node = info.node();
-            OptionalLong step = extractStepFromNode(node, identifier, env, tree, scopeTable, contextLoop);
+            OptionalLong step = extractStepFromNode(node, identifier, env, evaluator, contextLoop);
             if (step.isPresent()) {
                 if (foundStep != null) {
                     return OptionalLong.empty();
@@ -389,17 +383,15 @@ public class LoopIterationAnalyzer {
     private OptionalLong extractStep(@Nullable Expression expression,
                                      SimpleIdentifier identifier,
                                      Map<String, Long> env,
-                                     MeaningTree tree,
-                                     ScopeTable scopeTable,
+                                     ExpressionValueEvaluator evaluator,
                                      Loop contextLoop) {
-        return extractStepFromNode(expression, identifier, env, tree, scopeTable, contextLoop);
+        return extractStepFromNode(expression, identifier, env, evaluator, contextLoop);
     }
 
     private OptionalLong extractStepFromNode(@Nullable Node node,
                                              SimpleIdentifier identifier,
                                              Map<String, Long> env,
-                                             MeaningTree tree,
-                                             ScopeTable scopeTable,
+                                             ExpressionValueEvaluator evaluator,
                                              Loop contextLoop) {
         if (node == null) {
             return OptionalLong.empty();
@@ -417,18 +409,17 @@ public class LoopIterationAnalyzer {
             return OptionalLong.of(-1);
         }
         if (node instanceof AssignmentStatement assignment && isIdentifier(assignment.getLValue(), identifier)) {
-            return extractStepFromAssignment(assignment, identifier, env, tree, scopeTable, contextLoop);
+            return extractStepFromAssignment(assignment, identifier, env, evaluator, contextLoop);
         }
         if (node instanceof ExpressionStatement statement) {
-            return extractStepFromNode(statement.getExpression(), identifier, env, tree, scopeTable, contextLoop);
+            return extractStepFromNode(statement.getExpression(), identifier, env, evaluator, contextLoop);
         }
         if (node instanceof AssignmentExpression assignment && isIdentifier(assignment.getLValue(), identifier)) {
             return extractStepFromAssignment(
                     new AssignmentStatement(assignment.getLValue(), assignment.getRValue(), assignment.getAugmentedOperator()),
                     identifier,
                     env,
-                    tree,
-                    scopeTable,
+                    evaluator,
                     contextLoop
             );
         }
@@ -438,14 +429,13 @@ public class LoopIterationAnalyzer {
     private OptionalLong extractStepFromAssignment(AssignmentStatement assignment,
                                                    SimpleIdentifier identifier,
                                                    Map<String, Long> env,
-                                                   MeaningTree tree,
-                                                   ScopeTable scopeTable,
+                                                   ExpressionValueEvaluator evaluator,
                                                    Loop contextLoop) {
         return switch (assignment.getAugmentedOperator()) {
-            case ADD -> evaluateAsLong(assignment.getRValue(), env, tree, scopeTable, contextLoop);
-            case SUB -> evaluateAsLong(assignment.getRValue(), env, tree, scopeTable, contextLoop).stream().map(v -> -v).findFirst();
+            case ADD -> evaluator.evaluateAsLong(assignment.getRValue(), env, contextLoop);
+            case SUB -> evaluator.evaluateAsLong(assignment.getRValue(), env, contextLoop).stream().map(v -> -v).findFirst();
             case NONE -> {
-                OptionalLong value = evaluateAsLong(assignment.getRValue(), env, tree, scopeTable, contextLoop);
+                OptionalLong value = evaluator.evaluateAsLong(assignment.getRValue(), env, contextLoop);
                 if (value.isPresent() && env.containsKey(identifier.getName())) {
                     yield OptionalLong.of(value.getAsLong() - env.get(identifier.getName()));
                 }
@@ -457,213 +447,21 @@ public class LoopIterationAnalyzer {
 
     private OptionalLong evaluateAssignedValue(AssignmentStatement assignment,
                                                Map<String, Long> env,
-                                               MeaningTree tree,
-                                               ScopeTable scopeTable,
+                                               ExpressionValueEvaluator evaluator,
                                                Loop contextLoop) {
-        OptionalLong rightValue = evaluateAsLong(assignment.getRValue(), env, tree, scopeTable, contextLoop);
+        OptionalLong rightValue = evaluator.evaluateAsLong(assignment.getRValue(), env, contextLoop);
         if (rightValue.isEmpty()) {
             return OptionalLong.empty();
         }
 
         return switch (assignment.getAugmentedOperator()) {
             case NONE -> rightValue;
-            case ADD -> evaluateAsLong(assignment.getLValue(), env, tree, scopeTable, contextLoop)
-                    .isPresent() ? OptionalLong.of(evaluateAsLong(assignment.getLValue(), env, tree, scopeTable, contextLoop).getAsLong() + rightValue.getAsLong()) : OptionalLong.empty();
-            case SUB -> evaluateAsLong(assignment.getLValue(), env, tree, scopeTable, contextLoop)
-                    .isPresent() ? OptionalLong.of(evaluateAsLong(assignment.getLValue(), env, tree, scopeTable, contextLoop).getAsLong() - rightValue.getAsLong()) : OptionalLong.empty();
+            case ADD -> evaluator.evaluateAsLong(assignment.getLValue(), env, contextLoop)
+                    .isPresent() ? OptionalLong.of(evaluator.evaluateAsLong(assignment.getLValue(), env, contextLoop).getAsLong() + rightValue.getAsLong()) : OptionalLong.empty();
+            case SUB -> evaluator.evaluateAsLong(assignment.getLValue(), env, contextLoop)
+                    .isPresent() ? OptionalLong.of(evaluator.evaluateAsLong(assignment.getLValue(), env, contextLoop).getAsLong() - rightValue.getAsLong()) : OptionalLong.empty();
             default -> OptionalLong.empty();
         };
-    }
-
-    private Optional<Boolean> evaluateAsBoolean(@Nullable Expression expression,
-                                                Map<String, Long> env,
-                                                MeaningTree tree,
-                                                ScopeTable scopeTable,
-                                                Loop contextLoop) {
-        if (expression == null) {
-            return Optional.empty();
-        }
-        expression = unwrap(expression);
-        if (expression instanceof BoolLiteral boolLiteral) {
-            return Optional.of(boolLiteral.getValue());
-        }
-        if (expression instanceof NotOp notOp) {
-            return evaluateAsBoolean((Expression) notOp.getArgument(), env, tree, scopeTable, contextLoop).map(v -> !v);
-        }
-        if (expression instanceof ShortCircuitAndOp andOp) {
-            Optional<Boolean> left = evaluateAsBoolean(andOp.getLeft(), env, tree, scopeTable, contextLoop);
-            Optional<Boolean> right = evaluateAsBoolean(andOp.getRight(), env, tree, scopeTable, contextLoop);
-            if (left.isPresent() && right.isPresent()) {
-                return Optional.of(left.get() && right.get());
-            }
-            return Optional.empty();
-        }
-        if (expression instanceof ShortCircuitOrOp orOp) {
-            Optional<Boolean> left = evaluateAsBoolean(orOp.getLeft(), env, tree, scopeTable, contextLoop);
-            Optional<Boolean> right = evaluateAsBoolean(orOp.getRight(), env, tree, scopeTable, contextLoop);
-            if (left.isPresent() && right.isPresent()) {
-                return Optional.of(left.get() || right.get());
-            }
-            return Optional.empty();
-        }
-        ComparisonModel comparison = extractComparison(expression, env, tree, scopeTable, contextLoop);
-        if (comparison != null && env.containsKey(comparison.identifier().getName())) {
-            return Optional.of(testCondition(env.get(comparison.identifier().getName()), comparison.bound(), comparison.operator()));
-        }
-        return Optional.empty();
-    }
-
-    private OptionalLong evaluateAsLong(@Nullable Expression expression,
-                                        Map<String, Long> env,
-                                        MeaningTree tree,
-                                        ScopeTable scopeTable,
-                                        Loop contextLoop) {
-        if (expression == null) {
-            return OptionalLong.empty();
-        }
-        expression = unwrap(expression);
-        if (expression instanceof IntegerLiteral integerLiteral) {
-            return OptionalLong.of(integerLiteral.getLongValue());
-        }
-        if (expression instanceof SimpleIdentifier identifier) {
-            Long envValue = env.get(identifier.getName());
-            if (envValue != null) {
-                return OptionalLong.of(envValue);
-            }
-            return resolveVisibleConstant(identifier, tree, scopeTable, contextLoop);
-        }
-        if (expression instanceof UnaryPlusOp unaryPlusOp) {
-            return evaluateAsLong((Expression) unaryPlusOp.getArgument(), env, tree, scopeTable, contextLoop);
-        }
-        if (expression instanceof UnaryMinusOp unaryMinusOp) {
-            OptionalLong arg = evaluateAsLong((Expression) unaryMinusOp.getArgument(), env, tree, scopeTable, contextLoop);
-            return arg.isPresent() ? OptionalLong.of(-arg.getAsLong()) : OptionalLong.empty();
-        }
-        if (expression instanceof AddOp addOp) {
-            OptionalLong left = evaluateAsLong(addOp.getLeft(), env, tree, scopeTable, contextLoop);
-            OptionalLong right = evaluateAsLong(addOp.getRight(), env, tree, scopeTable, contextLoop);
-            return left.isPresent() && right.isPresent() ? OptionalLong.of(left.getAsLong() + right.getAsLong()) : OptionalLong.empty();
-        }
-        if (expression instanceof SubOp subOp) {
-            OptionalLong left = evaluateAsLong(subOp.getLeft(), env, tree, scopeTable, contextLoop);
-            OptionalLong right = evaluateAsLong(subOp.getRight(), env, tree, scopeTable, contextLoop);
-            return left.isPresent() && right.isPresent() ? OptionalLong.of(left.getAsLong() - right.getAsLong()) : OptionalLong.empty();
-        }
-        return OptionalLong.empty();
-    }
-
-    private OptionalLong resolveVisibleConstant(SimpleIdentifier identifier,
-                                               MeaningTree tree,
-                                               ScopeTable scopeTable,
-                                               Loop contextLoop) {
-        ScopeTableElement scope = visibleScope(contextLoop, tree, scopeTable);
-        if (scope == null) {
-            return OptionalLong.empty();
-        }
-
-        Optional<VariableDeclaration> declaration = scope.getVariableDeclaration(identifier, null);
-        if (declaration.isEmpty()) {
-            return OptionalLong.empty();
-        }
-        for (VariableDeclarator declarator : declaration.get().getDeclarators()) {
-            if (identifier.equals(declarator.getIdentifier()) && declarator.hasInitialization()) {
-                return evaluateAsLong(declarator.getRValue(), Map.of(), tree, scopeTable, contextLoop);
-            }
-        }
-        return OptionalLong.empty();
-    }
-
-    private ScopeTableElement visibleScope(Loop loop, MeaningTree tree, ScopeTable scopeTable) {
-        if (loop.getBody() instanceof CompoundStatement compound && compound.getScopeId().isPresent()) {
-            return scopeTable.findScope(compound.getScopeId().getAsLong()).orElse(null);
-        }
-
-        NodeInfo loopInfo = tree.getNodeById(loop.getId());
-        if (loopInfo != null && loopInfo.parentNode() instanceof CompoundStatement parentCompound && parentCompound.getScopeId().isPresent()) {
-            return scopeTable.findScope(parentCompound.getScopeId().getAsLong()).orElse(null);
-        }
-        return null;
-    }
-
-    private @Nullable org.vstu.meaningtree.nodes.Node visibleType(SimpleIdentifier identifier,
-                                                                  Loop loop,
-                                                                  MeaningTree tree,
-                                                                  ScopeTable scopeTable) {
-        ScopeTableElement scope = visibleScope(loop, tree, scopeTable);
-        return scope == null ? null : scope.getVariableType(identifier);
-    }
-
-    private OptionalLong evaluateCollectionSize(Expression expression,
-                                                MeaningTree tree,
-                                                ScopeTable scopeTable,
-                                                Loop contextLoop) {
-        expression = unwrap(expression);
-        if (expression instanceof PlainCollectionLiteral plainCollectionLiteral) {
-            return OptionalLong.of(plainCollectionLiteral.getList().size());
-        }
-        if (expression instanceof DictionaryLiteral dictionaryLiteral) {
-            return OptionalLong.of(dictionaryLiteral.getContent().size());
-        }
-        if (expression instanceof StringLiteral stringLiteral) {
-            return OptionalLong.of(stringLiteral.getUnescapedValue().length());
-        }
-        if (expression instanceof SimpleIdentifier identifier) {
-            ScopeTableElement scope = visibleScope(contextLoop, tree, scopeTable);
-            if (scope == null) {
-                return OptionalLong.empty();
-            }
-            Optional<VariableDeclaration> declaration = scope.getVariableDeclaration(identifier, null);
-            if (declaration.isEmpty()) {
-                return OptionalLong.empty();
-            }
-            for (VariableDeclarator declarator : declaration.get().getDeclarators()) {
-                if (identifier.equals(declarator.getIdentifier()) && declarator.hasInitialization()) {
-                    return evaluateCollectionSize(declarator.getRValue(), tree, scopeTable, contextLoop);
-                }
-            }
-        }
-        return OptionalLong.empty();
-    }
-
-    private ComparisonModel extractComparison(@Nullable Expression expression,
-                                              Map<String, Long> env,
-                                              MeaningTree tree,
-                                              ScopeTable scopeTable,
-                                              Loop contextLoop) {
-        if (!(unwrap(expression) instanceof BinaryComparison comparison)) {
-            return null;
-        }
-
-        if (comparison.getLeft() instanceof SimpleIdentifier identifier) {
-            OptionalLong bound = evaluateAsLong(comparison.getRight(), env, tree, scopeTable, contextLoop);
-            if (bound.isPresent()) {
-                return new ComparisonModel(identifier, bound.getAsLong(), comparison.getClass());
-            }
-        }
-
-        if (comparison.getRight() instanceof SimpleIdentifier identifier) {
-            OptionalLong bound = evaluateAsLong(comparison.getLeft(), env, tree, scopeTable, contextLoop);
-            if (bound.isPresent()) {
-                return new ComparisonModel(identifier, bound.getAsLong(), invertComparison(comparison.getClass()));
-            }
-        }
-        return null;
-    }
-
-    private Class<? extends BinaryComparison> invertComparison(Class<? extends BinaryComparison> comparisonClass) {
-        if (comparisonClass == LtOp.class) {
-            return GtOp.class;
-        }
-        if (comparisonClass == LeOp.class) {
-            return GeOp.class;
-        }
-        if (comparisonClass == GtOp.class) {
-            return LtOp.class;
-        }
-        if (comparisonClass == GeOp.class) {
-            return LeOp.class;
-        }
-        return comparisonClass;
     }
 
     private LoopIterationEstimate estimateMonotonicLoop(long start,
@@ -720,12 +518,12 @@ public class LoopIterationAnalyzer {
         return false;
     }
 
-    private long evaluateRangeStep(Range range, MeaningTree tree, ScopeTable scopeTable, Loop loop) {
-        OptionalLong explicitStep = evaluateAsLong(range.getStep(), Map.of(), tree, scopeTable, loop);
+    private long evaluateRangeStep(Range range, ExpressionValueEvaluator evaluator, Loop loop) {
+        OptionalLong explicitStep = evaluator.evaluateAsLong(range.getStep(), Map.of(), loop);
         if (explicitStep.isPresent()) {
             return explicitStep.getAsLong();
         }
-        return inferRangeDirection(range, tree, scopeTable, loop) == Range.Direction.DOWN ? -1 : 1;
+        return inferRangeDirection(range, evaluator, loop) == Range.Direction.DOWN ? -1 : 1;
     }
 
     private Class<? extends BinaryComparison> detectRangeOperator(Range range) {
@@ -736,22 +534,21 @@ public class LoopIterationAnalyzer {
     }
 
     private Range.Direction inferRangeDirection(Range range,
-                                                MeaningTree tree,
-                                                ScopeTable scopeTable,
+                                                ExpressionValueEvaluator evaluator,
                                                 Loop loop) {
         Range.Direction direction = range.getDirection();
         if (direction != Range.Direction.UNKNOWN) {
             return direction;
         }
 
-        OptionalLong explicitStep = evaluateAsLong(range.getStep(), Map.of(), tree, scopeTable, loop);
+        OptionalLong explicitStep = evaluator.evaluateAsLong(range.getStep(), Map.of(), loop);
         if (explicitStep.isPresent()) {
             direction = directionFromStep(explicitStep.getAsLong());
         }
 
         if (direction == Range.Direction.UNKNOWN) {
-            OptionalLong start = evaluateAsLong(range.getStart(), Map.of(), tree, scopeTable, loop);
-            OptionalLong stop = evaluateAsLong(range.getStop(), Map.of(), tree, scopeTable, loop);
+            OptionalLong start = evaluator.evaluateAsLong(range.getStart(), Map.of(), loop);
+            OptionalLong stop = evaluator.evaluateAsLong(range.getStop(), Map.of(), loop);
             if (start.isPresent() && stop.isPresent()) {
                 direction = Long.compare(start.getAsLong(), stop.getAsLong()) < 0
                         ? Range.Direction.UP
@@ -849,11 +646,6 @@ public class LoopIterationAnalyzer {
             return unwrap(parenthesizedExpression.getExpression());
         }
         return node;
-    }
-
-    private record ComparisonModel(SimpleIdentifier identifier,
-                                   long bound,
-                                   Class<? extends BinaryComparison> operator) {
     }
 
     private record VariableState(long value, @Nullable Node declarationType) {

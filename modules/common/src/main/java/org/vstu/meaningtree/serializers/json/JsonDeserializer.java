@@ -459,6 +459,10 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     node.setLabel(label);
                 }
             }
+
+            if (node instanceof Expression expression && json.has("value_estimate") && !json.get("value_estimate").isJsonNull()) {
+                expression.setValueEstimate(deserializeExpressionValueEstimate(json.getAsJsonObject("value_estimate")));
+            }
         }
 
         return node;
@@ -1339,6 +1343,41 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 ? parseEnum(Range.Direction.class, json.get("direction").getAsString())
                 : Range.Direction.UNKNOWN;
         return new LoopIterationEstimate(kind, exactIterations, reliable, direction);
+    }
+
+    private ExpressionValueEstimate<Object> deserializeExpressionValueEstimate(JsonObject json) {
+        Optional<Object> exactValue = json.has("exact_value") && !json.get("exact_value").isJsonNull()
+                ? Optional.of(deserializeEstimateValue(json.get("exact_value")))
+                : Optional.empty();
+        LinkedHashSet<Object> possibleValues = new LinkedHashSet<>();
+        if (json.has("possible_values") && !json.get("possible_values").isJsonNull()) {
+            for (JsonElement element : json.getAsJsonArray("possible_values")) {
+                possibleValues.add(deserializeEstimateValue(element));
+            }
+        }
+        boolean reliable = json.has("reliable") && json.get("reliable").getAsBoolean();
+        return new ExpressionValueEstimate<>(exactValue, possibleValues, reliable);
+    }
+
+    private Object deserializeEstimateValue(JsonElement json) {
+        if (json == null || json.isJsonNull()) {
+            return null;
+        }
+        JsonPrimitive primitive = json.getAsJsonPrimitive();
+        if (primitive.isBoolean()) {
+            return primitive.getAsBoolean();
+        }
+        if (primitive.isString()) {
+            return primitive.getAsString();
+        }
+        if (primitive.isNumber()) {
+            String number = primitive.getAsString();
+            if (number.contains(".") || number.contains("e") || number.contains("E")) {
+                return primitive.getAsDouble();
+            }
+            return primitive.getAsLong();
+        }
+        throw new MeaningTreeSerializationException("Unsupported expression estimate value: " + json);
     }
 
     private Comprehension.ComprehensionItem deserializeComprehensionItem(JsonObject json) {

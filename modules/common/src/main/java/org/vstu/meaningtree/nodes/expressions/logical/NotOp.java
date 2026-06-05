@@ -7,9 +7,4 @@ public class NotOp extends UnaryExpression {
     public NotOp(Expression argument) {
         super(argument);
     }
-
-    @Override
-    public boolean canBeEvaluatedToBoolean() {
-        return true;
-    }
 }

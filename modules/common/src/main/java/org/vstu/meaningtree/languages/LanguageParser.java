@@ -13,6 +13,7 @@ import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Hook;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
+import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEvaluator;
 import org.vstu.meaningtree.utils.analysis.loops.LoopIterationAnalyzer;
 
 import java.util.*;
@@ -217,6 +218,8 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
     }
 
     public void postProcessTree(MeaningTree meaningTree) {
+        ExpressionValueEvaluator expressionValueEvaluator = new ExpressionValueEvaluator(meaningTree, ctx.getGlobalScope());
+        expressionValueEvaluator.analyze();
         loopIterationAnalyzer.analyze(meaningTree, ctx.getGlobalScope());
     }
 

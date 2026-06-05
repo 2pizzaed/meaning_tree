@@ -7,9 +7,4 @@ public class LongCircuitOrOp extends BinaryExpression {
     public LongCircuitOrOp(Expression left, Expression right) {
         super(left, right);
     }
-
-    @Override
-    public boolean canBeEvaluatedToBoolean() {
-        return true;
-    }
 }

@@ -1,4 +1,4 @@
-package org.vstu.meaningtree.utils.scopes;
+package org.vstu.meaningtree.utils.analysis.types;
 
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.nodes.*;
@@ -36,6 +36,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
+import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
 import java.util.ArrayList;
 import java.util.List;

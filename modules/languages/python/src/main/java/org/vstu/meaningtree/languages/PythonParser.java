@@ -56,7 +56,7 @@ import org.vstu.meaningtree.nodes.types.containers.OrderedDictionaryType;
 import org.vstu.meaningtree.nodes.types.containers.SetType;
 import org.vstu.meaningtree.nodes.types.containers.UnmodifiableListType;
 import org.vstu.meaningtree.nodes.types.user.Class;
-import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
+import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;

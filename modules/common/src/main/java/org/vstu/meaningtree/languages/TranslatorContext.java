@@ -6,8 +6,8 @@ import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.modules.Import;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
-import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
 
 import java.lang.reflect.Method;
 import java.util.*;

@@ -61,10 +61,7 @@ import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 import org.vstu.meaningtree.utils.tokens.*;
 
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Experimental
 public class JsonDeserializer implements Deserializer<JsonObject> {
@@ -722,8 +719,15 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         ? deserializeExpression(json.getAsJsonObject("step")) : null;
                 boolean isExcludingStart = json.get("isExcludingStart").getAsBoolean();
                 boolean isExcludingEnd = json.get("isExcludingEnd").getAsBoolean();
-                Range.Type rangeType = parseEnum(Range.Type.class, json.get("rangeType").getAsString());
-                yield new Range(start, stop, step, isExcludingStart, isExcludingEnd, rangeType);
+                JsonElement directionElement = json.has("direction") ? json.get("direction") : json.get("rangeType");
+                Range.Direction direction = directionElement != null && !directionElement.isJsonNull()
+                        ? parseEnum(Range.Direction.class, directionElement.getAsString())
+                        : Range.Direction.UNKNOWN;
+                Range range = new Range(start, stop, step, isExcludingStart, isExcludingEnd, direction);
+                if (json.has("iteration_estimate") && !json.get("iteration_estimate").isJsonNull()) {
+                    range.setIterationEstimate(deserializeLoopIterationEstimate(json.getAsJsonObject("iteration_estimate")));
+                }
+                yield range;
             }
             case "key_value_pair" -> new KeyValuePair(
                     deserializeExpression(json.getAsJsonObject("key")),
@@ -982,6 +986,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("condition")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "do_while_loop" -> {
@@ -989,6 +994,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         deserializeExpression(json.getAsJsonObject("condition")),
                         (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "general_for_loop" -> {
@@ -1001,6 +1007,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 Statement body = (Statement) deserialize(json.getAsJsonObject("body"));
                 var loop = new GeneralForLoop(
                         initializer, condition, update, body);
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "range_for_loop" -> {
@@ -1009,6 +1016,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     (SimpleIdentifier) deserialize(json.getAsJsonObject("identifier")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "for_each_loop" -> {
@@ -1017,6 +1025,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("container")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "infinite_loop" -> {
@@ -1024,6 +1033,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     (Statement) deserialize(json.getAsJsonObject("body")),
                     LoopType.valueOf(json.get("original_loop_type").getAsString())
                 );
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "break_statement" -> {
@@ -1311,6 +1321,24 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
         Type varType = (Type) deserialize(json.getAsJsonObject("var_type"));
         List<VariableDeclarator> declarators = deserializeVariableDeclarators(json.getAsJsonArray("declarators"));
         return new VariableDeclaration(varType, declarators);
+    }
+
+    private void applyLoopMetadata(Loop loop, JsonObject json) {
+        if (json.has("iteration_estimate") && !json.get("iteration_estimate").isJsonNull()) {
+            loop.setIterationEstimate(deserializeLoopIterationEstimate(json.getAsJsonObject("iteration_estimate")));
+        }
+    }
+
+    private LoopIterationEstimate deserializeLoopIterationEstimate(JsonObject json) {
+        LoopIterationCount kind = parseEnum(LoopIterationCount.class, json.get("kind").getAsString());
+        OptionalLong exactIterations = json.has("exact_iterations") && !json.get("exact_iterations").isJsonNull()
+                ? OptionalLong.of(json.get("exact_iterations").getAsLong())
+                : OptionalLong.empty();
+        boolean reliable = json.has("reliable") && json.get("reliable").getAsBoolean();
+        Range.Direction direction = json.has("direction") && !json.get("direction").isJsonNull()
+                ? parseEnum(Range.Direction.class, json.get("direction").getAsString())
+                : Range.Direction.UNKNOWN;
+        return new LoopIterationEstimate(kind, exactIterations, reliable, direction);
     }
 
     private Comprehension.ComprehensionItem deserializeComprehensionItem(JsonObject json) {

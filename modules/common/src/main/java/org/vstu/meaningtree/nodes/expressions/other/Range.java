@@ -4,9 +4,11 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.expressions.literals.IntegerLiteral;
+import org.vstu.meaningtree.nodes.statements.loops.LoopIterationEstimate;
 import org.vstu.meaningtree.utils.InternalNode;
 
 import java.util.Objects;
+import java.util.Optional;
 
 @InternalNode
 public class Range extends Expression {
@@ -17,31 +19,32 @@ public class Range extends Expression {
     private boolean isExcludingStart;
     private boolean isExcludingEnd;
 
-    private Range.Type rangeType;
-
-    public enum Type {
+    public enum Direction {
         UP,
         DOWN,
-        UNKNOWN,
+        UNKNOWN
     }
+
+    private Direction rangeDirection;
+    private LoopIterationEstimate iterationEstimate;
 
     public Range(@Nullable Expression start,
                  @Nullable Expression stop,
                  @Nullable Expression step,
                  boolean isExcludingStart,
                  boolean isExcludingEnd,
-                 Range.Type rangeType
+                 Direction rangeDirection
     ) {
         this.start = start;
         this.stop = stop;
         this.step = step;
         this.isExcludingStart = isExcludingStart;
         this.isExcludingEnd = isExcludingEnd;
-        this.rangeType = rangeType;
+        this.rangeDirection = rangeDirection;
     }
 
     public Range(Expression start, Expression stop) {
-        this(start, stop, null, false, true, Type.UNKNOWN);
+        this(start, stop, null, false, true, Direction.UNKNOWN);
     }
 
     public static Range fromStart(Expression start) {
@@ -75,9 +78,9 @@ public class Range extends Expression {
         return isExcludingEnd;
     }
 
-    public Type getType() {
-        if (rangeType != Type.UNKNOWN) {
-            return rangeType;
+    public Direction getDirection() {
+        if (rangeDirection != Direction.UNKNOWN) {
+            return rangeDirection;
         }
 
         try {
@@ -85,20 +88,40 @@ public class Range extends Expression {
             long stop = getStopValueAsLong();
 
             if (start < stop) {
-                rangeType = Type.UP;
+                rangeDirection = Direction.UP;
             }
             else if (start > stop) {
-                rangeType = Type.DOWN;
+                rangeDirection = Direction.DOWN;
             }
             else {
-                rangeType = Type.UNKNOWN;
+                rangeDirection = Direction.UNKNOWN;
             }
         }
         catch (IllegalStateException exception) {
-            rangeType = Type.UNKNOWN;
+            rangeDirection = Direction.UNKNOWN;
         }
 
-        return rangeType;
+        return rangeDirection;
+    }
+
+    public Direction getType() {
+        return getDirection();
+    }
+
+    public void setDirection(Direction direction) {
+        rangeDirection = direction == null ? Direction.UNKNOWN : direction;
+    }
+
+    public void setType(Direction direction) {
+        setDirection(direction);
+    }
+
+    public Optional<LoopIterationEstimate> getIterationEstimate() {
+        return Optional.ofNullable(iterationEstimate);
+    }
+
+    public void setIterationEstimate(LoopIterationEstimate iterationEstimate) {
+        this.iterationEstimate = iterationEstimate;
     }
 
     public long getStartValueAsLong() throws IllegalStateException {

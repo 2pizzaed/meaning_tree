@@ -102,11 +102,11 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
     }
 
     private Node deserializeRange(SerializedNode serialized) {
-        Range.Type type = switch ((int) serialized.values.get("type")) {
-            case 0 -> Range.Type.UP;
-            case 1 -> Range.Type.DOWN;
-            case 2 -> Range.Type.UNKNOWN;
-            default -> Range.Type.UP;
+        Range.Direction type = switch ((int) serialized.values.get("type")) {
+            case 0 -> Range.Direction.UP;
+            case 1 -> Range.Direction.DOWN;
+            case 2 -> Range.Direction.UNKNOWN;
+            default -> Range.Direction.UP;
         };
         var start = serialized.fields.getOrDefault("start", null);
         var stop = serialized.fields.getOrDefault("stop", null);

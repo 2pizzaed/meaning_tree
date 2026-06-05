@@ -294,9 +294,9 @@ public class PythonParser extends LanguageParser {
                     step = exprs.get(2);
                 }
             }
-            Range.Type rangeType = Range.Type.UNKNOWN;
+            Range.Direction rangeType = Range.Direction.UNKNOWN;
             if (step instanceof IntegerLiteral intLit) {
-                rangeType = intLit.getLongValue() < 0 ? Range.Type.DOWN : Range.Type.UP;
+                rangeType = intLit.getLongValue() < 0 ? Range.Direction.DOWN : Range.Direction.UP;
             }
             return new Range(start, stop, step, false, true, rangeType);
         }
@@ -626,7 +626,7 @@ public class PythonParser extends LanguageParser {
                 }
             }
         }
-        return new Range(start, stop, step, false, true, Range.Type.UNKNOWN);
+        return new Range(start, stop, step, false, true, Range.Direction.UNKNOWN);
     }
 
     private ReturnStatement fromReturnTSNode(TSNode node) {

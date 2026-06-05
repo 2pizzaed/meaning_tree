@@ -529,7 +529,7 @@ public class CppParser extends LanguageParser {
         };
 
         if (start != null && stop != null && step != null && loopVariable != null) {
-            Range range = new Range(start, stop, step, false, isExcludingEnd, Range.Type.UNKNOWN);
+            Range range = new Range(start, stop, step, false, isExcludingEnd, Range.Direction.UNKNOWN);
             return new RangeForLoop(range, loopVariable, body);
         }
 

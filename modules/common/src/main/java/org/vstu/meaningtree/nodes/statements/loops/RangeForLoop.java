@@ -43,7 +43,7 @@ public class RangeForLoop extends ForLoop {
                         boolean isExcludingEnd,
                         SimpleIdentifier identifier,
                         Statement body) {
-        this(new Range(start, end, step, isExcludingStart, isExcludingEnd, Range.Type.UNKNOWN), identifier, body);
+        this(new Range(start, end, step, isExcludingStart, isExcludingEnd, Range.Direction.UNKNOWN), identifier, body);
     }
 
     public Range getRange() {
@@ -56,8 +56,8 @@ public class RangeForLoop extends ForLoop {
 
     public Statement getBody() { return body; }
 
-    public Range.Type getRangeType() {
-        return range.getType();
+    public Range.Direction getRangeType() {
+        return range.getDirection();
     }
 
     public Expression getStart() {
@@ -72,12 +72,8 @@ public class RangeForLoop extends ForLoop {
         return range.getStep();
     }
 
-    public long getStartValueAsLong() throws IllegalStateException {
-        return range.getStartValueAsLong();
-    }
-
-    public long getStopValueAsLong() throws IllegalStateException {
-        return range.getStopValueAsLong();
+    public boolean isExcludingEnd() {
+        return range.isExcludingEnd();
     }
 
     @Override
@@ -86,14 +82,6 @@ public class RangeForLoop extends ForLoop {
             body = new CompoundStatement(getBody());
         }
         return (CompoundStatement) body;
-    }
-
-    public long getStepValueAsLong() throws IllegalStateException {
-        return range.getStepValueAsLong();
-    }
-
-    public boolean isExcludingStop() {
-        return range.isExcludingEnd();
     }
 
     @Override

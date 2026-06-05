@@ -84,11 +84,7 @@ public abstract class LanguageTranslator implements Cloneable {
     }
 
     public MeaningTree getMeaningTree(String code) {
-        MeaningTree mt = _language.getMeaningTree(prepareCode(code));
-        _language.commitParseSession(mt);
-        mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
-        _language.rollbackContext();
-        return mt;
+        return finalizeMeaningTree(_language.getMeaningTree(prepareCode(code)));
     }
 
     protected void init(LanguageParser parser, LanguageViewer viewer) {
@@ -110,11 +106,7 @@ public abstract class LanguageTranslator implements Cloneable {
 
     @Experimental
     public MeaningTree getMeaningTree(TSNode node, String code) {
-        MeaningTree mt = _language.getMeaningTree(node, code);
-        _language.commitParseSession(mt);
-        mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
-        _language.rollbackContext();
-        return mt;
+        return finalizeMeaningTree(_language.getMeaningTree(node, code));
     }
 
     @Experimental
@@ -141,7 +133,11 @@ public abstract class LanguageTranslator implements Cloneable {
      * @return meaning tree
      */
     protected MeaningTree getMeaningTree(String code, HashMap<int[], Object> values) {
-        MeaningTree mt = _language.getMeaningTree(prepareCode(code), values);
+        return finalizeMeaningTree(_language.getMeaningTree(prepareCode(code), values));
+    }
+
+    private MeaningTree finalizeMeaningTree(MeaningTree mt) {
+        _language.postProcessTree(mt);
         _language.commitParseSession(mt);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
         _language.rollbackContext();

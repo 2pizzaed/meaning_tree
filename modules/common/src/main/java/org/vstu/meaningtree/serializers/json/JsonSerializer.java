@@ -1290,7 +1290,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
         json.add("body", serialize(stmt.getBody()));
         json.addProperty("id", stmt.getId());
-        return json;
+        return withLoopMetadata(stmt, json);
     }
 
     @NotNull
@@ -1304,8 +1304,8 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
         json.addProperty("isExcludingStart", range.isExcludingStart());
         json.addProperty("isExcludingEnd", range.isExcludingEnd());
-
-        json.addProperty("rangeType", range.getType().name().toLowerCase());
+        json.addProperty("direction", enumToValue(range.getDirection()));
+        range.getIterationEstimate().ifPresent(estimate -> json.add("iteration_estimate", serializeLoopIterationEstimate(estimate)));
 
         json.addProperty("id", range.getId());
         return json;
@@ -1321,7 +1321,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("body", serialize(stmt.getBody()));
 
         json.addProperty("id", stmt.getId());
-        return json;
+        return withLoopMetadata(stmt, json);
     }
 
     @NotNull
@@ -1333,7 +1333,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("container", serialize(stmt.getExpression()));
         json.add("body", serialize(stmt.getBody()));
 
-        return json;
+        return withLoopMetadata(stmt, json);
     }
 
     @NotNull
@@ -1345,7 +1345,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("body", serialize(stmt.getBody()));
 
         json.addProperty("id", stmt.getId());
-        return json;
+        return withLoopMetadata(stmt, json);
     }
 
     @NotNull
@@ -1440,7 +1440,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("condition", serialize(stmt.getCondition()));
 
         json.addProperty("id", stmt.getId());
-        return json;
+        return withLoopMetadata(stmt, json);
     }
 
 
@@ -2285,6 +2285,26 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(loop));
         json.add("body", serialize(loop.getBody()));
         json.addProperty("original_loop_type", enumToValue(loop.getLoopType()));
+        return withLoopMetadata(loop, json);
+    }
+
+    @NotNull
+    private JsonObject serializeLoopIterationEstimate(@NotNull LoopIterationEstimate estimate) {
+        JsonObject json = new JsonObject();
+        json.addProperty("kind", enumToValue(estimate.kind()));
+        if (estimate.exactIterations().isPresent()) {
+            json.addProperty("exact_iterations", estimate.exactIterations().getAsLong());
+        } else {
+            json.add("exact_iterations", JsonNull.INSTANCE);
+        }
+        json.addProperty("reliable", estimate.reliable());
+        json.addProperty("direction", enumToValue(estimate.direction()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject withLoopMetadata(@NotNull Loop loop, @NotNull JsonObject json) {
+        loop.getIterationEstimate().ifPresent(estimate -> json.add("iteration_estimate", serializeLoopIterationEstimate(estimate)));
         return json;
     }
 

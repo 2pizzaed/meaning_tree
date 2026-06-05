@@ -646,10 +646,10 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String getForRangeUpdate(RangeForLoop forRangeLoop) {
-        if (forRangeLoop.getRange().getType() == Range.Type.UP) {
+        if (forRangeLoop.getRangeType() == Range.Direction.UP) {
             long stepValue;
             try {
-                stepValue = forRangeLoop.getStepValueAsLong();
+                stepValue = forRangeLoop.getRange().getStepValueAsLong();
             } catch (IllegalStateException exception) {
                 return String.format("%s += %s", toString(forRangeLoop.getIdentifier()), toString(forRangeLoop.getStep()));
             }
@@ -661,10 +661,10 @@ public class CppViewer extends LanguageViewer {
                 return String.format("%s += %d", toString(forRangeLoop.getIdentifier()), stepValue);
             }
         }
-        else if (forRangeLoop.getRange().getType() == Range.Type.DOWN) {
+        else if (forRangeLoop.getRangeType() == Range.Direction.DOWN) {
             long stepValue;
             try {
-                stepValue = forRangeLoop.getStepValueAsLong();
+                stepValue = forRangeLoop.getRange().getStepValueAsLong();
             } catch (IllegalStateException exception) {
                 return String.format("%s -= %s", toString(forRangeLoop.getIdentifier()), toString(forRangeLoop.getStep()));
             }
@@ -681,9 +681,9 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String getForRangeHeader(RangeForLoop forRangeLoop) {
-        if (forRangeLoop.getRange().getType() == Range.Type.UP) {
+        if (forRangeLoop.getRangeType() == Range.Direction.UP) {
             String header = "int %s = %s; %s %s %s; %s";
-            String compOperator = forRangeLoop.isExcludingStop() ? "<" : "<=";
+            String compOperator = forRangeLoop.getRange().isExcludingEnd() ? "<" : "<=";
             String result = header.formatted(
                     toString(forRangeLoop.getIdentifier()),
                     toString(forRangeLoop.getStart()),
@@ -695,9 +695,9 @@ public class CppViewer extends LanguageViewer {
             result = this.applyHooks(forRangeLoop.getRange(), result);
             return result;
         }
-        else if (forRangeLoop.getRange().getType() == Range.Type.DOWN) {
+        else if (forRangeLoop.getRangeType() == Range.Direction.DOWN) {
             String header = "int %s = %s; %s %s %s; %s";
-            String compOperator = forRangeLoop.isExcludingStop() ? ">" : ">=";
+            String compOperator = forRangeLoop.getRange().isExcludingEnd() ? ">" : ">=";
             String result = header.formatted(
                     toString(forRangeLoop.getIdentifier()),
                     toString(forRangeLoop.getStart()),

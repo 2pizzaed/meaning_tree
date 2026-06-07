@@ -148,6 +148,19 @@ public class LoopIterationAnalyzerTests {
     }
 
     @Test
+    void generalForLoopWithoutConditionIsInfinite() {
+        SimpleIdentifier i = new SimpleIdentifier("i");
+        GeneralForLoop loop = new GeneralForLoop(
+                new VariableDeclaration(new IntType(), i, new IntegerLiteral(0)),
+                null,
+                new PostfixIncrementOp(new SimpleIdentifier("i")),
+                new CompoundStatement()
+        );
+
+        assertEstimate(analyzeLoop(loop), LoopIterationCount.INFINITE, null, true, Range.Direction.UNKNOWN);
+    }
+
+    @Test
     void whileLoopWithConstantFalseHasZeroIterations() {
         WhileLoop loop = new WhileLoop(new BoolLiteral(false), new CompoundStatement());
 

@@ -109,6 +109,12 @@ public class LoopIterationAnalyzer {
     }
 
     private LoopIterationEstimate analyzeGeneralForLoop(GeneralForLoop loop, ExpressionValueEvaluator evaluator) {
+        if (!loop.hasCondition()) {
+            return hasTopLevelEarlyExit(loop.getBody())
+                    ? LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false)
+                    : LoopIterationEstimate.ofKind(LoopIterationCount.INFINITE, true, Range.Direction.UNKNOWN);
+        }
+
         ExpressionValueEvaluator.ComparisonModel comparison = evaluator.extractComparison(loop.getCondition(), Map.of(), loop);
         if (comparison == null) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);

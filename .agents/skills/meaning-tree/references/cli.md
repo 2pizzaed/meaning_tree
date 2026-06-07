@@ -72,7 +72,9 @@ Options:
 --tokenize-noconvert         Tokenize original source without translating to another language.
 --detailed-tokens            Include extra token details, mainly useful for expressions.
 --config <json>              Apply translator config from JSON. Keys are split between source and target translators if supported.
+--skip-errors                Allow translator/parser to skip recoverable errors unless overridden by --config.
 --serialize <format>         Serialization format: json, xml, rdf, rdf-turtle, dot.
+--project <value>            Project source context as <projectRoot><pathSeparator><currentFileRelPath>.
 ```
 
 Important behavior:
@@ -81,7 +83,11 @@ Important behavior:
 If --serialize is present, translate serializes the parsed root node and returns immediately.
 If --source-map and --tokenize are both present, source-map wins after printing a warning.
 For token output, the code uses JSON unless a serializer format is otherwise active.
-For --config, do not pass --config without --to unless you verified code paths; Main.java reads the target translator class while splitting config.
+--skip-errors is enabled first in the base translator config and can still be overridden by explicit values inside --config.
+--project is applied only to the source translator in translate mode.
+--project must be passed as <projectRoot><pathSeparator><currentFileRelPath>, where <pathSeparator> is the platform path separator from Java File.pathSeparator.
+On Windows, use `;` inside --project. On Unix-like systems, use `:`.
+For --config, passing config without --to is supported; Main.java splits keys only for translators that are actually present.
 ```
 
 Examples:
@@ -104,6 +110,9 @@ java -jar modules/application/target/application-1.0-SNAPSHOT.jar translate --fr
 
 # Generate a source map for Python to Java
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar translate --from python --to java --source-map --prettify example.py source-map.json
+
+# Parse Java with project context on Windows
+java -jar modules/application/target/application-1.0-SNAPSHOT.jar translate --from java --to python --project "D:\work\demo;src\main\java\demo\Main.java" src\main\java\demo\Main.java out.py
 ```
 
 ## generate
@@ -128,6 +137,7 @@ Options:
 --source-map                 Output source map JSON instead of code.
 --start-token-id <number>    Initial token id counter. Default: 0.
 --config <json>              Apply target translator config from JSON.
+--skip-errors                Allow translator/parser to skip recoverable errors unless overridden by --config.
 --input-type <type>          Serialized object type: meaning-tree, node. Default: meaning-tree.
 --format <format>            Input serialization format: json, xml, rdf, rdf-turtle. Default: json.
 --mode <mode>                Translator mode. Actual enum values: simple, full, expression. Default: full.
@@ -141,6 +151,7 @@ Important behavior:
 ```text
 --to is always required, even for --source-map or --tokenize.
 --input-type node with --tokenize prints an error because tokenization requires a full meaning tree.
+--skip-errors is enabled first in the base translator config and can still be overridden by explicit values inside --config.
 --format controls deserialization. For token output, the same format is used if supported; otherwise JSON is the safer expectation.
 ```
 
@@ -226,4 +237,5 @@ The --mode description says "expression, short, full", but the enum is simple/fu
 translate --serialize serializes the root node, not the whole meaning tree.
 generate --input-type defaults to meaning-tree; use node only when the serialized input is a single Node.
 node-hierarchy always writes to stdout.
+translate --project uses the Java platform path separator inside a single argument, so on Windows the separator is `;`, not `:`.
 ```

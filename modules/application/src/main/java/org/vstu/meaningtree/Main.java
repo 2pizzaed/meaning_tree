@@ -65,6 +65,9 @@ public class Main {
         @Parameter(names = "--config", description = "Apply config from JSON")
         private String config = null;
 
+        @Parameter(names = "--skip-errors", description = "Allow translator/parser to skip recoverable errors unless overridden by --config")
+        private boolean skipErrors = false;
+
         @Parameter(names = "--input-type", description = "Type of serialized object: meaning-tree, node")
         private String type = "meaning-tree";
 
@@ -144,6 +147,9 @@ public class Main {
 
         @Parameter(names = "--config", description = "Apply config from JSON")
         private String config = null;
+
+        @Parameter(names = "--skip-errors", description = "Allow translator/parser to skip recoverable errors unless overridden by --config")
+        private boolean skipErrors = false;
 
         @Parameter(names = "--serialize", description = "Serialization format: json, xml, rdf, rdf-turtle, dot")
         private String serializeFormat;
@@ -285,7 +291,10 @@ public class Main {
             return;
         }
 
-        Config config = new Config(cmd.translatorMode.getConfigEntry());
+        Config config = new Config(
+                cmd.translatorMode.getConfigEntry(),
+                ConfigParameters.skipErrors.withValue(cmd.skipErrors)
+        );
         if (cmd.config != null) {
             JsonElement element = JsonParser.parseString(cmd.config);
             Config jsonConfig = new ConfigBuilder().fromJson(translators.get(toLanguage), element.getAsJsonObject()).toConfig();
@@ -367,24 +376,27 @@ public class Main {
 
         // Instantiate source-language translator
         Config fromConfig = new Config(cmd.translatorMode.getConfigEntry(),
-                ConfigParameters.bytePositionAnnotations.withValue(cmd.saveBytes));
+                ConfigParameters.bytePositionAnnotations.withValue(cmd.saveBytes),
+                ConfigParameters.skipErrors.withValue(cmd.skipErrors));
         Config toConfig = fromConfig.clone();
         if (cmd.config != null) {
             var element = JsonParser.parseString(cmd.config).getAsJsonObject();
             var fromTranslatorClass = translators.get(fromLanguage);
-            var toTranslatorClass = translators.get(toLanguage);
+            var toTranslatorClass = toLanguage == null ? null : translators.get(toLanguage);
             JsonObject toJson = new JsonObject();
             JsonObject fromJson = new JsonObject();
             for (String key : element.keySet()) {
                 if (ConfigParameters.exists(fromTranslatorClass, key)) {
                     fromJson.add(key, element.get(key));
                 }
-                if (ConfigParameters.exists(toTranslatorClass, key)) {
+                if (toTranslatorClass != null && ConfigParameters.exists(toTranslatorClass, key)) {
                     toJson.add(key, element.get(key));
                 }
             }
             fromConfig = fromConfig.merge(new ConfigBuilder().fromJson(fromTranslatorClass, fromJson).toConfig());
-            toConfig = toConfig.merge(new ConfigBuilder().fromJson(toTranslatorClass, toJson).toConfig());
+            if (toTranslatorClass != null) {
+                toConfig = toConfig.merge(new ConfigBuilder().fromJson(toTranslatorClass, toJson).toConfig());
+            }
         }
 
         LanguageTranslator fromTranslator =

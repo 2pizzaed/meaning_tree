@@ -5,6 +5,7 @@ import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.helpers.ContextualNodeRenderer;
 import org.vstu.meaningtree.languages.support.features.LabeledLoopFeature;
 import org.vstu.meaningtree.languages.support.features.PointerSubtractionInUnpackFeature;
+import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
 import org.vstu.meaningtree.languages.support.features.StatementJumpFeature;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.languages.utils.Tab;
@@ -150,6 +151,7 @@ public class PythonViewer extends LanguageViewer {
         registerPreRenderPreparation(AssignmentExpression.class, node -> (AssignmentExpression) parenFiller.process(node));
 
         registerUnsupportedFeature(new PointerSubtractionInUnpackFeature());
+        registerUnsupportedFeature(new PointerToMemberOperatorFeature());
         registerUnsupportedFeature(new LabeledLoopFeature());
         registerUnsupportedFeature(new StatementJumpFeature());
         registerUnsupportedFeature(FallthroughCaseBlock.class);

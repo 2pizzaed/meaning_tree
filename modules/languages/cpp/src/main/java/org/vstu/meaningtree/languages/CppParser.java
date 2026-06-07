@@ -33,6 +33,7 @@ import org.vstu.meaningtree.nodes.expressions.newexpr.PlacementNewExpression;
 import org.vstu.meaningtree.nodes.expressions.other.*;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerMemberAccess;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
+import org.vstu.meaningtree.nodes.expressions.pointers.PointerToMemberAccess;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
 import org.vstu.meaningtree.nodes.interfaces.HasVariableDeclaration;
@@ -1260,10 +1261,12 @@ public class CppParser extends LanguageParser {
             return rightToLeftQualified(left, right);
         } else if (node.getType().equals("field_expression")) {
             Node treeNode = parseTSNode(node.getChildByFieldName("argument"));
-            boolean isPointer = node.getChild(1).getType().equals("->");
-            if (treeNode instanceof SimpleIdentifier ident && !isPointer) {
+            String operator = node.getChild(1).getType();
+            boolean isPointer = operator.equals("->");
+            boolean isPointerToMember = operator.equals(".*") || operator.equals("->*");
+            if (treeNode instanceof SimpleIdentifier ident && !isPointer && !isPointerToMember) {
                 return new MemberAccess(ident, (SimpleIdentifier) fromIdentifier(node.getChildByFieldName("field")));
-            } else if (treeNode instanceof ScopedIdentifier ident && !isPointer) {
+            } else if (treeNode instanceof ScopedIdentifier ident && !isPointer && !isPointerToMember) {
                 List<SimpleIdentifier> identList = new ArrayList<>(ident.getScopeResolution());
                 Identifier fieldIdent = (Identifier) fromIdentifier(node.getChildByFieldName("field"));
                 if (fieldIdent instanceof SimpleIdentifier sIdent) {
@@ -1275,6 +1278,13 @@ public class CppParser extends LanguageParser {
                 }
                 return new ScopedIdentifier(identList).toMemberAccess();
             } else {
+                if (isPointerToMember) {
+                    return new PointerToMemberAccess(
+                            (Expression) parseTSNode(node.getChildByFieldName("argument")),
+                            (SimpleIdentifier) parseTSNode(node.getChildByFieldName("field")),
+                            operator.equals("->*")
+                    );
+                }
                 if (isPointer) {
                     return new PointerMemberAccess((Expression) parseTSNode(node.getChildByFieldName("argument")), (SimpleIdentifier) parseTSNode(node.getChildByFieldName("field")));
                 }

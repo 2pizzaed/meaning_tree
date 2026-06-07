@@ -7,6 +7,7 @@ import org.vstu.meaningtree.languages.support.SemanticFeature;
 import org.vstu.meaningtree.languages.support.features.ForEachMultipleDeclaratorsFeature;
 import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
 import org.vstu.meaningtree.languages.support.features.PointerSubtractionInUnpackFeature;
+import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -237,6 +238,7 @@ public class JavaViewer extends LanguageViewer {
         registerPreRenderPreparation(AssignmentExpression.class, node -> (AssignmentExpression) parenFiller.process(node));
 
         registerUnsupportedFeature(new PointerSubtractionInUnpackFeature());
+        registerUnsupportedFeature(new PointerToMemberOperatorFeature());
         registerUnsupportedFeature(new ForEachMultipleDeclaratorsFeature());
         registerUnsupportedFeature(new NonDirectionalRangeForFeature());
     }

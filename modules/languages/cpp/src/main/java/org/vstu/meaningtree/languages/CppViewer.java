@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
+import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.ListUnpackingVariableDeclaration;
@@ -188,6 +189,7 @@ public class CppViewer extends LanguageViewer {
         registerPreRenderPreparation(AssignmentExpression.class, node -> (AssignmentExpression) parenFiller.process(node));
 
         registerUnsupportedFeature(new NonDirectionalRangeForFeature());
+        registerUnsupportedFeature(new PointerToMemberOperatorFeature());
     }
 
     private final String _indentation;

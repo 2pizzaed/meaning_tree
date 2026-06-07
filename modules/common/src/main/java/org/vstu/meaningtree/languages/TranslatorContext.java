@@ -10,6 +10,7 @@ import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.util.*;
 
 public class TranslatorContext {
@@ -190,6 +191,18 @@ public class TranslatorContext {
 
     public ScopeTable getScopeTable() {
         return visibilityScope;
+    }
+
+    public Optional<Path> getProjectRootPath() {
+        return translator.getProjectRootPath();
+    }
+
+    public Optional<Path> getCurrentFileRelPath() {
+        return translator.getCurrentFileRelPath();
+    }
+
+    public boolean hasSourceContext() {
+        return translator.hasSourceContext();
     }
 
     public BodyConstructor createNodeBody() {

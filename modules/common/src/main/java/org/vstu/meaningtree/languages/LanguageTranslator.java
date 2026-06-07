@@ -19,8 +19,10 @@ import org.vstu.meaningtree.utils.tokens.TokenGroup;
 import org.vstu.meaningtree.utils.tokens.TokenList;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public abstract class LanguageTranslator implements Cloneable {
@@ -29,6 +31,8 @@ public abstract class LanguageTranslator implements Cloneable {
 
     protected Config _config = ConfigParameters.defaultConfig();
     protected ScopeTable _latestScopeTable = null;
+    private Path _projectRootPath = null;
+    private Path _currentFileRelPath = null;
 
     public abstract int getLanguageId();
 
@@ -83,8 +87,50 @@ public abstract class LanguageTranslator implements Cloneable {
         return _latestScopeTable;
     }
 
+    public LanguageTranslator withSourceContext(Path projectRootPath, Path currentFileRelPath) {
+        Objects.requireNonNull(projectRootPath, "projectRootPath must not be null");
+        Objects.requireNonNull(currentFileRelPath, "currentFileRelPath must not be null");
+
+        Path normalizedProjectRoot = projectRootPath.normalize();
+        Path normalizedCurrentFile = currentFileRelPath.normalize();
+
+        if (!normalizedProjectRoot.isAbsolute()) {
+            throw new IllegalArgumentException("projectRootPath must be absolute");
+        }
+        if (normalizedCurrentFile.isAbsolute()) {
+            throw new IllegalArgumentException("currentFileRelPath must be relative");
+        }
+
+        _projectRootPath = normalizedProjectRoot;
+        _currentFileRelPath = normalizedCurrentFile;
+        return this;
+    }
+
+    public Optional<Path> getProjectRootPath() {
+        return Optional.ofNullable(_projectRootPath);
+    }
+
+    public Optional<Path> getCurrentFileRelPath() {
+        return Optional.ofNullable(_currentFileRelPath);
+    }
+
+    public boolean hasSourceContext() {
+        return _projectRootPath != null && _currentFileRelPath != null;
+    }
+
+    protected void clearSourceContext() {
+        _projectRootPath = null;
+        _currentFileRelPath = null;
+    }
+
     public MeaningTree getMeaningTree(String code) {
-        return finalizeMeaningTree(_language.getMeaningTree(prepareCode(code)));
+        MeaningTree mt = null;
+        try {
+            mt = _language.getMeaningTree(prepareCode(code));
+            return mt;
+        } finally {
+            finalizeParsingState(mt);
+        }
     }
 
     protected void init(LanguageParser parser, LanguageViewer viewer) {
@@ -106,7 +152,13 @@ public abstract class LanguageTranslator implements Cloneable {
 
     @Experimental
     public MeaningTree getMeaningTree(TSNode node, String code) {
-        return finalizeMeaningTree(_language.getMeaningTree(node, code));
+        MeaningTree mt = null;
+        try {
+            mt = _language.getMeaningTree(node, code);
+            return mt;
+        } finally {
+            finalizeParsingState(mt);
+        }
     }
 
     @Experimental
@@ -133,15 +185,30 @@ public abstract class LanguageTranslator implements Cloneable {
      * @return meaning tree
      */
     protected MeaningTree getMeaningTree(String code, HashMap<int[], Object> values) {
-        return finalizeMeaningTree(_language.getMeaningTree(prepareCode(code), values));
+        MeaningTree mt = null;
+        try {
+            mt = _language.getMeaningTree(prepareCode(code), values);
+            return mt;
+        } finally {
+            finalizeParsingState(mt);
+        }
     }
 
-    private MeaningTree finalizeMeaningTree(MeaningTree mt) {
+    private void finalizeMeaningTree(MeaningTree mt) {
         _language.postProcessTree(mt);
         _language.commitParseSession(mt);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
-        _language.rollbackContext();
-        return mt;
+    }
+
+    private void finalizeParsingState(@Nullable MeaningTree mt) {
+        try {
+            if (mt != null) {
+                finalizeMeaningTree(mt);
+            }
+        } finally {
+            _language.rollbackContext();
+            clearSourceContext();
+        }
     }
 
     public MeaningTree getMeaningTree(TokenList tokenList) {

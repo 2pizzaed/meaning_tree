@@ -30,6 +30,7 @@ import org.vstu.meaningtree.utils.tokens.Token;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -154,6 +155,12 @@ public class Main {
         @Parameter(names = "--serialize", description = "Serialization format: json, xml, rdf, rdf-turtle, dot")
         private String serializeFormat;
 
+        @Parameter(
+                names = "--project",
+                description = "Project source context as <projectRoot><pathSeparator><currentFileRelPath>"
+        )
+        private String projectContext;
+
         @Parameter(description = "<input_file> [output_file]", required = true)
         private java.util.List<String> positionalParams;
 
@@ -175,6 +182,10 @@ public class Main {
 
         public String getOutputFile() {
             return positionalParams.size() > 1 ? positionalParams.get(1) : "-";
+        }
+
+        public String getProjectContext() {
+            return projectContext;
         }
     }
 
@@ -268,6 +279,29 @@ public class Main {
 
     private static void listSupportedLanguages() {
         System.out.println("Supported languages: " + String.join(", ", translators.keySet()));
+    }
+
+    private record ProjectSourceContext(Path projectRootPath, Path currentFileRelPath) {}
+
+    private static ProjectSourceContext parseProjectSourceContext(String rawValue) {
+        String separator = File.pathSeparator;
+        int separatorIndex = rawValue.indexOf(separator);
+        if (separatorIndex < 0) {
+            throw new IllegalArgumentException(
+                    "Project context must be in format <projectRoot>" + separator + "<currentFileRelPath>"
+            );
+        }
+
+        String projectRoot = rawValue.substring(0, separatorIndex).trim();
+        String currentFile = rawValue.substring(separatorIndex + separator.length()).trim();
+
+        if (projectRoot.isEmpty() || currentFile.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Project context must contain both project root and current file relative path"
+            );
+        }
+
+        return new ProjectSourceContext(Path.of(projectRoot), Path.of(currentFile));
     }
 
     private static void runGeneration(GenerateCommand cmd) throws Exception {
@@ -401,6 +435,18 @@ public class Main {
 
         LanguageTranslator fromTranslator =
                 translators.get(fromLanguage).getDeclaredConstructor(Config.class).newInstance(fromConfig);
+        if (cmd.getProjectContext() != null) {
+            try {
+                ProjectSourceContext projectSourceContext = parseProjectSourceContext(cmd.getProjectContext());
+                fromTranslator.withSourceContext(
+                        projectSourceContext.projectRootPath(),
+                        projectSourceContext.currentFileRelPath()
+                );
+            } catch (IllegalArgumentException e) {
+                System.err.println("Invalid --project value: " + e.getMessage());
+                return;
+            }
+        }
         var meaningTree = fromTranslator.getMeaningTree(code);
         final var rootNode = meaningTree.getRootNode();
 

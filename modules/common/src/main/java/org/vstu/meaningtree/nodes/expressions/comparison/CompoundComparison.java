@@ -31,11 +31,6 @@ public class CompoundComparison extends Expression {
     }
 
     @Override
-    public boolean evaluatesToBoolean() {
-        return true;
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;

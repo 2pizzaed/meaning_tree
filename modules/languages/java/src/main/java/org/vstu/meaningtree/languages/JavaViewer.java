@@ -7,6 +7,7 @@ import org.vstu.meaningtree.languages.support.SemanticFeature;
 import org.vstu.meaningtree.languages.support.features.ForEachMultipleDeclaratorsFeature;
 import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
 import org.vstu.meaningtree.languages.support.features.PointerSubtractionInUnpackFeature;
+import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -63,7 +64,7 @@ import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
-import org.vstu.meaningtree.utils.scopes.SimpleTypeInferrer;
+import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
 import java.util.ArrayList;
@@ -237,6 +238,7 @@ public class JavaViewer extends LanguageViewer {
         registerPreRenderPreparation(AssignmentExpression.class, node -> (AssignmentExpression) parenFiller.process(node));
 
         registerUnsupportedFeature(new PointerSubtractionInUnpackFeature());
+        registerUnsupportedFeature(new PointerToMemberOperatorFeature());
         registerUnsupportedFeature(new ForEachMultipleDeclaratorsFeature());
         registerUnsupportedFeature(new NonDirectionalRangeForFeature());
     }
@@ -1467,11 +1469,11 @@ public class JavaViewer extends LanguageViewer {
 
         if (leftValue instanceof SimpleIdentifier identifier
                 && assignmentOperator == AugmentedAssignmentOperator.NONE) {
-            Type variableType = ctx.getVisibilityScope().scope().getVariableType(identifier);
+            Type variableType = ctx.getVisibilityScope().getVariableType(identifier);
             // Objects.requireNonNull(variableType);
 
             if (variableType == null && _autoVariableDeclaration) {
-                variableType = ctx.getVisibilityScope().scope().findType(identifier).orElseThrow();
+                variableType = ctx.getVisibilityScope().findType(identifier).orElseThrow();
 
                 String typeName = toString(variableType);
                 String variableName = toString(identifier);
@@ -1591,7 +1593,7 @@ public class JavaViewer extends LanguageViewer {
         if (variableType instanceof UnknownType)
             variableType = type;
 
-        ctx.getVisibilityScope().scope().changeVariableType(
+        ctx.getVisibilityScope().changeVariableType(
                 identifier,
                 SimpleTypeInferrer.chooseGeneralType(variableType, type)
         );
@@ -1905,10 +1907,10 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String getForRangeUpdate(RangeForLoop forRangeLoop) {
-        if (forRangeLoop.getRange().getType() == Range.Type.UP) {
+        if (forRangeLoop.getRangeType() == Range.Direction.UP) {
             long stepValue;
             try {
-                stepValue = forRangeLoop.getStepValueAsLong();
+                stepValue = forRangeLoop.getRange().getStepValueAsLong();
             } catch (IllegalStateException exception) {
                 return String.format("%s += %s", toString(forRangeLoop.getIdentifier()), toString(forRangeLoop.getStep()));
             }
@@ -1920,10 +1922,10 @@ public class JavaViewer extends LanguageViewer {
                 return String.format("%s += %d", toString(forRangeLoop.getIdentifier()), stepValue);
             }
         }
-        else if (forRangeLoop.getRange().getType() == Range.Type.DOWN) {
+        else if (forRangeLoop.getRangeType() == Range.Direction.DOWN) {
             long stepValue;
             try {
-                stepValue = forRangeLoop.getStepValueAsLong();
+                stepValue = forRangeLoop.getRange().getStepValueAsLong();
             } catch (IllegalStateException exception) {
                 return String.format("%s -= %s", toString(forRangeLoop.getIdentifier()), toString(forRangeLoop.getStep()));
             }
@@ -1940,9 +1942,9 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String getForRangeHeader(RangeForLoop forRangeLoop) {
-        if (forRangeLoop.getRange().getType() == Range.Type.UP) {
+        if (forRangeLoop.getRangeType() == Range.Direction.UP) {
             String header = "int %s = %s; %s %s %s; %s"; //TODO: fix me. type may be long
-            String compOperator = forRangeLoop.isExcludingStop() ? "<" : "<=";
+            String compOperator = forRangeLoop.getRange().isExcludingEnd() ? "<" : "<=";
             String result = header.formatted(
                     toString(forRangeLoop.getIdentifier()),
                     toString(forRangeLoop.getStart()),
@@ -1954,9 +1956,9 @@ public class JavaViewer extends LanguageViewer {
             result = this.applyHooks(forRangeLoop.getRange(), result);
             return result;
         }
-        else if (forRangeLoop.getRange().getType() == Range.Type.DOWN) {
+        else if (forRangeLoop.getRangeType() == Range.Direction.DOWN) {
             String header = "int %s = %s; %s %s %s; %s";
-            String compOperator = forRangeLoop.isExcludingStop() ? ">" : ">=";
+            String compOperator = forRangeLoop.getRange().isExcludingEnd() ? ">" : ">=";
             String result = header.formatted(
                     toString(forRangeLoop.getIdentifier()),
                     toString(forRangeLoop.getStart()),

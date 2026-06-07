@@ -1,9 +1,12 @@
 package org.vstu.meaningtree.nodes;
 
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
-import org.vstu.meaningtree.nodes.expressions.logical.NotOp;
+
+import java.util.Optional;
 
 abstract public class Expression extends Node {
+    private ExpressionValueEstimate<?> valueEstimate;
+
     @Override
     public Expression clone() {
         return (Expression) super.clone();
@@ -13,14 +16,15 @@ abstract public class Expression extends Node {
         return equals(new SimpleIdentifier(name));
     }
 
-    public boolean evaluatesToBoolean() {
-        return false;
+    public Optional<ExpressionValueEstimate<?>> getValueEstimate() {
+        return Optional.ofNullable(valueEstimate);
+    }
+
+    public void setValueEstimate(ExpressionValueEstimate<?> valueEstimate) {
+        this.valueEstimate = valueEstimate;
     }
 
     public Expression tryInvert() {
-        if (evaluatesToBoolean()) {
-            return new NotOp(this);
-        }
         return this;
     }
 }

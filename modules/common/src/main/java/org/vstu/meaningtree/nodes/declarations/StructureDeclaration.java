@@ -11,13 +11,34 @@ import java.util.List;
 
 public class StructureDeclaration extends ClassDeclaration {
     public StructureDeclaration(List<DeclarationModifier> modifiers, Identifier name, Type... parents) {
-        super(modifiers, name, parents);
+        super(modifiers, name, List.of(), new Structure(name), parents);
+    }
+
+    public StructureDeclaration(List<DeclarationModifier> modifiers, Identifier name, List<Type> typeParameters, Type... parents) {
+        super(modifiers, name, typeParameters,
+                typeParameters.isEmpty()
+                        ? new Structure(name)
+                        : new GenericStructure(name, typeParameters.toArray(new Type[0])),
+                parents);
+    }
+
+    protected StructureDeclaration(List<DeclarationModifier> modifiers,
+                                   Identifier name,
+                                   List<Type> typeParameters,
+                                   UserType typeNode,
+                                   Type... parents) {
+        super(modifiers, name, typeParameters, typeNode, parents);
+    }
+
+    public static StructureDeclaration withTypeNode(List<DeclarationModifier> modifiers,
+                                                    Identifier name,
+                                                    List<Type> typeParameters,
+                                                    UserType typeNode,
+                                                    Type... parents) {
+        return new StructureDeclaration(modifiers, name, typeParameters, typeNode, parents);
     }
 
     public UserType getTypeNode() {
-        if (isGeneric()) {
-            return new GenericStructure(name, getTypeParameters().toArray(new Type[0]));
-        }
-        return new Structure(name);
+        return typeNode;
     }
 }

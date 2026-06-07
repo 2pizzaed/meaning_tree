@@ -63,16 +63,6 @@ public abstract class FieldDescriptor implements Cloneable {
     @Override
     public abstract FieldDescriptor clone();
 
-    public boolean substitute(Node value) {
-        try {
-            ensureWritable();
-            field.set(owner, value);
-            return true;
-        } catch (IllegalAccessException e) {
-            return false;
-        }
-    }
-
     public boolean canWrite() {
         return field.isAccessible() && !readOnly;
     }

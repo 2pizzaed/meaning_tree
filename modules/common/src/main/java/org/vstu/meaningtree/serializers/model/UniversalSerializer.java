@@ -462,7 +462,7 @@ public class UniversalSerializer implements Serializer<AbstractSerializedNode> {
         }}, new HashMap<>() {{
             put("isExcludingStart", range.isExcludingStart());
             put("isExcludingEnd", range.isExcludingEnd());
-            put("type", range.getType().ordinal());
+            put("type", range.getDirection().ordinal());
         }});
     }
 

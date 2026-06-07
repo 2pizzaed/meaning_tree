@@ -7,9 +7,4 @@ public class ShortCircuitAndOp extends BinaryExpression {
     public ShortCircuitAndOp(Expression left, Expression right) {
         super(left, right);
     }
-
-    @Override
-    public boolean evaluatesToBoolean() {
-        return true;
-    }
 }

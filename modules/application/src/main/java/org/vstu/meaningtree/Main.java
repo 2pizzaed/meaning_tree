@@ -30,6 +30,7 @@ import org.vstu.meaningtree.utils.tokens.Token;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -64,6 +65,9 @@ public class Main {
 
         @Parameter(names = "--config", description = "Apply config from JSON")
         private String config = null;
+
+        @Parameter(names = "--skip-errors", description = "Allow translator/parser to skip recoverable errors unless overridden by --config")
+        private boolean skipErrors = false;
 
         @Parameter(names = "--input-type", description = "Type of serialized object: meaning-tree, node")
         private String type = "meaning-tree";
@@ -145,8 +149,17 @@ public class Main {
         @Parameter(names = "--config", description = "Apply config from JSON")
         private String config = null;
 
+        @Parameter(names = "--skip-errors", description = "Allow translator/parser to skip recoverable errors unless overridden by --config")
+        private boolean skipErrors = false;
+
         @Parameter(names = "--serialize", description = "Serialization format: json, xml, rdf, rdf-turtle, dot")
         private String serializeFormat;
+
+        @Parameter(
+                names = "--project",
+                description = "Project source context as <projectRoot><pathSeparator><currentFileRelPath>"
+        )
+        private String projectContext;
 
         @Parameter(description = "<input_file> [output_file]", required = true)
         private java.util.List<String> positionalParams;
@@ -169,6 +182,10 @@ public class Main {
 
         public String getOutputFile() {
             return positionalParams.size() > 1 ? positionalParams.get(1) : "-";
+        }
+
+        public String getProjectContext() {
+            return projectContext;
         }
     }
 
@@ -264,6 +281,29 @@ public class Main {
         System.out.println("Supported languages: " + String.join(", ", translators.keySet()));
     }
 
+    private record ProjectSourceContext(Path projectRootPath, Path currentFileRelPath) {}
+
+    private static ProjectSourceContext parseProjectSourceContext(String rawValue) {
+        String separator = File.pathSeparator;
+        int separatorIndex = rawValue.indexOf(separator);
+        if (separatorIndex < 0) {
+            throw new IllegalArgumentException(
+                    "Project context must be in format <projectRoot>" + separator + "<currentFileRelPath>"
+            );
+        }
+
+        String projectRoot = rawValue.substring(0, separatorIndex).trim();
+        String currentFile = rawValue.substring(separatorIndex + separator.length()).trim();
+
+        if (projectRoot.isEmpty() || currentFile.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Project context must contain both project root and current file relative path"
+            );
+        }
+
+        return new ProjectSourceContext(Path.of(projectRoot), Path.of(currentFile));
+    }
+
     private static void runGeneration(GenerateCommand cmd) throws Exception {
         String toLanguage = cmd.getToLanguage();
         String inputFilePath = cmd.getInputFile();
@@ -285,7 +325,10 @@ public class Main {
             return;
         }
 
-        Config config = new Config(cmd.translatorMode.getConfigEntry());
+        Config config = new Config(
+                cmd.translatorMode.getConfigEntry(),
+                ConfigParameters.skipErrors.withValue(cmd.skipErrors)
+        );
         if (cmd.config != null) {
             JsonElement element = JsonParser.parseString(cmd.config);
             Config jsonConfig = new ConfigBuilder().fromJson(translators.get(toLanguage), element.getAsJsonObject()).toConfig();
@@ -367,28 +410,43 @@ public class Main {
 
         // Instantiate source-language translator
         Config fromConfig = new Config(cmd.translatorMode.getConfigEntry(),
-                ConfigParameters.bytePositionAnnotations.withValue(cmd.saveBytes));
+                ConfigParameters.bytePositionAnnotations.withValue(cmd.saveBytes),
+                ConfigParameters.skipErrors.withValue(cmd.skipErrors));
         Config toConfig = fromConfig.clone();
         if (cmd.config != null) {
             var element = JsonParser.parseString(cmd.config).getAsJsonObject();
             var fromTranslatorClass = translators.get(fromLanguage);
-            var toTranslatorClass = translators.get(toLanguage);
+            var toTranslatorClass = toLanguage == null ? null : translators.get(toLanguage);
             JsonObject toJson = new JsonObject();
             JsonObject fromJson = new JsonObject();
             for (String key : element.keySet()) {
                 if (ConfigParameters.exists(fromTranslatorClass, key)) {
                     fromJson.add(key, element.get(key));
                 }
-                if (ConfigParameters.exists(toTranslatorClass, key)) {
+                if (toTranslatorClass != null && ConfigParameters.exists(toTranslatorClass, key)) {
                     toJson.add(key, element.get(key));
                 }
             }
             fromConfig = fromConfig.merge(new ConfigBuilder().fromJson(fromTranslatorClass, fromJson).toConfig());
-            toConfig = toConfig.merge(new ConfigBuilder().fromJson(toTranslatorClass, toJson).toConfig());
+            if (toTranslatorClass != null) {
+                toConfig = toConfig.merge(new ConfigBuilder().fromJson(toTranslatorClass, toJson).toConfig());
+            }
         }
 
         LanguageTranslator fromTranslator =
                 translators.get(fromLanguage).getDeclaredConstructor(Config.class).newInstance(fromConfig);
+        if (cmd.getProjectContext() != null) {
+            try {
+                ProjectSourceContext projectSourceContext = parseProjectSourceContext(cmd.getProjectContext());
+                fromTranslator.withSourceContext(
+                        projectSourceContext.projectRootPath(),
+                        projectSourceContext.currentFileRelPath()
+                );
+            } catch (IllegalArgumentException e) {
+                System.err.println("Invalid --project value: " + e.getMessage());
+                return;
+            }
+        }
         var meaningTree = fromTranslator.getMeaningTree(code);
         final var rootNode = meaningTree.getRootNode();
 

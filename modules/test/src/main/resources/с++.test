@@ -466,10 +466,10 @@ group: ComplexExpressionTest
 
     case: ComplexTest7
         c++:
-            ((*a).*p1) + ((*(b + c)).*p2);
+            ((*a).p1) + ((*(b + c)).p2);
 
         c++:
-            ((*a).*p1) + ((*(b + c)).*p2);
+            ((*a).p1) + ((*(b + c)).p2);
 
     case: ComplexTest8
         c++:

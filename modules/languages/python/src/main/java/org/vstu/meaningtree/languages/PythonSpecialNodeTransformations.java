@@ -35,6 +35,7 @@ import org.vstu.meaningtree.nodes.statements.loops.GeneralForLoop;
 import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
+import org.vstu.meaningtree.utils.ReplaceResult;
 
 import java.util.*;
 
@@ -282,13 +283,24 @@ public class PythonSpecialNodeTransformations {
 
         for (NodeInfo info : def.getBody()) {
             if (info.node() instanceof SimpleIdentifier ident && ident.equals(instanceName)) {
-                info.field().substitute(new SelfReference(instanceName.getName()));
+                replaceOrThrow(def, info, new SelfReference(instanceName.getName()));
             } else if (info.node() instanceof SimpleIdentifier ident && ident.getName().equals("super")) {
-                info.field().substitute(new SuperClassReference());
+                replaceOrThrow(def, info, new SuperClassReference());
             }
         }
 
         return def;
+    }
+
+    private static void replaceOrThrow(Node root, NodeInfo info, Node replacement) {
+        ReplaceResult result = root.replace(info, replacement);
+        if (!result.isSuccess()) {
+            throw new IllegalStateException("Failed to replace node %s in %s: %s".formatted(
+                    info.node(),
+                    root.getNodeUniqueName(),
+                    result.message()
+            ));
+        }
     }
 
     /*

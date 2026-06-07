@@ -3,13 +3,13 @@ package org.vstu.meaningtree.nodes.statements;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.Statement;
+import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public class CompoundStatement extends Statement {
     @TreeNode private List<Node> nodes;
+    private transient ScopeTableElement scope;
 
     public CompoundStatement(Node... nodes) {
         this(List.of(nodes));
@@ -29,6 +29,18 @@ public class CompoundStatement extends Statement {
 
     public List<Node> getNodeList() {
         return List.copyOf(nodes);
+    }
+
+    public Optional<ScopeTableElement> getScope() {
+        return Optional.ofNullable(scope);
+    }
+
+    public OptionalLong getScopeId() {
+        return scope == null ? OptionalLong.empty() : OptionalLong.of(scope.getId());
+    }
+
+    public void bindScope(ScopeTableElement scope) {
+        this.scope = scope;
     }
 
     public void substitute(int index, Node node) {
@@ -54,6 +66,7 @@ public class CompoundStatement extends Statement {
     public CompoundStatement clone() {
         var clone = (CompoundStatement) super.clone();
         clone.nodes = new ArrayList<>(nodes.stream().map(Node::clone).toList());
+        clone.scope = null;
         return clone;
     }
 }

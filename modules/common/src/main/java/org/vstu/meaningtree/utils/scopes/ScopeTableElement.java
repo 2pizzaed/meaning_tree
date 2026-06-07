@@ -3,7 +3,6 @@ package org.vstu.meaningtree.utils.scopes;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.nodes.Declaration;
-import org.vstu.meaningtree.nodes.Definition;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
@@ -14,111 +13,88 @@ import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
-import org.vstu.meaningtree.nodes.modules.Import;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 
+import java.io.Serializable;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * {@code TypedEntities} представляет набор сущностей текущей области видимости,
- * включая переменные и методы с хранящимся возвращаемым типом.
- * Поддерживает вложенные области через ссылку на родительский {@code TypedEntities}.
+ * Lexical scope frame. Program-wide declarations, imports and type registries
+ * are owned by {@link ScopeTable}; this class stores only local visibility
+ * extensions and links to parent frames.
  */
-public class ScopeTableElement {
-    /**
-     * Родительская коллекция сущностей, соответствующая вышестоящей области видимости.
-     */
+public class ScopeTableElement implements Serializable {
+    private static final AtomicLong ID_GENERATOR = new AtomicLong();
+
+    private final long id;
+
     @Nullable
     private final ScopeTableElement parent;
 
     @Nullable
-    private Node owner;
+    private transient Node owner;
 
-    /**
-     * Хранилище типов переменных в текущей области (для класса - его полей)
-     */
     @NotNull
     private final Map<SimpleIdentifier, Type> variables;
 
     @NotNull
     private final Map<SimpleIdentifier, VariableDeclaration> variableDeclarations;
 
-    /**
-     * Все определения в данной области видимости (переменные не учитываются)
-     */
     @NotNull
-    private final Map<Declaration, Definition> definitions;
+    private final Map<SimpleIdentifier, Declaration> localDeclarations;
 
-    /**
-     * Все объявления типов в данной области (переменные не учитываются)
-     */
+    @NotNull
+    private final Map<Identifier, Type> declaredTypes;
+
     @NotNull
     private final Map<Type, Declaration> typeDeclarations;
 
-
-    @NotNull
-    private final Map<SimpleIdentifier, Declaration> availableDeclarations;
-
-    /**
-     * Хранилище всех доступных типов в текущей области.
-     */
-    @NotNull
-    private final Map<Identifier, Type> availableDeclaredTypes;
-
-    /**
-     * Все импорты в данной области видимости
-     */
-    @NotNull
-    private final Set<Import> externalLibrariesImport;
-
-    /**
-     * Создаёт новый набор сущностей с родителем.
-     *
-     * @param parent родительский набор сущностей или {@code null} для корневого
-     * @param owner для какого узла вводится данная область
-     */
-    public ScopeTableElement(@Nullable ScopeTableElement parent, @Nullable Node owner) {
+    public ScopeTableElement(long id, @Nullable ScopeTableElement parent, @Nullable Node owner) {
+        this.id = id;
+        ID_GENERATOR.updateAndGet(current -> Math.max(current, id));
         this.parent = parent;
-        this.owner = owner;
         this.variables = new HashMap<>();
-        this.availableDeclaredTypes = new HashMap<>();
-        this.definitions = new HashMap<>();
-        this.typeDeclarations = new HashMap<>();
         this.variableDeclarations = new HashMap<>();
-        this.availableDeclarations = new HashMap<>();
-        this.externalLibrariesImport = new HashSet<>();
+        this.localDeclarations = new HashMap<>();
+        this.declaredTypes = new HashMap<>();
+        this.typeDeclarations = new HashMap<>();
+        setOwner(owner);
     }
 
-    /**
-     * Создаёт новый набор сущностей с родителем.
-     *
-     * @param parent родительский набор сущностей или {@code null} для корневого
-     */
+    public ScopeTableElement(@Nullable ScopeTableElement parent, @Nullable Node owner) {
+        this(ID_GENERATOR.incrementAndGet(), parent, owner);
+    }
+
     public ScopeTableElement(@Nullable ScopeTableElement parent) {
         this(parent, null);
     }
 
+    public long getId() {
+        return id;
+    }
+
     public Map<Identifier, Declaration> allDeclarations() {
-        return Map.copyOf(availableDeclarations);
+        return Map.copyOf(new HashMap<Identifier, Declaration>(localDeclarations));
+    }
+
+    public Map<SimpleIdentifier, Type> allVariables() {
+        return Map.copyOf(variables);
+    }
+
+    public Map<SimpleIdentifier, VariableDeclaration> allVariableDeclarations() {
+        return Map.copyOf(variableDeclarations);
     }
 
     public Map<Identifier, Type> allTypes() {
-        return Map.copyOf(availableDeclaredTypes);
+        return Map.copyOf(declaredTypes);
     }
 
     public Map<Type, Declaration> allTypeDeclarations() {
         return Map.copyOf(typeDeclarations);
     }
 
-    public Set<Import> allImports() {
-        return Set.copyOf(externalLibrariesImport);
-    }
-
-    /**
-     * Добавляет переменную с указанным типом в текущую область.
-     *
-     */
     public void registerVariable(@NotNull VariableDeclaration variableDeclaration) {
         for (VariableDeclarator decl : variableDeclaration.getDeclarators()) {
             variables.put(decl.getIdentifier(), variableDeclaration.getType());
@@ -132,26 +108,40 @@ public class ScopeTableElement {
         }
     }
 
-    public void registerImport(@NotNull Import importDeclaration) {
-        externalLibrariesImport.add(importDeclaration);
+    public void restoreVariable(@NotNull SimpleIdentifier name,
+                                @NotNull Type type,
+                                @Nullable VariableDeclaration declaration) {
+        variables.put(name, type);
+        if (declaration != null) {
+            variableDeclarations.put(name, declaration);
+        }
     }
 
-    /**
-     * Регистрирует тип в области видимости
-     * @param type       тип, который нужно регистрировать {@code null}
-     */
+    public void registerDeclaration(@NotNull SimpleIdentifier name, @NotNull Declaration decl) {
+        localDeclarations.put(name, decl);
+        if (decl instanceof ClassDeclaration cls) {
+            Type type = cls.getTypeNode();
+            typeDeclarations.put(type, decl);
+            registerType(name, type);
+        }
+    }
+
     public Identifier registerType(@NotNull Identifier name, @NotNull Type type) {
-        if (!availableDeclaredTypes.containsValue(type)) {
-            availableDeclaredTypes.put(name, type);
+        if (!declaredTypes.containsValue(type)) {
+            declaredTypes.put(name, type);
             return name;
-        } else {
-            for (var pair : availableDeclaredTypes.entrySet()) {
-                if (pair.getValue().equals(type)) {
-                    return pair.getKey();
-                }
+        }
+
+        for (var pair : declaredTypes.entrySet()) {
+            if (pair.getValue().equals(type)) {
+                return pair.getKey();
             }
         }
-        return null;
+        return name;
+    }
+
+    public void registerTypeDeclaration(@NotNull Type type, @NotNull Declaration declaration) {
+        typeDeclarations.put(type, declaration);
     }
 
     public void removeVariable(@NotNull SimpleIdentifier name) {
@@ -160,32 +150,13 @@ public class ScopeTableElement {
             return;
         }
         variables.remove(name);
+        variableDeclarations.remove(name);
     }
 
     public boolean hasVariable(@NotNull SimpleIdentifier name) {
         return variables.containsKey(name);
     }
 
-    public void registerDeclaration(@NotNull SimpleIdentifier name, @NotNull Declaration decl) {
-        if (decl instanceof ClassDeclaration cls) {
-            typeDeclarations.put(cls.getTypeNode(), decl);
-            registerType(name, cls.getTypeNode());
-        }
-        availableDeclarations.put(name, decl);
-        definitions.put(decl, null);
-    }
-
-    public void registerDefinition(@NotNull SimpleIdentifier name, @NotNull Definition def) {
-        registerDeclaration(name, def.getDeclaration());
-        definitions.put(def.getDeclaration(), def);
-    }
-
-    /**
-     * Ищет тип переменной в текущей и родительских областях.
-     *
-     * @param name идентификатор переменной, не может быть {@code null}
-     * @return найденный тип или {@code null}, если переменная не объявлена
-     */
     @Nullable
     public Type getVariableType(@NotNull SimpleIdentifier name) {
         Type type = variables.get(name);
@@ -199,7 +170,8 @@ public class ScopeTableElement {
     }
 
     public Optional<VariableDeclaration> getVariableDeclaration(@NotNull SimpleIdentifier name, @Nullable Type type) {
-        if (variableDeclarations.containsKey(name) && (type == null || variables.containsKey(name))) {
+        if (variableDeclarations.containsKey(name)
+                && (type == null || Objects.equals(variables.get(name), type))) {
             return Optional.of(variableDeclarations.get(name));
         }
         if (parent != null) {
@@ -208,41 +180,25 @@ public class ScopeTableElement {
         return Optional.empty();
     }
 
-    /**
-     * Изменяет или создаёт переменную в текущей области.
-     *
-     * @param name                идентификатор переменной, не может быть {@code null}
-     * @param type                новый тип переменной, не может быть {@code null}
-     * @param createIfNotExists   если {@code true}, создаёт переменную при отсутствии;
-     *                            иначе выбрасывает исключение
-     * @throws IllegalArgumentException если переменная отсутствует и
-     *                                  {@code createIfNotExists} равно {@code false}
-     */
     public void changeVariableType(@NotNull SimpleIdentifier name,
                                    @NotNull Type type,
                                    boolean createIfNotExists) {
         if (getVariableType(name) == null && !createIfNotExists) {
             throw new IllegalArgumentException("No such variable: " + name);
         }
+
+        if (!variables.containsKey(name) && parent != null && parent.getVariableType(name) != null) {
+            parent.changeVariableType(name, type, false);
+            return;
+        }
+
         variables.put(name, type);
     }
 
-    /**
-     * Изменяет или создаёт переменную в текущей области.
-     *
-     * @param name идентификатор переменной, не может быть {@code null}
-     * @param type новый тип переменной, не может быть {@code null}
-     */
     public void changeVariableType(@NotNull SimpleIdentifier name, @NotNull Type type) {
         changeVariableType(name, type, true);
     }
 
-    /**
-     * Ищет возвращаемый тип метода/функции в текущей и родительских областях.
-     *
-     * @param name идентификатор метода, не может быть {@code null}
-     * @return найденный тип или {@link UnknownType}, если метод не объявлен
-     */
     @NotNull
     public Type getFunctionReturnType(@NotNull SimpleIdentifier name) {
         var method = findDeclaration(name, FunctionDeclaration.class);
@@ -253,31 +209,21 @@ public class ScopeTableElement {
         return new UnknownType();
     }
 
-    /**
-     * Возвращает карту переменных текущей области.
-     *
-     * @return карта из идентификаторов переменных в типы
-     */
     @NotNull
     public Map<SimpleIdentifier, Type> getCurrentVariables() {
-        return variables;
+        return Map.copyOf(variables);
     }
 
-    /**
-     * Возвращает карту методов текущей области.
-     *
-     * @return карта из идентификаторов методов в возвращаемые типы
-     */
     @NotNull
     public Map<Identifier, Type> getCurrentAvailableTypes() {
-        return availableDeclaredTypes;
+        return Map.copyOf(declaredTypes);
     }
 
-    public Optional<Declaration> findDeclaration(@NotNull SimpleIdentifier name, Class<? extends Declaration> clazz) {
-        for (var declaration : availableDeclarations.entrySet()) {
-            if (declaration.getKey().equals(name) && (clazz == null || declaration.getValue().getClass().isAssignableFrom(clazz))) {
-                return Optional.of(declaration.getValue());
-            }
+    public Optional<Declaration> findDeclaration(@NotNull SimpleIdentifier name,
+                                                 @Nullable Class<? extends Declaration> clazz) {
+        var localDeclaration = findCurrentDeclaration(name, clazz);
+        if (localDeclaration.isPresent()) {
+            return localDeclaration;
         }
         if (parent != null) {
             return parent.findDeclaration(name, clazz);
@@ -285,50 +231,33 @@ public class ScopeTableElement {
         return Optional.empty();
     }
 
-    public Optional<Definition> findDefinition(@NotNull SimpleIdentifier name, Class<? extends Declaration> declarationClass) {
-        var decl = findDeclaration(name, declarationClass);
-        if (decl.isPresent() && definitions.containsKey(decl)) {
-            return Optional.of(definitions.get(decl));
-        }
-        if (parent != null) {
-            return parent.findDefinition(name, declarationClass);
+    public Optional<Declaration> findCurrentDeclaration(@NotNull SimpleIdentifier name,
+                                                        @Nullable Class<? extends Declaration> clazz) {
+        Declaration declaration = localDeclarations.get(name);
+        if (declaration != null && (clazz == null || clazz.isAssignableFrom(declaration.getClass()))) {
+            return Optional.of(declaration);
         }
         return Optional.empty();
     }
 
-    public Optional<Definition> findDefinition(@NotNull Declaration name) {
-        if (definitions.containsKey(name) && definitions.get(name) != null) {
-            return Optional.of(definitions.get(name));
-        }
-        if (parent != null) {
-            var result = parent.findDefinition(name);
-            if (definitions.containsKey(name) && definitions.get(name) == null && result.isPresent()) {
-                definitions.put(name, result.get());
-            }
-            return result;
-        }
-        return Optional.empty();
-    }
-
-    public List<Declaration> findDeclaration(Class<? extends Declaration> clazz) {
-        var result = availableDeclarations.values().stream().filter(x -> x.getClass().isAssignableFrom(clazz)).toList();
+    public List<Declaration> findDeclaration(@NotNull Class<? extends Declaration> clazz) {
+        var result = findCurrentDeclaration(clazz);
         if (result.isEmpty() && parent != null) {
             return parent.findDeclaration(clazz);
         }
         return result;
     }
 
-    public List<Definition> findDefinition(Class<? extends Definition> clazz) {
-        var result = definitions.values().stream().filter(x -> x.getClass().isAssignableFrom(clazz)).toList();
-        if (result.isEmpty() && parent != null) {
-            return parent.findDefinition(clazz);
-        }
-        return result;
+    public List<Declaration> findCurrentDeclaration(@NotNull Class<? extends Declaration> clazz) {
+        return localDeclarations.values().stream()
+                .filter(declaration -> clazz.isAssignableFrom(declaration.getClass()))
+                .toList();
     }
 
     public Optional<Type> findType(@NotNull Identifier name) {
-        if (availableDeclaredTypes.containsValue(name)) {
-            return Optional.of(availableDeclaredTypes.get(name));
+        var type = findCurrentType(name);
+        if (type.isPresent()) {
+            return type;
         }
         if (parent != null) {
             return parent.findType(name);
@@ -336,24 +265,25 @@ public class ScopeTableElement {
         return Optional.empty();
     }
 
-    public Optional<Declaration> findTypeDeclaration(@NotNull Type type) {
-       if (!availableDeclaredTypes.containsValue(type) && parent != null) {
-           return parent.findTypeDeclaration(type);
-       }
-       if (typeDeclarations.containsValue(type)) {
-           return Optional.of(typeDeclarations.get(type));
-       }
-       if (parent != null) {
-            return parent.findTypeDeclaration(type);
-       }
-       return Optional.empty();
+    public Optional<Type> findCurrentType(@NotNull Identifier name) {
+        return Optional.ofNullable(declaredTypes.get(name));
     }
 
-    /**
-     * Возвращает родительский {@code TypedEntities}.
-     *
-     * @return родитель или {@code null} для корня
-     */
+    public Optional<Declaration> findTypeDeclaration(@NotNull Type type) {
+        var declaration = findCurrentTypeDeclaration(type);
+        if (declaration.isPresent()) {
+            return declaration;
+        }
+        if (parent != null) {
+            return parent.findTypeDeclaration(type);
+        }
+        return Optional.empty();
+    }
+
+    public Optional<Declaration> findCurrentTypeDeclaration(@NotNull Type type) {
+        return Optional.ofNullable(typeDeclarations.get(type));
+    }
+
     @Nullable
     public ScopeTableElement getParent() {
         return parent;
@@ -377,8 +307,11 @@ public class ScopeTableElement {
         return owner;
     }
 
-    public void setOwner(Node node) {
+    public void setOwner(@Nullable Node node) {
         this.owner = node;
+        if (node instanceof CompoundStatement compoundStatement) {
+            compoundStatement.bindScope(this);
+        }
     }
 
     @Override

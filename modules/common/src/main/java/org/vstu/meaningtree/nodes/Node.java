@@ -199,10 +199,20 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         return result;
     }
 
+    /**
+     * Выполняет замену напрямую в узле без уведомления MeaningTree.
+     * Если узел принадлежит MeaningTree с уже построенными индексами/кэшем, вызывающая сторона должна
+     * самостоятельно инвалидировать их через MeaningTree.invalidateCache().
+     */
     public ReplaceResult replace(FieldDescriptor slot, Node newNode) {
         return doReplace(slot, newNode);
     }
 
+    /**
+     * Выполняет замену напрямую в узле без уведомления MeaningTree.
+     * Если узел принадлежит MeaningTree с уже построенными индексами/кэшем, вызывающая сторона должна
+     * самостоятельно инвалидировать их через MeaningTree.invalidateCache().
+     */
     public ReplaceResult replace(NodeInfo target, Node newNode) {
         if (target == null || target.field() == null) {
             return new ReplaceResult(ReplaceStatus.FIELD_NOT_FOUND, "NodeInfo does not contain replaceable field", null, null, newNode);
@@ -210,6 +220,11 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         return replace(target.field(), newNode);
     }
 
+    /**
+     * Выполняет замену напрямую в поддереве без уведомления MeaningTree.
+     * Если узел принадлежит MeaningTree с уже построенными индексами/кэшем, вызывающая сторона должна
+     * самостоятельно инвалидировать их через MeaningTree.invalidateCache().
+     */
     public ReplaceResult replaceFirst(Predicate<NodeInfo> matcher, Function<Node, Node> replacer) {
         Objects.requireNonNull(matcher, "matcher is required");
         Objects.requireNonNull(replacer, "replacer is required");
@@ -230,6 +245,11 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         return lastFailure;
     }
 
+    /**
+     * Выполняет массовые замены напрямую в поддереве без уведомления MeaningTree.
+     * Если узел принадлежит MeaningTree с уже построенными индексами/кэшем, вызывающая сторона должна
+     * самостоятельно инвалидировать их через MeaningTree.invalidateCache().
+     */
     public List<ReplaceResult> replaceAll(Predicate<NodeInfo> matcher, Function<Node, Node> replacer) {
         Objects.requireNonNull(matcher, "matcher is required");
         Objects.requireNonNull(replacer, "replacer is required");
@@ -353,30 +373,6 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         }
 
         return new ReplaceResult(ReplaceStatus.FIELD_NOT_FOUND, "Unsupported field descriptor type: " + slot.getClass().getSimpleName(), slot, null, newNode);
-    }
-
-    @Deprecated
-    public boolean substituteField(String name, Object value) {
-        if (!(value instanceof Node node)) {
-            return false;
-        }
-        FieldDescriptor descr = getFieldDescriptor(name);
-        if (descr == null) {
-            return false;
-        }
-        return replace(descr, node).isSuccess();
-    }
-
-    @Deprecated
-    public boolean substituteCollectionField(String name, Node value, int index) {
-        FieldDescriptor descr = getFieldDescriptor(name);
-        if (descr == null) {
-            return false;
-        }
-        if (descr instanceof CollectionFieldDescriptor || descr instanceof ArrayFieldDescriptor) {
-            descr = descr.withIndex(index);
-        }
-        return replace(descr, value).isSuccess();
     }
 
     @Override

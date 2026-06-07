@@ -56,13 +56,12 @@ import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.serializers.model.Deserializer;
 import org.vstu.meaningtree.utils.*;
+import org.vstu.meaningtree.utils.scopes.ScopeTable;
+import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 import org.vstu.meaningtree.utils.tokens.*;
 
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Experimental
 public class JsonDeserializer implements Deserializer<JsonObject> {
@@ -79,6 +78,9 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
         }
     }
 
+    /* -----------------------------
+    |      Tree and source map      |
+    ------------------------------ */
 
     @Override
     public MeaningTree deserializeTree(JsonObject json) {
@@ -127,73 +129,217 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             }
         }
 
-        // 4. Definitions
-        List<SourceMap.DefinitionLink> definitions = new ArrayList<>();
-        if (serialized.has("declarations")) {
-            JsonArray decls = serialized.getAsJsonArray("declarations");
-            for (JsonElement el : decls) {
-                JsonObject obj = el.getAsJsonObject();
+        ScopeTable scopeTable = new ScopeTable();
+        if (serialized.has("scope_table") && !serialized.get("scope_table").isJsonNull()) {
+            scopeTable = deserializeScopeTable(serialized.getAsJsonObject("scope_table"));
+        }
 
-                // Обработка массива related_types_id
-                Long[] relatedTypes = new Long[0];
-                if (obj.has("relatedTypesId") && !obj.get("relatedTypesId").isJsonNull()) {
-                    JsonArray arr = obj.getAsJsonArray("relatedTypesId");
-                    relatedTypes = new Long[arr.size()];
-                    for (int i = 0; i < arr.size(); i++) relatedTypes[i] = arr.get(i).getAsLong();
+        Map<String, Number> metrics = new LinkedHashMap<>();
+        if (serialized.has("metrics") && !serialized.get("metrics").isJsonNull()) {
+            JsonObject metricsObject = serialized.getAsJsonObject("metrics");
+            for (String key : metricsObject.keySet()) {
+                JsonPrimitive metric = metricsObject.getAsJsonPrimitive(key);
+                if (metric.isNumber()) {
+                    metrics.put(key, metric.getAsNumber());
                 }
-
-                definitions.add(new SourceMap.DefinitionLink(
-                        obj.get("name").getAsString(),
-                        obj.get("declarationNodeId").getAsLong(),
-                        obj.has("definitionNodeId") && !obj.get("definitionNodeId").isJsonNull() ? obj.get("definitionNodeId").getAsLong() : null,
-                        obj.get("type").getAsString(),
-                        obj.has("parentDeclarationId") && !obj.get("parentDeclarationId").isJsonNull() ? obj.get("parentDeclarationId").getAsLong() : null,
-                        relatedTypes
-                ));
             }
         }
 
-        // 5. Imports
-        List<SourceMap.ImportLink> imports = new ArrayList<>();
-        if (serialized.has("imports")) {
-            JsonArray imps = serialized.getAsJsonArray("imports");
-            for (JsonElement el : imps) {
-                JsonObject obj = el.getAsJsonObject();
-
-                String[] components = new String[0];
-                if (obj.has("components")) {
-                    JsonArray arr = obj.getAsJsonArray("components");
-                    components = new String[arr.size()];
-                    for (int i = 0; i < arr.size(); i++) components[i] = arr.get(i).getAsString();
-                }
-
-                imports.add(new SourceMap.ImportLink(
-                        obj.get("libraryName").getAsString(),
-                        obj.get("nodeId").getAsLong(),
-                        obj.get("type").getAsString(),
-                        components,
-                        obj.get("isStatic").getAsBoolean(),
-                        obj.get("allContentInclude").getAsBoolean()
-                ));
-            }
-        }
-
-        // 6. User Type Hierarchy
-        List<List<String>> userTypeHierarchy = new ArrayList<>();
-        if (serialized.has("user_type_hierarchy")) {
-            JsonArray hierarchy = serialized.getAsJsonArray("user_type_hierarchy");
-            for (JsonElement groupEl : hierarchy) {
-                List<String> group = new ArrayList<>();
-                for (JsonElement typeEl : groupEl.getAsJsonArray()) {
-                    group.add(typeEl.getAsString());
-                }
-                userTypeHierarchy.add(group);
-            }
-        }
-
-        return new SourceMap(sourceCode, rootNode, bytePositions, definitions, imports, userTypeHierarchy, language);
+        return new SourceMap(sourceCode, rootNode, bytePositions, scopeTable, language, metrics);
     }
 
+    private ScopeTable deserializeScopeTable(JsonObject json) {
+        if (!json.get("type").getAsString().equals("scope_table")) {
+            throw new MeaningTreeSerializationException("JSON is not a scope_table");
+        }
+
+        ScopeTable scopeTable = new ScopeTable();
+        JsonObject symbols = objectSection(json, "symbols");
+        JsonObject types = objectSection(json, "types");
+
+        for (JsonObject item : arrayObjects(symbols, "declarations")) {
+            SimpleIdentifier name = deserializeScopeSimpleIdentifier(item.get("name"));
+            Declaration declaration = resolveScopeNode(item.getAsJsonObject("declaration"), Declaration.class);
+            scopeTable.registerDeclaration(name, declaration);
+        }
+
+        for (JsonObject item : arrayObjects(types, "declared_types")) {
+            Identifier name = deserializeScopeIdentifier(item.get("name"));
+            Type type = resolveScopeType(item.getAsJsonObject("type_ref"));
+            scopeTable.registerType(name, type);
+        }
+
+        for (JsonObject item : arrayObjects(types, "type_declarations")) {
+            Type type = resolveScopeType(item.getAsJsonObject("type_ref"));
+            Declaration declaration = resolveScopeNode(item.getAsJsonObject("declaration"), Declaration.class);
+            scopeTable.registerTypeDeclaration(type, declaration);
+        }
+
+        for (JsonObject item : arrayObjects(types, "hierarchy")) {
+            Type type = resolveScopeType(item.getAsJsonObject("type_ref"));
+            if (!(type instanceof UserType userType)) {
+                throw new MeaningTreeSerializationException("Scope hierarchy item is not a user type: " + item);
+            }
+
+            var parents = new java.util.LinkedHashSet<UserType>();
+            for (JsonElement parentElement : item.getAsJsonArray("parents")) {
+                Type parent = resolveScopeType(parentElement.getAsJsonObject());
+                if (!(parent instanceof UserType parentUserType)) {
+                    throw new MeaningTreeSerializationException("Scope hierarchy parent is not a user type: " + parentElement);
+                }
+                parents.add(parentUserType);
+            }
+            scopeTable.typeHierarchy().register(userType, parents);
+        }
+
+        for (JsonObject item : arrayObjects(symbols, "definitions")) {
+            Declaration declaration = resolveScopeNode(item.getAsJsonObject("declaration"), Declaration.class);
+            Definition definition = resolveScopeNode(item.getAsJsonObject("definition"), Definition.class);
+            scopeTable.registerDefinition(declaration, definition);
+        }
+
+        JsonObject imports = objectSection(json, "imports");
+        String importsFieldName = imports.has("items") ? "items" : "imports";
+        for (JsonObject item : arrayObjects(imports, importsFieldName)) {
+            scopeTable.registerImport(resolveScopeNode(item, Import.class));
+        }
+
+        restoreScopes(json, scopeTable);
+        if (json.has("current_scope_id") && !json.get("current_scope_id").isJsonNull()) {
+            scopeTable.setCurrentScope(json.get("current_scope_id").getAsLong());
+        }
+
+        return scopeTable;
+    }
+
+    private void restoreScopes(JsonObject json, ScopeTable scopeTable) {
+        for (JsonObject item : arrayObjects(json, "scopes")) {
+            long id = item.get("id").getAsLong();
+            Long parentId = item.has("parent_id") && !item.get("parent_id").isJsonNull()
+                    ? item.get("parent_id").getAsLong()
+                    : null;
+            Node owner = item.has("owner_ast_id") && !item.get("owner_ast_id").isJsonNull()
+                    ? nodeCache.get(item.get("owner_ast_id").getAsLong())
+                    : null;
+            scopeTable.restoreScope(id, parentId, owner);
+        }
+
+        for (JsonObject item : arrayObjects(json, "scopes")) {
+            ScopeTableElement scope = scopeTable.findScope(item.get("id").getAsLong()).orElseThrow();
+
+            for (JsonObject variable : arrayObjects(item, "variables")) {
+                SimpleIdentifier name = deserializeScopeSimpleIdentifier(variable.get("name"));
+                Type type = resolveScopeType(variable.getAsJsonObject("type_ref"));
+                VariableDeclaration declaration = variable.has("declaration") && !variable.get("declaration").isJsonNull()
+                        ? resolveScopeNode(variable.getAsJsonObject("declaration"), VariableDeclaration.class)
+                        : null;
+                scope.restoreVariable(name, type, declaration);
+            }
+
+            for (JsonObject declarationItem : arrayObjects(item, "declarations")) {
+                SimpleIdentifier name = deserializeScopeSimpleIdentifier(declarationItem.get("name"));
+                Declaration declaration = resolveScopeNode(declarationItem.getAsJsonObject("declaration"), Declaration.class);
+                scope.registerDeclaration(name, declaration);
+            }
+
+            for (JsonObject typeItem : arrayObjects(item, "declared_types")) {
+                Identifier name = deserializeScopeIdentifier(typeItem.get("name"));
+                Type type = resolveScopeType(typeItem.getAsJsonObject("type_ref"));
+                scope.registerType(name, type);
+            }
+
+            for (JsonObject typeDeclarationItem : arrayObjects(item, "type_declarations")) {
+                Type type = resolveScopeType(typeDeclarationItem.getAsJsonObject("type_ref"));
+                Declaration declaration = resolveScopeNode(typeDeclarationItem.getAsJsonObject("declaration"), Declaration.class);
+                scope.registerTypeDeclaration(type, declaration);
+            }
+        }
+    }
+
+    private JsonObject objectSection(JsonObject json, String fieldName) {
+        if (json.has(fieldName) && json.get(fieldName).isJsonObject()) {
+            return json.getAsJsonObject(fieldName);
+        }
+        return json;
+    }
+
+    private List<JsonObject> arrayObjects(JsonObject json, String fieldName) {
+        if (!json.has(fieldName) || json.get(fieldName).isJsonNull()) {
+            return List.of();
+        }
+
+        List<JsonObject> objects = new ArrayList<>();
+        for (JsonElement element : json.getAsJsonArray(fieldName)) {
+            objects.add(element.getAsJsonObject());
+        }
+        return objects;
+    }
+
+    private SimpleIdentifier deserializeScopeSimpleIdentifier(JsonElement json) {
+        Identifier identifier = deserializeScopeIdentifier(json);
+        if (identifier instanceof SimpleIdentifier simpleIdentifier) {
+            return simpleIdentifier;
+        }
+        throw new MeaningTreeSerializationException("Expected simple scope identifier, got: " + identifier);
+    }
+
+    private Identifier deserializeScopeIdentifier(JsonElement json) {
+        if (json == null || json.isJsonNull()) {
+            throw new MeaningTreeSerializationException("Scope identifier is missing");
+        }
+        return new SimpleIdentifier(json.getAsString());
+    }
+
+    private Type resolveScopeType(JsonObject json) {
+        Node node = resolveNullableScopeNode(json);
+        if (node instanceof Type type) {
+            return type;
+        }
+
+        if (json.has("type") && !json.get("type").isJsonNull()) {
+            return (Type) deserialize(json);
+        }
+
+        if (json.has("repr_name") && !json.get("repr_name").isJsonNull()) {
+            return new org.vstu.meaningtree.nodes.types.user.Class(new SimpleIdentifier(json.get("repr_name").getAsString()));
+        }
+
+        throw new MeaningTreeSerializationException("Cannot resolve scope type: " + json);
+    }
+
+    private <T extends Node> T resolveScopeNode(JsonObject json, java.lang.Class<T> expectedClass) {
+        Node node = resolveNullableScopeNode(json);
+        if (node == null) {
+            throw new MeaningTreeSerializationException("Scope node is missing: " + json);
+        }
+        if (!expectedClass.isInstance(node)) {
+            throw new MeaningTreeSerializationException(
+                    "Expected " + expectedClass.getSimpleName() + ", got: " + node.getClass().getSimpleName()
+            );
+        }
+        return expectedClass.cast(node);
+    }
+
+    private Node resolveNullableScopeNode(JsonObject json) {
+        if (json == null) {
+            return null;
+        }
+        JsonElement idElement = null;
+        if (json.has("ast_id") && !json.get("ast_id").isJsonNull()) {
+            idElement = json.get("ast_id");
+        } else if (json.has("id") && !json.get("id").isJsonNull()) {
+            idElement = json.get("id");
+        }
+        if (idElement == null) {
+            return null;
+        }
+        long id = idElement.getAsLong();
+        return nodeCache.get(id);
+    }
+
+    /* -----------------------------
+    |            Tokens             |
+    ------------------------------ */
 
     @Override
     public TokenList deserializeTokens(JsonObject json) {
@@ -289,6 +435,10 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
         return token;
     }
 
+    /* -----------------------------
+    |           AST nodes           |
+    ------------------------------ */
+
     @Override
     public Node deserialize(JsonObject json) {
         if (json == null) {
@@ -319,6 +469,10 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     Label label = deserializeLabel(labelElement.getAsJsonObject());
                     node.setLabel(label);
                 }
+            }
+
+            if (node instanceof Expression expression && json.has("value_estimate") && !json.get("value_estimate").isJsonNull()) {
+                expression.setValueEstimate(deserializeExpressionValueEstimate(json.getAsJsonObject("value_estimate")));
             }
         }
 
@@ -580,8 +734,15 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         ? deserializeExpression(json.getAsJsonObject("step")) : null;
                 boolean isExcludingStart = json.get("isExcludingStart").getAsBoolean();
                 boolean isExcludingEnd = json.get("isExcludingEnd").getAsBoolean();
-                Range.Type rangeType = parseEnum(Range.Type.class, json.get("rangeType").getAsString());
-                yield new Range(start, stop, step, isExcludingStart, isExcludingEnd, rangeType);
+                JsonElement directionElement = json.has("direction") ? json.get("direction") : json.get("rangeType");
+                Range.Direction direction = directionElement != null && !directionElement.isJsonNull()
+                        ? parseEnum(Range.Direction.class, directionElement.getAsString())
+                        : Range.Direction.UNKNOWN;
+                Range range = new Range(start, stop, step, isExcludingStart, isExcludingEnd, direction);
+                if (json.has("iteration_estimate") && !json.get("iteration_estimate").isJsonNull()) {
+                    range.setIterationEstimate(deserializeLoopIterationEstimate(json.getAsJsonObject("iteration_estimate")));
+                }
+                yield range;
             }
             case "key_value_pair" -> new KeyValuePair(
                     deserializeExpression(json.getAsJsonObject("key")),
@@ -840,6 +1001,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("condition")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "do_while_loop" -> {
@@ -847,6 +1009,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         deserializeExpression(json.getAsJsonObject("condition")),
                         (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "general_for_loop" -> {
@@ -859,6 +1022,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 Statement body = (Statement) deserialize(json.getAsJsonObject("body"));
                 var loop = new GeneralForLoop(
                         initializer, condition, update, body);
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "range_for_loop" -> {
@@ -867,6 +1031,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     (SimpleIdentifier) deserialize(json.getAsJsonObject("identifier")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "for_each_loop" -> {
@@ -875,6 +1040,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("container")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "infinite_loop" -> {
@@ -882,6 +1048,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     (Statement) deserialize(json.getAsJsonObject("body")),
                     LoopType.valueOf(json.get("original_loop_type").getAsString())
                 );
+                applyLoopMetadata(loop, json);
                 yield loop;
             }
             case "break_statement" -> {
@@ -945,15 +1112,24 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     (Type) deserialize(json.getAsJsonObject("key_type")),
                     (Type) deserialize(json.getAsJsonObject("value_type"))
             );
-            case "user_type", "class", "interface", "structure", "enum" -> new org.vstu.meaningtree.nodes.types.user.Class(
+            case "user_type", "class", "class_type", "interface", "structure", "enum" -> new org.vstu.meaningtree.nodes.types.user.Class(
                     (Identifier) deserialize(json.getAsJsonObject("name"))
             );
-            case "generic_user_type", "generic_class", "generic_structure", "generic_interface" -> {
+            case "structure_type" -> new org.vstu.meaningtree.nodes.types.user.Structure(
+                    (Identifier) deserialize(json.getAsJsonObject("name"))
+            );
+            case "generic_user_type", "generic_class", "generic_class_type", "generic_structure", "generic_structure_type", "generic_interface" -> {
                 Identifier name = (Identifier) deserialize(json.getAsJsonObject("name"));
                 List<Type> templates = new ArrayList<>();
                 JsonArray array = json.getAsJsonArray("templates");
                 for (JsonElement elem : array) {
                     templates.add((Type) deserialize(elem.getAsJsonObject()));
+                }
+                if (type.equals("generic_class_type") || type.equals("generic_class")) {
+                    yield new org.vstu.meaningtree.nodes.types.user.GenericClass(name, templates.toArray(new Type[0]));
+                }
+                if (type.equals("generic_structure_type") || type.equals("generic_structure")) {
+                    yield new org.vstu.meaningtree.nodes.types.user.GenericStructure(name, templates.toArray(new Type[0]));
                 }
                 yield new GenericUserType(name, templates.toArray(new Type[0]));
             }
@@ -995,7 +1171,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 List<Expression> args = deserializeExpressionList(json.getAsJsonArray("arguments"));
                 yield new Annotation(function, args.toArray(new Expression[0]));
             }
-            case "class_declaration" -> {
+            case "class_declaration", "structure_declaration" -> {
                 List<DeclarationModifier> modifiers = deserializeModifiers(json.getAsJsonArray("modifiers"));
                 Identifier name = (Identifier) deserialize(json.getAsJsonObject("name"));
                 List<Type> parents = new ArrayList<>();
@@ -1012,7 +1188,17 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         typeParams.add((Type) deserialize(elem.getAsJsonObject()));
                     }
                 }
-                yield new ClassDeclaration(modifiers, name, typeParams, parents.toArray(new Type[0]));
+                UserType typeNode = json.has("type_node") && !json.get("type_node").isJsonNull()
+                        ? (UserType) deserialize(json.getAsJsonObject("type_node"))
+                        : null;
+                if (type.equals("structure_declaration")) {
+                    yield typeNode == null
+                            ? new StructureDeclaration(modifiers, name, typeParams, parents.toArray(new Type[0]))
+                            : StructureDeclaration.withTypeNode(modifiers, name, typeParams, typeNode, parents.toArray(new Type[0]));
+                }
+                yield typeNode == null
+                        ? new ClassDeclaration(modifiers, name, typeParams, parents.toArray(new Type[0]))
+                        : ClassDeclaration.withTypeNode(modifiers, name, typeParams, typeNode, parents.toArray(new Type[0]));
             }
             case "function_declaration" -> {
                 Identifier name = (Identifier) deserialize(json.getAsJsonObject("name"));
@@ -1089,7 +1275,9 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
         };
     }
 
-// Helper methods
+    /* -----------------------------
+    |    Node deserialization helpers |
+    ------------------------------ */
 
     private Expression deserializeExpression(JsonObject json) {
         return (Expression) deserialize(json);
@@ -1148,6 +1336,59 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
         Type varType = (Type) deserialize(json.getAsJsonObject("var_type"));
         List<VariableDeclarator> declarators = deserializeVariableDeclarators(json.getAsJsonArray("declarators"));
         return new VariableDeclaration(varType, declarators);
+    }
+
+    private void applyLoopMetadata(Loop loop, JsonObject json) {
+        if (json.has("iteration_estimate") && !json.get("iteration_estimate").isJsonNull()) {
+            loop.setIterationEstimate(deserializeLoopIterationEstimate(json.getAsJsonObject("iteration_estimate")));
+        }
+    }
+
+    private LoopIterationEstimate deserializeLoopIterationEstimate(JsonObject json) {
+        LoopIterationCount kind = parseEnum(LoopIterationCount.class, json.get("kind").getAsString());
+        OptionalLong exactIterations = json.has("exact_iterations") && !json.get("exact_iterations").isJsonNull()
+                ? OptionalLong.of(json.get("exact_iterations").getAsLong())
+                : OptionalLong.empty();
+        boolean reliable = json.has("reliable") && json.get("reliable").getAsBoolean();
+        Range.Direction direction = json.has("direction") && !json.get("direction").isJsonNull()
+                ? parseEnum(Range.Direction.class, json.get("direction").getAsString())
+                : Range.Direction.UNKNOWN;
+        return new LoopIterationEstimate(kind, exactIterations, reliable, direction);
+    }
+
+    private ExpressionValueEstimate<Object> deserializeExpressionValueEstimate(JsonObject json) {
+        Optional<Object> exactValue = json.has("exact_value") && !json.get("exact_value").isJsonNull()
+                ? Optional.of(deserializeEstimateValue(json.get("exact_value")))
+                : Optional.empty();
+        LinkedHashSet<Object> possibleValues = new LinkedHashSet<>();
+        if (json.has("possible_values") && !json.get("possible_values").isJsonNull()) {
+            for (JsonElement element : json.getAsJsonArray("possible_values")) {
+                possibleValues.add(deserializeEstimateValue(element));
+            }
+        }
+        boolean reliable = json.has("reliable") && json.get("reliable").getAsBoolean();
+        return new ExpressionValueEstimate<>(exactValue, possibleValues, reliable);
+    }
+
+    private Object deserializeEstimateValue(JsonElement json) {
+        if (json == null || json.isJsonNull()) {
+            return null;
+        }
+        JsonPrimitive primitive = json.getAsJsonPrimitive();
+        if (primitive.isBoolean()) {
+            return primitive.getAsBoolean();
+        }
+        if (primitive.isString()) {
+            return primitive.getAsString();
+        }
+        if (primitive.isNumber()) {
+            String number = primitive.getAsString();
+            if (number.contains(".") || number.contains("e") || number.contains("E")) {
+                return primitive.getAsDouble();
+            }
+            return primitive.getAsLong();
+        }
+        throw new MeaningTreeSerializationException("Unsupported expression estimate value: " + json);
     }
 
     private Comprehension.ComprehensionItem deserializeComprehensionItem(JsonObject json) {

@@ -1,4 +1,4 @@
-package org.vstu.meaningtree.utils.scopes;
+package org.vstu.meaningtree.utils.analysis.types;
 
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.nodes.*;
@@ -36,6 +36,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
+import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -178,7 +179,7 @@ public class SimpleTypeInferrer {
     public static Type inference(
             @NotNull SimpleIdentifier identifier,
             @NotNull ScopeTable scope) {
-        Type inferredType = scope.scope().getVariableType(identifier);
+        Type inferredType = scope.getVariableType(identifier);
         if (inferredType == null) {
             return new UnknownType();
         }
@@ -247,15 +248,15 @@ public class SimpleTypeInferrer {
         for (Expression childExpression : children) {
 
             if (childExpression instanceof SimpleIdentifier identifier) {
-                Type possibleType = scope.scope().getVariableType(identifier);
+                Type possibleType = scope.getVariableType(identifier);
 
                 if (possibleType == null || possibleType instanceof UnknownType) {
-                    scope.scope().changeVariableType(identifier, type);
+                    scope.changeVariableType(identifier, type);
                 }
                 // Добавить что-то про обобщение типов
                 else if (possibleType instanceof IntType
                         && type instanceof FloatType) {
-                    scope.scope().changeVariableType(identifier, type);
+                    scope.changeVariableType(identifier, type);
                 }
             }
             else {
@@ -495,7 +496,7 @@ public class SimpleTypeInferrer {
         for (var variableDeclarator : variableDeclaration.getDeclarators()) {
             inference(variableDeclarator, scope);
 
-            var varType = scope.scope().getVariableType(variableDeclarator.getIdentifier());
+            var varType = scope.getVariableType(variableDeclarator.getIdentifier());
             if (varType != null) {
                 types.add(varType);
             }
@@ -547,7 +548,7 @@ public class SimpleTypeInferrer {
             }
         }
 
-        scope.scope().changeVariableType(declarationArgument.getName(), type);
+        scope.changeVariableType(declarationArgument.getName(), type);
     }
 
     public static void inference(@NotNull Node node, @NotNull ScopeTable scope) {

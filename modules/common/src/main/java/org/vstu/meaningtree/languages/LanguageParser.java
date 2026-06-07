@@ -13,6 +13,8 @@ import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Hook;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
+import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEvaluator;
+import org.vstu.meaningtree.utils.analysis.loops.LoopIterationAnalyzer;
 
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -35,6 +37,7 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
     private final Map<String, CompiledTSQuery> _queryCacheById = new HashMap<>();
 
     private final Map<String, Function<TSNode, Node>> tsNodeHandlers = new LinkedHashMap<>();
+    private final LoopIterationAnalyzer loopIterationAnalyzer = new LoopIterationAnalyzer();
 
     protected List<Hook<Pair<TSNode, Node>>> onNodeParsedHooks = new ArrayList<>();
     private final List<HookUtils.NodePreparationEntry<? extends Node>> postParsePreparations = new ArrayList<>();
@@ -212,6 +215,12 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
             );
         }
         return preparedNode;
+    }
+
+    public void postProcessTree(MeaningTree meaningTree) {
+        ExpressionValueEvaluator expressionValueEvaluator = new ExpressionValueEvaluator(meaningTree, ctx.getGlobalScope());
+        expressionValueEvaluator.analyze();
+        loopIterationAnalyzer.analyze(meaningTree, ctx.getGlobalScope());
     }
 
     boolean registerOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {

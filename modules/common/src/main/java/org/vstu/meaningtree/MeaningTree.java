@@ -2,6 +2,7 @@ package org.vstu.meaningtree;
 
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.iterators.DFSNodeIterator;
+import org.vstu.meaningtree.iterators.utils.FieldDescriptor;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.iterators.utils.NodeIterable;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
@@ -13,11 +14,12 @@ import org.vstu.meaningtree.utils.ReplaceStatus;
 
 import java.io.Serializable;
 import java.util.*;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class MeaningTree implements Serializable, LabelAttachable, Cloneable, NodeIterable {
     @TreeNode private Node rootNode;
-    private TreeMap<Long, NodeInfo> _index = null;
+    private LinkedHashMap<Long, NodeInfo> _index = null;
     private Set<Label> _labels = new HashSet<>();
 
     public MeaningTree(Node rootNode) {
@@ -30,47 +32,58 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
 
     public void changeRoot(Node node) {
         rootNode = node;
+        invalidateCache();
+    }
+
+    public void invalidateCache() {
         _index = null;
     }
 
     public void makeIndex() {
-        TreeMap<Long, NodeInfo> treeMap = new TreeMap<>();
-        for (NodeInfo node : this) {
+        LinkedHashMap<Long, NodeInfo> index = new LinkedHashMap<>();
+        Iterator<NodeInfo> iterator = new DFSNodeIterator(rootNode, true);
+        while (iterator.hasNext()) {
+            NodeInfo node = iterator.next();
             if (node != null) {
-                treeMap.put(node.node().getId(), node);
+                NodeInfo previous = index.put(node.node().getId(), node);
+                if (previous != null) {
+                    throw new IllegalStateException(
+                            "Duplicate node id `%d` found for `%s` and `%s`"
+                                    .formatted(node.node().getId(), previous.path(), node.path())
+                    );
+                }
             }
         }
-        _index = treeMap;
+        _index = index;
     }
 
     public NodeInfo getNodeById(long id) {
-        if (_index == null || _index.isEmpty()) {
+        if (_index == null) {
             makeIndex();
         }
-        return _index.getOrDefault(id, null);
+        return _index.get(id);
     }
 
     @Override
     @NotNull
     public Iterator<NodeInfo> iterator() {
-        if (_index == null) {
-            return new DFSNodeIterator(rootNode, true);
-        } else {
-            return _index.sequencedValues().iterator();
-        }
+        return new DFSNodeIterator(rootNode, true);
     }
 
     public Node findParentOfNode(Node node) {
-        for (NodeInfo inf : this) {
-            if (inf.node().equals(node)) {
-                return inf.parentNode();
-            }
+        if (node == null) {
+            return null;
         }
-        return null;
+        NodeInfo info = getNodeById(node.getId());
+        return info == null ? null : info.parentNode();
     }
 
     public boolean hasNodeType(Class<? extends Node> type) {
-        for (NodeInfo inf : this) {
+        Objects.requireNonNull(type, "type must not be null");
+        if (_index == null) {
+            makeIndex();
+        }
+        for (NodeInfo inf : _index.values()) {
             if (type.isAssignableFrom(inf.node().getClass())) {
                 return true;
             }
@@ -80,7 +93,10 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
 
     public boolean anyMatch(Predicate<Node> predicate) {
         Objects.requireNonNull(predicate, "predicate must not be null");
-        for (NodeInfo inf : this) {
+        if (_index == null) {
+            makeIndex();
+        }
+        for (NodeInfo inf : _index.values()) {
             if (predicate.test(inf.node())) {
                 return true;
             }
@@ -142,16 +158,17 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
     }
 
     public List<Node> allChildren() {
-        ArrayList<Node> children = new ArrayList<>();
-        children.addAll(rootNode.allChildren());
-        children.add(rootNode);
-        return children;
+        if (_index == null) {
+            makeIndex();
+        }
+        return _index.values().stream().map(NodeInfo::node).toList();
     }
 
     public List<NodeInfo> iterate() {
-        ArrayList<NodeInfo> children = new ArrayList<>();
-        children.addAll(rootNode.iterate(true));
-        return children;
+        if (_index == null) {
+            makeIndex();
+        }
+        return List.copyOf(_index.values());
     }
 
     public ReplaceResult replace(long id, Node node) {
@@ -172,13 +189,96 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
 
         ReplaceResult result = rootNode.replace(nodeInfo, node);
         if (result.isSuccess()) {
-            _index = null;
+            invalidateCache();
         }
         return result;
     }
 
-    @Deprecated
-    public boolean substitute(long id, Node node) {
-        return replace(id, node).isSuccess();
+    public ReplaceResult replace(FieldDescriptor slot, Node newNode) {
+        ReplaceResult result = rootNode.replace(slot, newNode);
+        if (result.isSuccess()) {
+            invalidateCache();
+        }
+        return result;
+    }
+
+    public ReplaceResult replace(NodeInfo target, Node newNode) {
+        if (target == null) {
+            return new ReplaceResult(ReplaceStatus.FIELD_NOT_FOUND, "NodeInfo is null", null, null, newNode);
+        }
+        if (newNode == null) {
+            return new ReplaceResult(ReplaceStatus.NULL_VALUE, "Replacement node is null", target.field(), null, null);
+        }
+        if (rootNode != null && rootNode.uniquenessEquals(target.node())) {
+            Node oldRoot = rootNode;
+            changeRoot(newNode);
+            return new ReplaceResult(ReplaceStatus.OK, "Root node replaced", null, oldRoot, newNode);
+        }
+
+        ReplaceResult result = rootNode.replace(target, newNode);
+        if (result.isSuccess()) {
+            invalidateCache();
+        }
+        return result;
+    }
+
+    public ReplaceResult replaceFirst(Predicate<NodeInfo> matcher, Function<Node, Node> replacer) {
+        Objects.requireNonNull(matcher, "matcher is required");
+        Objects.requireNonNull(replacer, "replacer is required");
+
+        ReplaceResult lastFailure = new ReplaceResult(ReplaceStatus.FIELD_NOT_FOUND, "No matched nodes to replace", null, null, null);
+        Iterator<NodeInfo> iterator = new DFSNodeIterator(rootNode, true);
+        while (iterator.hasNext()) {
+            NodeInfo info = iterator.next();
+            if (!matcher.test(info)) {
+                continue;
+            }
+            ReplaceResult result = replace(info, replacer.apply(info.node()));
+            if (result.isSuccess()) {
+                return result;
+            }
+            lastFailure = result;
+        }
+        return lastFailure;
+    }
+
+    public List<ReplaceResult> replaceAll(Predicate<NodeInfo> matcher, Function<Node, Node> replacer) {
+        Objects.requireNonNull(matcher, "matcher is required");
+        Objects.requireNonNull(replacer, "replacer is required");
+
+        List<NodeInfo> matches = new ArrayList<>();
+        Iterator<NodeInfo> iterator = new DFSNodeIterator(rootNode, true);
+        while (iterator.hasNext()) {
+            NodeInfo info = iterator.next();
+            if (matcher.test(info)) {
+                matches.add(info);
+            }
+        }
+
+        matches.sort((left, right) -> {
+            int byDepth = Integer.compare(right.depth(), left.depth());
+            if (byDepth != 0) {
+                return byDepth;
+            }
+            if (left.field() != null && right.field() != null
+                    && Objects.equals(left.field().getOwner(), right.field().getOwner())
+                    && Objects.equals(left.field().getName(), right.field().getName())
+                    && left.field().isIndexed() && right.field().isIndexed()) {
+                return Integer.compare(right.field().getIndex(), left.field().getIndex());
+            }
+            return 0;
+        });
+
+        List<ReplaceResult> results = new ArrayList<>();
+        boolean changed = false;
+        for (NodeInfo info : matches) {
+            ReplaceResult result = replace(info, replacer.apply(info.node()));
+            results.add(result);
+            changed |= result.isSuccess();
+        }
+        if (changed) {
+            invalidateCache();
+        }
+        return List.copyOf(results);
     }
 }

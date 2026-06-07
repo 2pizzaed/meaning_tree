@@ -6,8 +6,6 @@ import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.expressions.other.Range;
 import org.vstu.meaningtree.nodes.statements.loops.RangeForLoop;
 
-import java.util.Optional;
-
 public class NonDirectionalRangeForFeature extends SemanticFeature {
     @Override
     public String id() {
@@ -17,8 +15,8 @@ public class NonDirectionalRangeForFeature extends SemanticFeature {
     @Override
     public boolean matches(Node node, FeatureContext featureContext) {
         return node instanceof RangeForLoop loop
-                && loop.getRange().getType() != Range.Type.UP
-                && loop.getRange().getType() != Range.Type.DOWN;
+                && loop.getRangeType() != Range.Direction.UP
+                && loop.getRangeType() != Range.Direction.DOWN;
     }
 
     @Override

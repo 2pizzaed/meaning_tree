@@ -103,6 +103,11 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
         root.add("byte_positions", map);
         root.add("scope_table", serialize(sourceMap.scopeTable()));
+        JsonObject metrics = new JsonObject();
+        for (var entry : sourceMap.metrics().entrySet()) {
+            metrics.add(entry.getKey(), new JsonPrimitive(entry.getValue()));
+        }
+        root.add("metrics", metrics);
 
         return root;
     }

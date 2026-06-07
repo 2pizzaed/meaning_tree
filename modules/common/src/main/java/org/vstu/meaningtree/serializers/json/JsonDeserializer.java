@@ -134,7 +134,18 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             scopeTable = deserializeScopeTable(serialized.getAsJsonObject("scope_table"));
         }
 
-        return new SourceMap(sourceCode, rootNode, bytePositions, scopeTable, language);
+        Map<String, Number> metrics = new LinkedHashMap<>();
+        if (serialized.has("metrics") && !serialized.get("metrics").isJsonNull()) {
+            JsonObject metricsObject = serialized.getAsJsonObject("metrics");
+            for (String key : metricsObject.keySet()) {
+                JsonPrimitive metric = metricsObject.getAsJsonPrimitive(key);
+                if (metric.isNumber()) {
+                    metrics.put(key, metric.getAsNumber());
+                }
+            }
+        }
+
+        return new SourceMap(sourceCode, rootNode, bytePositions, scopeTable, language, metrics);
     }
 
     private ScopeTable deserializeScopeTable(JsonObject json) {

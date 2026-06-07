@@ -6,6 +6,7 @@ import org.vstu.meaningtree.iterators.utils.NodeIterable;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.SourceMap;
+import org.vstu.meaningtree.utils.analysis.CyclomaticComplexityAnalyzer;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
 import java.nio.charset.StandardCharsets;
@@ -21,6 +22,7 @@ public class SourceMapGenerator {
      */
     protected LanguageTranslator translator;
     protected ScopeTable globalScope;
+    private final CyclomaticComplexityAnalyzer cyclomaticComplexityAnalyzer = new CyclomaticComplexityAnalyzer();
 
     // Начальный и конечный маркеры для ID
     private static final String START_TAG = "\u2060AST_START_"; // \u2060 = word joiner (невидимый)
@@ -109,9 +111,13 @@ public class SourceMapGenerator {
 
         cleanCode.append(instrumentedCode.substring(lastEnd));
 
+        Map<String, Number> metrics = new LinkedHashMap<>();
+        metrics.put(SourceMap.CYCLOMATIC_METRIC, cyclomaticComplexityAnalyzer.analyze(root));
+
         return new SourceMap(cleanCode.toString(), root, result,
                 globalScope,
-                translator.getLanguageName()
+                translator.getLanguageName(),
+                metrics
         );
     }
 

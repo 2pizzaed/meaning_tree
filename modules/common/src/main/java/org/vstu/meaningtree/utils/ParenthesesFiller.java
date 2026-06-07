@@ -32,7 +32,7 @@ public class ParenthesesFiller {
         Expression arg = prepareOperand(tok, expr.getExpression());
         if (!arg.uniquenessEquals(expr.getExpression())) {
             expr = expr.clone();
-            expr.getFieldDescriptor("expression").substitute(arg);
+            replaceOrThrow(expr, "expression", arg);
         }
         return expr;
     }
@@ -42,7 +42,7 @@ public class ParenthesesFiller {
         Expression arg = prepareOperand(tok, expr.getValue());
         if (!arg.uniquenessEquals(expr.getValue())) {
             expr = expr.clone();
-            expr.getFieldDescriptor("value").substitute(arg);
+            replaceOrThrow(expr, "value", arg);
         }
         return expr;
     }
@@ -52,7 +52,7 @@ public class ParenthesesFiller {
         Expression arg = prepareOperand(tok, expr.getExpression());
         if (!arg.uniquenessEquals(expr.getExpression())) {
             expr = expr.clone();
-            expr.getFieldDescriptor("expression").substitute(arg);
+            replaceOrThrow(expr, "expression", arg);
         }
         return expr;
     }
@@ -65,7 +65,7 @@ public class ParenthesesFiller {
         Expression arg = prepareOperand(tok, expr.getObject());
         if (!arg.uniquenessEquals(expr.getObject())) {
             expr = expr.clone();
-            expr.getFieldDescriptor("object").substitute(arg);
+            replaceOrThrow(expr, "object", arg);
         }
         return expr;
     }
@@ -81,7 +81,7 @@ public class ParenthesesFiller {
         Expression arg = prepareOperand(tok, expr.getFunction());
         if (!arg.uniquenessEquals(expr.getFunction())) {
             expr = expr.clone();
-            expr.getFieldDescriptor("function").substitute(arg);
+            replaceOrThrow(expr, "function", arg);
         }
         return expr;
     }
@@ -92,9 +92,9 @@ public class ParenthesesFiller {
         Expression then = prepareOperand(tok, expr.getThenExpr());
         Expression elseBranch = prepareOperand(tok, expr.getElseExpr());
         expr = expr.clone();
-        if (!expr.getCondition().uniquenessEquals(cond)) expr.getFieldDescriptor("condition").substitute(cond);
-        if (!expr.getThenExpr().uniquenessEquals(then)) expr.getFieldDescriptor("thenExpr").substitute(then);
-        if (!expr.getElseExpr().uniquenessEquals(elseBranch)) expr.getFieldDescriptor("elseExpr").substitute(elseBranch);
+        if (!expr.getCondition().uniquenessEquals(cond)) replaceOrThrow(expr, "condition", cond);
+        if (!expr.getThenExpr().uniquenessEquals(then)) replaceOrThrow(expr, "thenExpr", then);
+        if (!expr.getElseExpr().uniquenessEquals(elseBranch)) replaceOrThrow(expr, "elseExpr", elseBranch);
         return expr;
     }
 
@@ -107,8 +107,8 @@ public class ParenthesesFiller {
         Pair<Expression, Expression> pair = prepareBinary(tok, expr.getLeft(), expr.getRight());
         if (!pair.getLeft().uniquenessEquals(expr.getLeft()) || !pair.getRight().uniquenessEquals(expr.getRight())) {
             expr = expr.clone();
-            expr.getFieldDescriptor("left").substitute(pair.getLeft());
-            expr.getFieldDescriptor("right").substitute(pair.getRight());
+            replaceOrThrow(expr, "left", pair.getLeft());
+            replaceOrThrow(expr, "right", pair.getRight());
         }
 
         return expr;
@@ -119,7 +119,7 @@ public class ParenthesesFiller {
         Expression arg = prepareOperand(tok, expr.getArgument());
         if (!arg.uniquenessEquals(expr.getArgument())) {
             expr = expr.clone();
-            expr.getFieldDescriptor("argument").substitute(arg);
+            replaceOrThrow(expr, "argument", arg);
         }
         return expr;
     }
@@ -129,9 +129,20 @@ public class ParenthesesFiller {
         Expression arg = prepareOperand(tok, qual.getScope());
         if (!arg.uniquenessEquals(qual.getScope())) {
             qual = qual.clone();
-            qual.getFieldDescriptor("scope").substitute(arg);
+            replaceOrThrow(qual, "scope", arg);
         }
         return qual;
+    }
+
+    private void replaceOrThrow(Expression owner, String fieldName, Expression replacement) {
+        ReplaceResult result = owner.replace(owner.getFieldDescriptor(fieldName), replacement);
+        if (!result.isSuccess()) {
+            throw new IllegalStateException("Failed to replace field '%s' in %s: %s".formatted(
+                    fieldName,
+                    owner.getNodeUniqueName(),
+                    result.message()
+            ));
+        }
     }
 
     private Expression prepareOperand(OperatorToken tok, Expression arg) {

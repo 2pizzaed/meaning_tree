@@ -28,17 +28,6 @@ public class ArrayFieldDescriptor extends FieldDescriptor implements Iterable<No
     }
 
     @Override
-    public boolean substitute(Node value) {
-        if (getIndex() != -1) {
-            try {
-                getArray()[getIndex()] = value;
-                return true;
-            } catch (IllegalAccessException e) {}
-        }
-        return false;
-    }
-
-    @Override
     public @NotNull Iterator<Node> iterator() {
         try {
             return Arrays.stream(getArray()).iterator();

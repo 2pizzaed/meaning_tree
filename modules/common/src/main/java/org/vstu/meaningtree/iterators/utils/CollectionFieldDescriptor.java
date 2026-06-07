@@ -32,23 +32,6 @@ public class CollectionFieldDescriptor extends FieldDescriptor implements Iterab
         return new CollectionFieldDescriptor(owner, name, field, readOnly);
     }
 
-    @Override
-    public boolean substitute(Node value) {
-        ensureWritable();
-        Object val = null;
-        try {
-            val = field.get(owner);
-        } catch (IllegalAccessException e) {
-            return false;
-        }
-        if (val instanceof List<?> && getIndex() != -1) {
-            var list = (List) val;
-            list.set(getIndex(), value);
-            return true;
-        }
-        return false;
-    }
-
     public boolean substituteCollection(Collection<?> values) {
         try {
             field.set(owner, values);

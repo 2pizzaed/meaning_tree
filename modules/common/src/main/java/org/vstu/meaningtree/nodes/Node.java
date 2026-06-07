@@ -355,30 +355,6 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         return new ReplaceResult(ReplaceStatus.FIELD_NOT_FOUND, "Unsupported field descriptor type: " + slot.getClass().getSimpleName(), slot, null, newNode);
     }
 
-    @Deprecated
-    public boolean substituteField(String name, Object value) {
-        if (!(value instanceof Node node)) {
-            return false;
-        }
-        FieldDescriptor descr = getFieldDescriptor(name);
-        if (descr == null) {
-            return false;
-        }
-        return replace(descr, node).isSuccess();
-    }
-
-    @Deprecated
-    public boolean substituteCollectionField(String name, Node value, int index) {
-        FieldDescriptor descr = getFieldDescriptor(name);
-        if (descr == null) {
-            return false;
-        }
-        if (descr instanceof CollectionFieldDescriptor || descr instanceof ArrayFieldDescriptor) {
-            descr = descr.withIndex(index);
-        }
-        return replace(descr, value).isSuccess();
-    }
-
     @Override
     public String toString() {
         return "Node<type: %s, id: %d>".formatted(getClass().getSimpleName(), getId());

@@ -86,6 +86,23 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         }
     }
 
+    /**
+     * @return Клонирует узел, но устанавливает для узла и его дочерних узлов новый id
+     */
+    public Node freshClone() {
+        Node clone = clone();
+        Set<Node> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        Iterator<NodeInfo> iterator = new DFSNodeIterator(clone, true);
+        while (iterator.hasNext()) {
+            NodeInfo info = iterator.next();
+            if (info == null || !visited.add(info.node())) {
+                continue;
+            }
+            info.node()._id = _id_generator.incrementAndGet();
+        }
+        return clone;
+    }
+
     public long getId() {
         return _id;
     }

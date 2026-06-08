@@ -19,11 +19,15 @@ public class ClassDeclaration extends Declaration {
     @TreeNode protected List<Type> typeParameters; // for generic type
     @TreeNode protected UserType typeNode;
 
+    protected static Type[] cloneTypes(List<Type> types) {
+        return types.stream().map(type -> (Type) type.freshClone()).toArray(Type[]::new);
+    }
+
     public ClassDeclaration(List<DeclarationModifier> modifiers, Identifier name, List<Type> typeParameters, Type ... parents) {
         this(modifiers, name, typeParameters,
                 typeParameters.isEmpty()
-                        ? new Class(name)
-                        : new GenericClass(name, typeParameters.toArray(new Type[0])),
+                        ? new Class((Identifier) name.freshClone())
+                        : new GenericClass((Identifier) name.freshClone(), cloneTypes(typeParameters)),
                 parents);
     }
 

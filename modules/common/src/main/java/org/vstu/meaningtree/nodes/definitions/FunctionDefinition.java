@@ -34,7 +34,7 @@ public class FunctionDefinition extends Definition implements HasBodyStatement {
         FunctionDeclaration decl = getDeclaration();
         return new MethodDefinition(
                 new MethodDeclaration(
-                        owner, decl.getName(), decl.getReturnType(),
+                        (UserType) owner.freshClone(), decl.getName(), decl.getReturnType(),
                         decl.getAnnotations(), modifiers,
                         decl.getArguments().toArray(new DeclarationArgument[0])),
                 getBody());

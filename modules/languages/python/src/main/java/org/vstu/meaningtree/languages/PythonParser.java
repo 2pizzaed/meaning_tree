@@ -456,7 +456,7 @@ public class PythonParser extends LanguageParser {
                 (SimpleIdentifier) parseTSNode(node.getChildByFieldName("name")),
                 supertypes
         );
-        UserType type = new Class(classDecl.getName());
+        UserType type = new Class((SimpleIdentifier) classDecl.getName().freshClone());
 
         CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"), true);
 

@@ -98,7 +98,7 @@ public class ClassDeclaration extends Declaration {
     public ClassDeclaration clone() {
         var clone = (ClassDeclaration) super.clone();
         clone.modifiers = List.copyOf(modifiers);
-        clone.name = name;
+        clone.name = name.clone();
         clone.typeParameters = typeParameters.stream().map(Type::clone).toList();
         clone.parentTypes = parentTypes.stream().map(Type::clone).toList();
         clone.typeNode = typeNode.clone();

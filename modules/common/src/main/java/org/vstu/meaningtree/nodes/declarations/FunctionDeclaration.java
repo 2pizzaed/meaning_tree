@@ -65,8 +65,8 @@ public class FunctionDeclaration extends Declaration {
     public FunctionDeclaration clone() {
         var clone = (FunctionDeclaration) super.clone();
         clone.arguments = new ArrayList<>(arguments.stream().map(DeclarationArgument::clone).toList());
-        clone.name = name;
-        clone.returnType = returnType;
+        clone.name = name.clone();
+        clone.returnType = returnType.clone();
         return clone;
     }
 }

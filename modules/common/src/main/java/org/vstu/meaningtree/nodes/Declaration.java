@@ -22,7 +22,12 @@ public abstract class Declaration extends Node {
     }
 
     public Declaration clone() {
-        return (Declaration) super.clone();
+        Declaration clone = (Declaration) super.clone();
+        clone.annotations = annotations == null
+                ? null
+                : new ArrayList<>(annotations.stream().map(Annotation::clone).toList());
+        clone.modifiers = new ArrayList<>(modifiers);
+        return clone;
     }
 
     public List<Annotation> getAnnotations() {

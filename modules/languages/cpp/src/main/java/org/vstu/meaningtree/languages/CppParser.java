@@ -1218,9 +1218,9 @@ public class CppParser extends LanguageParser {
             Expression value = (Expression) parseTSNode(tsValue);
             if (value instanceof PlainCollectionLiteral col) {
                 if (mainType instanceof PlainCollectionType arrayType) {
-                    col.setTypeHint(arrayType.getItemType());
+                    col.setTypeHint((Type) arrayType.getItemType().freshClone());
                 } else {
-                    col.setTypeHint(mainType);
+                    col.setTypeHint((Type) mainType.freshClone());
                 }
             }
 

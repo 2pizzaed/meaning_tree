@@ -1067,7 +1067,7 @@ public class JavaParser extends LanguageParser {
         if (!node.getChildByFieldName("value").isNull()) {
             Expression value = (Expression) parseTSNode(node.getChildByFieldName("value"));
             if (value instanceof PlainCollectionLiteral col) {
-                col.setTypeHint(type);
+                col.setTypeHint((Type) type.freshClone());
             }
             return new VariableDeclarator(ident, value);
         }
@@ -1120,7 +1120,7 @@ public class JavaParser extends LanguageParser {
                         if (!_userTypes.containsKey(typeName)) {
                             _userTypes.put(typeName, new Class(new SimpleIdentifier(typeName)));
                         }
-                        parsedType = _userTypes.get(typeName);
+                        parsedType = (Type) _userTypes.get(typeName).freshClone();
                     }
                 }
                 break;
@@ -1144,7 +1144,7 @@ public class JavaParser extends LanguageParser {
                 } else if (subType instanceof SetType) {
                     parsedType = new SetType(!subTypes.isEmpty() ? subTypes.getFirst() : new UnknownType());
                 } else if (subType instanceof Class cls) {
-                    parsedType = new GenericClass(cls.getQualifiedName(), subTypes.toArray(new Type[0]));
+                    parsedType = new GenericClass((Identifier) cls.getQualifiedName().freshClone(), subTypes.toArray(new Type[0]));
                 }
                 break;
             case "scoped_type_identifier":

@@ -1237,16 +1237,24 @@ public class JavaParser extends LanguageParser {
         ClassDefinition mainClass = null;
         MethodDefinition mainMethod = null;
         for (Node n : statements) {
-            // Только один класс в файле может иметь модификатор public,
-            // поэтому он и является главным классом
-            if (n instanceof ClassDefinition classDefinition
-                    && classDefinition.getModifiers().contains(DeclarationModifier.PUBLIC)) {
-                mainClass = classDefinition;
+            if (!(n instanceof ClassDefinition classDefinition)) {
+                continue;
+            }
 
-                MethodDefinition m = mainClass.findMethod("main");
-                if (m != null) {
-                    mainMethod = m;
-                }
+            MethodDefinition candidateMainMethod = classDefinition.findMethod("main");
+            if (candidateMainMethod == null) {
+                continue;
+            }
+
+            boolean isPublicClass =
+                    classDefinition.getModifiers().contains(DeclarationModifier.PUBLIC);
+            if (mainMethod == null || isPublicClass) {
+                mainClass = classDefinition;
+                mainMethod = candidateMainMethod;
+            }
+
+            if (isPublicClass) {
+                break;
             }
         }
 

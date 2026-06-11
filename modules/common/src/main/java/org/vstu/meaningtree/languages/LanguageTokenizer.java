@@ -264,10 +264,14 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
             if (tokens.get(unaryStart) instanceof OperatorToken op) {
                 token = op;
                 unaryStart++;
-            } else {
-                token = (OperatorToken) tokens.getLast();
+            } else if (unaryStop > unaryStart && tokens.get(unaryStop - 1) instanceof OperatorToken op) {
+                token = op;
                 unaryStop--;
                 pos = OperandPosition.LEFT;
+            } else {
+                throw new IllegalStateException(
+                        "Unary operator node \"%s\" does not contain an operator token".formatted(node.getType())
+                );
             }
             for (int i = unaryStart; i < unaryStop; i++) {
                 if (!(tokens.get(i) instanceof OperandToken)) {

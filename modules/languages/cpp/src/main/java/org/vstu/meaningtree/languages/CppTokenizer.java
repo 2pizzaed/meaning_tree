@@ -179,17 +179,26 @@ public class CppTokenizer extends LanguageTokenizer {
     protected List<String> getOperatorNodes(OperatorArity arity) {
         return switch (arity) {
             case UNARY -> List.of(
-                    "unary_expression", "update_expression", "pointer_expression", "assignment_expression"
+                    "unary_expression", "update_expression", "pointer_expression"
             );
-            case BINARY -> List.of("binary_expression", "field_expression", "cast_expression", "call_expression", "qualified_identifier");
+            case BINARY -> List.of(
+                    "binary_expression", "field_expression", "cast_expression", "call_expression",
+                    "qualified_identifier", "assignment_expression"
+            );
             case TERNARY -> List.of("conditional_expression");
         };
     }
 
     @Override
     protected String getFieldNameByOperandPos(OperandPosition pos, String operatorNode) {
-        if (List.of("unary_expression", "update_expression", "pointer_expression", "assignment_expression").contains(operatorNode)) {
+        if (List.of("unary_expression", "update_expression", "pointer_expression").contains(operatorNode)) {
             return "argument";
+        } else if (operatorNode.equals("assignment_expression")) {
+            if (pos == OperandPosition.LEFT) {
+                return "left";
+            } else if (pos == OperandPosition.RIGHT) {
+                return "right";
+            }
         } else if (operatorNode.equals("binary_expression")) {
             if (pos == OperandPosition.LEFT) {
                 return "left";

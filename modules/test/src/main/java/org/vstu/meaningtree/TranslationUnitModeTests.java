@@ -120,6 +120,39 @@ public class TranslationUnitModeTests {
     }
 
     @Test
+    void javaProceduralHoistsStaticMethodsContainingIfWithoutElse() {
+        String code = """
+                class Main {
+                    static int fact(int n) {
+                        if (n <= 1) {
+                            return 1;
+                        }
+                        return n * fact(n - 1);
+                    }
+
+                    public static void main(String[] args) {
+                        int x = fact(3);
+                    }
+                }
+                """;
+
+        JavaTranslator translator = new JavaTranslator(PROCEDURAL_CONFIG);
+        ProgramEntryPoint entryPoint = assertInstanceOf(
+                ProgramEntryPoint.class,
+                translator.getMeaningTree(code).getRootNode()
+        );
+
+        assertEquals(2, entryPoint.getBody().size());
+        assertInstanceOf(FunctionDefinition.class, entryPoint.getBody().get(0));
+        assertInstanceOf(FunctionDefinition.class, entryPoint.getBody().get(1));
+
+        String generated = translator.getCode(new MeaningTree(entryPoint));
+        assertTrue(generated.contains("if (n <= 1)"));
+        assertTrue(generated.contains("return n * fact(n - 1);"));
+        assertTrue(generated.contains("int x = fact(3);"));
+    }
+
+    @Test
     void javaViewerProceduralTransformsClassBasedEntryPoint() {
         String code = """
                 class Main {

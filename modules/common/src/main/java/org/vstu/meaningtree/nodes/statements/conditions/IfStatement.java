@@ -94,7 +94,7 @@ public class IfStatement extends Statement {
     public IfStatement clone() {
         var clone = (IfStatement) super.clone();
         clone.branches = new ArrayList<>(branches.stream().map(ConditionBranch::clone).toList());
-        clone._elseBranch = _elseBranch.clone();
+        clone._elseBranch = _elseBranch == null ? null : _elseBranch.clone();
         return clone;
     }
 }

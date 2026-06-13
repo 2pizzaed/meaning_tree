@@ -4,7 +4,6 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.nodes.Expression;
-import org.vstu.meaningtree.nodes.ExpressionValueEstimate;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;

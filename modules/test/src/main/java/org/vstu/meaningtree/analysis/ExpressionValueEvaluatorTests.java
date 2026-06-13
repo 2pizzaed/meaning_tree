@@ -3,7 +3,6 @@ package org.vstu.meaningtree.analysis;
 import org.junit.jupiter.api.Test;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.languages.CppTranslator;
-import org.vstu.meaningtree.nodes.ExpressionValueEstimate;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
@@ -21,6 +20,7 @@ import org.vstu.meaningtree.nodes.expressions.unary.UnaryPlusOp;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.types.builtin.IntType;
+import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEstimate;
 import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEvaluator;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 

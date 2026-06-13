@@ -56,6 +56,7 @@ import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.serializers.model.Deserializer;
 import org.vstu.meaningtree.utils.*;
+import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEstimate;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 import org.vstu.meaningtree.utils.tokens.*;

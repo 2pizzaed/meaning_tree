@@ -62,6 +62,7 @@ import org.vstu.meaningtree.utils.BytePosition;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.SourceMap;
 import org.vstu.meaningtree.utils.TransliterationUtils;
+import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEstimate;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 import org.vstu.meaningtree.utils.tokens.*;

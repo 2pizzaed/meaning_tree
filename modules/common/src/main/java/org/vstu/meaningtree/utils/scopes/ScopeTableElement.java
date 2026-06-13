@@ -97,7 +97,7 @@ public class ScopeTableElement implements Serializable {
 
     public void registerVariable(@NotNull VariableDeclaration variableDeclaration) {
         for (VariableDeclarator decl : variableDeclaration.getDeclarators()) {
-            variables.put(decl.getIdentifier(), variableDeclaration.getType());
+            variables.put(decl.getIdentifier(), detachType(variableDeclaration.getType()));
             variableDeclarations.put(decl.getIdentifier(), variableDeclaration);
         }
     }
@@ -111,7 +111,7 @@ public class ScopeTableElement implements Serializable {
     public void restoreVariable(@NotNull SimpleIdentifier name,
                                 @NotNull Type type,
                                 @Nullable VariableDeclaration declaration) {
-        variables.put(name, type);
+        variables.put(name, detachType(type));
         if (declaration != null) {
             variableDeclarations.put(name, declaration);
         }
@@ -161,7 +161,7 @@ public class ScopeTableElement implements Serializable {
     public Type getVariableType(@NotNull SimpleIdentifier name) {
         Type type = variables.get(name);
         if (type != null) {
-            return type;
+            return detachType(type);
         }
         if (parent != null) {
             return parent.getVariableType(name);
@@ -192,7 +192,7 @@ public class ScopeTableElement implements Serializable {
             return;
         }
 
-        variables.put(name, type);
+        variables.put(name, detachType(type));
     }
 
     public void changeVariableType(@NotNull SimpleIdentifier name, @NotNull Type type) {
@@ -312,6 +312,10 @@ public class ScopeTableElement implements Serializable {
         if (node instanceof CompoundStatement compoundStatement) {
             compoundStatement.bindScope(this);
         }
+    }
+
+    private static Type detachType(@NotNull Type type) {
+        return (Type) type.freshClone();
     }
 
     @Override

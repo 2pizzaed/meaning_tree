@@ -3,6 +3,7 @@ package org.vstu.meaningtree.analysis;
 import org.junit.jupiter.api.Test;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.languages.CppTranslator;
+import org.vstu.meaningtree.languages.PythonTranslator;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
@@ -232,6 +233,19 @@ public class ExpressionValueEvaluatorTests {
         assertTrue(estimate.exactValue().isEmpty());
         assertEquals(Set.of(Boolean.TRUE, Boolean.FALSE), estimate.possibleValues());
         assertFalse(estimate.reliable());
+    }
+
+    @Test
+    void pythonTranslatorCanInferVariableTypeFromVisibleIdentifierWithoutDuplicatingTypeNodes() {
+        String code = """
+                if flag:
+                    value = 1
+                result = value
+                """;
+
+        MeaningTree mt = new PythonTranslator(DEFAULT_CONFIG).getMeaningTree(code);
+
+        assertDoesNotThrow(mt::makeIndex);
     }
 
     private static ExpressionValueEvaluator evaluatorFor(org.vstu.meaningtree.nodes.Expression expression) {

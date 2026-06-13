@@ -1,6 +1,7 @@
 package org.vstu.meaningtree.utils;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.iterators.utils.NodeIterable;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
@@ -13,7 +14,9 @@ public record SourceMap(String code, NodeIterable root,
                         Map<Long, Pair<Integer, Integer>> bytePositions,
                         ScopeTable scopeTable,
                         String language,
-                        Map<String, Number> metrics)
+                        Map<String, Number> metrics,
+                        @Nullable String projectRootPath,
+                        @Nullable String projectFileRelPath)
         implements Serializable {
     public static final String CYCLOMATIC_METRIC = "cyclomatic";
 
@@ -31,6 +34,14 @@ public record SourceMap(String code, NodeIterable root,
                      Map<Long, Pair<Integer, Integer>> bytePositions,
                      ScopeTable scopeTable,
                      String language) {
-        this(code, root, bytePositions, scopeTable, language, Map.of());
+        this(code, root, bytePositions, scopeTable, language, Map.of(), null, null);
+    }
+
+    public SourceMap(String code, NodeIterable root,
+                     Map<Long, Pair<Integer, Integer>> bytePositions,
+                     ScopeTable scopeTable,
+                     String language,
+                     Map<String, Number> metrics) {
+        this(code, root, bytePositions, scopeTable, language, metrics, null, null);
     }
 }

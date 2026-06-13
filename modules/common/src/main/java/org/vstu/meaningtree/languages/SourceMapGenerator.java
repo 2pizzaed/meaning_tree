@@ -114,10 +114,15 @@ public class SourceMapGenerator {
         Map<String, Number> metrics = new LinkedHashMap<>();
         metrics.put(SourceMap.CYCLOMATIC_METRIC, cyclomaticComplexityAnalyzer.analyze(root));
 
+        String projectRootPath = translator.getProjectRootPath().map(path -> path.toString()).orElse(null);
+        String projectFileRelPath = translator.getCurrentFileRelPath().map(path -> path.toString()).orElse(null);
+
         return new SourceMap(cleanCode.toString(), root, result,
                 globalScope,
                 translator.getLanguageName(),
-                metrics
+                metrics,
+                projectRootPath,
+                projectFileRelPath
         );
     }
 

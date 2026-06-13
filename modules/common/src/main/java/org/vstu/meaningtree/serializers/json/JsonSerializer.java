@@ -108,6 +108,12 @@ public class JsonSerializer implements Serializer<JsonObject> {
             metrics.add(entry.getKey(), new JsonPrimitive(entry.getValue()));
         }
         root.add("metrics", metrics);
+        if (sourceMap.projectRootPath() != null) {
+            root.addProperty("project_root_path", sourceMap.projectRootPath());
+        }
+        if (sourceMap.projectFileRelPath() != null) {
+            root.addProperty("project_file_rel_path", sourceMap.projectFileRelPath());
+        }
 
         return root;
     }

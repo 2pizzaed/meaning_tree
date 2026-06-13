@@ -145,7 +145,15 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             }
         }
 
-        return new SourceMap(sourceCode, rootNode, bytePositions, scopeTable, language, metrics);
+        String projectRootPath = serialized.has("project_root_path") && !serialized.get("project_root_path").isJsonNull()
+                ? serialized.get("project_root_path").getAsString()
+                : null;
+        String projectFileRelPath = serialized.has("project_file_rel_path") && !serialized.get("project_file_rel_path").isJsonNull()
+                ? serialized.get("project_file_rel_path").getAsString()
+                : null;
+
+        return new SourceMap(sourceCode, rootNode, bytePositions, scopeTable, language, metrics,
+                projectRootPath, projectFileRelPath);
     }
 
     private ScopeTable deserializeScopeTable(JsonObject json) {

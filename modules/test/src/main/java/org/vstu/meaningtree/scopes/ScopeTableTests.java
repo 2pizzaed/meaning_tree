@@ -98,7 +98,10 @@ public class ScopeTableTests {
                 root,
                 Map.<Long, Pair<Integer, Integer>>of(),
                 scope,
-                "test"
+                "test",
+                Map.of(),
+                "D:\\project",
+                "src\\main\\Sample.java"
         );
 
         JsonObject json = new JsonSerializer().serialize(sourceMap);
@@ -110,6 +113,8 @@ public class ScopeTableTests {
 
         SourceMap restored = new JsonDeserializer().deserializeSourceMap(json);
         ScopeTable restoredScope = restored.scopeTable();
+        assertEquals("D:\\project", restored.projectRootPath());
+        assertEquals("src\\main\\Sample.java", restored.projectFileRelPath());
 
         assertEquals(2, restoredScope.allDefinitions().size());
         assertTrue(restoredScope.findDeclaration(new SimpleIdentifier("Base"), ClassDeclaration.class, ScopeLookupMode.GLOBAL).isPresent());
@@ -147,7 +152,10 @@ public class ScopeTableTests {
                 root,
                 Map.<Long, Pair<Integer, Integer>>of(),
                 scope,
-                "test"
+                "test",
+                Map.of(),
+                "D:\\project",
+                "src\\main\\Local.java"
         );
 
         JsonObject json = new JsonSerializer().serialize(sourceMap);
@@ -160,6 +168,8 @@ public class ScopeTableTests {
                 .has("scope_id"));
 
         SourceMap restored = new JsonDeserializer().deserializeSourceMap(json);
+        assertEquals("D:\\project", restored.projectRootPath());
+        assertEquals("src\\main\\Local.java", restored.projectFileRelPath());
         CompoundStatement restoredBody = StreamSupport.stream(restored.root().spliterator(), false)
                 .map(nodeInfo -> nodeInfo.node())
                 .filter(CompoundStatement.class::isInstance)

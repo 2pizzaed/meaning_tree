@@ -1235,13 +1235,13 @@ public class JavaParser extends LanguageParser {
         }
 
         ClassDefinition mainClass = null;
-        MethodDefinition mainMethod = null;
+        FunctionDefinition mainMethod = null;
         for (Node n : statements) {
             if (!(n instanceof ClassDefinition classDefinition)) {
                 continue;
             }
 
-            MethodDefinition candidateMainMethod = classDefinition.findMethod("main");
+            FunctionDefinition candidateMainMethod = classDefinition.findFunction("main");
             if (candidateMainMethod == null) {
                 continue;
             }
@@ -1272,12 +1272,13 @@ public class JavaParser extends LanguageParser {
 
         */
 
-        List<Node> body;
+        if (mainMethod != null && getConfigParameter("translationUnitMode").equalsValue("simple")) {
+            return new ProgramEntryPoint(Arrays.asList(mainMethod.getBody().getNodes()), mainClass, mainMethod);
+        }
 
-        if (mainMethod != null && !getConfigParameter("translationUnitMode").equalsValue("full")) {
-            body = Arrays.asList(mainMethod.getBody().getNodes());
-        } else {
-            body = statements.getNodes();
+        List<Node> body = statements.getNodes();
+        if (mainMethod != null && getConfigParameter("translationUnitMode").equalsValue("procedural")) {
+            return JavaProceduralProgramTransformer.transform(body, mainClass, mainMethod);
         }
 
         return new ProgramEntryPoint(body, mainClass, mainMethod);

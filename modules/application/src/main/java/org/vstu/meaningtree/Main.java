@@ -39,12 +39,15 @@ public class Main {
 
     public enum TranslatorMode {
         simple,
+        procedural,
         full,
         expression;
 
         public ConfigParameter getConfigEntry() {
             if (this.equals(simple)) {
                 return ConfigParameters.translationUnitMode.withValue("simple");
+            } else if (this.equals(procedural)) {
+                return ConfigParameters.translationUnitMode.withValue("procedural");
             } else if (this.equals(expression)) {
                 return ConfigParameters.translationUnitMode.withValue("expression");
             }

@@ -151,7 +151,11 @@ public class CppParser extends LanguageParser {
         // Оборачиваем функцию main в узел ProgramEntryPoint
         if (node instanceof FunctionDefinition functionDefinition
                 && functionDefinition.getName().toString().equals("main")) {
-            node = new ProgramEntryPoint(List.of(functionDefinition.getBody().getNodes()), node);
+            if (getConfigParameter("translationUnitMode").equalsValue("simple")) {
+                node = new ProgramEntryPoint(List.of(functionDefinition.getBody().getNodes()), node);
+            } else {
+                node = new ProgramEntryPoint(List.of(node), node);
+            }
         }
 
         return new MeaningTree(node);
@@ -1357,7 +1361,7 @@ public class CppParser extends LanguageParser {
                     && functionDefinition.getName().toString().equals("main")
             ) {
                 entryPoint = n;
-                if (!getConfigParameter("translationUnitMode").equalsValue("full")) {
+                if (getConfigParameter("translationUnitMode").equalsValue("simple")) {
                     n = new ProgramEntryPoint(List.of(functionDefinition.getBody().getNodes()), n);
                     return n;
                 }

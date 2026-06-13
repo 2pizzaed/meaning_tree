@@ -13,7 +13,7 @@ public class ConfigParameters {
     protected final static Map<Class<? extends LanguageTranslator>, Map<String, ConfigParameter>> langRegistry = new HashMap<>();
 
     public static final ConfigParameter translationUnitMode = register("translationUnitMode",
-            ConfigValue.ofPossible(String.class, "full", List.of("expression", "simple", "full")),
+            ConfigValue.ofPossible(String.class, "full", List.of("expression", "simple", "procedural", "full")),
             ConfigScope.ANY
     );
     public static final ConfigParameter skipErrors = register("skipErrors",

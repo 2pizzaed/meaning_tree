@@ -59,6 +59,22 @@ public class ClassDefinition extends Definition {
         return null;
     }
 
+    @Nullable
+    public FunctionDefinition findFunction(String functionName) {
+        for (Node node : body.getNodes()) {
+            if (!(node instanceof FunctionDefinition functionDefinition)) {
+                continue;
+            }
+
+            String name = functionDefinition.getName().toString();
+            if (name.equals(functionName)) {
+                return functionDefinition;
+            }
+        }
+
+        return null;
+    }
+
     public List<DeclarationModifier> getModifiers() {
         return ((ClassDeclaration) getDeclaration()).getModifiers();
     }

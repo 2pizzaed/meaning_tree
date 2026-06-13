@@ -441,41 +441,61 @@ public class PythonViewer extends LanguageViewer {
 
     private String entryPointToString(ProgramEntryPoint programEntryPoint, Tab tab) {
         IfStatement entryPointIf = null;
+        boolean omitEntryPointInNonFullMode = false;
+        FunctionDefinition entryPointFunction = null;
         if (programEntryPoint.hasEntryPoint()) {
             Node entryPointNode = programEntryPoint.getEntryPoint();
             if (entryPointNode instanceof FunctionDefinition func) {
-                Identifier ident;
-                FunctionDeclaration funcDecl = func.getDeclaration();
-                if (funcDecl instanceof MethodDeclaration method) {
-                    ident = new ScopedIdentifier(method.getOwner().getName(), method.getName());
+                entryPointFunction = func;
+                if (!getConfigParameter("translationUnitMode").equalsValue("full")) {
+                    omitEntryPointInNonFullMode = true;
                 } else {
-                    ident = func.getName();
-                }
-                //NOTE: default behaviour - ignore arguments in call main function
-                List<Expression> nulls = new ArrayList<>();
-                for (DeclarationArgument arg : funcDecl.getArguments()) {
-                    if (!arg.isListUnpacking()) {
-                        nulls.add(new NullLiteral());
+                    Identifier ident;
+                    FunctionDeclaration funcDecl = func.getDeclaration();
+                    if (funcDecl instanceof MethodDeclaration method) {
+                        ident = new ScopedIdentifier(method.getOwner().getName(), method.getName());
+                    } else {
+                        ident = func.getName();
                     }
+                    //NOTE: default behaviour - ignore arguments in call main function
+                    List<Expression> nulls = new ArrayList<>();
+                    for (DeclarationArgument arg : funcDecl.getArguments()) {
+                        if (!arg.isListUnpacking()) {
+                            nulls.add(new NullLiteral());
+                        }
+                    }
+                    FunctionCall funcCall = new FunctionCall(ident, nulls.toArray(new Expression[0]));
+                    entryPointIf = new IfStatement(new EqOp(new SimpleIdentifier("__name__"), StringLiteral.fromUnescaped("__main__", StringLiteral.Type.NONE)), new CompoundStatement(funcCall),null);
                 }
-                FunctionCall funcCall = new FunctionCall(ident, nulls.toArray(new Expression[0]));
-                entryPointIf = new IfStatement(new EqOp(new SimpleIdentifier("__name__"), StringLiteral.fromUnescaped("__main__", StringLiteral.Type.NONE)), new CompoundStatement(funcCall),null);
             } else if (entryPointNode instanceof CompoundStatement compound) {
                 entryPointIf = new IfStatement(new EqOp(new SimpleIdentifier("__name__"), StringLiteral.fromUnescaped("__main__", StringLiteral.Type.NONE)), compound,null);
             }
         }
         List<Node> nodes = new ArrayList<>(programEntryPoint.getBody());
-        if (!getConfigParameter("translationUnitMode").equalsValue("full") && entryPointIf != null) {
+        if (omitEntryPointInNonFullMode && entryPointFunction != null && canFlattenEntryPointFunction(entryPointFunction)) {
+            nodes.remove(entryPointFunction);
+            nodes.addAll(entryPointFunction.getBody().getNodeList());
+        }
+        if (!getConfigParameter("translationUnitMode").equalsValue("full") && entryPointIf != null && !omitEntryPointInNonFullMode) {
             Statement body = entryPointIf.getBranches().getFirst().getBody();
             if (body instanceof CompoundStatement compoundStatement) {
                 nodes.addAll(compoundStatement.getNodeList());
             } else {
                 nodes.add(body);
             }
-        } else if (entryPointIf != null) {
+        } else if (getConfigParameter("translationUnitMode").equalsValue("full") && entryPointIf != null) {
             nodes.add(entryPointIf);
         }
         return nodeListToString(nodes, tab);
+    }
+
+    private boolean canFlattenEntryPointFunction(FunctionDefinition functionDefinition) {
+        for (var nodeInfo : functionDefinition.getBody()) {
+            if (nodeInfo.node() instanceof ReturnStatement) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String loopToString(Statement stmt, Tab tab) {
@@ -1166,4 +1186,3 @@ public class PythonViewer extends LanguageViewer {
         return ctx.requireTokenizer().getOperatorByTokenName(tok);
     }
 }
-

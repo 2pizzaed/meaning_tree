@@ -1,5 +1,6 @@
 package org.vstu.meaningtree.languages;
 
+import org.jetbrains.annotations.Nullable;
 import org.treesitter.TSNode;
 import org.treesitter.TreeSitterPython;
 import org.vstu.meaningtree.MeaningTree;
@@ -646,7 +647,10 @@ public class PythonParser extends LanguageParser {
             if (programNode instanceof IfStatement ifStmt) {
                 ConditionBranch mainBranch = ifStmt.getBranches().get(0);
                 if (mainBranch.getCondition() instanceof EqOp eqOp) {
-                    if (eqOp.getLeft().toString().equals("__name__") && eqOp.getRight().toString().equals("__main__")) {
+                    if (eqOp.getLeft() instanceof SimpleIdentifier leftIdentifier
+                            && leftIdentifier.getName().equals("__name__")
+                            && eqOp.getRight() instanceof StringLiteral rightLiteral
+                            && rightLiteral.getUnescapedValue().equals("__main__")) {
                         entryPointNode = mainBranch.getBody();
                         entryPointIf = ifStmt;
                     }
@@ -673,7 +677,49 @@ public class PythonParser extends LanguageParser {
             return nodes.getFirst();
         }
 
+        FunctionDefinition entryPointFunction = findEntryPointFunction(nodes, entryPointNode);
+        if (entryPointFunction != null) {
+            entryPointNode = entryPointFunction;
+        }
+
         return new ProgramEntryPoint(nodes, entryPointNode);
+    }
+
+    @Nullable
+    private FunctionDefinition findEntryPointFunction(List<Node> nodes, @Nullable Node entryPointNode) {
+        Node possibleCall;
+        if (entryPointNode instanceof CompoundStatement compoundStatement) {
+            if (compoundStatement.getLength() != 1) {
+                return null;
+            }
+            possibleCall = compoundStatement.getNodes()[0];
+        } else {
+            possibleCall = entryPointNode;
+        }
+
+        FunctionCall functionCall;
+        if (possibleCall instanceof ExpressionStatement expressionStatement
+                && expressionStatement.getExpression() instanceof FunctionCall call) {
+            functionCall = call;
+        } else if (possibleCall instanceof FunctionCall call) {
+            functionCall = call;
+        } else {
+            return null;
+        }
+        if (!functionCall.getArguments().isEmpty()
+                || !(functionCall.getFunction() instanceof SimpleIdentifier identifier)) {
+            return null;
+        }
+
+        for (Node node : nodes) {
+            if (node instanceof FunctionDefinition functionDefinition
+                    && functionDefinition.getName().toString().equals(identifier.getName())
+                    && functionDefinition.getDeclaration().getArguments().isEmpty()) {
+                return functionDefinition;
+            }
+        }
+
+        return null;
     }
 
     private Identifier fromIdentifier(TSNode node) {

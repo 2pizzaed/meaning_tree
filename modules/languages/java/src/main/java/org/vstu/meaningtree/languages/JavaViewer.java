@@ -2110,6 +2110,16 @@ public class JavaViewer extends LanguageViewer {
     }
 
     public String toStringProgramEntryPoint(ProgramEntryPoint entryPoint) {
+        if (getConfigParameter("translationUnitMode").equalsValue("procedural") && entryPoint.hasMainClass()) {
+            entryPoint = JavaProceduralProgramTransformer.transform(
+                    new ArrayList<>(entryPoint.getBody()),
+                    entryPoint.getMainClass(),
+                    entryPoint.hasEntryPoint() && entryPoint.getEntryPoint() instanceof FunctionDefinition functionDefinition
+                            ? functionDefinition
+                            : null
+            );
+        }
+
         List<Node> nodes = entryPoint.getBody();
 
         if (getConfigParameter("translationUnitMode").equalsValue("full") && !entryPoint.hasMainClass()) {
@@ -2200,5 +2210,4 @@ public class JavaViewer extends LanguageViewer {
         return "package %s;".formatted(toString(decl.getPackageName()));
     }
 }
-
 

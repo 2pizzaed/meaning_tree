@@ -1295,7 +1295,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
     private List<Expression> deserializeExpressionList(JsonArray array) {
         List<Expression> list = new ArrayList<>();
         for (JsonElement elem : array) {
-            list.add(deserializeExpression(elem.getAsJsonObject()));
+            list.add(elem.isJsonNull() ? null : deserializeExpression(elem.getAsJsonObject()));
         }
         return list;
     }

@@ -78,10 +78,13 @@ public class Main {
         @Parameter(names = "--format", description = "Serialization format of input file: json, xml, rdf, rdf-turtle")
         private String serializeFormat = "json";
 
+        @Parameter(names = "--serialize", description = "Output serialization format: json, xml, rdf, rdf-turtle, dot")
+        private String outputSerializeFormat;
+
         @Parameter(description = "<input_file> [output_file]", required = true)
         private java.util.List<String> positionalParams;
 
-        @Parameter(names = "--mode", description = "Translator mode (expression, short, full)")
+        @Parameter(names = "--mode", description = "Translator mode (expression, simple, procedural, full)")
         private TranslatorMode translatorMode = TranslatorMode.full;
 
         @Parameter(names = "--tokenize", description = "Tokenize target source code / meaning tree (convert output will be ignored)")
@@ -99,6 +102,10 @@ public class Main {
 
         public String getSerializeFormat() {
             return serializeFormat;
+        }
+
+        public String getOutputSerializeFormat() {
+            return outputSerializeFormat;
         }
 
         public String getInputFile() {
@@ -122,7 +129,7 @@ public class Main {
         @Parameter(names = "--source-map", description = "Output source map instead code")
         private boolean outputSourceMap = false;
 
-        @Parameter(names = "--mode", description = "Translator mode (expression, short, full)")
+        @Parameter(names = "--mode", description = "Translator mode (expression, simple, procedural, full)")
         private TranslatorMode translatorMode = TranslatorMode.full;
 
         @Parameter(names = "--start-node-id", description = "Start id for node id counter")
@@ -311,11 +318,12 @@ public class Main {
         String toLanguage = cmd.getToLanguage();
         String inputFilePath = cmd.getInputFile();
         String outputFilePath = cmd.getOutputFile();
-        String serializeFormat = cmd.getSerializeFormat();
+        String inputFormat = cmd.getSerializeFormat();
+        String outputFormat = cmd.getOutputSerializeFormat();
 
-        // Validate that either --to or --serialize is specified
-        if (toLanguage == null) {
-            System.err.println("Target language must be specified");
+        boolean serializeOnly = outputFormat != null && !cmd.outputSourceMap && !cmd.performTokenize;
+        if (toLanguage == null && !serializeOnly) {
+            System.err.println("Either --to (target language) or --serialize (format) must be specified");
             return;
         }
 
@@ -323,8 +331,25 @@ public class Main {
             System.err.println("Meaning Tree must be specified for tokenizer");
         }
 
-        if (!translators.containsKey(toLanguage)) {
+        if (toLanguage != null && !translators.containsKey(toLanguage)) {
             System.err.println("Unsupported target language: " + toLanguage + ". Supported languages: " + translators.keySet());
+            return;
+        }
+
+        String code = readCode(inputFilePath);
+        var object = deserializers.apply(inputFormat, function -> function.apply(code, cmd.isNode()));
+        if (object.isEmpty()) {
+            System.err.println("Unknown serialization format: " + inputFormat + ". " + deserializers.getSupportedFormatsMessage());
+            return;
+        }
+        var target = object.get();
+
+        if (serializeOnly) {
+            serializers.apply(outputFormat, function -> function.apply(target, cmd.prettify))
+                    .ifPresentOrElse(
+                            result -> writeOutput(result, outputFilePath),
+                            () -> System.err.println("Unknown serialization format: " + outputFormat + ". " + serializers.getSupportedFormatsMessage())
+                    );
             return;
         }
 
@@ -338,22 +363,18 @@ public class Main {
             config = config.merge(jsonConfig);
         }
 
-        String code = readCode(inputFilePath);
         LanguageTranslator toTranslator =
                 translators.get(toLanguage).getDeclaredConstructor(Config.class).newInstance(config);
-        var object = deserializers.apply(serializeFormat, function -> function.apply(code, cmd.isNode()));
-        if (object.isEmpty()) {
-            System.err.println("Unknown serialization format: " + serializeFormat + ". " + deserializers.getSupportedFormatsMessage());
-        }
-        var target = object.get();
+
         if (cmd.isNode()) {
             if (cmd.outputSourceMap) {
                 SourceMapGenerator srcMapGen = new SourceMapGenerator(toTranslator);
                 var srcMap = srcMapGen.process((Node) target);
-                serializers.apply("json", function -> function.apply(srcMap, cmd.prettify))
+                String srcMapFormat = outputFormat != null ? outputFormat : "json";
+                serializers.apply(srcMapFormat, function -> function.apply(srcMap, cmd.prettify))
                         .ifPresentOrElse(
                                 result -> writeOutput(result, outputFilePath),
-                                () -> System.err.println("Unknown serialization error")
+                                () -> System.err.println("Unknown serialization format: " + srcMapFormat + ". " + serializers.getSupportedFormatsMessage())
                         );
             } else {
                 String translatedCode = toTranslator.getCode((Node) target);
@@ -363,18 +384,20 @@ public class Main {
             if (cmd.outputSourceMap) {
                 SourceMapGenerator srcMapGen = new SourceMapGenerator(toTranslator);
                 var srcMap = srcMapGen.process((MeaningTree) target);
-                serializers.apply("json", function -> function.apply(srcMap, cmd.prettify))
+                String srcMapFormat = outputFormat != null ? outputFormat : "json";
+                serializers.apply(srcMapFormat, function -> function.apply(srcMap, cmd.prettify))
                         .ifPresentOrElse(
                                 result -> writeOutput(result, outputFilePath),
-                                () -> System.err.println("Unknown serialization error")
+                                () -> System.err.println("Unknown serialization format: " + srcMapFormat + ". " + serializers.getSupportedFormatsMessage())
                         );
             } else if (cmd.performTokenize) {
                 Token.setupId(cmd.startTokenId);
                 var tokens = toTranslator.getCodeAsTokens((MeaningTree) target, true, cmd.detailedTokens, false);
-                serializers.apply(serializeFormat == null ? "json" : serializeFormat, function -> function.apply(tokens, cmd.prettify))
+                String tokenFormat = outputFormat != null ? outputFormat : "json";
+                serializers.apply(tokenFormat, function -> function.apply(tokens, cmd.prettify))
                         .ifPresentOrElse(
                                 result -> writeOutput(result, outputFilePath),
-                                () -> System.err.println("Unknown serialization format: " + serializeFormat + ". " + serializers.getSupportedFormatsMessage())
+                                () -> System.err.println("Unknown serialization format: " + tokenFormat + ". " + serializers.getSupportedFormatsMessage())
                         );
             } else {
                 String translatedCode = toTranslator.getCode((MeaningTree) target);

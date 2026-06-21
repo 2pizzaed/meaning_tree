@@ -21,6 +21,22 @@ c++
 
 Use `list-langs` to confirm at runtime.
 
+## Translator Modes
+
+The `--mode` flag controls how program entry points are handled during parsing and code generation. Enum values: `expression`, `simple`, `procedural`, `full` (default).
+
+```text
+expression   Single expressions only, no statements or program structure.
+simple       Strips entry point wrappers (Java main class+method, C++ main function,
+             Python if-__name__ guard) and uses only the body statements.
+procedural   Strips class wrappers but preserves top-level functions. For Java, converts
+             class-wrapped code to procedural form (functions become standalone).
+             A middle ground between simple and full.
+full         Preserves the complete program structure: entry points, class wrappers,
+             main functions, if-__name__ guards. When generating code to a language
+             that requires entry point structure, creates one if missing.
+```
+
 ## Common IO Rules
 
 Input and output positional arguments use this shape:
@@ -64,7 +80,7 @@ Options:
 ```text
 --prettify                   Pretty-print serializer output.
 --source-map                 Output source map JSON instead of generated code.
---mode <mode>                Translator mode. Actual enum values: simple, full, expression. Default: full.
+--mode <mode>                Translator mode: expression, simple, procedural, full. Default: full.
 --start-node-id <number>     Initial node id counter. Default: 0.
 --start-token-id <number>    Initial token id counter. Default: 0.
 --tokenize                   Tokenize target source code / meaning tree; normal conversion output is ignored.
@@ -117,31 +133,33 @@ java -jar modules/application/target/application-1.0-SNAPSHOT.jar translate --fr
 
 ## generate
 
-Purpose: read a serialized meaning tree or node and generate target-language code, target tokens, or a source map.
+Purpose: read a serialized meaning tree or node and generate target-language code, re-serialize to another format, produce target tokens, or generate a source map.
 
 Syntax:
 
 ```powershell
-java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate --to <language> [options] <input_file> [output_file]
+java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate [--to <language>] [options] <input_file> [output_file]
 ```
 
-Required:
+At least one of these must be present:
 
 ```text
---to <language>  Target language. One of: java, python, c++.
+--to <language>              Target language. One of: java, python, c++.
+--serialize <format>         Re-serialize the deserialized tree/node to another output format.
 ```
 
 Options:
 
 ```text
---source-map                 Output source map JSON instead of code.
+--source-map                 Output source map instead of code. Requires --to.
 --start-token-id <number>    Initial token id counter. Default: 0.
 --config <json>              Apply target translator config from JSON.
 --skip-errors                Allow translator/parser to skip recoverable errors unless overridden by --config.
 --input-type <type>          Serialized object type: meaning-tree, node. Default: meaning-tree.
 --format <format>            Input serialization format: json, xml, rdf, rdf-turtle. Default: json.
---mode <mode>                Translator mode. Actual enum values: simple, full, expression. Default: full.
---tokenize                   Tokenize target source code / meaning tree; normal conversion output is ignored.
+--serialize <format>         Output serialization format: json, xml, rdf, rdf-turtle, dot.
+--mode <mode>                Translator mode: expression, simple, procedural, full. Default: full.
+--tokenize                   Tokenize target source code / meaning tree; normal conversion output is ignored. Requires --to.
 --detailed-tokens            Include extra token details, mainly useful for expressions.
 --prettify                   Pretty-print serializer output where applicable.
 ```
@@ -149,10 +167,13 @@ Options:
 Important behavior:
 
 ```text
---to is always required, even for --source-map or --tokenize.
+--serialize without --to, --source-map, or --tokenize: re-serializes the deserialized tree/node to the given output format (format conversion, e.g. json to dot).
+--serialize with --source-map: controls the output format for source maps (default: json).
+--serialize with --tokenize: controls the output format for tokens (default: json).
+--to is required when --source-map or --tokenize is used.
 --input-type node with --tokenize prints an error because tokenization requires a full meaning tree.
 --skip-errors is enabled first in the base translator config and can still be overridden by explicit values inside --config.
---format controls deserialization. For token output, the same format is used if supported; otherwise JSON is the safer expectation.
+--format controls only input deserialization; --serialize controls output serialization.
 ```
 
 Examples:
@@ -167,11 +188,23 @@ java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate --to 
 # Generate code from a serialized node, not a whole meaning tree
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate --to java --input-type node --format json node.json
 
-# Generate source map from a meaning tree
+# Re-serialize a JSON meaning tree to Graphviz DOT (no target language needed)
+java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate --serialize dot --format json --prettify tree.json tree.dot
+
+# Re-serialize an XML meaning tree to JSON
+java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate --serialize json --format xml tree.xml tree.json
+
+# Generate source map from a meaning tree (output as JSON by default)
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate --to c++ --source-map --prettify tree.json source-map.json
 
-# Tokenize generated target code from a meaning tree
+# Generate source map in XML format
+java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate --to c++ --source-map --serialize xml --prettify tree.json source-map.xml
+
+# Tokenize generated target code from a meaning tree (output as JSON by default)
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate --to python --tokenize --detailed-tokens --prettify tree.json tokens.json
+
+# Tokenize with XML output format
+java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate --to python --tokenize --serialize xml tree.json tokens.xml
 ```
 
 ## list-langs
@@ -233,9 +266,10 @@ rdf-turtle  TTL
 ## Known CLI Caveats
 
 ```text
-The --mode description says "expression, short, full", but the enum is simple/full/expression. Use simple, not short.
+The --mode description in JCommander help text says "expression, simple, procedural, full". All four values are valid.
 translate --serialize serializes the root node, not the whole meaning tree.
 generate --input-type defaults to meaning-tree; use node only when the serialized input is a single Node.
+generate --format controls input deserialization; generate --serialize controls output serialization.
 node-hierarchy always writes to stdout.
 translate --project uses the Java platform path separator inside a single argument, so on Windows the separator is `;`, not `:`.
 ```

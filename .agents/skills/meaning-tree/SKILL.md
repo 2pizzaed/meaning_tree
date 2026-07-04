@@ -22,6 +22,12 @@ Use this skill for both project-wide code investigation and CLI work. Treat the 
 7. If the user explicitly asks for documentation, clone `https://github.com/CompPrehension/CompPrehension.github.io` branch `production` into a temporary directory and read only `docs/meaning_tree` from that clone.
 8. When running the CLI, build the shaded application jar first if it is missing or stale.
 
+## MCP Toolchain Server
+
+If `compph-toolchain-server` is available as an MCP server in the current client, prefer calling its MCP tools instead of shelling out to the Meaning Tree CLI for routine translation, serialization, generation, language listing, and node hierarchy queries. The MCP server exposes the same toolchain through generated tools named `<module>__<method>`, such as `meaning-tree__translate`, `meaning-tree__generate`, `meaning-tree__list-langs`, and `meaning-tree__node-hierarchy`.
+
+Use the CLI directly when the MCP server is not configured or running, when the task specifically asks for CLI commands, when reproducing a command-line failure, or when you need behavior not exposed by the MCP schemas. Keep `references/cli.md` as the source for CLI flags, artifact paths, and fallback/debug workflows.
+
 ## Source Jar Lookup
 
 For project/dependency questions, find source jars locally before guessing behavior from APIs. Use PowerShell patterns like:

@@ -10,10 +10,7 @@ import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
-import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
-import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
-import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
-import org.vstu.meaningtree.nodes.definitions.ObjectConstructorDefinition;
+import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
@@ -800,6 +797,24 @@ public class JavaParser extends LanguageParser {
         currentChildIndex++;
 
         ClassDeclaration decl = new ClassDeclaration(modifiers, className);
+        UserType owner = new Class((SimpleIdentifier) className.freshClone());
+        Node[] members = classBody.getNodes();
+        for (int i = 0; i < classBody.getLength(); i++) {
+            if (members[i] instanceof MethodDefinition method
+                    && method.getName().equalsIdentifier("finalize")
+                    && method.getDeclaration().getArguments().isEmpty()
+                    && method.getDeclaration().getReturnType() instanceof NoReturn
+                    && !method.getDeclaration().getModifiers().contains(DeclarationModifier.STATIC)) {
+                MethodDeclaration methodDeclaration = method.getDeclaration();
+                classBody.substitute(i, new ObjectDestructorDefinition(
+                        owner,
+                        methodDeclaration.getName(),
+                        methodDeclaration.getAnnotations(),
+                        methodDeclaration.getModifiers(),
+                        method.getBody()
+                ));
+            }
+        }
         // TODO: нужно поменять getNodes() у CompoundStatement, чтобы он не массив возвращал
         ClassDefinition def = new ClassDefinition(decl, classBody);
         def.getDeclaration().setAnnotations(annotations);

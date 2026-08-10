@@ -485,7 +485,7 @@ public class PythonParser extends LanguageParser {
                 modifiers.add(visibility);
                 MethodDefinition method = func.makeMethod(type, modifiers);
                 MethodDeclaration decl = ((MethodDeclaration) method.getDeclaration());
-                if (method.getName().toString().equals("__del__") && decl.getArguments().isEmpty()) {
+                if (method.getName().toString().equals("__del__") && decl.getArguments().size() == 1) {
                     method = new ObjectDestructorDefinition(decl.getOwner(), decl.getName(), decl.getAnnotations(), decl.getModifiers(), method.getBody());
                 } else if (method.getName().toString().equals("__init__")) {
                     method = new ObjectConstructorDefinition(decl.getOwner(), decl.getName(), decl.getAnnotations(), decl.getModifiers(), decl.getArguments(), method.getBody());

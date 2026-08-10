@@ -16,6 +16,7 @@ import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
 import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
 import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
+import org.vstu.meaningtree.nodes.definitions.ObjectDestructorDefinition;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
@@ -125,6 +126,7 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(SwitchStatement.class, this::loopToString);
         registerTabRenderer(MethodDefinition.class, (node, tab) -> functionToString(node, tab));
         registerTabRenderer(FunctionDefinition.class, (node, tab) -> functionToString(node, tab));
+        registerTabRenderer(ObjectDestructorDefinition.class, this::objectDestructorToString);
         registerTabRenderer(ClassDeclaration.class, this::classDeclToString);
         registerTabRenderer(ClassDefinition.class, this::classToString);
         registerTabRenderer(FunctionDeclaration.class, this::functionDeclarationToString);
@@ -404,6 +406,18 @@ public class PythonViewer extends LanguageViewer {
             function.append("\n\n");
         }
         return function.toString();
+    }
+
+    private String objectDestructorToString(ObjectDestructorDefinition destructor, Tab tab) {
+        MethodDeclaration declaration = destructor.getDeclaration();
+        var pythonDestructor = new ObjectDestructorDefinition(
+                declaration.getOwner(),
+                new SimpleIdentifier("__del__"),
+                declaration.getAnnotations(),
+                declaration.getModifiers(),
+                destructor.getBody()
+        );
+        return functionToString(pythonDestructor, tab);
     }
 
     private String assignmentToString(MultipleAssignmentStatement stmtSequence) {

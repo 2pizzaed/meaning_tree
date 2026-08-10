@@ -12,10 +12,7 @@ import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
-import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
-import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
-import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
-import org.vstu.meaningtree.nodes.definitions.ObjectConstructorDefinition;
+import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
@@ -174,6 +171,7 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(BreakStatement.class, this::toStringBreakStatement);
         registerRenderer(ContinueStatement.class, this::toStringContinueStatement);
         registerRenderer(ObjectConstructorDefinition.class, this::toStringObjectConstructorDefinition);
+        registerRenderer(ObjectDestructorDefinition.class, this::toStringObjectDestructorDefinition);
         registerRenderer(MethodDefinition.class, this::toStringMethodDefinition);
         registerRenderer(SwitchStatement.class, this::toStringSwitchStatement);
         registerRenderer(NullLiteral.class, this::toStringNullLiteral);
@@ -709,6 +707,18 @@ public class JavaViewer extends LanguageViewer {
             { builder.append("\n").append(indent(body)); }
 
         return builder.toString();
+    }
+
+    private String toStringObjectDestructorDefinition(ObjectDestructorDefinition destructor) {
+        MethodDeclaration declaration = destructor.getDeclaration();
+        var javaDestructor = new ObjectDestructorDefinition(
+                declaration.getOwner(),
+                new SimpleIdentifier("finalize"),
+                declaration.getAnnotations(),
+                declaration.getModifiers(),
+                destructor.getBody()
+        );
+        return toStringMethodDefinition(javaDestructor);
     }
 
     private String toStringMultipleAssignmentStatement(MultipleAssignmentStatement multipleAssignmentStatement) {

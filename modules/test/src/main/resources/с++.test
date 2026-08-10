@@ -275,14 +275,12 @@ group: OtherExpression
 
     case: VariableDeclaration
         main c++:
-            auto a, b;
             int a, b;
             std::string a, b;
             long long int a, b;
             long double a, b;
 
         c++:
-            auto a, b;
             int a, b;
             std::string a, b;
             long a, b;

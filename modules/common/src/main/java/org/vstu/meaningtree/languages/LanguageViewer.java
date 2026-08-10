@@ -197,7 +197,7 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
             return issues;
         }
         for (FeatureSupport feature : supportRules) {
-            if (!feature.matches(node)) {
+            if (!feature.matches(node, context)) {
                 continue;
             }
             issues.add(new SupportIssue(

@@ -6,6 +6,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
 import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
+import org.vstu.meaningtree.languages.support.features.UninferableVariableTypeFeature;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -197,6 +198,7 @@ public class CppViewer extends LanguageViewer {
 
         registerUnsupportedFeature(new NonDirectionalRangeForFeature());
         registerUnsupportedFeature(new PointerToMemberOperatorFeature());
+        registerUnsupportedFeature(new UninferableVariableTypeFeature());
     }
 
     private final String _indentation;
@@ -233,7 +235,7 @@ public class CppViewer extends LanguageViewer {
     @NotNull
     @Override
     public String toString(@NotNull MeaningTree meaningTree) {
-        return toString(meaningTree.getRootNode());
+        return super.toString(meaningTree);
     }
 
 

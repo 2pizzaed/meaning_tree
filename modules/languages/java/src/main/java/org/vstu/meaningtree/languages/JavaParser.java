@@ -1107,7 +1107,7 @@ public class JavaParser extends LanguageParser {
             case "type_identifier":
                 switch (typeName) {
                     case "String" -> parsedType = new StringType();
-                    case "Object" -> parsedType = new UnknownType();
+                    case "Object", "var" -> parsedType = new UnknownType();
                     case "Integer" -> parsedType = new IntType(32);
                     case "Byte" -> parsedType = new IntType(8);
                     case "Short" -> parsedType = new IntType(16);

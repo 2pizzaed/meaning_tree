@@ -144,7 +144,7 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(AssignmentExpression.class, this::toStringAssignmentExpression);
         registerRenderer(AssignmentStatement.class, this::toStringAssignmentStatement);
         registerRenderer(FieldDeclaration.class, this::toStringFieldDeclaration);
-        registerRenderer(VariableDeclaration.class, this::toStringVariableDeclaration);
+        registerRenderer(VariableDeclaration.class, node -> toStringVariableDeclaration(node));
         registerRenderer(CompoundStatement.class, this::toStringCompoundStatement);
         registerRenderer(ExpressionStatement.class, this::toStringExpressionStatement);
         registerRenderer(MethodDeclaration.class, this::toStringMethodDeclaration);
@@ -1146,7 +1146,7 @@ public class JavaViewer extends LanguageViewer {
         }
 
         VariableDeclaration variableDeclaration = new VariableDeclaration(decl.getType(), decl.getDeclarators());
-        builder.append(toString(variableDeclaration));
+        builder.append(toStringVariableDeclaration(variableDeclaration, false));
 
         return builder.toString();
     }
@@ -1614,10 +1614,18 @@ public class JavaViewer extends LanguageViewer {
     }
 
     public String toStringVariableDeclaration(VariableDeclaration stmt) {
+        return toStringVariableDeclaration(stmt, true);
+    }
+
+    private String toStringVariableDeclaration(VariableDeclaration stmt, boolean allowVar) {
         StringBuilder builder = new StringBuilder();
 
         Type declarationType = stmt.getType();
-        String type = toString(declarationType);
+        boolean useVar = allowVar
+                && declarationType instanceof UnknownType
+                && stmt.getDeclarators().length == 1
+                && stmt.getFirstDeclarator().getRValue() != null;
+        String type = useVar ? "var" : toString(declarationType);
         if (declarationType.isConst()) {
             builder.append("final ");
         }
@@ -2210,4 +2218,3 @@ public class JavaViewer extends LanguageViewer {
         return "package %s;".formatted(toString(decl.getPackageName()));
     }
 }
-

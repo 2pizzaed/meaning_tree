@@ -18,7 +18,6 @@ public record SourceMap(String code, NodeIterable root,
                         @Nullable String projectRootPath,
                         @Nullable String projectFileRelPath)
         implements Serializable {
-    public static final String CYCLOMATIC_METRIC = "cyclomatic";
 
     public SourceMap {
         Objects.requireNonNull(code, "code must not be null");

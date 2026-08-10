@@ -829,6 +829,37 @@ group: SimpleStatements
             int a = 456;
 
 
+    case: LocalVariableInference
+        main c++:
+            void run()
+            {
+                auto result = create();
+            }
+
+        java:
+            public static void run() {
+                var result = create();
+            }
+
+
+    case: JavaLocalVariableInference
+        main java:
+            class A {
+                void run() {
+                    var result = create();
+                }
+            }
+
+        c++:
+            class A
+            {
+                void run()
+                {
+                    auto result = create();
+                }
+            };
+
+
     case: MultipleVariableDeclarationWithUnknownType
         python:
             a, b, c = 40, t, "Hello"
@@ -1639,7 +1670,7 @@ group: StructuresOOP
             class A:
                 a: int = k
                 b = GLOBAL()
-                _c = 123
+                _c: int = 123
 
         c++:
             class A
@@ -1647,12 +1678,14 @@ group: StructuresOOP
                 public:
                     int a = k;
                     auto b = GLOBAL();
-            }
+                    int _c = 123;
+            };
 
         java:
             class A {
                 public int a = k;
-                public var b = GLOBAL();
+                public Object b = GLOBAL();
+                public int _c = 123;
             }
 
 
@@ -1680,23 +1713,23 @@ group: StructuresOOP
             class A
             {
                 public:
-                    Object a()
+                    auto a()
                     {
                         return k();
                     }
 
-                    Object b()
+                    auto b()
                     {
                         return r + m;
                     }
-            }
+            };
 
 
     case: ClassDefinition
         python:
             class A:
                 k: int = 32
-                m = 34
+                m: int = 34
 
                 def a(self):
                     return k()
@@ -1707,7 +1740,7 @@ group: StructuresOOP
         java:
             class A {
                 public int k = 32;
-                public Object m = 34;
+                public int m = 34;
 
                 public Object a() {
                     return k();
@@ -1723,18 +1756,18 @@ group: StructuresOOP
             {
                 public:
                     int k = 32;
-                    Object m = 34;
+                    int m = 34;
 
-                    Object a()
+                    auto a()
                     {
                         return k();
                     }
 
-                    Object b()
+                    auto b()
                     {
                         return r + m;
                     }
-            }
+            };
 
 
     case: StaticMethodDetection
@@ -1746,7 +1779,7 @@ group: StructuresOOP
 
         java:
             class A {
-                static DataUnion join_data(Data a, Data b) {
+                public static DataUnion join_data(Data a, Data b) {
                     return a + b;
                 }
             }
@@ -1754,31 +1787,41 @@ group: StructuresOOP
         c++:
             class A
             {
-                static DataUnion join_data(Data a, Data b)
-                {
-                    return a + b;
-                }
-            }
+                public:
+                    static DataUnion join_data(Data a, Data b)
+                    {
+                        return a + b;
+                    }
+            };
 
     case: MethodSelfReferenceDetection
         python:
             class A:
                 def name(self, k):
-                    x = self.method().plus
+                    x = self.method().plus + self.t
                     self.method()
-                    this.k
                     return x.a + self.m
 
         java:
             class A {
-                Object name(Object k) {
-                    Object x = this.method().plus;
+                public Object name(Object k) {
+                    var x = this.method().plus + this.t;
                     this.method();
-                    this.k;
                     return x.a + this.m;
                 }
             }
-         # TODO: добавить C++
+
+        c++:
+            class A
+            {
+            public:
+                auto name(auto k)
+                {
+                    auto x = this->method().plus + this->t;
+                    this->method();
+                    return x.a + this->m;
+                }
+            };
 
 
     case: ConstructorDetection
@@ -1789,8 +1832,8 @@ group: StructuresOOP
 
         java:
             class A {
-                A() {
-                    print("construct");
+                public A() {
+                    System.out.println("construct");
                 }
             }
 
@@ -1798,10 +1841,11 @@ group: StructuresOOP
             class A
             {
             public:
-                A() {
-                    print("construct");
+                A()
+                {
+                    std::cout << "construct" << std::endl;
                 }
-            }
+            };
 
 
     case: DestructorDetection
@@ -1813,7 +1857,7 @@ group: StructuresOOP
         java:
             class A {
                 public void finalize() {
-                    print("destruct");
+                    System.out.println("destruct");
                 }
             }
 
@@ -1823,16 +1867,15 @@ group: StructuresOOP
             public:
                 ~A()
                 {
-                    print("destruct");
+                    std::cout << "destruct" << std::endl;
                 }
-            }
+            };
 
     case: SuperAndThisClassConstructorCall
         java:
             class A extends B {
-                A(int a, String b, float c) {
+                public A(int a, String b, float c) {
                     super(a, b);
-                    this(a);
                 }
             }
 
@@ -1840,38 +1883,52 @@ group: StructuresOOP
             class A(B):
                 def __init__(self, a: int, b: str, c: float):
                     super().__init__(a, b)
-                    self.__init__(a)
 
         c++:
             class A : public B
             {
             public:
-                A(int a, string b, float c) : B(a, b), A(a)
+                A(int a, std::string b, float c) : B(a, b)
                 {
 
                 }
-            }
+            };
 
     case: InstanceFieldDeclaration
         python:
             class A:
                 out: int = 567
 
+        java:
+            class A {
+                public int out = 567;
+            }
+
+        c++:
+            class A
+            {
+                public:
+                    int out = 567;
+            };
+
+
+    case: InstanceFieldResolution
+        main python:
+            class A:
+                out: int = 567
+
                 def __init__(self):
                     self.out = 5
-                    self.k : int = 5
-                    self.m = hello()
+                    self.k: int = 5
 
         java:
             class A {
                 public int out = 567;
                 public int k;
-                public Object m;
 
-                A() {
-                    out = 5;
-                    k = 5;
-                    m = hello();
+                public A() {
+                    this.out = 5;
+                    this.k = 5;
                 }
             }
 
@@ -1879,18 +1936,15 @@ group: StructuresOOP
             class A
             {
                 public:
-                int out = 567;
-                int k;
-                object m;
+                    int out = 567;
+                    int k;
 
-                A()
-                {
-                    out = 5;
-                    k = 5;
-                    m = hello();
-                }
-            }
-    # TODO: требуется разрешение областей видимостей переменных
+                    A()
+                    {
+                        this->out = 5;
+                        this->k = 5;
+                    }
+            };
 
 group: Other
     case: Import

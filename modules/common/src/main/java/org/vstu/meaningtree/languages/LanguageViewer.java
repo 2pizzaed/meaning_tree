@@ -245,8 +245,12 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
 
     public abstract OperatorToken mapToToken(Expression expr);
 
+    protected MeaningTree preprocessTree(MeaningTree tree) {
+        return tree;
+    }
+
     public String toString(MeaningTree mt) {
-        origin = mt;
+        origin = preprocessTree(mt);
         analyzeSupport(mt, false).throwAll();
         return toString(mt.getRootNode());
     }

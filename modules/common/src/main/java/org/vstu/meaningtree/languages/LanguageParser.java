@@ -15,6 +15,7 @@ import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEvaluator;
 import org.vstu.meaningtree.utils.analysis.loops.LoopIterationAnalyzer;
+import org.vstu.meaningtree.utils.analysis.symbols.SymbolResolver;
 
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -218,6 +219,7 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
     }
 
     public void postProcessTree(MeaningTree meaningTree) {
+        new SymbolResolver(meaningTree, ctx.getGlobalScope()).resolve();
         ExpressionValueEvaluator expressionValueEvaluator = new ExpressionValueEvaluator(meaningTree, ctx.getGlobalScope());
         expressionValueEvaluator.analyze();
         loopIterationAnalyzer.analyze(meaningTree, ctx.getGlobalScope());

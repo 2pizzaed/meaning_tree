@@ -17,6 +17,9 @@ import org.vstu.meaningtree.languages.support.SupportIssue;
 import org.vstu.meaningtree.languages.support.SupportReport;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.nodes.expressions.identifiers.SelfReference;
+import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
+import org.vstu.meaningtree.nodes.expressions.identifiers.SuperClassReference;
 import org.vstu.meaningtree.utils.InternalNode;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.ParenthesesFiller;
@@ -238,6 +241,16 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
         Node preparedNode = applyPreRenderPreparations(node);
         if (preparedNode.hasLabel(Label.DUMMY)) {
             return "";
+        }
+        if (preparedNode instanceof SimpleIdentifier identifier
+                && !(identifier instanceof SelfReference)
+                && !(identifier instanceof SuperClassReference)
+                && ctx.requireTokenizer().isReservedKeyword(identifier.getName())) {
+            // TODO: автоматически назначать допустимое уникальное имя для целевого языка.
+            throw new UnsupportedViewingException(
+                    "Identifier `%s` is a reserved keyword in %s"
+                            .formatted(identifier.getName(), translator.getLanguageName())
+            );
         }
         String result = dispatchRenderer(preparedNode);
         return applyHooks(preparedNode, result);

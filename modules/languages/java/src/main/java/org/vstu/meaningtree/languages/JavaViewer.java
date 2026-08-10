@@ -1171,7 +1171,18 @@ public class JavaViewer extends LanguageViewer {
     private String toString(List<DeclarationModifier> modifiers) {
         StringBuilder builder = new StringBuilder();
 
-        for (DeclarationModifier modifier : modifiers) {
+        List<DeclarationModifier> canonicalOrder = List.of(
+                DeclarationModifier.PUBLIC,
+                DeclarationModifier.PROTECTED,
+                DeclarationModifier.PRIVATE,
+                DeclarationModifier.STATIC,
+                DeclarationModifier.ABSTRACT,
+                DeclarationModifier.CONST
+        );
+        for (DeclarationModifier modifier : canonicalOrder) {
+            if (!modifiers.contains(modifier)) {
+                continue;
+            }
             builder.append(
                     switch (modifier) {
                         case PUBLIC -> "public";

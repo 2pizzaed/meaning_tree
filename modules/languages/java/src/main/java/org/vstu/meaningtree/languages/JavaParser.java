@@ -800,7 +800,21 @@ public class JavaParser extends LanguageParser {
         UserType owner = new Class((SimpleIdentifier) className.freshClone());
         Node[] members = classBody.getNodes();
         for (int i = 0; i < classBody.getLength(); i++) {
-            if (members[i] instanceof MethodDefinition method
+            Node member = members[i];
+            if (member instanceof FunctionDefinition function && !(member instanceof MethodDefinition)) {
+                FunctionDeclaration functionDeclaration = function.getDeclaration();
+                member = new MethodDefinition(new MethodDeclaration(
+                        owner,
+                        functionDeclaration.getName(),
+                        functionDeclaration.getReturnType(),
+                        functionDeclaration.getAnnotations(),
+                        List.of(DeclarationModifier.PUBLIC, DeclarationModifier.STATIC),
+                        functionDeclaration.getArguments().toArray(new DeclarationArgument[0])
+                ), function.getBody());
+                classBody.substitute(i, member);
+            }
+
+            if (member instanceof MethodDefinition method
                     && method.getName().equalsIdentifier("finalize")
                     && method.getDeclaration().getArguments().isEmpty()
                     && method.getDeclaration().getReturnType() instanceof NoReturn

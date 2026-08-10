@@ -12,14 +12,24 @@ import java.util.Objects;
 public class ConstructorCall extends Expression implements Callable {
     @TreeNode protected List<Expression> arguments;
     @TreeNode protected Type constructorOwner;
+    private final boolean isBaseClassCall;
 
-    public ConstructorCall(Type constructorOwner, List<Expression> arguments) {
+    public ConstructorCall(Type constructorOwner, boolean isBaseClassCall, List<Expression> arguments) {
         this.arguments = arguments;
         this.constructorOwner = constructorOwner;
+        this.isBaseClassCall = isBaseClassCall;
+    }
+
+    public ConstructorCall(Type constructorOwner, List<Expression> arguments) {
+        this(constructorOwner, false, arguments);
     }
 
     public ConstructorCall(Type constructorOwner, Expression ... arguments) {
         this(constructorOwner, List.of(arguments));
+    }
+
+    public ConstructorCall(Type constructorOwner, boolean isBaseClassCall, Expression ... arguments) {
+        this(constructorOwner, isBaseClassCall, List.of(arguments));
     }
 
     public List<Expression> getArguments() {
@@ -30,17 +40,23 @@ public class ConstructorCall extends Expression implements Callable {
         return constructorOwner;
     }
 
+    public boolean isBaseClassCall() {
+        return isBaseClassCall;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
         ConstructorCall that = (ConstructorCall) o;
-        return Objects.equals(arguments, that.arguments) && Objects.equals(constructorOwner, that.constructorOwner);
+        return isBaseClassCall == that.isBaseClassCall
+                && Objects.equals(arguments, that.arguments)
+                && Objects.equals(constructorOwner, that.constructorOwner);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), arguments, constructorOwner);
+        return Objects.hash(super.hashCode(), arguments, constructorOwner, isBaseClassCall);
     }
 
     @Override

@@ -18,6 +18,7 @@ import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
 import org.vstu.meaningtree.nodes.expressions.UnaryExpression;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
+import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
@@ -117,6 +118,8 @@ public class JavaParser extends LanguageParser {
         registerTSNodeHandler("array_access", this::fromArrayAccessTSNode);
         registerTSNodeHandler("ternary_expression", this::fromTernaryExpressionTSNode);
         registerTSNodeHandler("constructor_declaration", this::fromConstructorDeclarationTSNode);
+        registerTSNodeHandler("constructor_body", this::fromBlockTSNode);
+        registerTSNodeHandler("explicit_constructor_invocation", this::fromExplicitConstructorInvocationTSNode);
         registerTSNodeHandler("this", this::fromThisTSNode);
         registerTSNodeHandler("character_literal", this::fromCharacterLiteralTSNode);
         registerTSNodeHandler("do_statement", this::fromDoStatementTSNode);
@@ -243,6 +246,16 @@ public class JavaParser extends LanguageParser {
         var result = new ObjectConstructorDefinition(null, name, List.of(), modifiers, parameters, body);
         result.getDeclaration().setAnnotations(annotations);
         return result;
+    }
+
+    private ExpressionStatement fromExplicitConstructorInvocationTSNode(TSNode node) {
+        List<Expression> arguments = new ArrayList<>();
+        TSNode argumentsNode = node.getChildByFieldName("arguments");
+        for (int i = 0; i < argumentsNode.getNamedChildCount(); i++) {
+            arguments.add((Expression) parseTSNode(argumentsNode.getNamedChild(i)));
+        }
+        boolean isBaseClassCall = getCodePiece(node.getChildByFieldName("constructor")).equals("super");
+        return new ExpressionStatement(new ConstructorCall(new UnknownType(), isBaseClassCall, arguments));
     }
 
     private Node fromLabeledStmtNode(TSNode node) {
@@ -786,17 +799,14 @@ public class JavaParser extends LanguageParser {
             currentChildIndex++;
         }
 
-        // Скипаем слово "class"
-        currentChildIndex++;
+        Identifier className = fromIdentifierTSNode(node.getChildByFieldName("name"));
+        TSNode superclass = node.getChildByFieldName("superclass");
+        Type[] parents = superclass.isNull()
+                ? new Type[0]
+                : new Type[]{fromTypeTSNode(superclass.getNamedChild(0))};
+        CompoundStatement classBody = fromBlockTSNode(node.getChildByFieldName("body"));
 
-        Identifier className = fromIdentifierTSNode(node.getChild(currentChildIndex));
-        currentChildIndex++;
-
-        // Парсим тело класса как блочное выражение... Правильно ли? Кто знает...
-        CompoundStatement classBody = fromBlockTSNode(node.getChild(currentChildIndex));
-        currentChildIndex++;
-
-        ClassDeclaration decl = new ClassDeclaration(modifiers, className);
+        ClassDeclaration decl = new ClassDeclaration(modifiers, className, parents);
         UserType owner = new Class((SimpleIdentifier) className.freshClone());
         Node[] members = classBody.getNodes();
         for (int i = 0; i < classBody.getLength(); i++) {
@@ -812,6 +822,19 @@ public class JavaParser extends LanguageParser {
                         functionDeclaration.getArguments().toArray(new DeclarationArgument[0])
                 ), function.getBody());
                 classBody.substitute(i, member);
+            }
+
+            if (member instanceof ObjectConstructorDefinition constructor && !decl.getParents().isEmpty()) {
+                Node[] constructorBody = constructor.getBody().getNodes();
+                for (int j = 0; j < constructorBody.length; j++) {
+                    if (constructorBody[j] instanceof ExpressionStatement statement
+                            && statement.getExpression() instanceof ConstructorCall call
+                            && call.isBaseClassCall()) {
+                        constructor.getBody().substitute(j, new ExpressionStatement(new ConstructorCall(
+                                (Type) decl.getParents().getFirst().freshClone(), true, call.getArguments()
+                        )));
+                    }
+                }
             }
 
             if (member instanceof MethodDefinition method

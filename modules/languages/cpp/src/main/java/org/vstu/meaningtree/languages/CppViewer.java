@@ -19,6 +19,7 @@ import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
 import org.vstu.meaningtree.nodes.expressions.UnaryExpression;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
+import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
@@ -97,6 +98,7 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(PrintCommand.class, this::toStringPrint);
         registerRenderer(InputCommand.class, this::toStringInput);
         registerRenderer(FunctionCall.class, this::toStringFunctionCall);
+        registerRenderer(ConstructorCall.class, call -> toString(call.getOwner()) + "(" + toStringFunctionCallArgumentsList(call.getArguments()) + ")");
         registerRenderer(ParenthesizedExpression.class, this::toStringParenthesizedExpression);
         registerRenderer(AssignmentExpression.class, this::toStringAssignmentExpression);
         registerRenderer(AssignmentStatement.class, this::toStringAssignmentStatement);
@@ -437,7 +439,22 @@ public class CppViewer extends LanguageViewer {
         StringBuilder builder = new StringBuilder(name);
         builder.append(toStringParameters(arguments));
 
-        String bodyCode = toString(body);
+        List<ConstructorCall> baseCalls = new ArrayList<>();
+        List<Node> bodyNodes = new ArrayList<>();
+        for (Node node : body.getNodes()) {
+            if (node instanceof ExpressionStatement statement
+                    && statement.getExpression() instanceof ConstructorCall call
+                    && call.isBaseClassCall()) {
+                baseCalls.add(call);
+            } else {
+                bodyNodes.add(node);
+            }
+        }
+        if (!baseCalls.isEmpty()) {
+            builder.append(" : ").append(baseCalls.stream().map(this::toString).collect(Collectors.joining(", ")));
+        }
+
+        String bodyCode = toString(new CompoundStatement(bodyNodes));
         if (_openBracketOnSameLine) {
             builder.append(" ").append(bodyCode);
         } else {

@@ -19,6 +19,7 @@ import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.*;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
+import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
@@ -360,6 +361,27 @@ public class CppParser extends LanguageParser {
 
             SimpleIdentifier constructorName = (SimpleIdentifier) fromIdentifier(name);
             List<DeclarationArgument> parameters = fromFunctionParameters(declarator.getChildByFieldName("parameters"));
+            TSNode initializers = null;
+            for (int i = 0; i < node.getNamedChildCount(); i++) {
+                TSNode child = node.getNamedChild(i);
+                if (child.getType().equals("field_initializer_list")) {
+                    initializers = child;
+                    break;
+                }
+            }
+            for (int i = initializers == null ? -1 : initializers.getNamedChildCount() - 1; i >= 0; i--) {
+                TSNode initializer = initializers.getNamedChild(i);
+                SimpleIdentifier initializerName = (SimpleIdentifier) fromIdentifier(initializer.getNamedChild(0));
+                TSNode argumentsNode = initializer.getNamedChild(1);
+                List<Expression> arguments = new ArrayList<>();
+                for (int j = 0; j < argumentsNode.getNamedChildCount(); j++) {
+                    arguments.add((Expression) parseTSNode(argumentsNode.getNamedChild(j)));
+                }
+                boolean isBaseClassCall = !initializerName.equalsIdentifier(owner.getName().toString());
+                body.insert(0, new ExpressionStatement(new ConstructorCall(
+                        new Class(initializerName), isBaseClassCall, arguments
+                )));
+            }
             return new ObjectConstructorDefinition((UserType) owner.getTypeNode().freshClone(), constructorName, List.of(), modifiers, parameters, body);
         }
 

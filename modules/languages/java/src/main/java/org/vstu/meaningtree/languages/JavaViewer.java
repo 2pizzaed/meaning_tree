@@ -18,6 +18,7 @@ import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.*;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
+import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
@@ -157,6 +158,7 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(FormatInput.class, this::toStringFormatInput);
         registerRenderer(InputCommand.class, this::toStringInputCommand);
         registerRenderer(FunctionCall.class, this::toStringFunctionCall);
+        registerRenderer(ConstructorCall.class, this::toStringConstructorCall);
         registerRenderer(WhileLoop.class, this::toStringWhileLoop);
         registerRenderer(ScopedIdentifier.class, this::toStringScopedIdentifier);
         registerRenderer(PostfixIncrementOp.class, this::toStringPostfixIncrementOp);
@@ -1210,7 +1212,18 @@ public class JavaViewer extends LanguageViewer {
             modifiers += " ";
         }
 
-        return modifiers + "class " + toString(decl.getName());
+        String result = modifiers + "class " + toString(decl.getName());
+        if (!decl.getParents().isEmpty()) {
+            result += " extends " + toString(decl.getParents().getFirst());
+        }
+        return result;
+    }
+
+    private String toStringConstructorCall(ConstructorCall call) {
+        String name = call.isBaseClassCall() ? "super" : "this";
+        return name + "(" + call.getArguments().stream()
+                .map(this::toString)
+                .collect(Collectors.joining(", ")) + ")";
     }
 
     private String toStringAnnotations(List<Annotation> annotations) {

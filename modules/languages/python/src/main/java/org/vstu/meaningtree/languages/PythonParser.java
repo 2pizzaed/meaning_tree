@@ -217,7 +217,7 @@ public class PythonParser extends LanguageParser {
                 condition = (Expression) parseTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(0).getNamedChild(0));
                 SimpleIdentifier ident = (SimpleIdentifier) parseTSNode(alternative.getNamedChild(0).getNamedChild(0).getNamedChild(1));
                 Type variableType = ctx.inferType(condition);
-                newDecl = new VariableDeclaration(variableType, ident, condition);
+                newDecl = new VariableDeclaration(variableType, ident, (Expression) condition.freshClone());
             } else {
                 condition = (Expression) parseTSNode(alternative.getNamedChild(0).getNamedChild(0));
             }

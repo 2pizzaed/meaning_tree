@@ -30,6 +30,15 @@ MeaningTree meaningTree = cppLanguage.getMeaningTree("int main() { int a = 10; }
 - `FunctionDefinition`
 - `DeclarationArgument`
 
+### Объектно-ориентированные конструкции
+- `ClassDeclaration`
+- `ClassDefinition`
+- `FieldDeclaration`
+- `MethodDefinition`
+- `ObjectConstructorDefinition`
+- `ObjectDestructorDefinition`
+- базовые классы и спецификаторы доступа `public` / `protected` / `private`
+
 ### Блоки
 - `CompoundStatement`
 

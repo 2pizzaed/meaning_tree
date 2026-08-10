@@ -8,12 +8,13 @@ import org.treesitter.TreeSitterCpp;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
 import org.vstu.meaningtree.nodes.*;
-import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
-import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
-import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
+import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
+import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
 import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
+import org.vstu.meaningtree.nodes.definitions.ObjectConstructorDefinition;
+import org.vstu.meaningtree.nodes.definitions.ObjectDestructorDefinition;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.*;
@@ -60,6 +61,7 @@ import org.vstu.meaningtree.nodes.statements.loops.control.GotoStatement;
 import org.vstu.meaningtree.nodes.types.GenericUserType;
 import org.vstu.meaningtree.nodes.types.NoReturn;
 import org.vstu.meaningtree.nodes.types.UnknownType;
+import org.vstu.meaningtree.nodes.types.UserType;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
@@ -78,6 +80,7 @@ public class CppParser extends LanguageParser {
     private void configureTsNodeHandlers() {
         registerTSNodeHandler(List.of("ERROR", "parameter_pack_expansion"), node -> parseTSNode(node.getNamedChild(0)));
         registerTSNodeHandler("translation_unit", this::fromTranslationUnit);
+        registerTSNodeHandler("class_specifier", this::fromClassSpecifier);
         registerTSNodeHandler("function_definition", this::fromFunction);
         registerTSNodeHandler("expression_statement", this::fromExpressionStatement);
         registerTSNodeHandler("binary_expression", this::fromBinaryExpression);
@@ -262,6 +265,105 @@ public class CppParser extends LanguageParser {
         CompoundStatement body = fromBlock(node.getChildByFieldName("body"));
 
         return new FunctionDefinition(declaration, body);
+    }
+
+    private ClassDefinition fromClassSpecifier(TSNode node) {
+        SimpleIdentifier className = (SimpleIdentifier) fromIdentifier(node.getChildByFieldName("name"));
+        List<Type> parents = fromBaseClasses(node.getChildByFieldName("base_class_clause"));
+        ClassDeclaration declaration = new ClassDeclaration(List.of(), className, parents.toArray(Type[]::new));
+
+        TSNode body = node.getChildByFieldName("body");
+        List<Node> members = new ArrayList<>();
+        DeclarationModifier visibility = DeclarationModifier.PRIVATE;
+        for (int i = 0; i < body.getNamedChildCount(); i++) {
+            TSNode child = body.getNamedChild(i);
+            switch (child.getType()) {
+                case "access_specifier" -> visibility = fromAccessSpecifier(child);
+                case "field_declaration" -> members.addAll(fromClassFields(child, visibility));
+                case "function_definition" -> members.add(fromClassMethod(child, declaration, visibility));
+                default -> throw new UnsupportedParsingException("Can't parse class member " + child.getType());
+            }
+        }
+
+        return new ClassDefinition(declaration, new CompoundStatement(members));
+    }
+
+    private List<Type> fromBaseClasses(TSNode node) {
+        if (node.isNull()) {
+            return List.of();
+        }
+
+        List<Type> parents = new ArrayList<>();
+        for (int i = 0; i < node.getNamedChildCount(); i++) {
+            TSNode child = node.getNamedChild(i);
+            if (!child.getType().equals("access_specifier")) {
+                parents.add(fromType(child));
+            }
+        }
+        return parents;
+    }
+
+    private DeclarationModifier fromAccessSpecifier(TSNode node) {
+        return switch (getCodePiece(node)) {
+            case "public" -> DeclarationModifier.PUBLIC;
+            case "protected" -> DeclarationModifier.PROTECTED;
+            case "private" -> DeclarationModifier.PRIVATE;
+            default -> throw new UnsupportedParsingException("Unknown C++ access specifier " + getCodePiece(node));
+        };
+    }
+
+    private List<FieldDeclaration> fromClassFields(TSNode node, DeclarationModifier visibility) {
+        List<DeclarationModifier> modifiers = new ArrayList<>();
+        if (visibility != DeclarationModifier.PRIVATE) {
+            modifiers.add(visibility);
+        }
+        if (hasStorageSpecifier(node, "static")) {
+            modifiers.add(DeclarationModifier.STATIC);
+        }
+
+        Type type = fromType(node.getChildByFieldName("type"));
+        TSNode declarator = node.getChildByFieldName("declarator");
+        SimpleIdentifier name = (SimpleIdentifier) fromIdentifier(declarator);
+        TSNode defaultValue = node.getChildByFieldName("default_value");
+        Expression value = defaultValue.isNull() ? null : (Expression) parseTSNode(defaultValue);
+        return List.of(new FieldDeclaration(type, name, value, modifiers));
+    }
+
+    private Node fromClassMethod(TSNode node, ClassDeclaration owner, DeclarationModifier visibility) {
+        TSNode type = node.getChildByFieldName("type");
+        TSNode declarator = node.getChildByFieldName("declarator");
+        TSNode name = declarator.getChildByFieldName("declarator");
+        List<DeclarationModifier> modifiers = new ArrayList<>();
+        if (visibility != DeclarationModifier.PRIVATE) {
+            modifiers.add(visibility);
+        }
+        if (hasStorageSpecifier(node, "static")) {
+            modifiers.add(DeclarationModifier.STATIC);
+        }
+
+        CompoundStatement body = fromBlock(node.getChildByFieldName("body"));
+        if (type.isNull()) {
+            if (name.getType().equals("destructor_name")) {
+                SimpleIdentifier destructorName = (SimpleIdentifier) fromIdentifier(name.getNamedChild(0));
+                return new ObjectDestructorDefinition((UserType) owner.getTypeNode().freshClone(), destructorName, List.of(), modifiers, body);
+            }
+
+            SimpleIdentifier constructorName = (SimpleIdentifier) fromIdentifier(name);
+            List<DeclarationArgument> parameters = fromFunctionParameters(declarator.getChildByFieldName("parameters"));
+            return new ObjectConstructorDefinition((UserType) owner.getTypeNode().freshClone(), constructorName, List.of(), modifiers, parameters, body);
+        }
+
+        return fromFunction(node).makeMethod(owner.getTypeNode(), modifiers);
+    }
+
+    private boolean hasStorageSpecifier(TSNode node, String value) {
+        for (int i = 0; i < node.getChildCount(); i++) {
+            TSNode child = node.getChild(i);
+            if (child.getType().equals("storage_class_specifier") && getCodePiece(child).equals(value)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private List<DeclarationArgument> fromFunctionParameters(TSNode node) {

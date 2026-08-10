@@ -7,13 +7,10 @@ import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
 import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
 import org.vstu.meaningtree.nodes.*;
-import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
-import org.vstu.meaningtree.nodes.declarations.ListUnpackingVariableDeclaration;
-import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
+import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
-import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
-import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
+import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
@@ -91,6 +88,7 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(ProgramEntryPoint.class, this::toStringEntryPoint);
         registerRenderer(ExpressionStatement.class, this::toStringExpressionStatement);
         registerRenderer(VariableDeclaration.class, this::toStringVariableDeclaration);
+        registerRenderer(FieldDeclaration.class, this::toStringFieldDeclaration);
         registerRenderer(IndexExpression.class, this::toStringIndexExpression);
         registerRenderer(ExpressionSequence.class, this::toStringCommaExpression);
         registerRenderer(TernaryOperator.class, this::toStringTernaryOperator);
@@ -151,6 +149,10 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(SwitchStatement.class, this::toStringSwitchStatement);
         registerRenderer(FunctionDefinition.class, this::toStringFunctionDefinition);
         registerRenderer(FunctionDeclaration.class, this::toStringFunctionDeclaration);
+        registerRenderer(ObjectConstructorDefinition.class, this::toStringObjectConstructorDefinition);
+        registerRenderer(ObjectDestructorDefinition.class, this::toStringObjectDestructorDefinition);
+        registerRenderer(ClassDeclaration.class, this::toStringClassDeclaration);
+        registerRenderer(ClassDefinition.class, this::toStringClassDefinition);
         registerRenderer(DeclarationArgument.class, this::toStringDeclarationArgument);
         registerRenderer(ArrayInitializer.class, this::toStringArrayInitializer);
         registerRenderer(ReturnStatement.class, this::toStringReturnStatement);
@@ -307,6 +309,73 @@ public class CppViewer extends LanguageViewer {
 
     /*******************************************************************/
     /* Перевод определения функции */
+    private String toStringClassDeclaration(ClassDeclaration declaration) {
+        StringBuilder builder = new StringBuilder("class ");
+        builder.append(toString(declaration.getName()));
+        if (!declaration.getParents().isEmpty()) {
+            builder.append(" : ");
+            builder.append(declaration.getParents().stream()
+                    .map(parent -> "public " + toString(parent))
+                    .collect(Collectors.joining(", ")));
+        }
+        return builder.toString();
+    }
+
+    private String toStringClassDefinition(ClassDefinition definition) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(toString(definition.getDeclaration())).append("\n{");
+
+        increaseIndentLevel();
+        DeclarationModifier currentAccess = DeclarationModifier.PRIVATE;
+        for (Node member : definition.getBody().getNodes()) {
+            String memberCode = toString(member);
+            if (memberCode.isEmpty()) {
+                continue;
+            }
+
+            DeclarationModifier memberAccess = getMemberAccess(member);
+            if (memberAccess != currentAccess) {
+                builder.append("\n").append(indent(toCppAccessSpecifier(memberAccess))).append(":");
+                currentAccess = memberAccess;
+            }
+
+            builder.append("\n");
+            if (currentAccess == DeclarationModifier.PRIVATE) {
+                builder.append(indent(memberCode));
+            } else {
+                builder.append(indent(indent(memberCode)));
+            }
+        }
+        decreaseIndentLevel();
+
+        builder.append("\n").append(indent("}")).append(";");
+        return builder.toString();
+    }
+
+    private DeclarationModifier getMemberAccess(Node member) {
+        List<DeclarationModifier> modifiers = switch (member) {
+            case Definition definition -> definition.getDeclaration().getModifiers();
+            case Declaration declaration -> declaration.getModifiers();
+            default -> List.of();
+        };
+        if (modifiers.contains(DeclarationModifier.PUBLIC)) {
+            return DeclarationModifier.PUBLIC;
+        }
+        if (modifiers.contains(DeclarationModifier.PROTECTED)) {
+            return DeclarationModifier.PROTECTED;
+        }
+        return DeclarationModifier.PRIVATE;
+    }
+
+    private String toCppAccessSpecifier(DeclarationModifier modifier) {
+        return switch (modifier) {
+            case PUBLIC -> "public";
+            case PROTECTED -> "protected";
+            case PRIVATE -> "private";
+            default -> throw new IllegalArgumentException("Not an access modifier: " + modifier);
+        };
+    }
+
     private String toStringFunctionDefinition(FunctionDefinition functionDefinition) {
         StringBuilder builder = new StringBuilder();
 
@@ -328,6 +397,10 @@ public class CppViewer extends LanguageViewer {
     private String toStringFunctionDeclaration(FunctionDeclaration functionDeclaration) {
         StringBuilder builder = new StringBuilder();
 
+        if (functionDeclaration.getModifiers().contains(DeclarationModifier.STATIC)) {
+            builder.append("static ");
+        }
+
         String returnType = toString(functionDeclaration.getReturnType());
         builder.append(returnType).append(" ");
 
@@ -338,6 +411,44 @@ public class CppViewer extends LanguageViewer {
         builder.append(parameters);
 
         return builder.toString();
+    }
+
+    private String toStringObjectConstructorDefinition(ObjectConstructorDefinition definition) {
+        return toStringConstructorLikeDefinition(classMemberOwnerName(definition.getDeclaration()), definition.getDeclaration().getArguments(), definition.getBody());
+    }
+
+    private String toStringObjectDestructorDefinition(ObjectDestructorDefinition definition) {
+        return toStringConstructorLikeDefinition("~" + classMemberOwnerName(definition.getDeclaration()), List.of(), definition.getBody());
+    }
+
+    private String classMemberOwnerName(MethodDeclaration declaration) {
+        if (declaration.getOwner() != null) {
+            return toString(declaration.getOwner().getQualifiedName());
+        }
+        if (declaration.getParentDeclaration() != null) {
+            return toString(declaration.getParentDeclaration().getName());
+        }
+        return toString(declaration.getName());
+    }
+
+    private String toStringConstructorLikeDefinition(String name,
+                                                      List<DeclarationArgument> arguments,
+                                                      CompoundStatement body) {
+        StringBuilder builder = new StringBuilder(name);
+        builder.append(toStringParameters(arguments));
+
+        String bodyCode = toString(body);
+        if (_openBracketOnSameLine) {
+            builder.append(" ").append(bodyCode);
+        } else {
+            builder.append("\n").append(indent(bodyCode));
+        }
+        return builder.toString();
+    }
+
+    private String toStringFieldDeclaration(FieldDeclaration declaration) {
+        String prefix = declaration.getModifiers().contains(DeclarationModifier.STATIC) ? "static " : "";
+        return prefix + toString(new VariableDeclaration(declaration.getType(), declaration.getDeclarators()));
     }
 
     private String toStringDeclarationArgument(DeclarationArgument parameter) {
@@ -1532,6 +1643,3 @@ public class CppViewer extends LanguageViewer {
         return ctx.requireTokenizer().getOperatorByTokenName(tok);
     }
 }
-
-
-

@@ -25,6 +25,7 @@ import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
 import org.vstu.meaningtree.nodes.expressions.identifiers.QualifiedIdentifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.ScopedIdentifier;
+import org.vstu.meaningtree.nodes.expressions.identifiers.SelfReference;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.expressions.literals.*;
 import org.vstu.meaningtree.nodes.expressions.logical.NotOp;
@@ -98,6 +99,7 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(PrintCommand.class, this::toStringPrint);
         registerRenderer(InputCommand.class, this::toStringInput);
         registerRenderer(FunctionCall.class, this::toStringFunctionCall);
+        registerRenderer(MethodCall.class, this::toStringMethodCall);
         registerRenderer(ConstructorCall.class, call -> toString(call.getOwner()) + "(" + toStringFunctionCallArgumentsList(call.getArguments()) + ")");
         registerRenderer(ParenthesizedExpression.class, this::toStringParenthesizedExpression);
         registerRenderer(AssignmentExpression.class, this::toStringAssignmentExpression);
@@ -115,6 +117,7 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(GenericUserType.class, this::toStringType);
         registerRenderer(UserType.class, this::toStringType);
         registerRenderer(Type.class, this::toStringType);
+        registerRenderer(SelfReference.class, n -> "this");
         registerRenderer(SimpleIdentifier.class, n -> n.getName());
         registerRenderer(ScopedIdentifier.class, this::toStringIdentifier);
         registerRenderer(QualifiedIdentifier.class, this::toStringIdentifier);
@@ -1051,7 +1054,9 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringMemberAccess(MemberAccess memAccess) {
-        String token = memAccess instanceof PointerMemberAccess ? "->" : ".";
+        String token = memAccess instanceof PointerMemberAccess || memAccess.getExpression() instanceof SelfReference
+                ? "->"
+                : ".";
         return String.format("%s%s%s",toString(memAccess.getExpression()), token, toString(memAccess.getMember()));
     }
 
@@ -1351,6 +1356,17 @@ public class CppViewer extends LanguageViewer {
     private String toStringFunctionCall(@NotNull FunctionCall functionCall) {
         String functionName = toString(functionCall.getFunction());
         return functionName + "(" + toStringFunctionCallArgumentsList(functionCall.getArguments()) + ")";
+    }
+
+    @NotNull
+    private String toStringMethodCall(@NotNull MethodCall methodCall) {
+        String token = methodCall.getObject() instanceof SelfReference ? "->" : ".";
+        return "%s%s%s(%s)".formatted(
+                toString(methodCall.getObject()),
+                token,
+                toString(methodCall.getFunctionName()),
+                toStringFunctionCallArgumentsList(methodCall.getArguments())
+        );
     }
 
     @NotNull

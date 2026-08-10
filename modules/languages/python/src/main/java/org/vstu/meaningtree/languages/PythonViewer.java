@@ -13,10 +13,7 @@ import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
-import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
-import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
-import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
-import org.vstu.meaningtree.nodes.definitions.ObjectDestructorDefinition;
+import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
@@ -126,6 +123,7 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(SwitchStatement.class, this::loopToString);
         registerTabRenderer(MethodDefinition.class, (node, tab) -> functionToString(node, tab));
         registerTabRenderer(FunctionDefinition.class, (node, tab) -> functionToString(node, tab));
+        registerTabRenderer(ObjectConstructorDefinition.class, this::objectConstructorToString);
         registerTabRenderer(ObjectDestructorDefinition.class, this::objectDestructorToString);
         registerTabRenderer(ClassDeclaration.class, this::classDeclToString);
         registerTabRenderer(ClassDefinition.class, this::classToString);
@@ -418,6 +416,19 @@ public class PythonViewer extends LanguageViewer {
                 destructor.getBody()
         );
         return functionToString(pythonDestructor, tab);
+    }
+
+    private String objectConstructorToString(ObjectConstructorDefinition constructor, Tab tab) {
+        MethodDeclaration declaration = constructor.getDeclaration();
+        var pythonConstructor = new ObjectConstructorDefinition(
+                declaration.getOwner(),
+                new SimpleIdentifier("__init__"),
+                declaration.getAnnotations(),
+                declaration.getModifiers(),
+                declaration.getArguments(),
+                constructor.getBody()
+        );
+        return functionToString(pythonConstructor, tab);
     }
 
     private String assignmentToString(MultipleAssignmentStatement stmtSequence) {

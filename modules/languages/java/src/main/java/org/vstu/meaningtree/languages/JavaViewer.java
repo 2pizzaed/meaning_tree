@@ -692,7 +692,14 @@ public class JavaViewer extends LanguageViewer {
             builder.append(modifiers).append(" ");
         }
 
-        String name = toString(objectConstructor.getName());
+        String name;
+        if (constructorDeclaration.getOwner() != null) {
+            name = toString(constructorDeclaration.getOwner().getQualifiedName());
+        } else if (constructorDeclaration.getParentDeclaration() != null) {
+            name = toString(constructorDeclaration.getParentDeclaration().getName());
+        } else {
+            name = toString(objectConstructor.getName());
+        }
         builder.append(name);
 
         String parameters = toStringParameters(constructorDeclaration.getArguments());

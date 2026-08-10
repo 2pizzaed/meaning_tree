@@ -3,10 +3,7 @@ package org.vstu.meaningtree.languages;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.helpers.ContextualNodeRenderer;
-import org.vstu.meaningtree.languages.support.features.LabeledLoopFeature;
-import org.vstu.meaningtree.languages.support.features.PointerSubtractionInUnpackFeature;
-import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
-import org.vstu.meaningtree.languages.support.features.StatementJumpFeature;
+import org.vstu.meaningtree.languages.support.features.*;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.languages.utils.Tab;
 import org.vstu.meaningtree.nodes.*;
@@ -108,7 +105,7 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(DeleteExpression.class, (node, tab) -> toString(node.toStatement()));
         registerTabRenderer(Range.class, (node, tab) -> rangeToString(node));
         registerTabRenderer(ContinueStatement.class, (node, tab) -> "continue");
-        registerTabRenderer(ConstructorCall.class, (node, tab) -> String.format("%s(%s)", toString(node.getOwner()), argumentsToString(node.getArguments())));
+        registerTabRenderer(ConstructorCall.class, (node, tab) -> String.format("super().__init__(%s)", argumentsToString(node.getArguments())));
         registerTabRenderer(Comment.class, (node, tab) -> commentToString(node));
         registerTabRenderer(Literal.class, (node, tab) -> literalToString(node));
         registerTabRenderer(SizeofExpression.class, (node, tab) -> callsToString(node));
@@ -154,6 +151,7 @@ public class PythonViewer extends LanguageViewer {
         registerUnsupportedFeature(new PointerToMemberOperatorFeature());
         registerUnsupportedFeature(new LabeledLoopFeature());
         registerUnsupportedFeature(new StatementJumpFeature());
+        registerUnsupportedFeature(new ConstructorDelegationFeature());
         registerUnsupportedFeature(FallthroughCaseBlock.class);
     }
 

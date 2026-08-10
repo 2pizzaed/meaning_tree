@@ -16,6 +16,7 @@ import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.*;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
+import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
@@ -353,6 +354,12 @@ public class PythonParser extends LanguageParser {
                     , scoped.getScopeResolution().getLast(), exprs);
         }
         if (name instanceof MemberAccess memberAccess) {
+            if (memberAccess.getExpression() instanceof FunctionCall functionCall
+                    && functionCall.hasFunctionName()
+                    && functionCall.getFunction().equalsIdentifier("super")
+                    && memberAccess.getMember().equalsIdentifier("__init__")) {
+                return new ConstructorCall(new UnknownType(), true, exprs);
+            }
             return new MethodCall(memberAccess.getExpression(), memberAccess.getMember(), exprs);
         }
         return new FunctionCall(name, exprs);
@@ -489,6 +496,18 @@ public class PythonParser extends LanguageParser {
                     method = new ObjectDestructorDefinition(decl.getOwner(), decl.getName(), decl.getAnnotations(), decl.getModifiers(), method.getBody());
                 } else if (method.getName().toString().equals("__init__")) {
                     method = new ObjectConstructorDefinition(decl.getOwner(), decl.getName(), decl.getAnnotations(), decl.getModifiers(), decl.getArguments(), method.getBody());
+                }
+                if (method instanceof ObjectConstructorDefinition constructor && !classDecl.getParents().isEmpty()) {
+                    Node[] constructorBody = constructor.getBody().getNodes();
+                    for (int j = 0; j < constructorBody.length; j++) {
+                        if (constructorBody[j] instanceof ExpressionStatement statement
+                                && statement.getExpression() instanceof ConstructorCall call
+                                && call.isBaseClassCall()) {
+                            constructor.getBody().substitute(j, new ExpressionStatement(new ConstructorCall(
+                                    (Type) classDecl.getParents().getFirst().freshClone(), true, call.getArguments()
+                            )));
+                        }
+                    }
                 }
                 body.substitute(i, PythonSpecialNodeTransformations.detectInstanceReferences(method));
             } else {

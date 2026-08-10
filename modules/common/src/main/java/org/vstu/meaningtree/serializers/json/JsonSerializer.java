@@ -14,6 +14,7 @@ import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
 import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
+import org.vstu.meaningtree.nodes.expressions.calls.DestructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
@@ -533,6 +534,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case InputCommand command -> serializeInputCommand(command);
             case PrintValues printValues -> serializePrintValues(printValues);
             case ConstructorCall call -> serializeConstructorCall(call);
+            case DestructorCall call -> serializeDestructorCall(call);
             case MethodCall call -> serializeMethodCall(call);
             case FunctionCall funcCall -> serializeFunctionCall(funcCall);
             case IndexExpression indexExpression -> serializeIndexExpression(indexExpression);
@@ -1589,9 +1591,19 @@ public class JsonSerializer implements Serializer<JsonObject> {
     private JsonObject serializeConstructorCall(@NotNull ConstructorCall call) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(call));
+        json.add("owner", serialize(call.getOwner()));
+        json.addProperty("base_class_call", call.isBaseClassCall());
         JsonArray args = new JsonArray();
         for (var arg : call.getArguments()) args.add(serialize(arg));
         json.add("arguments", args);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeDestructorCall(@NotNull DestructorCall call) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(call));
+        json.add("owner", serialize(call.getOwner()));
         return json;
     }
 

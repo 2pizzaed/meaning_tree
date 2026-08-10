@@ -10,6 +10,7 @@ import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
 import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
+import org.vstu.meaningtree.nodes.expressions.calls.DestructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
@@ -143,6 +144,7 @@ public class JsonNodeTypeClassMapper {
 
         // Calls
         register("constructor_call", ConstructorCall.class);
+        register("destructor_call", DestructorCall.class);
         register("method_call", MethodCall.class);
 
         // Other expressions

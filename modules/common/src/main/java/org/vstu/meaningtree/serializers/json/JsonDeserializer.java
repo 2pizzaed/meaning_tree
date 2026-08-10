@@ -18,6 +18,7 @@ import org.vstu.meaningtree.nodes.expressions.Literal;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
 import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
+import org.vstu.meaningtree.nodes.expressions.calls.DestructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
@@ -710,8 +711,12 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpressionList(json.getAsJsonArray("arguments"))
             );
             case "constructor_call" -> new ConstructorCall(
-                    (Type) deserialize(json.getAsJsonObject("type")),
+                    (Type) deserialize(json.getAsJsonObject("owner")),
+                    json.has("base_class_call") && json.get("base_class_call").getAsBoolean(),
                     deserializeExpressionList(json.getAsJsonArray("arguments"))
+            );
+            case "destructor_call" -> new DestructorCall(
+                    (Type) deserialize(json.getAsJsonObject("owner"))
             );
             case "ternary_operator" -> new TernaryOperator(
                     deserializeExpression(json.getAsJsonObject("condition")),

@@ -491,3 +491,106 @@ group: ComplexExpressionTest
 
         c++:
             x = (a + b) * (c - d) / e;
+
+
+group: StructuresOOP
+    case: ClassFieldsAndAccess
+        main c++:
+            class Account
+            {
+            private:
+                int id = 1;
+            protected:
+                int balance = 0;
+            public:
+                static int count = 0;
+            };
+
+        c++:
+            class Account
+            {
+                int id = 1;
+            protected:
+                int balance = 0;
+            public:
+                static int count = 0;
+            };
+
+
+    case: ClassInheritance
+        main c++:
+            class Child : public Parent
+            {
+            public:
+                int value = 42;
+            };
+
+        c++:
+            class Child : public Parent
+            {
+            public:
+                int value = 42;
+            };
+
+
+    case: ClassMethodsAndStatic
+        main c++:
+            class Calculator
+            {
+            private:
+                int stored()
+                {
+                    return value;
+                }
+            public:
+                static int sum(int left, int right)
+                {
+                    return left + right;
+                }
+            };
+
+        c++:
+            class Calculator
+            {
+                int stored()
+                {
+                    return value;
+                }
+            public:
+                static int sum(int left, int right)
+                {
+                    return left + right;
+                }
+            };
+
+
+    case: ClassConstructorAndDestructor
+        main c++:
+            class Session
+            {
+            public:
+                Session(int id)
+                {
+                    store(id);
+                }
+
+                ~Session()
+                {
+                    cleanup();
+                }
+            };
+
+        c++:
+            class Session
+            {
+            public:
+                Session(int id)
+                {
+                    store(id);
+                }
+
+                ~Session()
+                {
+                    cleanup();
+                }
+            };

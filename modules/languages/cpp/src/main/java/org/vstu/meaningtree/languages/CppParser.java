@@ -269,7 +269,17 @@ public class CppParser extends LanguageParser {
 
     private ClassDefinition fromClassSpecifier(TSNode node) {
         SimpleIdentifier className = (SimpleIdentifier) fromIdentifier(node.getChildByFieldName("name"));
-        List<Type> parents = fromBaseClasses(node.getChildByFieldName("base_class_clause"));
+        TSNode baseClassClause = node.getChildByFieldName("base_class_clause");
+        if (baseClassClause.isNull()) {
+            for (int i = 0; i < node.getNamedChildCount(); i++) {
+                TSNode child = node.getNamedChild(i);
+                if (child.getType().equals("base_class_clause")) {
+                    baseClassClause = child;
+                    break;
+                }
+            }
+        }
+        List<Type> parents = fromBaseClasses(baseClassClause);
         ClassDeclaration declaration = new ClassDeclaration(List.of(), className, parents.toArray(Type[]::new));
 
         TSNode body = node.getChildByFieldName("body");

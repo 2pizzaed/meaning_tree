@@ -1,0 +1,36 @@
+package org.vstu.meaningtree.utils.hooks;
+
+import org.jetbrains.annotations.Nullable;
+import org.vstu.meaningtree.utils.scopes.ScopeTable;
+
+import java.util.Optional;
+
+/**
+ * Окружение, доступное хуку во время срабатывания.
+ * <p>
+ * Неизменяем и не хранит снимков: {@link #scope()} каждый раз спрашивает владельца о его
+ * текущем состоянии. Благодаря этому экземпляр для фаз без {@code source} переиспользуется
+ * реестром, а не создаётся на каждый узел; сохранять его в поле хука тем не менее не
+ * следует — привязка к владельцу не гарантируется на будущее.
+ *
+ * @param owner  компонент, в котором сработала фаза
+ * @param source дополнительное значение фазы либо {@code null}. Например, для
+ *               {@link HookPhase#AFTER_NODE_PARSE} здесь лежит исходный
+ *               {@code TSNode}.
+ */
+public record HookContext(HookHost owner, @Nullable Object source) {
+
+    /**
+     * Таблица областей видимости текущей трансляции.
+     */
+    public ScopeTable scope() {
+        return owner.hookScope();
+    }
+
+    /**
+     * Дополнительное значение фазы, если оно есть и имеет ожидаемый тип.
+     */
+    public <T> Optional<T> source(Class<T> type) {
+        return type.isInstance(source) ? Optional.of(type.cast(source)) : Optional.empty();
+    }
+}

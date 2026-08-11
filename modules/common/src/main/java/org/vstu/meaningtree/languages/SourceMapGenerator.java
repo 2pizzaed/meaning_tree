@@ -7,11 +7,12 @@ import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.SourceMap;
 import org.vstu.meaningtree.utils.analysis.CyclomaticComplexityAnalyzer;
+import org.vstu.meaningtree.utils.hooks.*;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,43 +29,54 @@ public class SourceMapGenerator {
     private static final String START_TAG = "\u2060AST_START_"; // \u2060 = word joiner (невидимый)
     private static final String END_TAG = "\u2060AST_END";
 
-    private static final Set<Long> watermarked = new HashSet<>();
+    /**
+     * Обёртывает каждый отрисованный узел невидимыми маркерами с его id, чтобы затем
+     * восстановить байтовые границы узлов в готовом коде.
+     * <p>
+     * Состояние (какие узлы уже размечены) живёт в экземпляре, а не в статике: экземпляр
+     * создаётся на один прогон, поэтому два генератора не мешают друг другу.
+     */
+    private static final class Watermarker implements Interceptor<Node, String> {
+        private final Set<Long> watermarked = new HashSet<>();
 
-    private static final BiFunction<Node, String, String> watermarkingHook = (node, string) -> {
-        long id = node.hasLabel(Label.REMAPPED) ? node.getLabel(Label.REMAPPED).attributeAsLong() : node.getId();
-        if (watermarked.contains(id)) {
-            return string;
+        @Override
+        public String intercept(Node node, String rendered, HookContext context) {
+            long id = node.hasLabel(Label.REMAPPED) ? node.getLabel(Label.REMAPPED).attributeAsLong() : node.getId();
+            if (!watermarked.add(id)) {
+                return rendered;
+            }
+            return START_TAG + id + END_TAG + rendered + START_TAG + '/' + id + END_TAG;
         }
-        var stringBuffer = new StringBuilder();
-        stringBuffer.append(START_TAG);
-        stringBuffer.append(id);
-        stringBuffer.append(END_TAG);
-        stringBuffer.append(string);
-        stringBuffer.append(START_TAG);
-        stringBuffer.append('/');
-        stringBuffer.append(id);
-        stringBuffer.append(END_TAG);
-        watermarked.add(id);
-        return stringBuffer.toString();
-    };
+    }
 
     public SourceMapGenerator(LanguageTranslator translator) {
         this.translator = translator.clone();
-        this.translator._viewer.registerPostRenderPreparation(Node.class, watermarkingHook);
     }
 
     public SourceMap process(MeaningTree meaningTree) {
-        String code = translator.getCode(meaningTree);
-        watermarked.clear();
+        String code = instrumentedCode(() -> translator.getCode(meaningTree));
         globalScope = translator.getLatestScopeTable();
         return buildSourceMap(meaningTree, code);
     }
 
     public SourceMap process(Node root) {
-        String code = translator.getCode(root);
-        watermarked.clear();
+        String code = instrumentedCode(() -> translator.getCode(root));
         globalScope = translator.getLatestScopeTable();
         return buildSourceMap(root, code);
+    }
+
+    /**
+     * Выполняет генерацию кода с включённой разметкой узлов.
+     * <p>
+     * Разметка регистрируется как хук прогона с порядком {@link HookOrder#LATE}: она обязана
+     * быть самым внешним слоем, иначе маркеры окажутся внутри результата работы языковых
+     * хуков и границы узлов посчитаются неверно.
+     */
+    private String instrumentedCode(Supplier<String> generation) {
+        try (HookScope scope = translator._viewer.hooks().openScope()) {
+            scope.intercept(HookPhase.AFTER_NODE_RENDER, Node.class, HookOrder.LATE, new Watermarker());
+            return generation.get();
+        }
     }
 
     /**

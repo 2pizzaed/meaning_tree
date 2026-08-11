@@ -1,20 +1,20 @@
 package org.vstu.meaningtree.languages;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.treesitter.TSLanguage;
 import org.treesitter.TSNode;
 import org.treesitter.TSParser;
 import org.treesitter.TSTree;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
-import org.vstu.meaningtree.languages.helpers.HookUtils;
 import org.vstu.meaningtree.nodes.Node;
-import org.vstu.meaningtree.utils.Hook;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEvaluator;
 import org.vstu.meaningtree.utils.analysis.loops.LoopIterationAnalyzer;
 import org.vstu.meaningtree.utils.analysis.symbols.SymbolResolver;
+import org.vstu.meaningtree.utils.hooks.HookHandle;
+import org.vstu.meaningtree.utils.hooks.HookOrder;
+import org.vstu.meaningtree.utils.hooks.HookPhase;
 
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -33,14 +33,35 @@ abstract public class LanguageParser extends TranslatorComponent {
     private final Map<String, Function<TSNode, Node>> tsNodeHandlers = new LinkedHashMap<>();
     private final LoopIterationAnalyzer loopIterationAnalyzer = new LoopIterationAnalyzer();
 
-    protected List<Hook<Pair<TSNode, Node>>> onNodeParsedHooks = new ArrayList<>();
-    private final List<HookUtils.NodePreparationEntry<? extends Node>> postParsePreparations = new ArrayList<>();
-
     public LanguageParser(LanguageTranslator translator, TSLanguage language) {
         super(translator);
         _tsLanguage = language;
         _tsParser = new TSParser();
         _tsParser.setLanguage(language);
+        registerAnalysisPasses();
+    }
+
+    /**
+     * Регистрирует проходы анализа, выполняемые после построения дерева.
+     * <p>
+     * Порядок между ними существенен и раньше держался только на порядке строк в методе:
+     * {@code SymbolResolver} дописывает типы полей, которыми затем пользуется
+     * {@code ExpressionValueEvaluator}, а вычисленные им значения нужны
+     * {@code LoopIterationAnalyzer}. Через {@link HookOrder} эта зависимость выражена явно.
+     */
+    private void registerAnalysisPasses() {
+        hooks.intercept(HookPhase.AFTER_TREE_PARSE, HookOrder.EARLY, (tree, value, context) -> {
+            new SymbolResolver(value, context.scope()).resolve();
+            return value;
+        });
+        hooks.intercept(HookPhase.AFTER_TREE_PARSE, HookOrder.NORMAL, (tree, value, context) -> {
+            new ExpressionValueEvaluator(value, context.scope()).analyze();
+            return value;
+        });
+        hooks.intercept(HookPhase.AFTER_TREE_PARSE, HookOrder.LATE, (tree, value, context) -> {
+            loopIterationAnalyzer.analyze(value, context.scope());
+            return value;
+        });
     }
 
     public String getCode() {
@@ -128,14 +149,9 @@ abstract public class LanguageParser extends TranslatorComponent {
         }
         Optional<Node> fromRegistry = parseWithRegistry(node);
         if (fromRegistry.isPresent()) {
-            Node createdNode = applyPostParsePreparations(fromRegistry.get());
+            Node parsed = fromRegistry.get();
+            Node createdNode = hooks.run(HookPhase.AFTER_NODE_PARSE, parsed, parsed, node);
             matchParserNodes(node, createdNode);
-            var pair = Pair.of(node, createdNode);
-            for (Hook<Pair<TSNode, Node>> hook : onNodeParsedHooks) {
-                if (hook.isTriggered(pair)) {
-                    hook.accept(pair);
-                }
-            }
             return createdNode;
         }
         throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));
@@ -177,57 +193,36 @@ abstract public class LanguageParser extends TranslatorComponent {
         return Set.copyOf(tsNodeHandlers.keySet());
     }
 
-    protected final <T extends Node> void registerPostParsePreparation(Class<T> nodeType, UnaryOperator<T> preparation) {
-        postParsePreparations.add(new HookUtils.NodePreparationEntry<>(nodeType, preparation));
+    /**
+     * Сахар над {@link HookPhase#AFTER_NODE_PARSE} для языковых хуков: доработка узла
+     * заданного типа сразу после его построения.
+     */
+    public final <T extends Node> HookHandle registerPostParsePreparation(Class<T> nodeType, UnaryOperator<T> preparation) {
+        Objects.requireNonNull(preparation, "preparation must not be null");
+        return hooks.intercept(HookPhase.AFTER_NODE_PARSE, nodeType,
+                (node, value, context) -> Objects.requireNonNull(
+                        preparation.apply(node),
+                        "Post-parse preparation returned null for node type " + nodeType.getName()
+                ));
     }
 
-    protected final Node applyPostParsePreparations(Node node) {
-        Objects.requireNonNull(node, "node must not be null");
-        Node preparedNode = node;
-        for (HookUtils.NodePreparationEntry<? extends Node> preparation : postParsePreparations) {
-            if (!preparation.matches(preparedNode)) {
-                continue;
-            }
-            preparedNode = Objects.requireNonNull(
-                    preparation.apply(preparedNode),
-                    "Post-parse preparation returned null for node type " + preparedNode.getClass().getName()
-            );
-        }
-        return preparedNode;
-    }
-
-    public void postProcessTree(MeaningTree meaningTree) {
-        new SymbolResolver(meaningTree, ctx.getScopeTable()).resolve();
-        ExpressionValueEvaluator expressionValueEvaluator = new ExpressionValueEvaluator(meaningTree, ctx.getScopeTable());
-        expressionValueEvaluator.analyze();
-        loopIterationAnalyzer.analyze(meaningTree, ctx.getScopeTable());
-    }
-
-    boolean registerOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
-        return onNodeParsedHooks.add(hook);
-    }
-
-    public final <T extends Node> Hook<Pair<TSNode, Node>> registerOnNodeParsedHook(Class<T> nodeType,
-                                                                                     BiConsumer<TSNode, T> hookAction) {
-        Objects.requireNonNull(nodeType, "nodeType must not be null");
+    /**
+     * Сахар над {@link HookPhase#AFTER_NODE_PARSE} для наблюдателей: узнать о построенном
+     * узле вместе с исходным узлом tree-sitter, ничего не меняя.
+     */
+    public final <T extends Node> HookHandle registerOnNodeParsedHook(Class<T> nodeType,
+                                                                      BiConsumer<TSNode, T> hookAction) {
         Objects.requireNonNull(hookAction, "hookAction must not be null");
-        Hook<Pair<TSNode, Node>> typedHook = new Hook<>() {
-            @Override
-            public boolean isTriggered(Pair<TSNode, Node> object) {
-                return object != null && object.getRight() != null && nodeType.isAssignableFrom(object.getRight().getClass());
-            }
-
-            @Override
-            public void accept(Pair<TSNode, Node> object) {
-                hookAction.accept(object.getLeft(), nodeType.cast(object.getRight()));
-            }
-        };
-        registerOnNodeParsedHook(typedHook);
-        return typedHook;
+        return hooks.observe(HookPhase.AFTER_NODE_PARSE, nodeType,
+                (node, value, context) -> context.source(TSNode.class)
+                        .ifPresent(tsNode -> hookAction.accept(tsNode, node)));
     }
 
-    boolean removeOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
-        return onNodeParsedHooks.remove(hook);
+    /**
+     * Постобработка построенного дерева. Проходы анализа зарегистрированы на
+     * {@link HookPhase#AFTER_TREE_PARSE}; внешний потребитель может добавить свои туда же.
+     */
+    public void postProcessTree(MeaningTree meaningTree) {
+        hooks.run(HookPhase.AFTER_TREE_PARSE, meaningTree, meaningTree);
     }
-
 }

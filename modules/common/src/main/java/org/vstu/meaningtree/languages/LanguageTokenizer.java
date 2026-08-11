@@ -9,6 +9,8 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.*;
+import org.vstu.meaningtree.utils.hooks.HookPhase;
+import org.vstu.meaningtree.utils.hooks.TokenListChange;
 import org.vstu.meaningtree.utils.tokens.*;
 
 import java.nio.charset.StandardCharsets;
@@ -20,10 +22,6 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
     protected LanguageViewer viewer;
     protected boolean navigablePseudoTokens = false;
 
-    private List<Hook<Triple<Integer, Token, ListModificationType>>>
-            tokenListModificationsHooks = new ArrayList<>();
-    private List<Hook<Pair<TSNode, TokenList>>> tokenParsePositionHooks = new ArrayList<>();
-
     private Set<String> reservedKeywords;
 
     protected abstract Token recognizeToken(TSNode node);
@@ -32,32 +30,39 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
         this.code = noPrepare ? code : translator.prepareCode(code);
         parser.getMeaningTree(this.code);
         TokenList list = new TokenList();
-        for (var hook : tokenListModificationsHooks) {
-            list.registerHook(hook);
-        }
+        bindTokenListChangeHooks(list);
         collectTokens(parser.getRootNode(), list, true, null);
+        TokenList result = hooks.run(HookPhase.AFTER_TOKENIZE, list, list);
         rollbackContext();
-        return list;
+        return result;
+    }
+
+    /**
+     * Пробрасывает изменения списка токенов в фазу {@link HookPhase#ON_TOKEN_LIST_CHANGE}.
+     * <p>
+     * {@link TokenList} — обычная наблюдаемая коллекция и о подсистеме хуков не знает,
+     * поэтому мост наводится здесь и только если на фазу кто-то подписан.
+     */
+    protected void bindTokenListChangeHooks(TokenList list) {
+        if (!hooks.hasHooks(HookPhase.ON_TOKEN_LIST_CHANGE)) {
+            return;
+        }
+        list.registerHook(new Hook<>() {
+            @Override
+            public boolean isTriggered(Triple<Integer, Token, ListModificationType> object) {
+                return object != null;
+            }
+
+            @Override
+            public void accept(Triple<Integer, Token, ListModificationType> object) {
+                TokenListChange change = new TokenListChange(object.getLeft(), object.getMiddle(), object.getRight());
+                hooks.run(HookPhase.ON_TOKEN_LIST_CHANGE, change, list);
+            }
+        });
     }
 
     public boolean isReservedKeyword(String token) {
         return reservedKeywords.contains(token);
-    }
-
-    public boolean registerOnTokenListModificationHook(Hook<Triple<Integer, Token, ListModificationType>> hook) {
-        return tokenListModificationsHooks.add(hook);
-    }
-
-    public boolean removeOnTokenListModificationHook(Hook<Triple<Integer, Token, ListModificationType>> hook) {
-        return tokenListModificationsHooks.remove(hook);
-    }
-
-    public boolean registerOnTokenPositionHook(Hook<Pair<TSNode, TokenList>> hook) {
-        return tokenParsePositionHooks.add(hook);
-    }
-
-    public boolean removeOnTokenPositionHook(Hook<Pair<TSNode, TokenList>> hook) {
-        return tokenParsePositionHooks.remove(hook);
     }
 
     public Pair<Boolean, TokenList> tryTokenize(String code, boolean noPrepare) {
@@ -150,12 +155,7 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
     }
 
     protected TokenGroup collectTokens(TSNode node, TokenList tokens, boolean detectOperator, Map<OperandPosition, TokenGroup> parent) {
-        for (var hook : tokenParsePositionHooks) {
-            var pair = Pair.of(node, tokens);
-            if (hook.isTriggered(pair)) {
-                hook.accept(pair);
-            }
-        }
+        hooks.run(HookPhase.BEFORE_TOKEN_COLLECT, node, tokens);
         int start = tokens.size();
         boolean skipChildren = false;
         if (node.getChildCount() == 0 || getStopNodes().contains(node.getType())) {

@@ -4,7 +4,6 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.languages.helpers.ContextualNodeRenderer;
-import org.vstu.meaningtree.languages.helpers.HookUtils;
 import org.vstu.meaningtree.languages.helpers.NodeRenderer;
 import org.vstu.meaningtree.languages.support.FeatureContext;
 import org.vstu.meaningtree.languages.support.FeatureSupport;
@@ -18,6 +17,9 @@ import org.vstu.meaningtree.nodes.expressions.identifiers.SuperClassReference;
 import org.vstu.meaningtree.utils.InternalNode;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.ParenthesesFiller;
+import org.vstu.meaningtree.utils.hooks.HookHandle;
+import org.vstu.meaningtree.utils.hooks.HookOrder;
+import org.vstu.meaningtree.utils.hooks.HookPhase;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
 import java.util.*;
@@ -32,9 +34,6 @@ abstract public class LanguageViewer extends TranslatorComponent {
 
     protected MeaningTree origin;
     protected ParenthesesFiller parenFiller;
-
-    private final List<HookUtils.NodePreparationEntry<? extends Node>> preRenderPreparations = new ArrayList<>();
-    private final List<HookUtils.PostRenderPreparationEntry<? extends Node>> postRenderPreparations = new ArrayList<>();
 
     private final List<FeatureSupport> supportRules = new ArrayList<>();
     private final List<Class<? extends Node>> explicitUnsupportedNodes = new ArrayList<>();
@@ -58,29 +57,48 @@ abstract public class LanguageViewer extends TranslatorComponent {
     public LanguageViewer(LanguageTranslator translator) {
         super(translator);
         this.parenFiller = new ParenthesesFiller(this::mapToToken);
+        registerReservedKeywordGuard();
     }
 
-    protected final <T extends Node> void registerPreRenderPreparation(Class<T> nodeType, UnaryOperator<T> preparation) {
-        preRenderPreparations.add(new HookUtils.NodePreparationEntry<>(nodeType, preparation));
+    /**
+     * Сахар над {@link HookPhase#BEFORE_NODE_RENDER} для языковых хуков: подготовка узла
+     * заданного типа перед рендерингом.
+     */
+    public final <T extends Node> HookHandle registerPreRenderPreparation(Class<T> nodeType, UnaryOperator<T> preparation) {
+        Objects.requireNonNull(preparation, "preparation must not be null");
+        return hooks.intercept(HookPhase.BEFORE_NODE_RENDER, nodeType,
+                (node, value, context) -> Objects.requireNonNull(
+                        preparation.apply(node),
+                        "Pre-render preparation returned null for node type " + nodeType.getName()
+                ));
     }
 
-    protected final <T extends Node> void registerPostRenderPreparation(Class<T> nodeType, BiFunction<T, String, String> preparation) {
-        postRenderPreparations.add(new HookUtils.PostRenderPreparationEntry<>(nodeType, preparation));
+    /**
+     * Сахар над {@link HookPhase#AFTER_NODE_RENDER} для языковых хуков: доработка строки,
+     * полученной из узла заданного типа.
+     */
+    public final <T extends Node> HookHandle registerPostRenderPreparation(Class<T> nodeType, BiFunction<T, String, String> preparation) {
+        return registerPostRenderPreparation(nodeType, HookOrder.NORMAL, preparation);
+    }
+
+    /**
+     * То же, но с явным порядком. Инструментирование вывода должно регистрироваться с
+     * {@link HookOrder#LATE}, иначе его разметка окажется внутри результата работы других
+     * хуков.
+     */
+    public final <T extends Node> HookHandle registerPostRenderPreparation(Class<T> nodeType, HookOrder order,
+                                                                          BiFunction<T, String, String> preparation) {
+        Objects.requireNonNull(preparation, "preparation must not be null");
+        return hooks.intercept(HookPhase.AFTER_NODE_RENDER, nodeType, order,
+                (node, rendered, context) -> Objects.requireNonNull(
+                        preparation.apply(node, rendered),
+                        "Post-render preparation returned null for node type " + nodeType.getName()
+                ));
     }
 
     protected final Node applyPreRenderPreparations(Node node) {
         Objects.requireNonNull(node, "node must not be null");
-        Node preparedNode = node;
-        for (HookUtils.NodePreparationEntry<? extends Node> preparation : preRenderPreparations) {
-            if (!preparation.matches(preparedNode)) {
-                continue;
-            }
-            preparedNode = Objects.requireNonNull(
-                    preparation.apply(preparedNode),
-                    "Pre-render preparation returned null for node type " + preparedNode.getClass().getName()
-            );
-        }
-        return preparedNode;
+        return hooks.run(HookPhase.BEFORE_NODE_RENDER, node, node);
     }
 
     protected final <T extends Node> void registerRenderer(Class<T> nodeType, NodeRenderer<T> renderer) {
@@ -150,16 +168,7 @@ abstract public class LanguageViewer extends TranslatorComponent {
         if (node == null) {
             return result;
         }
-        for (HookUtils.PostRenderPreparationEntry<? extends Node> preparation : postRenderPreparations) {
-            if (!preparation.matches(node)) {
-                continue;
-            }
-            result = Objects.requireNonNull(
-                    preparation.apply(node, result),
-                    "Post-render preparation returned null for node type " + node.getClass().getName()
-            );
-        }
-        return result;
+        return hooks.run(HookPhase.AFTER_NODE_RENDER, node, result);
     }
 
     protected List<SupportIssue> checkNodeSupport(Node node) {
@@ -234,30 +243,52 @@ abstract public class LanguageViewer extends TranslatorComponent {
         if (preparedNode.hasLabel(Label.DUMMY)) {
             return "";
         }
-        if (preparedNode instanceof SimpleIdentifier identifier
-                && !(identifier instanceof SelfReference)
-                && !(identifier instanceof SuperClassReference)
-                && ctx.requireTokenizer().isReservedKeyword(identifier.getName())) {
-            // TODO: автоматически назначать допустимое уникальное имя для целевого языка.
-            throw new UnsupportedViewingException(
-                    "Identifier `%s` is a reserved keyword in %s"
-                            .formatted(identifier.getName(), translator.getLanguageName())
-            );
-        }
         String result = dispatchRenderer(preparedNode);
         return applyHooks(preparedNode, result);
     }
 
     public abstract OperatorToken mapToToken(Expression expr);
 
+    /**
+     * Подготовка дерева перед рендерингом. Переопределение — простой путь для языка;
+     * внешний потребитель может добиться того же, зарегистрировав перехватчик на
+     * {@link HookPhase#BEFORE_TREE_RENDER}.
+     */
     protected MeaningTree preprocessTree(MeaningTree tree) {
         return tree;
     }
 
     public String toString(MeaningTree mt) {
-        origin = preprocessTree(mt);
-        analyzeSupport(mt, false).throwAll();
-        return toString(mt.getRootNode());
+        MeaningTree tree = hooks.run(HookPhase.BEFORE_TREE_RENDER, mt, preprocessTree(mt));
+        origin = tree;
+        analyzeSupport(tree, false).throwAll();
+        String result = toString(tree.getRootNode());
+        return hooks.run(HookPhase.AFTER_TREE_RENDER, tree, result);
+    }
+
+    /**
+     * Запрещает использовать идентификаторы, совпадающие с ключевыми словами целевого
+     * языка.
+     * <p>
+     * Оформлено хуком, а не проверкой внутри {@link #toString(Node)}, чтобы политику можно
+     * было заменить: например, вместо отказа переименовывать идентификатор в допустимый.
+     * Регистрируется с {@link HookOrder#LATE}, чтобы проверять узел уже после всех
+     * подготовок.
+     */
+    private void registerReservedKeywordGuard() {
+        hooks.intercept(HookPhase.BEFORE_NODE_RENDER, SimpleIdentifier.class, HookOrder.LATE,
+                (identifier, value, context) -> {
+                    if (identifier instanceof SelfReference || identifier instanceof SuperClassReference) {
+                        return value;
+                    }
+                    if (!ctx.requireTokenizer().isReservedKeyword(identifier.getName())) {
+                        return value;
+                    }
+                    throw new UnsupportedViewingException(
+                            "Identifier `%s` is a reserved keyword in %s"
+                                    .formatted(identifier.getName(), translator.getLanguageName())
+                    );
+                });
     }
 
 }

@@ -15,16 +15,29 @@ import org.vstu.meaningtree.nodes.expressions.other.TernaryOperator;
 import org.vstu.meaningtree.utils.tokens.OperatorArity;
 import org.vstu.meaningtree.utils.tokens.OperatorAssociativity;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
+import org.vstu.meaningtree.utils.tokens.OperatorTokenPosition;
 
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public class ParenthesesFiller {
     // Warning: Приоритет в токенах от высшего (1) к низшему!!
 
     private Function<Expression, OperatorToken> _mapper;
+    private Predicate<String> _isOperatorText;
 
     public ParenthesesFiller(Function<Expression, OperatorToken> mapperNodeToOperatorToken) {
+        this(mapperNodeToOperatorToken, text -> false);
+    }
+
+    /**
+     * @param isOperatorText есть ли в языке оператор, который печатается указанным текстом.
+     *                       Нужно, чтобы поймать склейку соседних знаков: см. {@link #gluesIntoOtherOperator}.
+     */
+    public ParenthesesFiller(Function<Expression, OperatorToken> mapperNodeToOperatorToken,
+                             Predicate<String> isOperatorText) {
         this._mapper = mapperNodeToOperatorToken;
+        this._isOperatorText = isOperatorText;
     }
 
     public IndexExpression process(IndexExpression expr) {
@@ -153,11 +166,37 @@ public class ParenthesesFiller {
         if (argTok.precedence > tok.precedence ||
                 (arg instanceof BinaryExpression && tok.arity == OperatorArity.TERNARY && argTok.precedence >= tok.precedence) ||
                 (arg instanceof UnaryExpression && tok.arity != OperatorArity.UNARY) ||
-                (arg instanceof BinaryExpression && tok.arity == OperatorArity.UNARY)
+                (arg instanceof BinaryExpression && tok.arity == OperatorArity.UNARY) ||
+                gluesIntoOtherOperator(tok, arg, argTok)
         ) {
             arg = new ParenthesizedExpression(arg);
         }
         return arg;
+    }
+
+    /**
+     * Склеится ли знак оператора со знаком его аргумента в знак другого оператора.
+     * <p>
+     * Приоритет здесь ни при чём: {@code -} и {@code -a} имеют одинаковый приоритет и по
+     * приоритету скобок не требуют, но печатаются подряд и дают {@code --a} — префиксный
+     * декремент, то есть другой смысл. То же с {@code +(+a)} → {@code ++a}. А вот
+     * {@code !(!a)} склейки не образует: {@code !!} оператором не является, и {@code !!a}
+     * читается верно.
+     * <p>
+     * Проверка только для унарного оператора над унарным аргументом: там знаки печатаются
+     * вплотную. У бинарных операторов viewer'ы разделяют операнды пробелами.
+     */
+    private boolean gluesIntoOtherOperator(OperatorToken tok, Expression arg, OperatorToken argTok) {
+        if (tok.arity != OperatorArity.UNARY || !(arg instanceof UnaryExpression)) {
+            return false;
+        }
+        if (tok.tokenPos != OperatorTokenPosition.PREFIX || argTok.tokenPos != OperatorTokenPosition.PREFIX) {
+            return false;
+        }
+        if (tok.value.isEmpty() || argTok.value.isEmpty()) {
+            return false;
+        }
+        return _isOperatorText.test(tok.value + argTok.value.charAt(0));
     }
 
     private Pair<Expression, Expression> prepareBinary(OperatorToken tok, Expression left, Expression right) {

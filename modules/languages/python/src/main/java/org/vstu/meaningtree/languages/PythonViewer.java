@@ -15,7 +15,7 @@ import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.*;
-import org.vstu.meaningtree.nodes.expressions.bitwise.*;
+import org.vstu.meaningtree.nodes.expressions.bitwise.InversionOp;
 import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.calls.MethodCall;
@@ -27,10 +27,8 @@ import org.vstu.meaningtree.nodes.expressions.identifiers.*;
 import org.vstu.meaningtree.nodes.expressions.literals.*;
 import org.vstu.meaningtree.nodes.expressions.logical.NotOp;
 import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitAndOp;
-import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitOrOp;
-import org.vstu.meaningtree.nodes.expressions.math.*;
+import org.vstu.meaningtree.nodes.expressions.math.SubOp;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ArrayNewExpression;
-import org.vstu.meaningtree.nodes.expressions.newexpr.NewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
 import org.vstu.meaningtree.nodes.expressions.other.*;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
@@ -1123,89 +1121,8 @@ public class PythonViewer extends LanguageViewer {
         return sb.toString();
     }
 
+    @Override
     public OperatorToken mapToToken(Expression expr) {
-        String tok = switch (expr) {
-            case AddOp op -> "+";
-            case SubOp op -> "-";
-            case MulOp op -> "*";
-            case DivOp op -> "/";
-            case ModOp op -> "%";
-            case PowOp op -> "**";
-            case MatMulOp op -> "@";
-            case ContainsOp op -> {
-                if (op.isNegative()) {
-                    yield "not in";
-                }
-                yield "in";
-            }
-            case FloorDivOp op -> "//";
-            case ReferenceEqOp op -> {
-                if (op.isNegative()) {
-                    yield "is not";
-                }
-                yield "is";
-            }
-            case EqOp op -> {
-                if (op.getRight() instanceof NullLiteral) {
-                    yield "is";
-                }
-                yield "==";
-            }
-            case NotEqOp op -> {
-                if (op.getRight() instanceof NullLiteral) {
-                    yield "is not";
-                }
-                yield "!=";
-            }
-            case GeOp op -> ">=";
-            case LeOp op -> "<=";
-            case LtOp op -> "<";
-            case GtOp op -> ">";
-            case ScopedIdentifier op -> ".";
-            case InstanceOfOp op -> "CALL_(";
-            case ShortCircuitAndOp op -> "and";
-            case ShortCircuitOrOp op -> "or";
-            case BitwiseAndOp op -> "&";
-            case BitwiseOrOp op -> "|";
-            case LeftShiftOp op -> "<<";
-            case RightShiftOp op -> ">>";
-            case FunctionCall op -> "CALL_(";
-            case TernaryOperator op -> "if";
-            case NewExpression op -> "new";
-            case MemberAccess op -> ".";
-            case XorOp op -> "^";
-            case IndexExpression op -> "[";
-            case ThreeWayComparisonOp op -> "<=>";
-            case AssignmentExpression as -> {
-                AugmentedAssignmentOperator op = as.getAugmentedOperator();
-                yield switch (op) {
-                    case NONE -> ":=";
-                    case ADD -> "+=";
-                    case SUB -> "-=";
-                    case MUL -> "*=";
-                    // В Java тип деления определяется не видом операции, а типом операндов,
-                    // поэтому один и тот же оператор
-                    case DIV, FLOOR_DIV -> "/=";
-                    case BITWISE_AND -> "&=";
-                    case BITWISE_OR -> "|=";
-                    case BITWISE_XOR -> "^=";
-                    case BITWISE_SHIFT_LEFT -> "<<=";
-                    case BITWISE_SHIFT_RIGHT -> ">>=";
-                    case MOD -> "%=";
-                    default -> throw new IllegalStateException("Unexpected type of augmented assignment operator: " + op);
-                };
-            }
-            // unary section
-            case NotOp op -> "not";
-            case InversionOp op -> "~";
-            case UnaryMinusOp op -> "UMINUS";
-            case UnaryPlusOp op -> "UPLUS";
-            case PostfixIncrementOp op -> "+=";
-            case PrefixIncrementOp op -> "+=";
-            case PostfixDecrementOp op -> "-=";
-            case PrefixDecrementOp op -> "-=";
-            default -> null;
-        };
-        return ctx.requireTokenizer().getOperatorByTokenName(tok);
+        return ctx.requireTokenizer().getOperatorByNode(expr);
     }
 }

@@ -7,6 +7,7 @@ import org.treesitter.TSException;
 import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
+import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.*;
 import org.vstu.meaningtree.utils.hooks.HookPhase;
@@ -139,7 +140,52 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
     protected abstract String getFieldNameByOperandPos(OperandPosition pos, String operatorNode);
 
     protected abstract OperatorToken getOperator(String tokenValue, TSNode node);
-    public abstract OperatorToken getOperatorByTokenName(String tokenName);
+
+    /**
+     * Таблица операторов языка — единственный источник сведений о приоритете, ассоциативности,
+     * арности и тексте оператора.
+     * <p>
+     * Все три вопроса к операторам («по имени», «по узлу MeaningTree», «по тексту в исходнике»)
+     * отвечаются из неё, чтобы описания не расходились между собой: раньше соответствие
+     * «узел → оператор» было продублировано во viewer'е, и одна из копий промахивалась
+     * по ключу молча, без ошибки.
+     */
+    protected abstract Map<String, OperatorToken> getOperatorTable();
+
+    /**
+     * Ключ оператора, соответствующий узлу MeaningTree, либо {@code null}, если узел не операторный.
+     */
+    protected abstract String getOperatorNameByNode(Expression expr);
+
+    public OperatorToken getOperatorByTokenName(String tokenName) {
+        OperatorToken res = getOperatorTable().get(tokenName);
+        return res == null ? null : res.clone();
+    }
+
+    /**
+     * Оператор, соответствующий узлу MeaningTree, либо {@code null}, если узел не операторный.
+     */
+    public OperatorToken getOperatorByNode(Expression expr) {
+        return getOperatorByTokenName(getOperatorNameByNode(expr));
+    }
+
+    /**
+     * Есть ли в языке оператор, который печатается указанным текстом.
+     * <p>
+     * Нужно, чтобы определить склейку: {@code -} перед {@code -a} даёт {@code --a}, то есть
+     * совсем другой оператор. Проверяется именно по тексту, а не по ключу таблицы.
+     */
+    public boolean hasOperatorWithText(String text) {
+        if (text == null) {
+            return false;
+        }
+        for (OperatorToken token : getOperatorTable().values()) {
+            if (text.equals(token.value)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     public LanguageTokenizer(LanguageTranslator translator, Collection<String> reservedKeywords) {
         super(translator);

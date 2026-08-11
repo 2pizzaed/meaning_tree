@@ -7,6 +7,7 @@ import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
+import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
 import org.vstu.meaningtree.nodes.expressions.UnaryExpression;
@@ -74,12 +75,14 @@ public class JavaTokenizer extends LanguageTokenizer {
         put("new", new OperatorToken("new", TokenType.OPERATOR, 1, OperatorAssociativity.RIGHT, OperatorArity.UNARY, false));
         get("new").additionalOpType = OperatorType.NEW;
         put(".", new OperatorToken(".", TokenType.OPERATOR, 1, OperatorAssociativity.LEFT, OperatorArity.UNARY, false, OperatorTokenPosition.POSTFIX));
+        // Квалифицированное имя: его печатает JavaViewer.toStringQualifiedIdentifier
+        put("::", new OperatorToken("::", TokenType.OPERATOR, 1, OperatorAssociativity.LEFT, OperatorArity.BINARY, false));
 
         put("++", new OperatorToken("++", TokenType.OPERATOR, 2, OperatorAssociativity.LEFT, OperatorArity.UNARY, false, OperatorTokenPosition.POSTFIX).setFirstOperandToEvaluation(OperandPosition.LEFT));   // Постфиксный инкремент
         put("--", new OperatorToken("--", TokenType.OPERATOR, 2, OperatorAssociativity.LEFT, OperatorArity.UNARY, false, OperatorTokenPosition.POSTFIX).setFirstOperandToEvaluation(OperandPosition.LEFT));   // Постфиксный декремент
 
-        put("+U", new OperatorToken("+", TokenType.OPERATOR, 3, OperatorAssociativity.RIGHT, OperatorArity.UNARY, false));   // Унарный плюс
-        put("-U", new OperatorToken("-", TokenType.OPERATOR, 3, OperatorAssociativity.RIGHT, OperatorArity.UNARY, false));   // Унарный минус
+        put("UPLUS", new OperatorToken("+", TokenType.OPERATOR, 3, OperatorAssociativity.RIGHT, OperatorArity.UNARY, false));   // Унарный плюс
+        put("UMINUS", new OperatorToken("-", TokenType.OPERATOR, 3, OperatorAssociativity.RIGHT, OperatorArity.UNARY, false));   // Унарный минус
         put("++U", new OperatorToken("++", TokenType.OPERATOR, 3, OperatorAssociativity.RIGHT, OperatorArity.UNARY, false)); // Префиксный инкремент
         put("--U", new OperatorToken("--", TokenType.OPERATOR, 3, OperatorAssociativity.RIGHT, OperatorArity.UNARY, false)); // Префиксный декремент
         put("!", new OperatorToken("!", TokenType.OPERATOR, 3, OperatorAssociativity.RIGHT, OperatorArity.UNARY, false));     // Логическое НЕ
@@ -154,21 +157,87 @@ public class JavaTokenizer extends LanguageTokenizer {
     }
 
     @Override
-    public OperatorToken getOperatorByTokenName(String tokenName) {
-        OperatorToken res = operators.getOrDefault(tokenName, null);
-        if (res == null) {
-            return null;
-        }
-        return res.clone();
+    protected Map<String, OperatorToken> getOperatorTable() {
+        return operators;
+    }
+
+    @Override
+    protected String getOperatorNameByNode(Expression expr) {
+        String tok = switch (expr) {
+            case AddOp op -> "+";
+            case SubOp op -> "-";
+            case ScopedIdentifier op -> ".";
+            case MulOp op -> "*";
+            case DivOp op -> "/";
+            case ModOp op -> "%";
+            case PowOp op -> "CALL_(";
+            case MatMulOp op -> "CALL_(";
+            case ContainsOp op -> "CALL_(";
+            case EqOp op -> "==";
+            case CastTypeExpression op -> "CAST";
+            case NotEqOp op -> "!=";
+            case GeOp op -> ">=";
+            case ReferenceEqOp op -> "==";
+            case LeOp op -> "<=";
+            case LtOp op -> "<";
+            case GtOp op -> ">";
+            case InstanceOfOp op -> "instanceof";
+            case ShortCircuitAndOp op -> "&&";
+            case ShortCircuitOrOp op -> "||";
+            case BitwiseAndOp op -> "&";
+            case BitwiseOrOp op -> "|";
+            case LeftShiftOp op -> "<<";
+            case RightShiftOp op -> ">>";
+            case FunctionCall op -> "CALL_(";
+            case TernaryOperator op -> "?";
+            case NewExpression op -> "new";
+            case QualifiedIdentifier op -> "::";
+            case MemberAccess op -> ".";
+            case XorOp op -> "^";
+            case IndexExpression op -> "[";
+            // ThreeWayComparisonOp сюда не попадает: в Java нет трёхстороннего сравнения,
+            // рендерера для этого узла нет, отказ идёт через analyzeSupport
+            case AssignmentExpression as -> {
+                AugmentedAssignmentOperator op = as.getAugmentedOperator();
+                yield switch (op) {
+                    case NONE -> "=";
+                    case ADD -> "+=";
+                    case SUB -> "-=";
+                    case MUL -> "*=";
+                    // В Java тип деления определяется не видом операции, а типом операндов,
+                    // поэтому один и тот же оператор
+                    case DIV, FLOOR_DIV -> "/=";
+                    case BITWISE_AND -> "&=";
+                    case BITWISE_OR -> "|=";
+                    case BITWISE_XOR -> "^=";
+                    case BITWISE_SHIFT_LEFT -> "SHL_ASSIGN";
+                    case BITWISE_SHIFT_RIGHT -> ">>=";
+                    case MOD -> "%=";
+                    default -> throw new IllegalStateException("Unexpected type of augmented assignment operator: " + op);
+                };
+            }
+            case FloorDivOp op -> "CALL_("; // чтобы взять токен такого же приоритета, решение не очень
+            // unary section
+            case NotOp op -> "!";
+            case InversionOp op -> "~";
+            case UnaryMinusOp op -> "UMINUS";
+            case UnaryPlusOp op -> "UPLUS";
+            case PostfixIncrementOp op -> "++";
+            case PrefixIncrementOp op -> "++U";
+            case PostfixDecrementOp op -> "--";
+            case PrefixDecrementOp op -> "--U";
+            default -> null;
+        };
+        return tok;
     }
 
     @Override
     protected OperatorToken getOperator(String tokenValue, TSNode node) {
         if (!node.getParent().isNull() && node.getParent().getType().equals("unary_expression") && List.of("+", "-").contains(tokenValue)) {
             if (tokenValue.equals("+")) {
-                return operators.get("+U").clone();
+                return operators.get("UPLUS").clone();
             } else if (tokenValue.equals("-")) {
-                return operators.get("-U").clone();
+                return operators.get("UMINUS").clone();
             }
         }
 
@@ -534,8 +603,8 @@ public class JavaTokenizer extends LanguageTokenizer {
         String operator = switch (unaryOp) {
             case NotOp op -> "!";
             case InversionOp op -> "~";
-            case UnaryMinusOp op -> "-U";
-            case UnaryPlusOp op -> "+U";
+            case UnaryMinusOp op -> "UMINUS";
+            case UnaryPlusOp op -> "UPLUS";
             case PostfixIncrementOp op -> "++";
             case PrefixIncrementOp op -> "++U";
             case PostfixDecrementOp op -> "--";

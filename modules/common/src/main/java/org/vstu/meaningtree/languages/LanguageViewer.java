@@ -56,7 +56,11 @@ abstract public class LanguageViewer extends TranslatorComponent {
 
     public LanguageViewer(LanguageTranslator translator) {
         super(translator);
-        this.parenFiller = new ParenthesesFiller(this::mapToToken);
+        // Токенайзер спрашивается лениво: на момент создания viewer'а он ещё не собран
+        this.parenFiller = new ParenthesesFiller(
+                this::mapToToken,
+                text -> ctx.requireTokenizer().hasOperatorWithText(text)
+        );
         registerReservedKeywordGuard();
     }
 

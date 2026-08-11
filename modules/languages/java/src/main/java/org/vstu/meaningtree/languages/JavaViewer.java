@@ -32,7 +32,6 @@ import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitAndOp;
 import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitOrOp;
 import org.vstu.meaningtree.nodes.expressions.math.*;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ArrayNewExpression;
-import org.vstu.meaningtree.nodes.expressions.newexpr.NewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
 import org.vstu.meaningtree.nodes.expressions.other.*;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
@@ -1288,71 +1287,7 @@ public class JavaViewer extends LanguageViewer {
 
     @Override
     public OperatorToken mapToToken(Expression expr) {
-        String tok = switch (expr) {
-            case AddOp op -> "+";
-            case SubOp op -> "-";
-            case ScopedIdentifier op -> ".";
-            case MulOp op -> "*";
-            case DivOp op -> "/";
-            case ModOp op -> "%";
-            case PowOp op -> "CALL_(";
-            case MatMulOp op -> "CALL_(";
-            case ContainsOp op -> "CALL_(";
-            case EqOp op -> "==";
-            case CastTypeExpression op -> "CAST";
-            case NotEqOp op -> "!=";
-            case GeOp op -> ">=";
-            case ReferenceEqOp op -> "==";
-            case LeOp op -> "<=";
-            case LtOp op -> "<";
-            case GtOp op -> ">";
-            case InstanceOfOp op -> "instanceof";
-            case ShortCircuitAndOp op -> "&&";
-            case ShortCircuitOrOp op -> "||";
-            case BitwiseAndOp op -> "&";
-            case BitwiseOrOp op -> "|";
-            case LeftShiftOp op -> "<<";
-            case RightShiftOp op -> ">>";
-            case FunctionCall op -> "CALL_(";
-            case TernaryOperator op -> "?";
-            case NewExpression op -> "new";
-            case QualifiedIdentifier op -> "::";
-            case MemberAccess op -> ".";
-            case XorOp op -> "^";
-            case IndexExpression op -> "[";
-            case ThreeWayComparisonOp op -> "<=>";
-            case AssignmentExpression as -> {
-                AugmentedAssignmentOperator op = as.getAugmentedOperator();
-                yield switch (op) {
-                    case NONE -> "=";
-                    case ADD -> "+=";
-                    case SUB -> "-=";
-                    case MUL -> "*=";
-                    // В Java тип деления определяется не видом операции, а типом операндов,
-                    // поэтому один и тот же оператор
-                    case DIV, FLOOR_DIV -> "/=";
-                    case BITWISE_AND -> "&=";
-                    case BITWISE_OR -> "|=";
-                    case BITWISE_XOR -> "^=";
-                    case BITWISE_SHIFT_LEFT -> "<<=";
-                    case BITWISE_SHIFT_RIGHT -> ">>=";
-                    case MOD -> "%=";
-                    default -> throw new IllegalStateException("Unexpected type of augmented assignment operator: " + op);
-                };
-            }
-            case FloorDivOp op -> "CALL_("; // чтобы взять токен такого же приоритета, решение не очень
-            // unary section
-            case NotOp op -> "!";
-            case InversionOp op -> "~";
-            case UnaryMinusOp op -> "UMINUS";
-            case UnaryPlusOp op -> "UPLUS";
-            case PostfixIncrementOp op -> "++";
-            case PrefixIncrementOp op -> "++U";
-            case PostfixDecrementOp op -> "--";
-            case PrefixDecrementOp op -> "--U";
-            default -> null;
-        };
-        return ctx.requireTokenizer().getOperatorByTokenName(tok);
+        return ctx.requireTokenizer().getOperatorByNode(expr);
     }
 
     public String toStringAddOp(AddOp op) {

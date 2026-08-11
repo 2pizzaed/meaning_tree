@@ -1605,76 +1605,8 @@ public class CppViewer extends LanguageViewer {
         );
     }
 
+    @Override
     public OperatorToken mapToToken(Expression expr) {
-        String tok = switch (expr) {
-            case AddOp op -> "+";
-            case SubOp op -> "-";
-            case MulOp op -> "*";
-            case DivOp op -> "/";
-            case ModOp op -> "%";
-            case EqOp op -> "==";
-            case NotEqOp op -> "!=";
-            case PowOp op -> "CALL_(";
-            case MatMulOp op -> "CALL_(";
-            case ContainsOp op -> "CALL_(";
-            case GeOp op -> ">=";
-            case ReferenceEqOp op -> "==";
-            case LeOp op -> "<=";
-            case CastTypeExpression op -> "CAST";
-            case ScopedIdentifier op -> ".";
-            case LtOp op -> "<";
-            case GtOp op -> ">";
-            case InstanceOfOp op -> "CALL_(";
-            case ShortCircuitAndOp op -> "&&";
-            case ShortCircuitOrOp op -> "||";
-            case BitwiseAndOp op -> "&";
-            case BitwiseOrOp op -> "|";
-            case LeftShiftOp op -> "<<";
-            case RightShiftOp op -> ">>";
-            case FunctionCall op -> "CALL_(";
-            case TernaryOperator op -> "?";
-            case PointerMemberAccess op -> "->";
-            case NewExpression op -> "new";
-            case DeleteExpression op -> "delete";
-            case CommaExpression op -> ",";
-            case QualifiedIdentifier op -> "::";
-            case MemberAccess op -> ".";
-            case XorOp op -> "^";
-            case IndexExpression op -> "[";
-            case ThreeWayComparisonOp op -> "<=>";
-            case AssignmentExpression as -> {
-                AugmentedAssignmentOperator op = as.getAugmentedOperator();
-                yield switch (op) {
-                    case NONE -> "=";
-                    case ADD -> "+=";
-                    case SUB -> "-=";
-                    case MUL -> "*=";
-                    // В Java тип деления определяется не видом операции, а типом операндов,
-                    // поэтому один и тот же оператор
-                    case DIV, FLOOR_DIV -> "/=";
-                    case BITWISE_AND -> "&=";
-                    case BITWISE_OR -> "|=";
-                    case BITWISE_XOR -> "^=";
-                    case BITWISE_SHIFT_LEFT -> "<<=";
-                    case BITWISE_SHIFT_RIGHT -> ">>=";
-                    case MOD -> "%=";
-                    default -> throw new IllegalStateException("Unexpected type of augmented assignment operator: " + op);
-                };
-            }
-            case FloorDivOp op -> "CALL_("; // чтобы взять токен такого же приоритета, решение не очень
-            // unary section
-            case NotOp op -> "!";
-            case InversionOp op -> "~";
-            case UnaryMinusOp op -> "UMINUS";
-            case UnaryPlusOp op -> "UPLUS";
-            case PostfixIncrementOp op -> "++";
-            case PrefixIncrementOp op -> "++U";
-            case PostfixDecrementOp op -> "--";
-            case PrefixDecrementOp op -> "--U";
-            case PointerPackOp op -> "POINTER_&";
-            case PointerUnpackOp op -> "POINTER_*";
-            default -> null;
-        };
-        return ctx.requireTokenizer().getOperatorByTokenName(tok);
+        return ctx.requireTokenizer().getOperatorByNode(expr);
     }
 }

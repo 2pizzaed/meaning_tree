@@ -36,17 +36,6 @@
         <!-- END LANGUAGE SCOPE -->
 
 
-        <dependency>
-            <groupId>guru.nidi</groupId>
-            <artifactId>graphviz-java</artifactId>
-            <version>0.18.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.vstu.meaningtree</groupId>
-            <artifactId>test</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <scope>compile</scope>
-        </dependency>
         <!-- https://mvnrepository.com/artifact/com.beust/jcommander -->
         <dependency>
             <groupId>com.beust</groupId>

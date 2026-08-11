@@ -57,7 +57,7 @@ Purpose: parse source code from one supported language into a meaning tree, then
 
 Syntax:
 
-```powershell
+```shell
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar translate --from <language> [--to <language>] [options] <input_file> [output_file]
 ```
 
@@ -108,7 +108,7 @@ For --config, passing config without --to is supported; Main.java splits keys on
 
 Examples:
 
-```powershell
+```shell
 # Translate Python to Java, stdout
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar translate --from python --to java example.py
 
@@ -137,7 +137,7 @@ Purpose: read a serialized meaning tree or node and generate target-language cod
 
 Syntax:
 
-```powershell
+```shell
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate [--to <language>] [options] <input_file> [output_file]
 ```
 
@@ -178,7 +178,7 @@ Important behavior:
 
 Examples:
 
-```powershell
+```shell
 # Generate Java from a serialized meaning tree JSON
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate --to java --format json tree.json Example.java
 
@@ -211,7 +211,7 @@ java -jar modules/application/target/application-1.0-SNAPSHOT.jar generate --to 
 
 Syntax:
 
-```powershell
+```shell
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar list-langs
 ```
 
@@ -223,13 +223,13 @@ Purpose: output JSON for all supported node classes and parent relationships usi
 
 Syntax:
 
-```powershell
+```shell
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar node-hierarchy [--prettify]
 ```
 
 Note: `node-hierarchy` does not declare positional output parameters in `Main.java`; it always writes to stdout. Redirect with the shell when needed:
 
-```powershell
+```shell
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar node-hierarchy --prettify > hierarchy.json
 ```
 

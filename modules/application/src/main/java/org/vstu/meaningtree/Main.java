@@ -236,7 +236,7 @@ public class Main {
             new IOAlias<>("xml", (node, pretty) -> new XMLSerializer(pretty).serialize(node)),
             new IOAlias<>("dot", (node, pretty) -> new GraphvizDotSerializer().serialize(node)),
             new IOAlias<>("rdf", (node, pretty) -> serializeRdf(node, "RDF/XML")),
-            new IOAlias<>("rdf-turtle", (node, pretty) -> serializeRdf(node, "TTL"))
+            new IOAlias<>("rdf-turtle", (node, pretty) -> serializeRdf(node, "TURTLE"))
     ));
 
     private static final IOAliases<BiFunction<String, Boolean, Serializable>> deserializers = new IOAliases<>(List.of(
@@ -247,7 +247,7 @@ public class Main {
             new IOAlias<>("xml", (text, node) -> node ?
                     new XMLDeserializer().deserialize(text) : new XMLDeserializer().deserializeTree(text)),
             new IOAlias<>("rdf", (text, node) -> deserializeRdf(text, node, "RDF/XML")),
-            new IOAlias<>("rdf-turtle", (text, node) -> deserializeRdf(text, node, "TTL"))
+            new IOAlias<>("rdf-turtle", (text, node) -> deserializeRdf(text, node, "TURTLE"))
     ));
 
     public static void main(String[] args) throws Exception {

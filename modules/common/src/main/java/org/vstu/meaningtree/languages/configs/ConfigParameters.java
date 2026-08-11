@@ -28,6 +28,19 @@ public class ConfigParameters {
             new ConfigValue(true),
             ConfigScope.ANY
     );
+    /**
+     * Отключает конвейер анализа, выполняемый после построения дерева
+     * ({@code SymbolResolver}, {@code ExpressionValueEvaluator}, {@code LoopIterationAnalyzer}).
+     * <p>
+     * При {@code true} соответствующий хук не регистрируется вовсе, то есть проходы не
+     * просто пропускаются на каждом вызове, а отсутствуют. Результаты анализа
+     * (выведенные типы полей, оценки значений и числа итераций циклов) при этом на дереве
+     * не появятся — включать стоит только тогда, когда они заведомо не нужны.
+     */
+    public static final ConfigParameter skipOptimizations = register("skipOptimizations",
+            new ConfigValue(false),
+            ConfigScope.ANY
+    );
 
     public static ConfigParameter get(Class<? extends LanguageTranslator> translator, String id) {
         var registry = langRegistry.getOrDefault(translator, null);

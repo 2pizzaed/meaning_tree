@@ -352,6 +352,14 @@ public abstract class LanguageTranslator implements Cloneable {
         return getConfigParameter(ConfigParameters.skipErrors).asBoolean();
     }
 
+    /**
+     * Отключён ли конвейер анализа после разбора. См.
+     * {@link ConfigParameters#skipOptimizations}.
+     */
+    public boolean isSkipOptimizations() {
+        return getConfigParameter(ConfigParameters.skipOptimizations).asBoolean();
+    }
+
     public boolean getConfigFlag(String id) {
         return getConfigParameter(id).asBoolean();
     }

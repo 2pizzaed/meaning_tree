@@ -6,6 +6,7 @@ import org.treesitter.TSParser;
 import org.treesitter.TSTree;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
+import org.vstu.meaningtree.languages.configs.ConfigParameters;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
@@ -15,6 +16,7 @@ import org.vstu.meaningtree.utils.analysis.symbols.SymbolResolver;
 import org.vstu.meaningtree.utils.hooks.HookHandle;
 import org.vstu.meaningtree.utils.hooks.HookOrder;
 import org.vstu.meaningtree.utils.hooks.HookPhase;
+import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -42,26 +44,44 @@ abstract public class LanguageParser extends TranslatorComponent {
     }
 
     /**
-     * Регистрирует проходы анализа, выполняемые после построения дерева.
+     * Регистрирует конвейер анализа, выполняемый после построения дерева.
      * <p>
-     * Порядок между ними существенен и раньше держался только на порядке строк в методе:
-     * {@code SymbolResolver} дописывает типы полей, которыми затем пользуется
-     * {@code ExpressionValueEvaluator}, а вычисленные им значения нужны
-     * {@code LoopIterationAnalyzer}. Через {@link HookOrder} эта зависимость выражена явно.
+     * Конвейер зарегистрирован одним хуком, а не тремя с разными {@link HookOrder}:
+     * приоритет означал бы, что порядок — это политика, которую можно переназначить, а
+     * здесь он жёсткая зависимость по данным (см. {@link #runAnalysisPipeline}). Три
+     * прохода — это одна неделимая единица работы, и включается-выключается она целиком.
+     * <p>
+     * При {@link ConfigParameters#skipOptimizations} хук не регистрируется вовсе, поэтому
+     * фаза остаётся пустой и {@code run} выходит из неё без единой аллокации.
      */
     private void registerAnalysisPasses() {
-        hooks.intercept(HookPhase.AFTER_TREE_PARSE, HookOrder.EARLY, (tree, value, context) -> {
-            new SymbolResolver(value, context.scope()).resolve();
+        if (translator.isSkipOptimizations()) {
+            return;
+        }
+        hooks.intercept(HookPhase.AFTER_TREE_PARSE, (tree, value, context) -> {
+            runAnalysisPipeline(value, context.scope());
             return value;
         });
-        hooks.intercept(HookPhase.AFTER_TREE_PARSE, HookOrder.NORMAL, (tree, value, context) -> {
-            new ExpressionValueEvaluator(value, context.scope()).analyze();
-            return value;
-        });
-        hooks.intercept(HookPhase.AFTER_TREE_PARSE, HookOrder.LATE, (tree, value, context) -> {
-            loopIterationAnalyzer.analyze(value, context.scope());
-            return value;
-        });
+    }
+
+    /**
+     * Проходы анализа в единственно допустимом порядке.
+     * <p>
+     * {@code SymbolResolver} дописывает типы полей, найденных по присваиваниям вида
+     * {@code self.x = ...} в любом методе класса; этими типами пользуется
+     * {@code ExpressionValueEvaluator}; вычисленные им оценки нужны
+     * {@code LoopIterationAnalyzer}. Каждому следующему нужен <b>полный</b> результат
+     * предыдущего по всему дереву, поэтому проходы нельзя ни переставить, ни слить в один
+     * обход.
+     * <p>
+     * Вычислитель выражений создаётся один раз и передаётся дальше: иначе
+     * {@code LoopIterationAnalyzer} заводит на то же дерево второй независимый экземпляр.
+     */
+    private void runAnalysisPipeline(MeaningTree tree, ScopeTable scope) {
+        new SymbolResolver(tree, scope).resolve();
+        ExpressionValueEvaluator evaluator = new ExpressionValueEvaluator(tree, scope);
+        evaluator.analyze();
+        loopIterationAnalyzer.analyze(tree, evaluator);
     }
 
     public String getCode() {

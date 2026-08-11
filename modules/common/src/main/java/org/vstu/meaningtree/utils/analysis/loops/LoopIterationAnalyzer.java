@@ -38,8 +38,17 @@ import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import java.util.*;
 
 public class LoopIterationAnalyzer {
+    /**
+     * Создаёт собственный вычислитель выражений. Подходит для изолированного вызова
+     * (например, из тестов); в конвейере анализа следует передавать уже отработавший
+     * вычислитель через {@link #analyze(MeaningTree, ExpressionValueEvaluator)}, иначе на
+     * одно дерево создаются два независимых экземпляра.
+     */
     public void analyze(MeaningTree tree, ScopeTable scopeTable) {
-        ExpressionValueEvaluator evaluator = new ExpressionValueEvaluator(tree, scopeTable);
+        analyze(tree, new ExpressionValueEvaluator(tree, scopeTable));
+    }
+
+    public void analyze(MeaningTree tree, ExpressionValueEvaluator evaluator) {
         for (NodeInfo info : tree) {
             if (info.node() instanceof Loop loop) {
                 loop.setIterationEstimate(analyzeLoop(loop, evaluator));

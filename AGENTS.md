@@ -25,6 +25,21 @@ Before adding a feature, choose the narrowest module/package that owns the behav
 - When implementing parser/conversion behavior, inspect the actual tree-sitter parse tree for the concrete source snippet. Use the grammar already wired into the relevant language module when possible; otherwise use a known external tree-sitter grammar/tool if needed. Do not infer tree-sitter node shapes from intuition.
 - If a question depends on dependency or project source that is not open in the repository, inspect local Maven `*-sources.jar` files in `~/.m2/repository` before relying on assumptions.
 
+## Adding MeaningTree Node Types
+
+- A new concrete `Node` type is not complete until the relevant serializers and deserializers support it. JSON support is mandatory: update `JsonNodeTypeClassMapper`, `JsonSerializer`, and `JsonDeserializer` as needed, and verify a serialize-deserialize round trip for the new node and its fields.
+- Before adding support to `UniversalSerializer` or `UniversalDeserializer`, ask the user whether Universal serialization is required for this change. Do not extend the Universal format without that confirmation.
+- Mark every field that owns a child node, a collection/array of child nodes, or an optional child node with `@TreeNode`. The node traversal and replacement infrastructure discovers child relationships through these annotations, including annotated fields inherited from superclasses; without them, iteration over the tree will skip those children.
+- Use `@InternalNode` only for auxiliary node types that are normally nested inside a more meaningful language feature and should not be reported as an independently unsupported feature. `LanguageViewer` treats an internal node (or a subclass of one) as supported when it has no registered renderer during support analysis, unless that exact type is explicitly registered as unsupported. The annotation does not by itself make direct rendering work, so a renderer is still required if the node is dispatched independently.
+- When adding a node, inspect neighboring node implementations and cover constructor/accessor semantics, equality or cloning behavior where relevant, traversal through every child field, and required serializer/deserializer mappings rather than treating the Java class alone as the whole feature.
+
+## Temporary And Durable Tests
+
+- Use a temporary directory for quick experiments, one-off regression probes, and small programs written only to inspect tree-sitter parser behavior. If temporarily placed under a module's test directory because that is the easiest way to use its classpath or grammar, remove the probe after the investigation.
+- Keep a test in the repository's normal test directory when it thoroughly exercises a complex feature or module from all relevant aspects and provides durable regression coverage.
+- For a small test that is unlikely to remain useful, remove it after the work or leave it only in a temporary directory; do not turn exploratory probes into permanent test-suite clutter.
+- Clean up transient test files and temporary test directories before handing off the work unless they intentionally remain in an ignored temporary location for continued investigation.
+
 ## Conversion Test Baseline
 
 Before a feature that may affect conversion tests:
@@ -85,13 +100,13 @@ For parser or generator changes, create or reuse a tiny representative code snip
 
 The CLI entry point is `org.vstu.meaningtree.Main` in `modules/application`. Build the shaded CLI jar with:
 
-```powershell
+```shell
 mvn -pl modules/application -am package
 ```
 
 Run it with:
 
-```powershell
+```shell
 java -jar modules/application/target/application-1.0-SNAPSHOT.jar <command> [options]
 ```
 

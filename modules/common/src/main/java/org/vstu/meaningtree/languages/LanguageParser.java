@@ -1,14 +1,13 @@
 package org.vstu.meaningtree.languages;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.treesitter.*;
+import org.treesitter.TSLanguage;
+import org.treesitter.TSNode;
+import org.treesitter.TSParser;
+import org.treesitter.TSTree;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
 import org.vstu.meaningtree.languages.helpers.HookUtils;
-import org.vstu.meaningtree.languages.helpers.QueryableParser;
-import org.vstu.meaningtree.languages.helpers.query.CompiledTSQuery;
-import org.vstu.meaningtree.languages.helpers.query.ParseSession;
-import org.vstu.meaningtree.languages.helpers.query.QueryResult;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Hook;
 import org.vstu.meaningtree.utils.Label;
@@ -22,7 +21,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
-abstract public class LanguageParser extends TranslatorComponent implements QueryableParser {
+abstract public class LanguageParser extends TranslatorComponent {
 
     private String _code = "";
     protected Map<int[], Object> _byteValueTags = new HashMap<>();
@@ -30,12 +29,6 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
     protected TSParser _tsParser;
     protected TSLanguage _tsLanguage;
     private TSTree _tsTreeCache = null;
-
-    private ParseSession _activeParseSession = null;
-    private ParseSession _latestParseSession = null;
-    private Hook<Pair<TSNode, Node>> _parseSessionHook = null;
-    private final Map<String, CompiledTSQuery> _queryCacheByText = new HashMap<>();
-    private final Map<String, CompiledTSQuery> _queryCacheById = new HashMap<>();
 
     private final Map<String, Function<TSNode, Node>> tsNodeHandlers = new LinkedHashMap<>();
     private final LoopIterationAnalyzer loopIterationAnalyzer = new LoopIterationAnalyzer();
@@ -58,23 +51,12 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
         _code = "";
         _byteValueTags.clear();
         _tsTreeCache = null;
-
-        if (_parseSessionHook != null) {
-            removeOnNodeParsedHook(_parseSessionHook);
-            _parseSessionHook = null;
-        }
-
-        _activeParseSession = null;
-        _latestParseSession = null;
         rollbackContext();
     }
 
     public void setCode(String code) {
         resetParserState();
         _code = code;
-        _activeParseSession = new ParseSession(code);
-        _parseSessionHook = _activeParseSession;
-        registerOnNodeParsedHook(_parseSessionHook);
     }
 
     public TSTree getTSTree() {
@@ -85,11 +67,7 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
     }
 
     public TSNode getRootNode() {
-        TSNode root = getTSTree().getRootNode();
-        if (_activeParseSession != null) {
-            _activeParseSession.setRootTsNode(root);
-        }
-        return root;
+        return getTSTree().getRootNode();
     }
 
     public abstract MeaningTree getMeaningTree(String code);
@@ -219,10 +197,10 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
     }
 
     public void postProcessTree(MeaningTree meaningTree) {
-        new SymbolResolver(meaningTree, ctx.getGlobalScope()).resolve();
-        ExpressionValueEvaluator expressionValueEvaluator = new ExpressionValueEvaluator(meaningTree, ctx.getGlobalScope());
+        new SymbolResolver(meaningTree, ctx.getScopeTable()).resolve();
+        ExpressionValueEvaluator expressionValueEvaluator = new ExpressionValueEvaluator(meaningTree, ctx.getScopeTable());
         expressionValueEvaluator.analyze();
-        loopIterationAnalyzer.analyze(meaningTree, ctx.getGlobalScope());
+        loopIterationAnalyzer.analyze(meaningTree, ctx.getScopeTable());
     }
 
     boolean registerOnNodeParsedHook(Hook<Pair<TSNode, Node>> hook) {
@@ -252,58 +230,4 @@ abstract public class LanguageParser extends TranslatorComponent implements Quer
         return onNodeParsedHooks.remove(hook);
     }
 
-    void commitParseSession(MeaningTree meaningTree) {
-        if (_activeParseSession != null) {
-            _activeParseSession.setMeaningTree(meaningTree);
-            _latestParseSession = _activeParseSession;
-            _activeParseSession = null;
-
-            if (_parseSessionHook != null) {
-                removeOnNodeParsedHook(_parseSessionHook);
-                _parseSessionHook = null;
-            }
-        }
-    }
-
-    public ParseSession getLatestParseSession() {
-        if (_latestParseSession == null) {
-            throw new IllegalStateException("No parse session available. Parse source code first.");
-        }
-        return _latestParseSession;
-    }
-
-    public synchronized CompiledTSQuery compileQuery(String queryText) {
-        if (queryText == null || queryText.isBlank()) {
-            throw new IllegalArgumentException("Query text cannot be null or blank");
-        }
-        return _queryCacheByText.computeIfAbsent(queryText,
-                key -> new CompiledTSQuery(null, key, new TSQuery(_tsLanguage, key)));
-    }
-
-    public synchronized CompiledTSQuery compileQuery(String queryId, String queryText) {
-        if (queryId == null || queryId.isBlank()) {
-            return compileQuery(queryText);
-        }
-
-        CompiledTSQuery alreadyCompiled = _queryCacheById.get(queryId);
-        if (alreadyCompiled != null) {
-            if (!alreadyCompiled.getQueryText().equals(queryText)) {
-                throw new IllegalArgumentException("Query id `%s` is already bound to another query text".formatted(queryId));
-            }
-            return alreadyCompiled;
-        }
-
-        CompiledTSQuery compiled = compileQuery(queryText);
-        CompiledTSQuery namedCompiled = new CompiledTSQuery(queryId, compiled.getQueryText(), compiled.getQuery());
-        _queryCacheById.put(queryId, namedCompiled);
-        return namedCompiled;
-    }
-
-    public QueryResult query(String queryText) {
-        return query(compileQuery(queryText));
-    }
-
-    public QueryResult query(CompiledTSQuery compiledTSQuery) {
-        return getLatestParseSession().execute(Objects.requireNonNull(compiledTSQuery));
-    }
 }

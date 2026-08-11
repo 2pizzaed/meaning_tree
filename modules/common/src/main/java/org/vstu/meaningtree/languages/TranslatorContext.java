@@ -18,8 +18,14 @@ public class TranslatorContext {
     protected LanguageTranslator translator;
     protected LanguageTokenizer tokenizer = null;
 
-    protected ScopeTable globalScope;
-    protected ScopeTable visibilityScope;
+    /**
+     * Таблица областей видимости текущей трансляции.
+     * <p>
+     * Сама {@link ScopeTable} держит стек областей внутри себя ({@link ScopeTable#enter()} /
+     * {@link ScopeTable#leave()}), поэтому отдельного «глобального» экземпляра здесь не нужно:
+     * корневая область — это область таблицы до первого {@code enter()}.
+     */
+    protected ScopeTable scope;
 
     protected Deque<BodyConstructor> activeBodyConstructors = new ArrayDeque<>();
     private Map<String, Object> ctxVariables = new HashMap<>();
@@ -28,8 +34,7 @@ public class TranslatorContext {
     TranslatorContext(TranslatorComponent component, LanguageTranslator translator) {
         this.owner = component;
         this.translator = translator;
-        this.globalScope = new ScopeTable();
-        this.visibilityScope = globalScope;
+        this.scope = new ScopeTable();
     }
 
     public LanguageTokenizer requireTokenizer() {
@@ -56,7 +61,7 @@ public class TranslatorContext {
      * @return выведенный тип
      */
     public Type inferType(Expression expression) {
-        return SimpleTypeInferrer.inference(expression, visibilityScope);
+        return SimpleTypeInferrer.inference(expression, scope);
     }
 
     /**
@@ -64,7 +69,7 @@ public class TranslatorContext {
      * @param node данный узел
      */
     public void processInfer(Node node) {
-        SimpleTypeInferrer.inference(node, visibilityScope);
+        SimpleTypeInferrer.inference(node, scope);
     }
 
     boolean isBodyFinished() {
@@ -96,18 +101,13 @@ public class TranslatorContext {
         ctxVariables.remove(name);
     }
 
-    public Optional<Type> lookupRegisteredType(Identifier typeName) {
-        return lookupRegisteredType(typeName, false);
-    }
-
     /***
      * Ищет зарегистрированный тип данных (чаще всего, UserType) по идентификатору
      * @param typeName идентификатор типа
-     * @param useGlobalScope искать ли в глобальной области
      * @return найденный (или нет) тип
      */
-    public Optional<Type> lookupRegisteredType(Identifier typeName, boolean useGlobalScope) {
-        return (useGlobalScope ? globalScope : visibilityScope).findType(typeName);
+    public Optional<Type> lookupRegisteredType(Identifier typeName) {
+        return scope.findType(typeName);
     }
 
     public Optional<VariableDeclaration> lookupVariable(String variableName) {
@@ -115,7 +115,7 @@ public class TranslatorContext {
     }
 
     public Optional<VariableDeclaration> lookupVariable(String variableName, Type varType) {
-       return visibilityScope.getVariableDeclaration(new SimpleIdentifier(variableName), varType);
+       return scope.getVariableDeclaration(new SimpleIdentifier(variableName), varType);
     }
 
     public Optional<Definition> lookupDefinition(String definitionName) {
@@ -123,19 +123,19 @@ public class TranslatorContext {
     }
 
     public Optional<Definition> lookupDefinition(String definitionName, Class<? extends Declaration> type) {
-        return visibilityScope.findDefinition(new SimpleIdentifier(definitionName), type);
+        return scope.findDefinition(new SimpleIdentifier(definitionName), type);
     }
 
     public Optional<Declaration> lookupDeclaration(String declarationName) {
-        return visibilityScope.findDeclaration(new SimpleIdentifier(declarationName), null);
+        return scope.findDeclaration(new SimpleIdentifier(declarationName), null);
     }
 
     public Optional<Declaration> lookupDeclaration(Type type) {
-        return visibilityScope.findTypeDeclaration(type);
+        return scope.findTypeDeclaration(type);
     }
 
     public Optional<Declaration> lookupDeclaration(String declarationName, Class<? extends Declaration> type) {
-        return visibilityScope.findDeclaration(new SimpleIdentifier(declarationName), type);
+        return scope.findDeclaration(new SimpleIdentifier(declarationName), type);
     }
 
     public List<Class<? extends Node>> getTranslatingNodeTypeHierarchy() {
@@ -181,16 +181,8 @@ public class TranslatorContext {
         return h.stream().anyMatch(x -> nodeType.isAssignableFrom(x));
     }
 
-    public ScopeTable getGlobalScope() {
-        return globalScope;
-    }
-
-    public ScopeTable getVisibilityScope() {
-        return visibilityScope;
-    }
-
     public ScopeTable getScopeTable() {
-        return visibilityScope;
+        return scope;
     }
 
     public Optional<Path> getProjectRootPath() {
@@ -224,11 +216,11 @@ public class TranslatorContext {
     }
 
     public void enterNewScope() {
-        visibilityScope.enter();
+        scope.enter();
     }
 
     public void leaveScope() {
-        visibilityScope.leave();
+        scope.leave();
     }
 
     public BodyConstructor iterateBody(CompoundStatement compoundStatement) {

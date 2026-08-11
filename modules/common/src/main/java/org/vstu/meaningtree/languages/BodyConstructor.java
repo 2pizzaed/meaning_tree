@@ -109,17 +109,17 @@ public class BodyConstructor implements Iterable<Node> {
                     method.getDeclaration().setParentDeclaration(def.getDeclaration());
                 }
             }
-            ctx.visibilityScope.registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
+            ctx.scope.registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
         } else if (node instanceof FunctionDefinition def) {
-            ctx.visibilityScope.registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
+            ctx.scope.registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
         } else if (node instanceof VariableDeclaration varDecl) {
-            ctx.visibilityScope.registerVariable(varDecl);
+            ctx.scope.registerVariable(varDecl);
         } else if (node instanceof SeparatedVariableDeclaration sepDecl) {
-            ctx.visibilityScope.registerVariable(sepDecl);
+            ctx.scope.registerVariable(sepDecl);
         } else if (node instanceof EnumDeclaration decl) {
-            ctx.visibilityScope.registerDeclaration(decl.getName().getSimpleIdentifierOrThrow(), decl);
+            ctx.scope.registerDeclaration(decl.getName().getSimpleIdentifierOrThrow(), decl);
         } else if (node instanceof Import imprt) {
-            ctx.visibilityScope.registerImport(imprt);
+            ctx.scope.registerImport(imprt);
         }
         ctx.processInfer(node);
     }
@@ -127,15 +127,15 @@ public class BodyConstructor implements Iterable<Node> {
     public CompoundStatement build() {
         CompoundStatement body = new CompoundStatement(nodes);
         if (newScope) {
-            ctx.visibilityScope.setCurrentScopeOwner(body);
-            body.bindScope(ctx.visibilityScope.scope());
+            ctx.scope.setCurrentScopeOwner(body);
+            body.bindScope(ctx.scope.scope());
         }
         postprocess();
         return body;
     }
 
     public void setScopeOwner(Node owner) {
-        if (newScope) ctx.visibilityScope.setCurrentScopeOwner(owner);
+        if (newScope) ctx.scope.setCurrentScopeOwner(owner);
     }
 
     public List<Node> getNodes() {

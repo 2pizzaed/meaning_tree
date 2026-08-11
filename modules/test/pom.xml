@@ -44,12 +44,6 @@
         </dependency>
         <dependency>
             <groupId>org.vstu.meaningtree</groupId>
-            <artifactId>utils</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.vstu.meaningtree</groupId>
             <artifactId>cpp-language</artifactId>
             <version>1.0-SNAPSHOT</version>
             <scope>compile</scope>

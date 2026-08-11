@@ -6,11 +6,6 @@ import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.languages.helpers.ContextualNodeRenderer;
 import org.vstu.meaningtree.languages.helpers.HookUtils;
 import org.vstu.meaningtree.languages.helpers.NodeRenderer;
-import org.vstu.meaningtree.languages.helpers.TemplateAwareViewer;
-import org.vstu.meaningtree.languages.helpers.templates.ClasspathTemplateRepository;
-import org.vstu.meaningtree.languages.helpers.templates.JinjavaTemplateEngine;
-import org.vstu.meaningtree.languages.helpers.templates.TemplateEngine;
-import org.vstu.meaningtree.languages.helpers.templates.TemplateRepository;
 import org.vstu.meaningtree.languages.support.FeatureContext;
 import org.vstu.meaningtree.languages.support.FeatureSupport;
 import org.vstu.meaningtree.languages.support.SupportIssue;
@@ -29,7 +24,7 @@ import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
-abstract public class LanguageViewer extends TranslatorComponent implements TemplateAwareViewer {
+abstract public class LanguageViewer extends TranslatorComponent {
     @FunctionalInterface
     private interface InternalRenderer {
         String render(Node node, Object context);
@@ -59,9 +54,6 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
             return false;
         }
     };
-
-    private TemplateRepository templateRepository;
-    private TemplateEngine templateEngine;
 
     public LanguageViewer(LanguageTranslator translator) {
         super(translator);
@@ -268,59 +260,5 @@ abstract public class LanguageViewer extends TranslatorComponent implements Temp
         return toString(mt.getRootNode());
     }
 
-    public void configureTemplateEngine(TemplateRepository templateRepository, TemplateEngine templateEngine) {
-        this.templateRepository = templateRepository;
-        this.templateEngine = templateEngine;
-    }
-
-    public void configureJinjaTemplateEngine(String classpathBasePath) {
-        configureTemplateEngine(new ClasspathTemplateRepository(classpathBasePath), new JinjavaTemplateEngine());
-    }
-
-    public boolean isTemplateEngineConfigured() {
-        return templateRepository != null && templateEngine != null;
-    }
-
-    public String renderTemplate(String templateKey, Map<String, Object> model) {
-        if (!isTemplateEngineConfigured()) {
-            throw new IllegalStateException("Template engine is not configured");
-        }
-        Map<String, Object> renderModel = prepareRenderModel(model, null);
-        return templateEngine.render(templateRepository.getTemplateSource(templateKey), renderModel);
-    }
-
-    public String renderTemplate(String templateKey, Node node, Map<String, Object> model) {
-        Map<String, Object> renderModel = prepareRenderModel(model, node);
-        String result = renderTemplate(templateKey, renderModel);
-        return applyHooks(node, result);
-    }
-
-    private Map<String, Object> prepareRenderModel(Map<String, Object> model, Node node) {
-        Map<String, Object> renderModel = new HashMap<>();
-        if (model != null) {
-            renderModel.putAll(model);
-        }
-        renderModel.put("viewer", this);
-        if (node != null) {
-            renderModel.put("node", node);
-        }
-        renderModel.putIfAbsent("render", new TemplateRenderHelper(this, renderModel));
-        return renderModel;
-    }
-
-    private record TemplateRenderHelper(LanguageViewer viewer, Map<String, Object> baseModel) {
-            private TemplateRenderHelper(LanguageViewer viewer, Map<String, Object> baseModel) {
-                this.viewer = Objects.requireNonNull(viewer);
-                this.baseModel = Map.copyOf(baseModel);
-            }
-
-            public String node(String templateKey, Node node) {
-                return viewer.renderTemplate(templateKey, node, baseModel);
-            }
-
-            public String template(String templateKey) {
-                return viewer.renderTemplate(templateKey, baseModel);
-            }
-    }
 }
 

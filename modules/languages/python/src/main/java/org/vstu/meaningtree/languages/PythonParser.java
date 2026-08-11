@@ -922,7 +922,7 @@ public class PythonParser extends LanguageParser {
         Expression right = (Expression) parseTSNode(node.getChildByFieldName("value"));
 
         if (left instanceof SimpleIdentifier variableName && right != null) {
-            var scopeTable = ctx.getVisibilityScope();
+            var scopeTable = ctx.getScopeTable();
             var leftType = scopeTable.getVariableType(variableName);
             var rightType = ctx.inferType(right); // already uses scopeTable by default
 
@@ -1006,7 +1006,7 @@ public class PythonParser extends LanguageParser {
             }
 
             boolean allNew = augOp == AugmentedAssignmentOperator.NONE
-                    && idents.stream().allMatch(id -> ctx.getVisibilityScope().getVariableType((SimpleIdentifier) id) == null);
+                    && idents.stream().allMatch(id -> ctx.getScopeTable().getVariableType((SimpleIdentifier) id) == null);
 
             if (allNew) {
                 // Вычисляем общий тип по всем выражениям
@@ -1026,7 +1026,7 @@ public class PythonParser extends LanguageParser {
                 for (int i = 0; i < idents.size(); i++) {
                     Identifier id = idents.get(i);
                     Expression init = exprs.get(i);
-                    ctx.getVisibilityScope().changeVariableType((SimpleIdentifier) id, declaredType);
+                    ctx.getScopeTable().changeVariableType((SimpleIdentifier) id, declaredType);
                     decls.add(new VariableDeclarator((SimpleIdentifier) id, init));
                 }
                 return new VariableDeclaration(declaredType, decls);
@@ -1053,7 +1053,7 @@ public class PythonParser extends LanguageParser {
         if (leftExpr instanceof SimpleIdentifier variableName
                 && rightExpr != null
                 && augOp == AugmentedAssignmentOperator.NONE) {
-            var scopeTable = ctx.getVisibilityScope();
+            var scopeTable = ctx.getScopeTable();
             Type leftType = scopeTable.getVariableType(variableName);
             Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? new UnknownType() :
                     (Type) parseTSNode(node.getChildByFieldName("type"));
@@ -1074,7 +1074,7 @@ public class PythonParser extends LanguageParser {
         } else if (leftExpr instanceof SimpleIdentifier variableName
                 && rightExpr == null
                 && augOp == AugmentedAssignmentOperator.NONE) {
-            var scopeTable = ctx.getVisibilityScope();
+            var scopeTable = ctx.getScopeTable();
             Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? new UnknownType() :
                     (Type) parseTSNode(node.getChildByFieldName("type"));
             scopeTable.changeVariableType(variableName, declaredType);

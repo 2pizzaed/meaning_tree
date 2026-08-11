@@ -17,7 +17,6 @@
         <module>modules/languages/python</module>
         <module>modules/languages/cpp</module>
         <module>modules/test</module>
-        <module>modules/utils</module>
     </modules>
 
     <properties>

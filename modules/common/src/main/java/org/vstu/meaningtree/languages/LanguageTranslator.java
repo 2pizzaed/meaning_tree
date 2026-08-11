@@ -196,7 +196,6 @@ public abstract class LanguageTranslator implements Cloneable {
 
     private void finalizeMeaningTree(MeaningTree mt) {
         _language.postProcessTree(mt);
-        _language.commitParseSession(mt);
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
     }
 

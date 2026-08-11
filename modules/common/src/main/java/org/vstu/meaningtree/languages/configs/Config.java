@@ -58,12 +58,18 @@ public class Config implements Iterable<ConfigParameter> {
     /**
      * Объединяет с другой конфигурацией.
      * Параметры другой конфигурации переопределяют параметры текущей.
-     * 
+     * <p>
+     * Приоритет обеспечивает единственный механизм — {@link #put(ConfigParameter)} по
+     * {@code id}: параметры складываются в список в порядке возрастания приоритета, и
+     * последний с данным {@code id} побеждает. Дедуплицировать список нельзя: набор
+     * ({@code Set}) при равных элементах сохраняет уже лежащий, то есть отдал бы приоритет
+     * левой конфигурации — обратно контракту.
+     *
      * @param other конфигурация для объединения (имеет приоритет)
      * @return новая объединенная конфигурация
      */
     public Config merge(Config other) {
-        Set<ConfigParameter> newParameters = new LinkedHashSet<>(this.parameters.values());
+        List<ConfigParameter> newParameters = new ArrayList<>(this.parameters.values());
         newParameters.addAll(other.parameters.values());
         return new Config(newParameters);
     }
@@ -79,7 +85,7 @@ public class Config implements Iterable<ConfigParameter> {
         List<Config> otherConfigs = new LinkedList<>(Arrays.asList(others));
         otherConfigs.addFirst(this);
 
-        Set<ConfigParameter> newParameters = new LinkedHashSet<>();
+        List<ConfigParameter> newParameters = new ArrayList<>();
 
         for (var config : otherConfigs) {
             newParameters.addAll(config.parameters.values());

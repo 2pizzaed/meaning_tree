@@ -44,7 +44,8 @@ public abstract class LanguageTranslator implements Cloneable {
         Config extended = extendConfigParameters();
         Config target = ConfigParameters.defaultConfig();
         if (extended != null) {
-            target.merge(extended);
+            // Config неизменяем: merge возвращает новый экземпляр, результат нельзя отбрасывать
+            target = target.merge(extended);
         }
         return target;
     }
@@ -56,19 +57,19 @@ public abstract class LanguageTranslator implements Cloneable {
      */
     public LanguageTranslator(Map<String, Object> rawConfig) {
         var configBuilder = new ConfigBuilder().fromRawMap(this.getClass(), rawConfig);
-        _config = _config.merge(_config,
+        _config = _config.merge(
                 Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
                 configBuilder.toConfig());
     }
 
     public LanguageTranslator(Config config) {
-        _config = _config.merge(_config,
+        _config = _config.merge(
                 Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
                 config);
     }
 
     private void setupConfig(Config additional) {
-        _config = _config.merge(_config,
+        _config = _config.merge(
                 Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
                 additional);
         for (ConfigParameter param : _config) {

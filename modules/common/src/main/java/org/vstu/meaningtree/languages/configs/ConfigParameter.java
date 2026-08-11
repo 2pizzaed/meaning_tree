@@ -117,9 +117,16 @@ public class ConfigParameter {
         return _id;
     }
 
+    /**
+     * Согласован с {@link #equals(Object)}: считается по тем же полям.
+     * <p>
+     * Раньше здесь был только {@code _id}. Контракт это не нарушало (равенство влечёт
+     * равные {@code _id}), но все параметры с одним идентификатором и разными значениями
+     * попадали в одну корзину.
+     */
     @Override
     public int hashCode() {
-        return _id.hashCode();
+        return Objects.hash(_id, _scope, _defaultValue, _value, readOnly);
     }
 
     @Override

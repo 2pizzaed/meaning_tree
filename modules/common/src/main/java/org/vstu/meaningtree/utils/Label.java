@@ -167,9 +167,15 @@ public class Label {
         return ((Label)o).id == this.id;
     }
 
+    /**
+     * Хеш считается только по id, как и {@link #equals(Object)}: метка идентифицируется своим
+     * номером, а атрибут — это её изменяемое содержимое. Если учитывать атрибут, две метки с
+     * одинаковым id, но разными атрибутами окажутся равными с разными хешами, и множество меток
+     * узла перестанет их различать.
+     */
     @Override
     public int hashCode() {
-        return Objects.hash(attribute, id);
+        return Objects.hash(id);
     }
 
 }

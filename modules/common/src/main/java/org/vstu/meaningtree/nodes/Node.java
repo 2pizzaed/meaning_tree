@@ -148,6 +148,8 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
 
     @Override
     public Node setLabel(Label label) {
+        // Метка с таким id уже может быть на узле: set обязан заменить её, иначе останется старый атрибут
+        _labels.remove(label);
         _labels.add(label);
         return this;
     }

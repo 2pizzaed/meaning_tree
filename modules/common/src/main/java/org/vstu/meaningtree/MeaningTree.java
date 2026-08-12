@@ -133,6 +133,8 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
 
     @Override
     public MeaningTree setLabel(Label label) {
+        // Метка с таким id уже может быть на дереве: set обязан заменить её, иначе останется старый атрибут
+        _labels.remove(label);
         _labels.add(label);
         return this;
     }

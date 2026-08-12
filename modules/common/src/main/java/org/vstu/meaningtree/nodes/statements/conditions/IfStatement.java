@@ -15,6 +15,7 @@ import java.util.Objects;
 public class IfStatement extends Statement {
     @TreeNode private List<ConditionBranch> branches;
 
+    @TreeNode
     @Nullable
     private Statement _elseBranch;
 

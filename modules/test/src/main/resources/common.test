@@ -1269,6 +1269,23 @@ group: ForLoop
             }
 
 
+    case: RangeForLoopDefaultStep
+        main python:
+            for i in range(0, 3):
+                func(i)
+
+        java:
+            for (int i = 0; i < 3; i++) {
+                func(i);
+            }
+
+        c++:
+            for (int i = 0; i < 3; i++)
+            {
+                func(i);
+            }
+
+
     case: RangeForLoopWithExpressions
         isolated python:
             v: float = a * b * c

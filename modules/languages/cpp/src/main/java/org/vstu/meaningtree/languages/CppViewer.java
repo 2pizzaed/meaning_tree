@@ -788,6 +788,9 @@ public class CppViewer extends LanguageViewer {
             try {
                 stepValue = forRangeLoop.getRange().getStepValueAsLong();
             } catch (IllegalStateException exception) {
+                if (forRangeLoop.getStep() == null) {
+                    return String.format("%s++", toString(forRangeLoop.getIdentifier()));
+                }
                 return String.format("%s += %s", toString(forRangeLoop.getIdentifier()), toString(forRangeLoop.getStep()));
             }
 
@@ -803,6 +806,9 @@ public class CppViewer extends LanguageViewer {
             try {
                 stepValue = forRangeLoop.getRange().getStepValueAsLong();
             } catch (IllegalStateException exception) {
+                if (forRangeLoop.getStep() == null) {
+                    return String.format("%s--", toString(forRangeLoop.getIdentifier()));
+                }
                 return String.format("%s -= %s", toString(forRangeLoop.getIdentifier()), toString(forRangeLoop.getStep()));
             }
 

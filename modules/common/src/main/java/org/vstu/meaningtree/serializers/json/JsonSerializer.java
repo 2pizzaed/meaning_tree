@@ -25,6 +25,7 @@ import org.vstu.meaningtree.nodes.expressions.identifiers.*;
 import org.vstu.meaningtree.nodes.expressions.literals.*;
 import org.vstu.meaningtree.nodes.expressions.logical.*;
 import org.vstu.meaningtree.nodes.expressions.math.*;
+import org.vstu.meaningtree.nodes.expressions.newexpr.ArrayNewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.PlacementNewExpression;
 import org.vstu.meaningtree.nodes.expressions.other.*;
@@ -480,6 +481,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case SetLiteral l -> serializeSetLiteral(l);
             case UnmodifiableListLiteral l -> serializeUnmodifiableListLiteral(l);
             case InterpolatedStringLiteral l -> serializeInterpolatedStringLiteral(l);
+            case DictionaryLiteral l -> serializeDictionaryLiteral(l);
 
             case PointerMemberAccess memAcc -> serializePointerMemberAccess(memAcc);
             case PointerPackOp packOp -> serializePointerPackOp(packOp);
@@ -498,6 +500,8 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case ThreeWayComparisonOp threeWayComparisonOp -> serializeThreeWayComparisonOp(threeWayComparisonOp);
             case PlacementNewExpression plNew -> serializePlacementNewExpression(plNew);
             case ObjectNewExpression newExpr -> serializeObjectNewExpression(newExpr);
+            case ArrayNewExpression newExpr -> serializeArrayNewExpression(newExpr);
+            case StringFormat format -> serializeStringFormat(format);
             case QualifiedIdentifier ident -> serializeQualifiedIdentifier(ident);
             case ScopedIdentifier scopedIdentifier -> serializeScopedIdentifier(scopedIdentifier);
             case SelfReference selfRef -> serializeSelfReference(selfRef);
@@ -512,6 +516,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case ImportMembersFromModule importMembersFromModule -> serializeImportMembersFromModule(importMembersFromModule);
             case ImportModule importModule -> serializeImportModule(importModule);
             case ImportModules importModules -> serializeImportModules(importModules);
+            case Include include -> serializeInclude(include);
             case PackageDeclaration packageDeclaration -> serializePackageDeclaration(packageDeclaration);
             case ReturnStatement stmt -> serializeReturnStatement(stmt);
             case CompoundAssignmentStatement stmt -> serializeCompoundAssignmentStatement(stmt);
@@ -648,6 +653,24 @@ public class JsonSerializer implements Serializer<JsonObject> {
                         array.add(b);
                     } else if (o instanceof String s) {
                         array.add(s);
+                    }
+                }
+                json.add("attr", array);
+            } else if (attr.getClass().isArray()) {
+                // Массивы примитивов (int[], long[], double[], float[], boolean[]) —
+                // такие атрибуты разрешены Label, ими размечаются, например, байтовые позиции
+                JsonArray array = new JsonArray();
+                int length = java.lang.reflect.Array.getLength(attr);
+                for (int i = 0; i < length; i++) {
+                    Object element = java.lang.reflect.Array.get(attr, i);
+                    if (element instanceof Number n) {
+                        array.add(n);
+                    } else if (element instanceof Boolean b) {
+                        array.add(b);
+                    } else {
+                        throw new MeaningTreeSerializationException(
+                                "Unsupported array attribute element type: " + element.getClass()
+                        );
                     }
                 }
                 json.add("attr", array);
@@ -1045,6 +1068,8 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(integerLiteral));
         json.addProperty("value", integerLiteral.getLongValue());
         json.addProperty("repr", integerLiteral.getIntegerRepresentation().toString());
+        json.addProperty("is_long", integerLiteral.isLong());
+        json.addProperty("is_unsigned", integerLiteral.isUnsigned());
 
         return json;
     }
@@ -1121,6 +1146,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
         json.add("target", serialize(expr.getLValue()));
         json.add("value", serialize(expr.getRValue()));
+        json.addProperty("augmented_operator", enumToValue(expr.getAugmentedOperator()));
 
         return json;
     }
@@ -1136,6 +1162,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             jsonComparison.add("left", serialize(comparison.getLeft()));
             jsonComparison.addProperty("operator", JsonNodeTypeClassMapper.getTypeForNode(comparison));
             jsonComparison.add("right", serialize(comparison.getRight()));
+            comparisons.add(jsonComparison);
         }
 
         json.add("comparisons", comparisons);
@@ -1181,6 +1208,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
         json.add("target", serialize(stmt.getLValue()));
         json.add("value", serialize(stmt.getRValue()));
+        json.addProperty("augmented_operator", enumToValue(stmt.getAugmentedOperator()));
 
         return json;
     }
@@ -1434,7 +1462,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
         JsonArray cases = new JsonArray();
         for (var switchCase : stmt.getCases()) {
-            cases.add(serialize(switchCase.getBody()));
+            cases.add(serialize(switchCase));
         }
 
         if (stmt.hasDefaultCase()) {
@@ -1475,11 +1503,37 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
         json.add("body", body);
         json.addProperty("id", entryPoint.getId());
-        if (entryPoint.hasMainClass()) json.addProperty("main_class_id",
-                entryPoint.getMainClass().getId());
-        if (entryPoint.hasEntryPoint()) json.addProperty("entry_point_node_id",
-                entryPoint.getEntryPoint().getId());
+        if (entryPoint.hasMainClass()) {
+            json.addProperty("main_class_id", entryPoint.getMainClass().getId());
+            if (!isInBody(entryPoint, entryPoint.getMainClass())) {
+                json.add("main_class", serialize(entryPoint.getMainClass()));
+            }
+        }
+        if (entryPoint.hasEntryPoint()) {
+            json.addProperty("entry_point_node_id", entryPoint.getEntryPoint().getId());
+            if (!isInBody(entryPoint, entryPoint.getEntryPoint())) {
+                json.add("entry_point_node", serialize(entryPoint.getEntryPoint()));
+            }
+        }
         return json;
+    }
+
+    /**
+     * Входит ли узел в тело точки входа. Главный класс и узел точки входа могут лежать
+     * вне {@code body}, и тогда ссылки по id некуда разрешать при десериализации.
+     */
+    private boolean isInBody(@NotNull ProgramEntryPoint entryPoint, @NotNull Node target) {
+        for (Node node : entryPoint.getBody()) {
+            if (node == target) {
+                return true;
+            }
+            for (var info : node) {
+                if (info.node() == target) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @NotNull
@@ -1516,8 +1570,11 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(l));
         JsonArray elements = new JsonArray();
-        for (var el : l.allChildren()) elements.add(serialize(el));
+        for (var el : l.getList()) elements.add(serialize(el));
         json.add("elements", elements);
+        if (l.getTypeHint() != null) {
+            json.add("type_hint", serialize(l.getTypeHint()));
+        }
         return json;
     }
 
@@ -1526,8 +1583,11 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(l));
         JsonArray elements = new JsonArray();
-        for (var el : l.allChildren()) elements.add(serialize(el));
+        for (var el : l.getList()) elements.add(serialize(el));
         json.add("elements", elements);
+        if (l.getTypeHint() != null) {
+            json.add("type_hint", serialize(l.getTypeHint()));
+        }
         return json;
     }
 
@@ -1536,8 +1596,11 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(l));
         JsonArray elements = new JsonArray();
-        for (var el : l.allChildren()) elements.add(serialize(el));
+        for (var el : l.getList()) elements.add(serialize(el));
         json.add("elements", elements);
+        if (l.getTypeHint() != null) {
+            json.add("type_hint", serialize(l.getTypeHint()));
+        }
         return json;
     }
 
@@ -1546,8 +1609,11 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(l));
         JsonArray elements = new JsonArray();
-        for (var el : l.allChildren()) elements.add(serialize(el));
+        for (var el : l.getList()) elements.add(serialize(el));
         json.add("elements", elements);
+        if (l.getTypeHint() != null) {
+            json.add("type_hint", serialize(l.getTypeHint()));
+        }
         return json;
     }
 
@@ -1801,6 +1867,53 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
+    private JsonObject serializeArrayNewExpression(@NotNull ArrayNewExpression expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
+        json.add("target_type", serialize(expr.getType()));
+        json.add("shape", serialize(expr.getShape()));
+        json.add("initializer", expr.getInitializer() != null ? serialize(expr.getInitializer()) : null);
+        return json;
+    }
+
+    private JsonObject serializeStringFormat(@NotNull StringFormat expr) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
+        json.add("template", serialize(expr.getTemplate()));
+        JsonArray substitutions = new JsonArray();
+        for (var substitution : expr.getSubstitutions()) substitutions.add(serialize(substitution));
+        json.add("substitutions", substitutions);
+        return json;
+    }
+
+    private JsonObject serializeDictionaryLiteral(@NotNull DictionaryLiteral literal) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(literal));
+        JsonArray entries = new JsonArray();
+        for (var entry : literal.getDictionary().entrySet()) {
+            JsonObject pair = new JsonObject();
+            pair.add("key", serialize(entry.getKey()));
+            pair.add("value", serialize(entry.getValue()));
+            entries.add(pair);
+        }
+        json.add("entries", entries);
+        if (literal.getKeyTypeHint() != null) {
+            json.add("key_type_hint", serialize(literal.getKeyTypeHint()));
+        }
+        if (literal.getValueTypeHint() != null) {
+            json.add("value_type_hint", serialize(literal.getValueTypeHint()));
+        }
+        return json;
+    }
+
+    private JsonObject serializeInclude(@NotNull Include include) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(include));
+        json.add("file_name", serialize(include.getFileName()));
+        json.addProperty("include_type", enumToValue(include.getIncludeType()));
+        return json;
+    }
+
     private JsonObject serializeObjectNewExpression(@NotNull ObjectNewExpression expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
@@ -1880,7 +1993,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     private JsonObject serializeContainerBasedComprehension(@NotNull ContainerBasedComprehension expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
-        json.add("condition", serialize(expr.getCondition()));
+        json.add("condition", expr.hasCondition() ? serialize(expr.getCondition()) : null);
         json.add("container_item", serialize(expr.getContainerItemDeclaration()));
         json.add("container", serialize(expr.getContainerExpression()));
         json.add("item", serializeComprehensionItem(expr.getItem()));
@@ -1892,7 +2005,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     private JsonObject serializeRangeBasedComprehension(@NotNull RangeBasedComprehension expr) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(expr));
-        json.add("condition", serialize(expr.getCondition()));
+        json.add("condition", expr.hasCondition() ? serialize(expr.getCondition()) : null);
         json.add("item", serializeComprehensionItem(expr.getItem()));
         json.add("range", serialize(expr.getRange()));
         json.add("identifier", serialize(expr.getRangeVariableIdentifier()));
@@ -2002,6 +2115,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
     @NotNull
     private JsonObject serializeArrayType(@NotNull ArrayType t) {
         JsonObject json = serializeType(t);
+        json.add("target_type", serialize(t.getItemType()));
         json.add("shape", serialize(t.getShape()));
         return json;
     }
@@ -2134,7 +2248,8 @@ public class JsonSerializer implements Serializer<JsonObject> {
     private JsonObject serializeDefinitionArgument(@NotNull DefinitionArgument arg) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(arg));
-        json.addProperty("name", arg.getName().getName());
+        json.addProperty("name", arg.hasVisibleName() ? arg.getName().getName() : null);
+        json.addProperty("name_id", arg.hasVisibleName() ? arg.getName().getId() : null);
         json.add("initial", serialize(arg.getInitialExpression()));
         json.addProperty("is_dict_unpacking", arg.isDictUnpacking());
         json.addProperty("is_list_unpacking", arg.isListUnpacking());
@@ -2149,7 +2264,8 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("initial", serialize(arg.getInitialExpression()));
         json.addProperty("is_dict_unpacking", arg.isDictUnpacking());
         json.addProperty("is_list_unpacking", arg.isListUnpacking());
-        json.addProperty("name", arg.getName().getName());
+        json.addProperty("name", arg.getName() == null ? null : arg.getName().getName());
+        json.addProperty("name_id", arg.getName() == null ? null : arg.getName().getId());
         JsonArray anno = new JsonArray();
         for (var t : arg.getAnnotations()) anno.add(serialize(t));
         json.add("annotations", anno);
@@ -2210,7 +2326,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             json.add("return_type", serialize(decl.getReturnType()));
         }
         json.add("owner", serialize(decl.getOwner()));
-        json.add("name", serialize(decl.getName()));
+        json.add("name", serialize(decl.getQualifiedName()));
         JsonArray anno = new JsonArray();
         for (var t : decl.getAnnotations()) anno.add(serialize(t));
         json.add("annotations", anno);
@@ -2229,7 +2345,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
         json.add("return_type", serialize(decl.getReturnType()));
-        json.add("name", serialize(decl.getName()));
+        json.add("name", serialize(decl.getQualifiedName()));
         JsonArray anno = new JsonArray();
         for (var t : decl.getAnnotations()) anno.add(serialize(t));
         json.add("annotations", anno);

@@ -7,11 +7,14 @@ import com.google.gson.JsonPrimitive;
 import org.apache.commons.lang3.tuple.Pair;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeSerializationException;
+import org.vstu.meaningtree.iterators.utils.NodeIterable;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.*;
+import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
+import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.Literal;
@@ -29,6 +32,7 @@ import org.vstu.meaningtree.nodes.expressions.identifiers.*;
 import org.vstu.meaningtree.nodes.expressions.literals.*;
 import org.vstu.meaningtree.nodes.expressions.logical.*;
 import org.vstu.meaningtree.nodes.expressions.math.*;
+import org.vstu.meaningtree.nodes.expressions.newexpr.ArrayNewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.PlacementNewExpression;
 import org.vstu.meaningtree.nodes.expressions.other.*;
@@ -36,6 +40,7 @@ import org.vstu.meaningtree.nodes.expressions.pointers.PointerMemberAccess;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
+import org.vstu.meaningtree.nodes.interfaces.NestedDeclaration;
 import org.vstu.meaningtree.nodes.io.*;
 import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
@@ -115,8 +120,11 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
         String sourceCode = serialized.get("source_code").getAsString();
         String language = serialized.get("language").getAsString();
 
-        // 2. Root Node
-        Node rootNode = deserialize(serialized.getAsJsonObject("origin"));
+        // 2. Root Node: origin может быть как отдельным узлом, так и целым meaning_tree
+        JsonObject origin = serialized.getAsJsonObject("origin");
+        NodeIterable rootNode = "meaning_tree".equals(originType(origin))
+                ? deserializeTree(origin)
+                : deserialize(origin);
 
         // 3. Byte Positions
         Map<Long, Pair<Integer, Integer>> bytePositions = new HashMap<>();
@@ -156,6 +164,12 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
 
         return new SourceMap(sourceCode, rootNode, bytePositions, scopeTable, language, metrics,
                 projectRootPath, projectFileRelPath);
+    }
+
+    private String originType(JsonObject origin) {
+        return origin != null && origin.has("type") && origin.get("type").isJsonPrimitive()
+                ? origin.get("type").getAsString()
+                : null;
     }
 
     private ScopeTable deserializeScopeTable(JsonObject json) {
@@ -460,6 +474,15 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
 
         Node node = deserializeNodeByType(type, json);
 
+        if (node instanceof Type restoredType) {
+            if (json.has("is_const") && !json.get("is_const").isJsonNull()) {
+                restoredType.setConst(json.get("is_const").getAsBoolean());
+            }
+            if (json.has("is_safe_reference") && !json.get("is_safe_reference").isJsonNull()) {
+                restoredType.setSafeReference(json.get("is_safe_reference").getAsBoolean());
+            }
+        }
+
         if (node instanceof Statement stmt && json.has("jump_label")) {
             stmt.setJumpLabel((JumpLabel) deserialize(json.getAsJsonObject("jump_label")));
         }
@@ -480,6 +503,8 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     node.setLabel(label);
                 }
             }
+
+            restoreParentDeclaration(node, json);
 
             if (node instanceof Expression expression && json.has("value_estimate") && !json.get("value_estimate").isJsonNull()) {
                 expression.setValueEstimate(deserializeExpressionValueEstimate(json.getAsJsonObject("value_estimate")));
@@ -512,7 +537,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
-            case "mat_mul_operator" -> new MatMulOp(
+            case "matrix_mul_operator", "mat_mul_operator" -> new MatMulOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
@@ -555,7 +580,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("right_operand")),
                     json.get("is_negative").getAsBoolean() // Default to non-negative
             );
-            case "three_way_comparison_operator" -> new ThreeWayComparisonOp(
+            case "three_way_comparison", "three_way_comparison_operator" -> new ThreeWayComparisonOp(
                     deserializeExpression(json.getAsJsonObject("left_operand")),
                     deserializeExpression(json.getAsJsonObject("right_operand"))
             );
@@ -613,16 +638,16 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             case "unary_plus_operator" -> new UnaryPlusOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "postfix_increment_operator" -> new PostfixIncrementOp(
+            case "unary_postfix_inc_operator", "postfix_increment_operator" -> new PostfixIncrementOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "postfix_decrement_operator" -> new PostfixDecrementOp(
+            case "unary_postfix_dec_operator", "postfix_decrement_operator" -> new PostfixDecrementOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "prefix_increment_operator" -> new PrefixIncrementOp(
+            case "unary_prefix_inc_operator", "prefix_increment_operator" -> new PrefixIncrementOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "prefix_decrement_operator" -> new PrefixDecrementOp(
+            case "unary_prefix_dec_operator", "prefix_decrement_operator" -> new PrefixDecrementOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
 
@@ -631,9 +656,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     json.get("value").getAsString(),
                     json.get("is_double").getAsBoolean()
             );
-            case "int_literal" -> new IntegerLiteral(
-                    json.get("value").getAsLong()
-            );
+            case "int_literal" -> deserializeIntegerLiteral(json);
             case "string_literal" -> StringLiteral.fromUnescaped(
                     json.get("value").getAsString(),
                     StringLiteral.Type.NONE
@@ -641,22 +664,22 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             case "bool_literal" -> new BoolLiteral(
                     json.get("value").getAsBoolean()
             );
-            case "character_literal" -> new CharacterLiteral(
+            case "char_literal", "character_literal" -> new CharacterLiteral(
                     json.get("value").getAsInt()
             );
             case "null_literal" -> new NullLiteral();
-            case "array_literal" -> new ArrayLiteral(
+            case "array_literal" -> withTypeHint(new ArrayLiteral(
                     deserializeExpressionList(json.getAsJsonArray("elements"))
-            );
-            case "list_literal" -> new ListLiteral(
+            ), json);
+            case "list_literal" -> withTypeHint(new ListLiteral(
                     deserializeExpressionList(json.getAsJsonArray("elements"))
-            );
-            case "set_literal" -> new SetLiteral(
+            ), json);
+            case "set_literal" -> withTypeHint(new SetLiteral(
                     deserializeExpressionList(json.getAsJsonArray("elements"))
-            );
-            case "unmodifiable_list_literal" -> new UnmodifiableListLiteral(
+            ), json);
+            case "unmodifiable_list_literal" -> withTypeHint(new UnmodifiableListLiteral(
                     deserializeExpressionList(json.getAsJsonArray("elements"))
-            );
+            ), json);
             case "interpolated_string_literal" -> {
                 StringLiteral.Type stringType = parseEnum(StringLiteral.Type.class, json.get("type").getAsString());
                 List<Expression> components = deserializeExpressionList(json.getAsJsonArray("components"));
@@ -691,7 +714,8 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             );
             case "assignment_expression" -> new AssignmentExpression(
                     deserializeExpression(json.getAsJsonObject("target")),
-                    deserializeExpression(json.getAsJsonObject("value"))
+                    deserializeExpression(json.getAsJsonObject("value")),
+                    deserializeAugmentedOperator(json)
             );
             case "member_access" -> new MemberAccess(
                     deserializeExpression(json.getAsJsonObject("expression")),
@@ -786,10 +810,10 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("expression")),
                     (SimpleIdentifier) deserialize(json.getAsJsonObject("member"))
             );
-            case "pointer_pack_operator" -> new PointerPackOp(
+            case "pointer_pack", "pointer_pack_operator" -> new PointerPackOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
-            case "pointer_unpack_operator" -> new PointerUnpackOp(
+            case "pointer_unpack", "pointer_unpack_operator" -> new PointerUnpackOp(
                     deserializeExpression(json.getAsJsonObject("operand"))
             );
             case "compound_comparison" -> {
@@ -820,14 +844,14 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 Comprehension.ComprehensionItem item = deserializeComprehensionItem(json.getAsJsonObject("item"));
                 VariableDeclaration containerItem = (VariableDeclaration) deserialize(json.getAsJsonObject("container_item"));
                 Expression container = deserializeExpression(json.getAsJsonObject("container"));
-                Expression condition = deserializeExpression(json.getAsJsonObject("condition")); // Not in serializer
+                Expression condition = deserializeNullableExpression(json, "condition");
                 yield new ContainerBasedComprehension(item, containerItem, container, condition);
             }
             case "range_based_comprehension" -> {
                 Comprehension.ComprehensionItem item = deserializeComprehensionItem(json.getAsJsonObject("item"));
                 SimpleIdentifier identifier = (SimpleIdentifier) deserialize(json.getAsJsonObject("identifier"));
                 Range range = (Range) deserialize(json.getAsJsonObject("range"));
-                Expression condition = deserializeExpression(json.getAsJsonObject("condition")); // Not in serializer
+                Expression condition = deserializeNullableExpression(json, "condition");
                 yield new RangeBasedComprehension(item, identifier, range, condition);
             }
 
@@ -915,7 +939,8 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             // Statements
             case "assignment_statement" -> new AssignmentStatement(
                     deserializeExpression(json.getAsJsonObject("target")),
-                    deserializeExpression(json.getAsJsonObject("value"))
+                    deserializeExpression(json.getAsJsonObject("value")),
+                    deserializeAugmentedOperator(json)
             );
             case "compound_assignment_statement" -> {
                 List<AssignmentStatement> assignments = new ArrayList<>();
@@ -955,7 +980,13 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 for (JsonElement elem : array) {
                     statements.add(deserialize(elem.getAsJsonObject()));
                 }
-                yield new CompoundStatement(statements);
+                CompoundStatement compound = new CompoundStatement(statements);
+                if (json.has("scope_id") && !json.get("scope_id").isJsonNull()) {
+                    // Полноценная таблица областей приходит только в source map; в самом дереве
+                    // сохраняется лишь id, поэтому привязываем область-заглушку с этим id
+                    compound.bindScope(new ScopeTableElement(json.get("scope_id").getAsLong(), null, compound));
+                }
+                yield compound;
             }
             case "expression_statement" -> new ExpressionStatement(
                     deserializeExpression(json.getAsJsonObject("expression"))
@@ -1060,7 +1091,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             case "infinite_loop" -> {
                 var loop = new InfiniteLoop(
                     (Statement) deserialize(json.getAsJsonObject("body")),
-                    LoopType.valueOf(json.get("original_loop_type").getAsString())
+                    parseEnum(LoopType.class, json.get("original_loop_type").getAsString())
                 );
                 applyLoopMetadata(loop, json);
                 yield loop;
@@ -1106,11 +1137,23 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     (Type) deserialize(json.getAsJsonObject("target_type"))
             );
             case "array_type" -> {
-                Shape shape = (Shape) deserialize(json.getAsJsonObject("shape"));
-                yield new ArrayType(new IntType(), shape.getDimensionCount(), shape.getDimensions());
+                JsonObject shapeJson = json.getAsJsonObject("shape");
+                Shape shape = (Shape) deserialize(shapeJson);
+                Type itemType = json.has("target_type") && !json.get("target_type").isJsonNull()
+                        ? (Type) deserialize(json.getAsJsonObject("target_type"))
+                        : new IntType();
+                ArrayType arrayType = new ArrayType(itemType, shape.getDimensionCount(), shape.getDimensions());
+                restoreId(arrayType.getShape(), shapeJson);
+                yield arrayType;
             }
             case "list_type" -> new ListType(
                     (Type) deserialize(json.getAsJsonObject("target_type"))
+            );
+            case "unmodifiable_list_type" -> new UnmodifiableListType(
+                    (Type) deserialize(json.getAsJsonObject("target_type"))
+            );
+            case "enum_type" -> new org.vstu.meaningtree.nodes.types.user.Enum(
+                    (Identifier) deserialize(json.getAsJsonObject("name"))
             );
             case "set_type" -> new SetType(
                     (Type) deserialize(json.getAsJsonObject("target_type"))
@@ -1169,6 +1212,41 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 }
                 yield new TupleType(elements);
             }
+            case "array_new_expression" -> {
+                Type targetType = (Type) deserialize(json.getAsJsonObject("target_type"));
+                Shape shape = (Shape) deserialize(json.getAsJsonObject("shape"));
+                ArrayInitializer initializer = json.has("initializer") && !json.get("initializer").isJsonNull()
+                        ? (ArrayInitializer) deserialize(json.getAsJsonObject("initializer"))
+                        : null;
+                yield new ArrayNewExpression(targetType, shape, initializer);
+            }
+            case "string_format" -> {
+                Expression template = deserializeExpression(json.getAsJsonObject("template"));
+                List<Expression> substitutions = deserializeExpressionList(json.getAsJsonArray("substitutions"));
+                yield new StringFormat(template, substitutions.toArray(new Expression[0]));
+            }
+            case "dictionary_literal" -> {
+                SequencedMap<Expression, Expression> content = new LinkedHashMap<>();
+                for (JsonElement elem : json.getAsJsonArray("entries")) {
+                    JsonObject pair = elem.getAsJsonObject();
+                    content.put(
+                            deserializeExpression(pair.getAsJsonObject("key")),
+                            deserializeExpression(pair.getAsJsonObject("value"))
+                    );
+                }
+                DictionaryLiteral literal = new DictionaryLiteral(content);
+                if (json.has("key_type_hint") && !json.get("key_type_hint").isJsonNull()) {
+                    literal.setKeyTypeHint((Type) deserialize(json.getAsJsonObject("key_type_hint")));
+                }
+                if (json.has("value_type_hint") && !json.get("value_type_hint").isJsonNull()) {
+                    literal.setValueTypeHint((Type) deserialize(json.getAsJsonObject("value_type_hint")));
+                }
+                yield literal;
+            }
+            case "include" -> new Include(
+                    (StringLiteral) deserialize(json.getAsJsonObject("file_name")),
+                    parseEnum(Include.IncludeType.class, json.get("include_type").getAsString())
+            );
             case "shape" -> {
                 int dimensionCount = json.get("dimension_count").getAsInt();
                 List<Expression> dimensions = deserializeExpressionList(json.getAsJsonArray("dimensions"));
@@ -1222,7 +1300,9 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 yield new FunctionDeclaration(name, returnType, annotations, arguments);
             }
             case "method_declaration", "object_constructor_declaration", "object_destructor_declaration" -> {
-                UserType owner = (UserType) deserialize(json.getAsJsonObject("owner"));
+                UserType owner = json.has("owner") && !json.get("owner").isJsonNull()
+                        ? (UserType) deserialize(json.getAsJsonObject("owner"))
+                        : null;
                 Identifier name = (Identifier) deserialize(json.getAsJsonObject("name"));
                 List<Annotation> annotations = deserializeAnnotations(json.getAsJsonArray("annotations"));
                 List<DeclarationModifier> modifiers = deserializeModifiers(json.getAsJsonArray("modifiers"));
@@ -1236,6 +1316,18 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     Type returnType = (Type) deserialize(json.getAsJsonObject("return_type"));
                     yield new MethodDeclaration(owner, name, returnType, annotations, modifiers, arguments);
                 }
+            }
+
+            case "declaration_argument" -> deserializeDeclarationArgument(json);
+            case "definition_argument" -> {
+                Expression initial = deserializeExpression(json.getAsJsonObject("initial"));
+                if (json.has("is_list_unpacking") && json.get("is_list_unpacking").getAsBoolean()) {
+                    yield DefinitionArgument.listUnpacking(initial);
+                }
+                if (json.has("is_dict_unpacking") && json.get("is_dict_unpacking").getAsBoolean()) {
+                    yield DefinitionArgument.dictUnpacking(initial);
+                }
+                yield new DefinitionArgument(deserializeArgumentName(json), initial);
             }
 
             // Definitions
@@ -1252,20 +1344,28 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     (CompoundStatement) deserialize(json.getAsJsonObject("body"))
             );
             case "object_constructor_definition" -> {
-                ObjectConstructorDeclaration decl = (ObjectConstructorDeclaration) deserialize(json.getAsJsonObject("declaration"));
+                JsonObject declarationJson = json.getAsJsonObject("declaration");
+                ObjectConstructorDeclaration decl = (ObjectConstructorDeclaration) deserialize(declarationJson);
                 CompoundStatement body = (CompoundStatement) deserialize(json.getAsJsonObject("body"));
-                yield new ObjectConstructorDefinition(
+                ObjectConstructorDefinition definition = new ObjectConstructorDefinition(
                         decl.getOwner(), decl.getName(), decl.getAnnotations(),
                         decl.getModifiers(), decl.getArguments(), body
                 );
+                restoreId(definition.getDeclaration(), declarationJson);
+                restoreParentDeclaration(definition.getDeclaration(), declarationJson);
+                yield definition;
             }
             case "object_destructor_definition" -> {
-                ObjectDestructorDeclaration decl = (ObjectDestructorDeclaration) deserialize(json.getAsJsonObject("declaration"));
+                JsonObject declarationJson = json.getAsJsonObject("declaration");
+                ObjectDestructorDeclaration decl = (ObjectDestructorDeclaration) deserialize(declarationJson);
                 CompoundStatement body = (CompoundStatement) deserialize(json.getAsJsonObject("body"));
-                yield new ObjectDestructorDefinition(
+                ObjectDestructorDefinition definition = new ObjectDestructorDefinition(
                         decl.getOwner(), decl.getName(), decl.getAnnotations(),
                         decl.getModifiers(), body
                 );
+                restoreId(definition.getDeclaration(), declarationJson);
+                restoreParentDeclaration(definition.getDeclaration(), declarationJson);
+                yield definition;
             }
             case "structure_definition" -> new StructureDefinition(
                     (ClassDeclaration) deserialize(json.getAsJsonObject("declaration")),
@@ -1279,7 +1379,10 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 for (JsonElement elem : bodyArray) {
                     body.add(deserialize(elem.getAsJsonObject()));
                 }
-                yield new ProgramEntryPoint(body);
+                ClassDefinition mainClass = (ClassDefinition) resolveEntryPointReference(
+                        json, "main_class_id", "main_class");
+                Node entryPoint = resolveEntryPointReference(json, "entry_point_node_id", "entry_point_node");
+                yield new ProgramEntryPoint(body, mainClass, entryPoint);
             }
             case "comment" -> Comment.fromUnescaped(
                     json.get("content").getAsString()
@@ -1324,14 +1427,25 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
     private List<DeclarationArgument> deserializeDeclarationArguments(JsonArray array) {
         List<DeclarationArgument> arguments = new ArrayList<>();
         for (JsonElement elem : array) {
-            JsonObject argJson = elem.getAsJsonObject();
-            Type type = (Type) deserialize(argJson.getAsJsonObject("target_type"));
-            SimpleIdentifier name = new SimpleIdentifier(argJson.get("name").getAsString());
-            Expression initial = argJson.has("initial") && !argJson.get("initial").isJsonNull()
-                    ? deserializeExpression(argJson.getAsJsonObject("initial")) : null;
-            arguments.add(new DeclarationArgument(type, name, initial));
+            arguments.add(deserializeDeclarationArgument(elem.getAsJsonObject()));
         }
         return arguments;
+    }
+
+    private DeclarationArgument deserializeDeclarationArgument(JsonObject json) {
+        Type type = (Type) deserialize(json.getAsJsonObject("target_type"));
+        SimpleIdentifier name = deserializeArgumentName(json);
+        Expression initial = deserializeNullableExpression(json, "initial");
+
+        DeclarationArgument argument;
+        if (json.has("is_list_unpacking") && json.get("is_list_unpacking").getAsBoolean()) {
+            argument = DeclarationArgument.listUnpacking(type, name);
+        } else if (json.has("is_dict_unpacking") && json.get("is_dict_unpacking").getAsBoolean()) {
+            argument = DeclarationArgument.dictUnpacking(type, name);
+        } else {
+            argument = new DeclarationArgument(type, name, initial);
+        }
+        return restoreId(argument, json);
     }
 
     private List<VariableDeclarator> deserializeVariableDeclarators(JsonArray array) {
@@ -1341,7 +1455,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             SimpleIdentifier identifier = (SimpleIdentifier) deserialize(declJson.getAsJsonObject("identifier"));
             Expression rvalue = declJson.has("rvalue") && !declJson.get("rvalue").isJsonNull()
                     ? deserializeExpression(declJson.getAsJsonObject("rvalue")) : null;
-            declarators.add(new VariableDeclarator(identifier, rvalue));
+            declarators.add(restoreId(new VariableDeclarator(identifier, rvalue), declJson));
         }
         return declarators;
     }
@@ -1419,6 +1533,127 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
         throw new MeaningTreeSerializationException("Unknown comprehension item type: " + type);
     }
 
+    private IntegerLiteral deserializeIntegerLiteral(JsonObject json) {
+        long value = json.get("value").getAsLong();
+        IntegerLiteral.Representation repr = json.has("repr") && !json.get("repr").isJsonNull()
+                ? IntegerLiteral.Representation.valueOf(json.get("repr").getAsString())
+                : IntegerLiteral.Representation.DECIMAL;
+        boolean isLong = json.has("is_long") && json.get("is_long").getAsBoolean();
+        boolean isUnsigned = json.has("is_unsigned") && json.get("is_unsigned").getAsBoolean();
+
+        String prefix = switch (repr) {
+            case BINARY -> "0b";
+            case OCTAL -> "0o";
+            case HEX -> "0x";
+            case DECIMAL -> "";
+        };
+        int base = switch (repr) {
+            case BINARY -> 2;
+            case OCTAL -> 8;
+            case HEX -> 16;
+            case DECIMAL -> 10;
+        };
+        String digits = Long.toString(value, base).toUpperCase();
+        String sign = "";
+        if (digits.startsWith("-")) {
+            sign = "-";
+            digits = digits.substring(1);
+        }
+        // parseValue перечитывает модификаторы из строки и перетирает аргументы конструктора,
+        // поэтому суффиксы добавляем прямо в литерал
+        String suffix = (isLong ? "l" : "") + (isUnsigned ? "u" : "");
+        return new IntegerLiteral(sign + prefix + digits + suffix, isLong, isUnsigned);
+    }
+
+    private AugmentedAssignmentOperator deserializeAugmentedOperator(JsonObject json) {
+        if (!json.has("augmented_operator") || json.get("augmented_operator").isJsonNull()) {
+            return AugmentedAssignmentOperator.NONE;
+        }
+        AugmentedAssignmentOperator operator =
+                parseEnum(AugmentedAssignmentOperator.class, json.get("augmented_operator").getAsString());
+        return operator == null ? AugmentedAssignmentOperator.NONE : operator;
+    }
+
+    private Expression deserializeNullableExpression(JsonObject json, String fieldName) {
+        return json.has(fieldName) && !json.get(fieldName).isJsonNull()
+                ? deserializeExpression(json.getAsJsonObject(fieldName))
+                : null;
+    }
+
+    private <T extends PlainCollectionLiteral> T withTypeHint(T literal, JsonObject json) {
+        if (json.has("type_hint") && !json.get("type_hint").isJsonNull()) {
+            literal.setTypeHint((Type) deserialize(json.getAsJsonObject("type_hint")));
+        }
+        return literal;
+    }
+
+    /**
+     * Восстанавливает исходный ast id у узлов, которые собираются в обход {@link #deserialize},
+     * — иначе они получают новые id и ссылки из source map перестают на них указывать.
+     */
+    private <T extends Node> T restoreId(T node, JsonObject json) {
+        if (json.has("id") && !json.get("id").isJsonNull()) {
+            try {
+                idField.setAccessible(true);
+                idField.set(node, json.get("id").getAsLong());
+                idField.setAccessible(false);
+            } catch (IllegalAccessException ignored) { }
+            nodeCache.put(json.get("id").getAsLong(), node);
+        }
+        return node;
+    }
+
+    /**
+     * Имя аргумента передаётся строкой, а не узлом; id идентификатора едет рядом отдельным полем,
+     * чтобы ссылки source map на него оставались валидными.
+     */
+    private SimpleIdentifier deserializeArgumentName(JsonObject json) {
+        if (!json.has("name") || json.get("name").isJsonNull()) {
+            return null;
+        }
+        SimpleIdentifier name = new SimpleIdentifier(json.get("name").getAsString());
+        if (json.has("name_id") && !json.get("name_id").isJsonNull()) {
+            try {
+                idField.setAccessible(true);
+                idField.set(name, json.get("name_id").getAsLong());
+                idField.setAccessible(false);
+            } catch (IllegalAccessException ignored) { }
+            nodeCache.put(json.get("name_id").getAsLong(), name);
+        }
+        return name;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void restoreParentDeclaration(Node node, JsonObject json) {
+        if (!(node instanceof NestedDeclaration<?> nested)) {
+            return;
+        }
+        JsonElement parentId = json.get("parent_decl_id");
+        if (parentId == null || parentId.isJsonNull()) {
+            return;
+        }
+        if (nodeCache.get(parentId.getAsLong()) instanceof Declaration parent) {
+            ((NestedDeclaration<Declaration>) nested).setParentDeclaration(parent);
+        }
+    }
+
+    /**
+     * Разрешает ссылку точки входа: сначала по id уже разобранного узла, иначе — по вложенной
+     * копии узла, которую сериализатор кладёт рядом, если узел не входит в body.
+     */
+    private Node resolveEntryPointReference(JsonObject json, String idField, String nodeField) {
+        if (json.has(idField) && !json.get(idField).isJsonNull()) {
+            Node cached = nodeCache.get(json.get(idField).getAsLong());
+            if (cached != null) {
+                return cached;
+            }
+        }
+        if (json.has(nodeField) && !json.get(nodeField).isJsonNull()) {
+            return deserialize(json.getAsJsonObject(nodeField));
+        }
+        return null;
+    }
+
     private Label deserializeLabel(JsonObject json) {
         short id = json.get("id").getAsShort();
 
@@ -1443,12 +1678,90 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 throw new MeaningTreeSerializationException("Unsupported primitive type");
             }
 
+        } else if (el.isJsonArray()) {
+            attr = deserializeLabelArrayAttribute(el.getAsJsonArray());
         } else {
-            // JsonObject / JsonArray
+            // JsonObject
             attr = el;
         }
 
         return new Label(id, attr);
+    }
+
+    /**
+     * Восстанавливает массивный атрибут метки. Тип элемента в JSON не хранится, поэтому он
+     * выводится по содержимому: целые числа дают {@code int[]} (или {@code long[]}, если значение
+     * не помещается в int), дробные — {@code double[]}, логические — {@code Boolean[]},
+     * строки — {@code String[]}. Так метки вроде {@link Label#BYTEPOS_ANNOTATED} возвращаются
+     * пригодными для {@code attributeAsIntArray()}, а не как сырой {@code JsonArray}.
+     */
+    private Object deserializeLabelArrayAttribute(JsonArray array) {
+        if (array.isEmpty()) {
+            return new int[0];
+        }
+
+        boolean allNumbers = true;
+        boolean allIntegral = true;
+        boolean fitsInt = true;
+        boolean allBooleans = true;
+        boolean allStrings = true;
+
+        for (JsonElement element : array) {
+            if (!element.isJsonPrimitive()) {
+                return array;
+            }
+            JsonPrimitive primitive = element.getAsJsonPrimitive();
+            allNumbers &= primitive.isNumber();
+            allBooleans &= primitive.isBoolean();
+            allStrings &= primitive.isString();
+            if (primitive.isNumber()) {
+                double value = primitive.getAsDouble();
+                boolean integral = value == Math.rint(value) && !Double.isInfinite(value);
+                allIntegral &= integral;
+                fitsInt &= integral && value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE;
+            }
+        }
+
+        if (allNumbers && allIntegral) {
+            if (fitsInt) {
+                int[] result = new int[array.size()];
+                for (int i = 0; i < array.size(); i++) {
+                    result[i] = array.get(i).getAsInt();
+                }
+                return result;
+            }
+            long[] result = new long[array.size()];
+            for (int i = 0; i < array.size(); i++) {
+                result[i] = array.get(i).getAsLong();
+            }
+            return result;
+        }
+
+        if (allNumbers) {
+            double[] result = new double[array.size()];
+            for (int i = 0; i < array.size(); i++) {
+                result[i] = array.get(i).getAsDouble();
+            }
+            return result;
+        }
+
+        if (allBooleans) {
+            Boolean[] result = new Boolean[array.size()];
+            for (int i = 0; i < array.size(); i++) {
+                result[i] = array.get(i).getAsBoolean();
+            }
+            return result;
+        }
+
+        if (allStrings) {
+            String[] result = new String[array.size()];
+            for (int i = 0; i < array.size(); i++) {
+                result[i] = array.get(i).getAsString();
+            }
+            return result;
+        }
+
+        return array;
     }
     private <E extends Enum<E>> E parseEnum(Class<E> enumClass, String value) {
         if (value == null) {

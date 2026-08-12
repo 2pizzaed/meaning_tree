@@ -20,6 +20,7 @@ import org.vstu.meaningtree.nodes.expressions.identifiers.*;
 import org.vstu.meaningtree.nodes.expressions.literals.*;
 import org.vstu.meaningtree.nodes.expressions.logical.*;
 import org.vstu.meaningtree.nodes.expressions.math.*;
+import org.vstu.meaningtree.nodes.expressions.newexpr.ArrayNewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.PlacementNewExpression;
 import org.vstu.meaningtree.nodes.expressions.other.*;
@@ -122,6 +123,7 @@ public class JsonNodeTypeClassMapper {
         register("set_literal", SetLiteral.class);
         register("unmodifiable_list_literal", UnmodifiableListLiteral.class);
         register("interpolated_string_literal", InterpolatedStringLiteral.class);
+        register("dictionary_literal", DictionaryLiteral.class);
 
         // Expressions
         register("parenthesized_expression", ParenthesizedExpression.class);
@@ -157,6 +159,8 @@ public class JsonNodeTypeClassMapper {
         register("expression_sequence", ExpressionSequence.class);
         register("placement_new_expression", PlacementNewExpression.class);
         register("object_new_expression", ObjectNewExpression.class);
+        register("array_new_expression", ArrayNewExpression.class);
+        register("string_format", StringFormat.class);
 
         // Comprehensions
         register("container_based_comprehension", ContainerBasedComprehension.class);
@@ -254,6 +258,7 @@ public class JsonNodeTypeClassMapper {
         register("import_members_from_module", ImportMembersFromModule.class);
         register("import_module", ImportModule.class);
         register("import_modules", ImportModules.class);
+        register("include", Include.class);
         register("package_declaration", PackageDeclaration.class);
 
         // Other

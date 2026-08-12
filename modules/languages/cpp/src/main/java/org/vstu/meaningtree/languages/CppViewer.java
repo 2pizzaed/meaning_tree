@@ -1187,6 +1187,15 @@ public class CppViewer extends LanguageViewer {
     private String makeSimpleProgram(List<Node> nodes) {
         StringBuilder builder = new StringBuilder();
 
+        // Определения функций не попадают ни в main, ни в notMethods, поэтому выводим их
+        // отдельно перед сгенерированной точкой входа: иначе они бы просто потерялись
+        for (Node node : nodes) {
+            if (node instanceof FunctionDefinition functionDefinition
+                    && !functionDefinition.getName().toString().equals("main")) {
+                builder.append(toString(functionDefinition)).append("\n");
+            }
+        }
+
         builder.append("int main(int argc, char * argv[]) {\n\n");
         increaseIndentLevel();
 

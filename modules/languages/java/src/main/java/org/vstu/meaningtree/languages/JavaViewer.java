@@ -1830,7 +1830,7 @@ public class JavaViewer extends LanguageViewer {
         return builder.toString();
     }
 
-    private String toStringHasInitialization(MultipleAssignmentStatement multipleAssignmentStatement) {
+    private String toStringForInitializer(MultipleAssignmentStatement multipleAssignmentStatement) {
         // Трансляция MultipleAssignmentStatement по умолчанию не подходит -
         // в результате будут получены присваивания, написанные через точку с запятой.
         // Поэтому вручную получаем список присваиваний и создаем правильное отображение.
@@ -1862,7 +1862,9 @@ public class JavaViewer extends LanguageViewer {
 
         boolean addSemi = true;
         if (generalForLoop.hasInitializer()) {
-            String init = toString(generalForLoop.getInitializer());
+            String init = generalForLoop.getInitializer() instanceof MultipleAssignmentStatement multipleAssignmentStatement
+                    ? toStringForInitializer(multipleAssignmentStatement)
+                    : toString(generalForLoop.getInitializer());
             if (generalForLoop.getInitializer() instanceof VariableDeclaration) {
                 addSemi = false;
             }

@@ -1252,6 +1252,17 @@ group: Conditions
 
 
 group: ForLoop
+    case: MultipleInitializerAssignments
+        main c++:
+            for (i = 0, j = 3; i < j; i++, j--)
+            {
+            }
+
+        java:
+            for (i = 0, j = 3; i < j; i++, j--) {
+            }
+
+
     case: RangeForLoop
         python:
             for i in range(0, 10, c):

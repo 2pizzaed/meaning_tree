@@ -27,7 +27,6 @@ import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.Loop;
 import org.vstu.meaningtree.nodes.statements.ReturnStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
-import org.vstu.meaningtree.nodes.statements.assignments.CompoundAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
@@ -256,15 +255,6 @@ public class LoopIterationAnalyzer {
                 OptionalLong value = evaluateAssignedValue(assignment, Map.of(), evaluator, contextLoop);
                 if (value.isPresent()) {
                     return Optional.of(new VariableState(value.getAsLong(), null));
-                }
-            }
-        } else if (initializer instanceof CompoundAssignmentStatement compound) {
-            for (AssignmentStatement assignment : compound.getAssignments()) {
-                if (isIdentifier(assignment.getLValue(), identifier)) {
-                    OptionalLong value = evaluateAssignedValue(assignment, Map.of(), evaluator, contextLoop);
-                    if (value.isPresent()) {
-                        return Optional.of(new VariableState(value.getAsLong(), null));
-                    }
                 }
             }
         }

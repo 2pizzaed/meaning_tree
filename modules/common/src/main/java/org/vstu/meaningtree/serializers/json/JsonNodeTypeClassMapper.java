@@ -34,7 +34,7 @@ import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.modules.*;
 import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
-import org.vstu.meaningtree.nodes.statements.assignments.CompoundAssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
@@ -185,7 +185,7 @@ public class JsonNodeTypeClassMapper {
         register("compound_statement", CompoundStatement.class);
         register("expression_statement", ExpressionStatement.class);
         register("return_statement", ReturnStatement.class);
-        register("compound_assignment_statement", CompoundAssignmentStatement.class);
+        register("chained_assignment_statement", ChainedAssignmentStatement.class);
         register("multiple_assignment_statement", MultipleAssignmentStatement.class);
         register("delete_statement", DeleteStatement.class);
 

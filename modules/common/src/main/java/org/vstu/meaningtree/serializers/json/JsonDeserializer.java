@@ -47,7 +47,7 @@ import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.modules.*;
 import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
-import org.vstu.meaningtree.nodes.statements.assignments.CompoundAssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
@@ -942,13 +942,21 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("value")),
                     deserializeAugmentedOperator(json)
             );
-            case "compound_assignment_statement" -> {
-                List<AssignmentStatement> assignments = new ArrayList<>();
-                JsonArray array = json.getAsJsonArray("assignments");
+            case "chained_assignment_statement" -> {
+                List<Expression> targets = new ArrayList<>();
+                JsonArray array = json.getAsJsonArray("targets");
                 for (JsonElement elem : array) {
-                    assignments.add((AssignmentStatement) deserialize(elem.getAsJsonObject()));
+                    targets.add(deserializeExpression(elem.getAsJsonObject()));
                 }
-                yield new CompoundAssignmentStatement(assignments.toArray(new AssignmentStatement[0]));
+                List<VariableDeclaration> declarations = new ArrayList<>();
+                for (JsonElement elem : json.getAsJsonArray("variable_declarations")) {
+                    declarations.add((VariableDeclaration) deserialize(elem.getAsJsonObject()));
+                }
+                yield new ChainedAssignmentStatement(
+                        targets,
+                        deserializeExpression(json.getAsJsonObject("value")),
+                        declarations
+                );
             }
             case "multiple_assignment_statement" -> {
                 List<AssignmentStatement> statements = new ArrayList<>();

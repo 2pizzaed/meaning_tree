@@ -52,7 +52,7 @@ public class VariableDeclarator extends Node {
     public VariableDeclarator clone() {
         var clone = (VariableDeclarator) super.clone();
         clone.identifier = identifier.clone();
-        clone.rvalue = rvalue.clone();
+        clone.rvalue = rvalue == null ? null : rvalue.clone();
         return clone;
     }
 }

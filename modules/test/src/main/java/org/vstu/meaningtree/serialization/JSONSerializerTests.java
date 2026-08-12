@@ -19,6 +19,7 @@ import org.vstu.meaningtree.nodes.expressions.literals.IntegerLiteral;
 import org.vstu.meaningtree.nodes.expressions.literals.ListLiteral;
 import org.vstu.meaningtree.nodes.expressions.math.AddOp;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatement;
 import org.vstu.meaningtree.nodes.types.builtin.IntType;
 import org.vstu.meaningtree.serializers.json.JsonDeserializer;
 import org.vstu.meaningtree.serializers.json.JsonSerializer;
@@ -404,6 +405,23 @@ public class JSONSerializerTests {
 
         assertEquals(AugmentedAssignmentOperator.ADD,
                 assertInstanceOf(AssignmentStatement.class, restored).getAugmentedOperator());
+    }
+
+    @Test
+    void chainedAssignmentSurvivesRoundTrip() {
+        ChainedAssignmentStatement statement = new ChainedAssignmentStatement(
+                List.of(new SimpleIdentifier("a"), new SimpleIdentifier("b")),
+                new IntegerLiteral(1),
+                List.of(
+                        new VariableDeclaration(new IntType(), new SimpleIdentifier("a")),
+                        new VariableDeclaration(new IntType(), new SimpleIdentifier("b"))
+                )
+        );
+
+        Node restored = new JsonDeserializer().deserialize(new JsonSerializer().serialize(statement));
+
+        assertEquals(statement, statement.clone());
+        assertEquals(statement, restored);
     }
 
     @Test

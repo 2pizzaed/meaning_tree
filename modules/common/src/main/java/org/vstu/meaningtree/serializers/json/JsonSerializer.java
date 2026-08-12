@@ -40,7 +40,7 @@ import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.modules.*;
 import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
-import org.vstu.meaningtree.nodes.statements.assignments.CompoundAssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.ListUnpackingAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
@@ -519,7 +519,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case Include include -> serializeInclude(include);
             case PackageDeclaration packageDeclaration -> serializePackageDeclaration(packageDeclaration);
             case ReturnStatement stmt -> serializeReturnStatement(stmt);
-            case CompoundAssignmentStatement stmt -> serializeCompoundAssignmentStatement(stmt);
+            case ChainedAssignmentStatement stmt -> serializeChainedAssignmentStatement(stmt);
             case MultipleAssignmentStatement stmt -> serializeMultipleAssignmentStatement(stmt);
             case ListUnpackingAssignmentStatement stmt -> serializeListUnpackingAssignmentStatement(stmt);
             case ListUnpackingVariableDeclaration stmt -> serializeListUnpackingVariableDeclaration(stmt);
@@ -1696,12 +1696,16 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
-    private JsonObject serializeCompoundAssignmentStatement(@NotNull CompoundAssignmentStatement stmt) {
+    private JsonObject serializeChainedAssignmentStatement(@NotNull ChainedAssignmentStatement stmt) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
-        JsonArray assignments = new JsonArray();
-        for (var t : stmt.getAssignments()) assignments.add(serialize(t));
-        json.add("assignments", assignments);
+        JsonArray targets = new JsonArray();
+        for (var target : stmt.getTargets()) targets.add(serialize(target));
+        json.add("targets", targets);
+        json.add("value", serialize(stmt.getValue()));
+        JsonArray declarations = new JsonArray();
+        for (var declaration : stmt.getVariableDeclarations()) declarations.add(serialize(declaration));
+        json.add("variable_declarations", declarations);
         return json;
     }
 

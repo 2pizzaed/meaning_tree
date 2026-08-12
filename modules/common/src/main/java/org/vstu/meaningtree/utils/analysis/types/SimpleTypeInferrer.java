@@ -29,7 +29,7 @@ import org.vstu.meaningtree.nodes.modules.PackageDeclaration;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
-import org.vstu.meaningtree.nodes.statements.assignments.CompoundAssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
@@ -426,9 +426,15 @@ public class SimpleTypeInferrer {
                     assignmentStatement.getAugmentedOperator()
             );
             inference(assignmentExpression, scope);
-        } else if (stmt instanceof CompoundAssignmentStatement compoundAssignmentStatement) {
-            for (AssignmentStatement assignment : compoundAssignmentStatement.getAssignments()) {
-                inference((HasAssignmentEffect) assignment, scope);
+        } else if (stmt instanceof ChainedAssignmentStatement chainedAssignmentStatement) {
+            Type valueType = inference(chainedAssignmentStatement.getValue(), scope);
+            for (Expression target : chainedAssignmentStatement.getTargets()) {
+                if (target instanceof SimpleIdentifier identifier) {
+                    Type currentType = scope.getVariableType(identifier);
+                    scope.changeVariableType(identifier, currentType == null
+                            ? valueType
+                            : chooseGeneralType(currentType, valueType));
+                }
             }
         } else if (stmt instanceof MultipleAssignmentStatement multipleAssignmentStatement) {
             for (AssignmentStatement assignment : multipleAssignmentStatement.getStatements()) {

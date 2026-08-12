@@ -34,8 +34,16 @@ public abstract class TranslatorComponent implements HookHost {
         return hooks;
     }
 
+    /**
+     * Сбросить состояние текущей трансляции: контекст создаётся заново, хуки прогона
+     * снимаются.
+     * <p>
+     * Раньше отсюда же таблица областей видимости публиковалась в транслятор — и побеждал
+     * тот компонент, который откатился последним, включая токенизатор с его пустой таблицей.
+     * Публикацией теперь занимается {@link LanguageTranslator}: только он знает, какая фаза
+     * завершилась и завершилась ли успешно.
+     */
     public void rollbackContext() {
-        translator._latestScopeTable = ctx.getScopeTable();
         this.ctx = new TranslatorContext(this, translator);
         hooks.clearRunScoped();
     }

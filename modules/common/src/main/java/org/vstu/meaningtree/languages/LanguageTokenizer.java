@@ -28,14 +28,18 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
     protected abstract Token recognizeToken(TSNode node);
 
     public TokenList tokenize(String code, boolean noPrepare) {
-        this.code = noPrepare ? code : translator.prepareCode(code);
-        parser.getMeaningTree(this.code);
-        TokenList list = new TokenList();
-        bindTokenListChangeHooks(list);
-        collectTokens(parser.getRootNode(), list, true, null);
-        TokenList result = hooks.run(HookPhase.AFTER_TOKENIZE, list, list);
-        rollbackContext();
-        return result;
+        return translator.exclusively("tokenize(String)", () -> {
+            this.code = noPrepare ? code : translator.prepareCode(code);
+            try {
+                parser.getMeaningTree(this.code);
+                TokenList list = new TokenList();
+                bindTokenListChangeHooks(list);
+                collectTokens(parser.getRootNode(), list, true, null);
+                return hooks.run(HookPhase.AFTER_TOKENIZE, list, list);
+            } finally {
+                rollbackContext();
+            }
+        });
     }
 
     /**
@@ -100,9 +104,13 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
      * @return
      */
     public TokenList tokenizeExtended(MeaningTree mt) {
-        var tokens = tokenizeExtended(mt.getRootNode());
-        rollbackContext();
-        return tokens;
+        return translator.exclusively("tokenizeExtended(MeaningTree)", () -> {
+            try {
+                return tokenizeExtended(mt.getRootNode());
+            } finally {
+                rollbackContext();
+            }
+        });
     }
 
     public Pair<Boolean, TokenList> tryTokenizeExtended(MeaningTree mt) {

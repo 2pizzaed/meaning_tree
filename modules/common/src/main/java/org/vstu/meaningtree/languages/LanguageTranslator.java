@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 import org.treesitter.TSException;
 import org.treesitter.TSNode;
 import org.vstu.meaningtree.MeaningTree;
+import org.vstu.meaningtree.exceptions.ConcurrentTranslationException;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedConfigParameterException;
 import org.vstu.meaningtree.languages.configs.*;
@@ -24,15 +25,43 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 public abstract class LanguageTranslator implements Cloneable {
     protected LanguageParser _language;
     protected LanguageViewer _viewer;
 
     protected Config _config = ConfigParameters.defaultConfig();
-    protected ScopeTable _latestScopeTable = null;
+
+    /**
+     * Таблица областей видимости последнего разбора. Пишется только по завершении разбора.
+     */
+    private ScopeTable _parseScopeTable = null;
+
+    /**
+     * Таблица областей видимости последнего рендеринга. Пишется только по завершении
+     * рендеринга. Отдельная от {@link #_parseScopeTable}, потому что viewer строит свою
+     * таблицу заново, а не читает построенную парсером (§3.4 обзора — источник не устранён).
+     */
+    private ScopeTable _renderScopeTable = null;
+
+    /**
+     * Какая из двух таблиц заполнена последней. Ровно то, что возвращает
+     * {@link #getLatestScopeTable()}.
+     */
+    private ScopeTable _latestScopeTable = null;
+
     private Path _projectRootPath = null;
     private Path _currentFileRelPath = null;
+
+    /**
+     * Владение транслятором: поток, который сейчас внутри трансляции, и глубина повторных
+     * входов из него же. Оба поля читаются и пишутся только под {@link #ownershipLock}.
+     */
+    private final Object ownershipLock = new Object();
+    private Thread _owner = null;
+    private String _ownerOperation = null;
+    private int _ownerDepth = 0;
 
     public abstract int getLanguageId();
 
@@ -83,9 +112,98 @@ public abstract class LanguageTranslator implements Cloneable {
         this(new Config());
     }
 
+    /**
+     * Таблица областей видимости последней <b>завершённой</b> фазы — разбора или рендеринга,
+     * смотря что было позже.
+     * <p>
+     * Раньше сюда писал любой компонент из {@code rollbackContext()}, включая токенизатор с
+     * его всегда пустой таблицей, — то есть значение зависело от того, кто последним
+     * откатился, и после {@code getCodeAsTokens} оказывалось пустым. Теперь публикуют только
+     * две фазы, и только успешно завершившиеся: упавшая трансляция таблицу не подменяет.
+     * <p>
+     * Если нужна конкретная фаза, а не «последняя», спрашивайте {@link #getParseScopeTable()}
+     * или {@link #getRenderScopeTable()} — они не зависят от порядка вызовов.
+     */
     @Nullable
     public ScopeTable getLatestScopeTable() {
         return _latestScopeTable;
+    }
+
+    /** Таблица последнего успешного разбора. */
+    @Nullable
+    public ScopeTable getParseScopeTable() {
+        return _parseScopeTable;
+    }
+
+    /** Таблица последнего успешного рендеринга. */
+    @Nullable
+    public ScopeTable getRenderScopeTable() {
+        return _renderScopeTable;
+    }
+
+    private void publishParseScopeTable() {
+        _parseScopeTable = _language.context().getScopeTable();
+        _latestScopeTable = _parseScopeTable;
+    }
+
+    private void publishRenderScopeTable() {
+        _renderScopeTable = _viewer.context().getScopeTable();
+        _latestScopeTable = _renderScopeTable;
+    }
+
+    /**
+     * Выполнить операцию, эксклюзивно владея транслятором.
+     * <p>
+     * Транслятор и его компоненты держат состояние текущей трансляции, общее на компонент,
+     * поэтому две одновременные трансляции затирают друг друга. Здесь это ловится сразу:
+     * поток, пришедший к занятому транслятору, получает
+     * {@link ConcurrentTranslationException} с указанием взять свой экземпляр. Повторный
+     * вход из того же потока разрешён и обязан быть — вложенные вызовы штатны
+     * ({@code getCodeAsTokens} зовёт {@code getCode}, токенизатор зовёт парсер).
+     * <p>
+     * Это не делает транслятор параллельным: это делает нарушение видимым. Молчаливое
+     * ожидание на мониторе было бы хуже — оно прячет ошибку использования и превращает её в
+     * необъяснимую задержку, а состояние всё равно общее.
+     */
+    protected final <T> T exclusively(String operation, Supplier<T> body) {
+        acquireOwnership(operation);
+        try {
+            return body.get();
+        } finally {
+            releaseOwnership();
+        }
+    }
+
+    private void acquireOwnership(String operation) {
+        Thread current = Thread.currentThread();
+        synchronized (ownershipLock) {
+            if (_owner == null) {
+                _owner = current;
+                _ownerOperation = operation;
+                _ownerDepth = 1;
+                return;
+            }
+            if (_owner == current) {
+                _ownerDepth++;
+                return;
+            }
+            throw new ConcurrentTranslationException(
+                    ("Translator %s is already in use: thread '%s' is running %s, "
+                            + "thread '%s' asked for %s. One translator serves one thread at a time — "
+                            + "give each thread its own instance (translator.clone()).")
+                            .formatted(getLanguageName(), _owner.getName(), _ownerOperation,
+                                    current.getName(), operation));
+        }
+    }
+
+    private void releaseOwnership() {
+        synchronized (ownershipLock) {
+            _ownerDepth--;
+            if (_ownerDepth == 0) {
+                _owner = null;
+                _ownerOperation = null;
+            }
+        }
     }
 
     public LanguageTranslator withSourceContext(Path projectRootPath, Path currentFileRelPath) {
@@ -125,13 +243,15 @@ public abstract class LanguageTranslator implements Cloneable {
     }
 
     public MeaningTree getMeaningTree(String code) {
-        MeaningTree mt = null;
-        try {
-            mt = _language.getMeaningTree(prepareCode(code));
-            return mt;
-        } finally {
-            finalizeParsingState(mt);
-        }
+        return exclusively("getMeaningTree(String)", () -> {
+            MeaningTree mt = null;
+            try {
+                mt = _language.getMeaningTree(prepareCode(code));
+                return mt;
+            } finally {
+                finalizeParsingState(mt);
+            }
+        });
     }
 
     protected void init(LanguageParser parser, LanguageViewer viewer) {
@@ -153,13 +273,15 @@ public abstract class LanguageTranslator implements Cloneable {
 
     @Experimental
     public MeaningTree getMeaningTree(TSNode node, String code) {
-        MeaningTree mt = null;
-        try {
-            mt = _language.getMeaningTree(node, code);
-            return mt;
-        } finally {
-            finalizeParsingState(mt);
-        }
+        return exclusively("getMeaningTree(TSNode, String)", () -> {
+            MeaningTree mt = null;
+            try {
+                mt = _language.getMeaningTree(node, code);
+                return mt;
+            } finally {
+                finalizeParsingState(mt);
+            }
+        });
     }
 
     @Experimental
@@ -186,13 +308,15 @@ public abstract class LanguageTranslator implements Cloneable {
      * @return meaning tree
      */
     protected MeaningTree getMeaningTree(String code, HashMap<int[], Object> values) {
-        MeaningTree mt = null;
-        try {
-            mt = _language.getMeaningTree(prepareCode(code), values);
-            return mt;
-        } finally {
-            finalizeParsingState(mt);
-        }
+        return exclusively("getMeaningTree(String, values)", () -> {
+            MeaningTree mt = null;
+            try {
+                mt = _language.getMeaningTree(prepareCode(code), values);
+                return mt;
+            } finally {
+                finalizeParsingState(mt);
+            }
+        });
     }
 
     private void finalizeMeaningTree(MeaningTree mt) {
@@ -200,10 +324,21 @@ public abstract class LanguageTranslator implements Cloneable {
         mt.setLabel(new Label(Label.ORIGIN, getLanguageId()));
     }
 
+    /**
+     * Завершение разбора: доработать дерево, опубликовать таблицу и — <b>обязательно</b> —
+     * сбросить контекст парсера.
+     * <p>
+     * Сброс в {@code finally} потому, что упавший разбор оставляет контекст в произвольном
+     * состоянии (незакрытые области видимости, недостроенные тела), и следующая трансляция на
+     * этом же трансляторе начала бы с чужого мусора. Таблица при этом публикуется только при
+     * успехе: {@code getLatestScopeTable()} после неудачи должен показывать прошлый удачный
+     * разбор, а не обломки.
+     */
     private void finalizeParsingState(@Nullable MeaningTree mt) {
         try {
             if (mt != null) {
                 finalizeMeaningTree(mt);
+                publishParseScopeTable();
             }
         } finally {
             _language.rollbackContext();
@@ -280,15 +415,30 @@ public abstract class LanguageTranslator implements Cloneable {
     }
 
     public String getCode(Node node) {
-        var result = _viewer.toString(node);
-        _viewer.rollbackContext();
-        return result;
+        return exclusively("getCode(Node)", () -> render(() -> _viewer.toString(node)));
     }
 
     public String getCode(MeaningTree mt) {
-        var result = _viewer.toString(mt);
-        _viewer.rollbackContext();
-        return result;
+        return exclusively("getCode(MeaningTree)", () -> render(() -> _viewer.toString(mt)));
+    }
+
+    /**
+     * Рендеринг с гарантированным сбросом контекста viewer'а.
+     * <p>
+     * Раньше {@code rollbackContext()} стоял после вызова, а не в {@code finally}, поэтому
+     * упавший рендеринг оставлял в viewer'е свою таблицу областей видимости, незакрытые
+     * области и недостроенные тела — и следующий {@code getCode} на том же трансляторе
+     * начинал с них. Через {@code tryGetCode}, который гасит исключение и возвращает
+     * «не получилось», это был штатный сценарий, а не экзотика.
+     */
+    private String render(Supplier<String> rendering) {
+        try {
+            String result = rendering.get();
+            publishRenderScopeTable();
+            return result;
+        } finally {
+            _viewer.rollbackContext();
+        }
     }
 
     public Pair<Boolean, TokenList> tryGetCodeAsTokens(MeaningTree mt, boolean enableWhitespaces,
@@ -315,20 +465,24 @@ public abstract class LanguageTranslator implements Cloneable {
                                      boolean enableWhitespaces,
                                      boolean detailedTokens,
                                      boolean skipPreparations) {
-        var tokenizer = getTokenizer().setEnabledNavigablePseudoTokens(enableWhitespaces);
-        if (detailedTokens) {
-            return tokenizer.tokenizeExtended(mt);
-        } else {
-            String code = getCode(mt);
-            return tokenizer.tokenize(code, skipPreparations);
-        }
+        return exclusively("getCodeAsTokens(MeaningTree)", () -> {
+            var tokenizer = getTokenizer().setEnabledNavigablePseudoTokens(enableWhitespaces);
+            if (detailedTokens) {
+                return tokenizer.tokenizeExtended(mt);
+            } else {
+                String code = getCode(mt);
+                return tokenizer.tokenize(code, skipPreparations);
+            }
+        });
     }
 
     public TokenList getCodeAsTokens(String code,
                                      boolean enableWhitespaces,
                                      boolean skipPreparations) {
-        var tokenizer = getTokenizer().setEnabledNavigablePseudoTokens(enableWhitespaces);
-        return tokenizer.tokenize(code, skipPreparations);
+        return exclusively("getCodeAsTokens(String)", () -> {
+            var tokenizer = getTokenizer().setEnabledNavigablePseudoTokens(enableWhitespaces);
+            return tokenizer.tokenize(code, skipPreparations);
+        });
     }
 
 

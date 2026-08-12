@@ -72,7 +72,9 @@ public class PythonSpecialNodeTransformations {
             body.insert(body.getLength(), update);
         }
         List<Node> result = new ArrayList<>();
-        result.add(initializer);
+        if (initializer != null) {
+            result.add(initializer);
+        }
         result.add(new WhileLoop(condition, body).remap(generalFor));
         if (needDeleting) {
             VariableDeclaration varDecl = (VariableDeclaration) initializer;
@@ -80,10 +82,7 @@ public class PythonSpecialNodeTransformations {
                 result.add(new DeleteStatement(declarator.getIdentifier()).remap(declarator));
             }
         }
-        if (initializer == null) {
-            return new Node[] {new WhileLoop(condition, body).remap(generalFor)};
-        }
-        return new Node[] {initializer, new WhileLoop(condition, body).remap(generalFor)};
+        return result.toArray(Node[]::new);
     }
 
     private static void _prepend_continue_with_expression(CompoundStatement compound, Node update) {

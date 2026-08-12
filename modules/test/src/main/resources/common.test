@@ -1318,6 +1318,7 @@ group: ForLoop
             while v < dx - 1:
                 func(a)
                 v += 1
+            del v
 
         java:
             for (double v = a * b * c; v < dx - 1; v++) {
@@ -1359,6 +1360,7 @@ group: ForLoop
             while a != m:
                 func(a, b)
                 m = g()
+            del a
 
 
     case: GeneralForWithMissingCondition
@@ -1372,6 +1374,7 @@ group: ForLoop
             while True:
                 func(a, b)
                 m = g()
+            del a
 
 
     case: GeneralForWithMissingUpdate
@@ -1384,6 +1387,7 @@ group: ForLoop
             a: int = x
             while a != m:
                 func(a, b)
+            del a
 
 
     case: GeneralForWithMissingUpdateWithContinue
@@ -1401,6 +1405,7 @@ group: ForLoop
                 func(a, b)
                 if a == k:
                     continue
+            del a
 
 
     case: GeneralForEmptyLoop
@@ -1432,6 +1437,7 @@ group: ForLoop
                     m = g()
                     continue
                 m = g()
+            del a
 
 
 group: WhileLoop

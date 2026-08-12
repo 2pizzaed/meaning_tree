@@ -17,9 +17,9 @@ public class PythonSpecificFeatures {
 
     static SimpleIdentifier getSpecificFunctionName(FunctionCall call) {
         if (call instanceof PrintCommand) {
-            return new SimpleIdentifier("print");
+            return new SimpleIdentifier("print").remap(call);
         } else if (call instanceof InputCommand) {
-            return new SimpleIdentifier("input");
+            return new SimpleIdentifier("input").remap(call);
         }
         return null;
     }
@@ -33,9 +33,11 @@ public class PythonSpecificFeatures {
             if (method.getObject() instanceof ScopedIdentifier scoped) {
                 List<SimpleIdentifier> identifierList = new ArrayList<>(scoped.getScopeResolution());
                 identifierList.add((SimpleIdentifier) method.getFunctionName());
-                return new ScopedIdentifier(identifierList.toArray(new SimpleIdentifier[0]));
+                return new ScopedIdentifier(identifierList.toArray(new SimpleIdentifier[0]))
+                        .remap(method.getFunctionName());
             } else if (method.getObject() instanceof SimpleIdentifier obj) {
-                return new ScopedIdentifier(obj, (SimpleIdentifier) method.getFunctionName());
+                return new ScopedIdentifier(obj, (SimpleIdentifier) method.getFunctionName())
+                        .remap(method.getFunctionName());
             }
         }
         return call.getFunctionName();
@@ -50,9 +52,11 @@ public class PythonSpecificFeatures {
             if (method.getObject() instanceof ScopedIdentifier scoped) {
                 List<SimpleIdentifier> identifierList = new ArrayList<>(scoped.getScopeResolution());
                 identifierList.add((SimpleIdentifier) method.getFunctionName());
-                return new ScopedIdentifier(identifierList.toArray(new SimpleIdentifier[0]));
+                return new ScopedIdentifier(identifierList.toArray(new SimpleIdentifier[0]))
+                        .remap(method.getFunction());
             } else if (method.getObject() instanceof SimpleIdentifier obj) {
-                return new ScopedIdentifier(obj, (SimpleIdentifier) method.getFunctionName());
+                return new ScopedIdentifier(obj, (SimpleIdentifier) method.getFunctionName())
+                        .remap(method.getFunction());
             }
         }
         return call.getFunction();

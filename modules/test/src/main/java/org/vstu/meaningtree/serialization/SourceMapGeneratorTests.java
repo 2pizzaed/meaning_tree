@@ -7,7 +7,11 @@ import org.vstu.meaningtree.languages.*;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
+import org.vstu.meaningtree.nodes.expressions.literals.IntegerLiteral;
 import org.vstu.meaningtree.nodes.expressions.literals.StringLiteral;
+import org.vstu.meaningtree.nodes.expressions.math.AddOp;
+import org.vstu.meaningtree.nodes.expressions.math.MulOp;
+import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
 import org.vstu.meaningtree.utils.SourceMap;
@@ -192,7 +196,7 @@ public class SourceMapGeneratorTests {
         SourceMap fromNode = new SourceMapGenerator(translator).process(root);
 
         assertEquals(fromTree.code(), fromNode.code());
-        assertEquals(statementPositions(fromTree, tree), statementPositions(fromNode, tree));
+        assertEquals(fromTree.bytePositions(), fromNode.bytePositions());
         assertEquals(fromTree.metrics().get("cyclomatic"), fromNode.metrics().get("cyclomatic"));
         assertSame(tree, fromTree.root());
         assertSame(root, fromNode.root());
@@ -215,7 +219,7 @@ public class SourceMapGeneratorTests {
         SourceMap second = new SourceMapGenerator(translator).process(tree);
 
         assertEquals(first.code(), second.code());
-        assertEquals(statementPositions(first, tree), statementPositions(second, tree));
+        assertEquals(first.bytePositions(), second.bytePositions());
     }
 
     @Test
@@ -263,6 +267,68 @@ public class SourceMapGeneratorTests {
                 assertTrue(sourceMap.bytePositions().containsKey(statement.getId()),
                         "Top level statement is not marked (" + sample.language() + "): " + statement);
             }
+        }
+    }
+
+    @Test
+    void everyMarkedIdBelongsToTheProcessedTree() {
+        // Узлы, создаваемые viewer\'ами во время отрисовки, обязаны нести метку REMAPPED
+        // на свой прообраз: id, которого нет во входном дереве, потребителю карты некуда деть
+        for (Sample sample : samples()) {
+            LanguageTranslator translator = sample.translator();
+            MeaningTree tree = translator.getMeaningTree(sample.code());
+            SourceMap sourceMap = new SourceMapGenerator(translator).process(tree);
+
+            List<Long> treeIds = StreamSupport.stream(tree.spliterator(), false)
+                    .map(info -> info.node().getId())
+                    .toList();
+
+            for (Long markedId : sourceMap.bytePositions().keySet()) {
+                assertTrue(treeIds.contains(markedId),
+                        "Marked id " + markedId + " is missing from the tree (" + sample.language() + ")");
+            }
+        }
+    }
+
+    @Test
+    void synthesizedNodesAreMarkedAsTheirOrigin() {
+        // Скобки расставляются при отрисовке: в дереве этого узла нет, и его позиция
+        // должна приписаться операнду, а не новому id
+        MulOp expression = new MulOp(
+                new AddOp(new IntegerLiteral("1"), new IntegerLiteral("2")),
+                new IntegerLiteral("3")
+        );
+        MeaningTree tree = new MeaningTree(new ProgramEntryPoint(List.of(new ExpressionStatement(expression))));
+
+        for (LanguageTranslator translator : List.of(
+                new JavaTranslator(CONFIG), new PythonTranslator(CONFIG), new CppTranslator(CONFIG))) {
+            SourceMap sourceMap = new SourceMapGenerator(translator).process(tree);
+
+            assertTrue(sourceMap.code().contains("(1 + 2)"),
+                    "Expected inserted parentheses for " + translator.getLanguageName());
+            List<Long> treeIds = StreamSupport.stream(tree.spliterator(), false)
+                    .map(info -> info.node().getId())
+                    .toList();
+            assertTrue(treeIds.containsAll(sourceMap.bytePositions().keySet()),
+                    "Inserted parentheses leaked their own id for " + translator.getLanguageName());
+            assertTrue(sourceMap.bytePositions().containsKey(expression.getLeft().getId()),
+                    "Parenthesized operand lost its position for " + translator.getLanguageName());
+        }
+    }
+
+    @Test
+    void renderingDoesNotChangeTheTree() {
+        // Вывод типов работает и на стороне viewer\'а; подмена узлов при отрисовке ломала бы
+        // воспроизводимость разметки и ссылки уже выданных source map
+        for (Sample sample : samples()) {
+            LanguageTranslator translator = sample.translator();
+            MeaningTree tree = translator.getMeaningTree(sample.code());
+
+            List<String> before = nodeSignatures(tree);
+            translator.getCode(tree);
+            List<String> after = nodeSignatures(tree);
+
+            assertEquals(before, after, "Rendering changed the tree for " + sample.language());
         }
     }
 
@@ -335,23 +401,10 @@ public class SourceMapGeneratorTests {
         );
     }
 
-    /**
-     * Позиции корня и операторов верхнего уровня — та часть разметки, которая обязана быть
-     * одинаковой при каждом прогоне.
-     * <p>
-     * Полную карту между прогонами сравнивать нельзя: viewer\'ы создают при отрисовке
-     * вспомогательные узлы (идентификатор {@code print} в Python, узлы типов в C++), и эти
-     * записи получают новые id на каждый прогон.
-     */
-    private static Map<Long, Pair<Integer, Integer>> statementPositions(SourceMap sourceMap, MeaningTree tree) {
-        List<Long> ids = new java.util.ArrayList<>();
-        ids.add(tree.getRootNode().getId());
-        if (tree.getRootNode() instanceof ProgramEntryPoint entryPoint) {
-            entryPoint.getBody().forEach(statement -> ids.add(statement.getId()));
-        }
-        return sourceMap.bytePositions().entrySet().stream()
-                .filter(entry -> ids.contains(entry.getKey()))
-                .collect(java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    private static List<String> nodeSignatures(MeaningTree tree) {
+        return StreamSupport.stream(tree.spliterator(), false)
+                .map(info -> info.node().getClass().getSimpleName() + "#" + info.node().getId())
+                .toList();
     }
 
     private static String textOf(byte[] code, Pair<Integer, Integer> position) {

@@ -304,10 +304,11 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String functionDeclarationToString(FunctionDeclaration decl, Tab tab) {
+        // Обёртка живёт только на время отрисовки, поэтому размечается самим объявлением
         if (decl instanceof MethodDeclaration method) {
-            return toString(new MethodDefinition(method, new CompoundStatement()), tab);
+            return toString(new MethodDefinition(method, new CompoundStatement().remap(decl)).remap(decl), tab);
         }
-        return toString(new FunctionDefinition(decl, new CompoundStatement()), tab);
+        return toString(new FunctionDefinition(decl, new CompoundStatement().remap(decl)).remap(decl), tab);
     }
 
     private String listUnpackingVariableToString(ListUnpackingVariableDeclaration decl) {
@@ -337,7 +338,7 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String classDeclToString(ClassDeclaration decl, Tab tab) {
-        return toString(new ClassDefinition(decl, new CompoundStatement()), tab);
+        return toString(new ClassDefinition(decl, new CompoundStatement().remap(decl)).remap(decl), tab);
     }
 
     private String functionToString(Definition func, Tab tab) {
@@ -407,26 +408,26 @@ public class PythonViewer extends LanguageViewer {
 
     private String objectDestructorToString(ObjectDestructorDefinition destructor, Tab tab) {
         MethodDeclaration declaration = destructor.getDeclaration();
-        var pythonDestructor = new ObjectDestructorDefinition(
+        ObjectDestructorDefinition pythonDestructor = new ObjectDestructorDefinition(
                 declaration.getOwner(),
-                new SimpleIdentifier("__del__"),
+                new SimpleIdentifier("__del__").remap(declaration.getName()),
                 declaration.getAnnotations(),
                 declaration.getModifiers(),
                 destructor.getBody()
-        );
+        ).remap(destructor);
         return functionToString(pythonDestructor, tab);
     }
 
     private String objectConstructorToString(ObjectConstructorDefinition constructor, Tab tab) {
         MethodDeclaration declaration = constructor.getDeclaration();
-        var pythonConstructor = new ObjectConstructorDefinition(
+        ObjectConstructorDefinition pythonConstructor = new ObjectConstructorDefinition(
                 declaration.getOwner(),
-                new SimpleIdentifier("__init__"),
+                new SimpleIdentifier("__init__").remap(declaration.getName()),
                 declaration.getAnnotations(),
                 declaration.getModifiers(),
                 declaration.getArguments(),
                 constructor.getBody()
-        );
+        ).remap(constructor);
         return functionToString(pythonConstructor, tab);
     }
 
@@ -477,7 +478,8 @@ public class PythonViewer extends LanguageViewer {
                     Identifier ident;
                     FunctionDeclaration funcDecl = func.getDeclaration();
                     if (funcDecl instanceof MethodDeclaration method) {
-                        ident = new ScopedIdentifier(method.getOwner().getName(), method.getName());
+                        ident = new ScopedIdentifier(method.getOwner().getName(), method.getName())
+                                .remap(method.getName());
                     } else {
                         ident = func.getName();
                     }
@@ -485,14 +487,14 @@ public class PythonViewer extends LanguageViewer {
                     List<Expression> nulls = new ArrayList<>();
                     for (DeclarationArgument arg : funcDecl.getArguments()) {
                         if (!arg.isListUnpacking()) {
-                            nulls.add(new NullLiteral());
+                            nulls.add(new NullLiteral().remap(arg));
                         }
                     }
-                    FunctionCall funcCall = new FunctionCall(ident, nulls.toArray(new Expression[0]));
-                    entryPointIf = new IfStatement(new EqOp(new SimpleIdentifier("__name__"), StringLiteral.fromUnescaped("__main__", StringLiteral.Type.NONE)), new CompoundStatement(funcCall),null);
+                    FunctionCall funcCall = new FunctionCall(ident, nulls.toArray(new Expression[0])).remap(func);
+                    entryPointIf = makeEntryPointCondition(new CompoundStatement(funcCall).remap(func), func);
                 }
             } else if (entryPointNode instanceof CompoundStatement compound) {
-                entryPointIf = new IfStatement(new EqOp(new SimpleIdentifier("__name__"), StringLiteral.fromUnescaped("__main__", StringLiteral.Type.NONE)), compound,null);
+                entryPointIf = makeEntryPointCondition(compound, compound);
             }
         }
         List<Node> nodes = new ArrayList<>(programEntryPoint.getBody());
@@ -511,6 +513,19 @@ public class PythonViewer extends LanguageViewer {
             nodes.add(entryPointIf);
         }
         return nodeListToString(nodes, tab);
+    }
+
+    /**
+     * Собирает обёртку {@code if __name__ == "__main__":}. Ни одного из этих узлов нет во
+     * входном дереве, поэтому все они размечаются узлом точки входа: иначе в source map
+     * появятся id, которых у потребителя нет.
+     */
+    private IfStatement makeEntryPointCondition(Statement body, Node entryPointNode) {
+        EqOp condition = new EqOp(
+                new SimpleIdentifier("__name__").remap(entryPointNode),
+                StringLiteral.fromUnescaped("__main__", StringLiteral.Type.NONE).remap(entryPointNode)
+        ).remap(entryPointNode);
+        return new IfStatement(condition, body, null).remap(entryPointNode);
     }
 
     private boolean canFlattenEntryPointFunction(FunctionDefinition functionDefinition) {
@@ -868,7 +883,7 @@ public class PythonViewer extends LanguageViewer {
         }
 
         if (start == null || isStartDefault) {
-            start = new IntegerLiteral(0);
+            start = new IntegerLiteral(0).remap(range);
         }
 
         var result = String.format("range(%s, %s, %s)", toString(start), toString(stop), toString(step));
@@ -930,12 +945,14 @@ public class PythonViewer extends LanguageViewer {
                 }
             }
             case ObjectNewExpression newExpr -> {
-                FunctionCall call = new FunctionCall(newExpr.getType(), newExpr.getConstructorArguments());
+                FunctionCall call = new FunctionCall(newExpr.getType(), newExpr.getConstructorArguments())
+                        .remap(newExpr);
                 return callsToString(call);
             }
             case MethodCall funcCall -> {
-                MemberAccess memAcc = parenFiller.process(new MemberAccess(funcCall.getObject(),
-                        funcCall.getFunctionName()));
+                MemberAccess methodAccess = new MemberAccess(funcCall.getObject(), funcCall.getFunctionName());
+                methodAccess.remap(funcCall.getFunctionName());
+                MemberAccess memAcc = parenFiller.process(methodAccess);
                 return String.format("%s(%s)", toString(memAcc), argumentsToString(funcCall.getArguments()));
             }
             case FunctionCall funcCall -> {
@@ -943,7 +960,7 @@ public class PythonViewer extends LanguageViewer {
                 return String.format("%s(%s)", toString(PythonSpecificFeatures.getFunctionExpression(funcCall)), argumentsToString(funcCall.getArguments()));
             }
             case CastTypeExpression cast -> {
-                FunctionCall call = new FunctionCall(cast.getCastType(), cast.getValue());
+                FunctionCall call = new FunctionCall(cast.getCastType(), cast.getValue()).remap(cast);
                 return callsToString(call);
             }
             case null, default -> throw new UnsupportedViewingException("Not a callable object");

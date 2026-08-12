@@ -725,13 +725,13 @@ public class JavaViewer extends LanguageViewer {
 
     private String toStringObjectDestructorDefinition(ObjectDestructorDefinition destructor) {
         MethodDeclaration declaration = destructor.getDeclaration();
-        var javaDestructor = new ObjectDestructorDefinition(
+        ObjectDestructorDefinition javaDestructor = new ObjectDestructorDefinition(
                 declaration.getOwner(),
-                new SimpleIdentifier("finalize"),
+                new SimpleIdentifier("finalize").remap(declaration.getName()),
                 declaration.getAnnotations(),
                 declaration.getModifiers(),
                 destructor.getBody()
-        );
+        ).remap(destructor);
         return toStringMethodDefinition(javaDestructor);
     }
 
@@ -1181,7 +1181,8 @@ public class JavaViewer extends LanguageViewer {
             builder.append(" ");
         }
 
-        VariableDeclaration variableDeclaration = new VariableDeclaration(decl.getType(), decl.getDeclarators());
+        VariableDeclaration variableDeclaration =
+                new VariableDeclaration(decl.getType(), decl.getDeclarators()).remap(decl);
         builder.append(toStringVariableDeclaration(variableDeclaration, false));
 
         return builder.toString();
@@ -1296,8 +1297,9 @@ public class JavaViewer extends LanguageViewer {
         Expression left = expr.getLeft();
         Expression right = expr.getRight();
         if (expr instanceof PowOp) {
-            return toString(new MethodCall(new SimpleIdentifier("Math"),
-                    new SimpleIdentifier("pow"), left, right));
+            return toString(new MethodCall(
+                    new SimpleIdentifier("Math").remap(expr),
+                    new SimpleIdentifier("pow").remap(expr), left, right).remap(expr));
         }
 
         return String.format("%s %s %s", toString(left), sign, toString(right));
@@ -1596,7 +1598,7 @@ public class JavaViewer extends LanguageViewer {
         builder.append(identifierName);
 
         if (rValue instanceof ArrayLiteral arr && type instanceof ListType) {
-            rValue = new ListLiteral(arr.getList());
+            rValue = new ListLiteral(arr.getList()).remap(arr);
             ((ListLiteral) rValue).setTypeHint(arr.getTypeHint());
         }
 
@@ -1838,7 +1840,7 @@ public class JavaViewer extends LanguageViewer {
             AssignmentExpression assignmentExpression = new AssignmentExpression(
                     assignmentStatement.getLValue(),
                     assignmentStatement.getRValue()
-            );
+            ).remap(assignmentStatement);
             builder
                     .append(toString(assignmentExpression))
                     .append(", ");
@@ -2089,13 +2091,25 @@ public class JavaViewer extends LanguageViewer {
     }
 
     @Nullable
+    /**
+     * Метод-обёртка вокруг функции верхнего уровня существует только на время отрисовки:
+     * размечаем и его, и его объявление исходной функцией.
+     */
+    private MethodDefinition remapSynthesizedMethod(MethodDefinition method, FunctionDefinition origin) {
+        method.getDeclaration().remap(origin.getDeclaration());
+        return method.remap(origin);
+    }
+
     private MethodDefinition getMainMethod(List<Node> nodes) {
         for (var node : nodes) {
             if (node instanceof FunctionDefinition functionDefinition
                     && functionDefinition.getName().toString().equals("main")) {
-                return functionDefinition.makeMethod(
-                        simpleProgramOwner(),
-                        List.of(DeclarationModifier.PUBLIC, DeclarationModifier.STATIC)
+                return remapSynthesizedMethod(
+                        functionDefinition.makeMethod(
+                                simpleProgramOwner(),
+                                List.of(DeclarationModifier.PUBLIC, DeclarationModifier.STATIC)
+                        ),
+                        functionDefinition
                 );
             }
         }
@@ -2109,12 +2123,13 @@ public class JavaViewer extends LanguageViewer {
         for (var node : nodes) {
             if (node instanceof FunctionDefinition functionDefinition
                     && !functionDefinition.getName().toString().equals("main")) {
-                methods.add(
+                methods.add(remapSynthesizedMethod(
                         functionDefinition.makeMethod(
                                 simpleProgramOwner(),
                                 List.of(DeclarationModifier.PUBLIC)
-                        )
-                );
+                        ),
+                        functionDefinition
+                ));
             }
         }
 

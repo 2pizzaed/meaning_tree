@@ -459,7 +459,8 @@ public class CppViewer extends LanguageViewer {
             builder.append(" : ").append(baseCalls.stream().map(this::toString).collect(Collectors.joining(", ")));
         }
 
-        String bodyCode = toString(new CompoundStatement(bodyNodes));
+        // Тело пересобирается без вызовов базового конструктора — размечаем его исходным телом
+        String bodyCode = toString(new CompoundStatement(bodyNodes).remap(body));
         if (_openBracketOnSameLine) {
             builder.append(" ").append(bodyCode);
         } else {
@@ -470,7 +471,8 @@ public class CppViewer extends LanguageViewer {
 
     private String toStringFieldDeclaration(FieldDeclaration declaration) {
         String prefix = declaration.getModifiers().contains(DeclarationModifier.STATIC) ? "static " : "";
-        return prefix + toString(new VariableDeclaration(declaration.getType(), declaration.getDeclarators()));
+        return prefix + toString(
+                new VariableDeclaration(declaration.getType(), declaration.getDeclarators()).remap(declaration));
     }
 
     private String toStringDeclarationArgument(DeclarationArgument parameter) {
@@ -765,7 +767,7 @@ public class CppViewer extends LanguageViewer {
             AssignmentExpression assignmentExpression = new AssignmentExpression(
                     assignmentStatement.getLValue(),
                     assignmentStatement.getRValue()
-            );
+            ).remap(assignmentStatement);
             builder
                     .append(toStringAssignmentExpression(assignmentExpression))
                     .append(", ");
@@ -1003,9 +1005,11 @@ public class CppViewer extends LanguageViewer {
 
     private String toStringMemoryAllocation(MemoryAllocationCall mAlloc) {
         if (mAlloc.isClearAllocation()) {
-            return String.format("calloc(%s)", toString(new MulOp(mAlloc.getType(), mAlloc.getCount())));
+            return String.format("calloc(%s)",
+                    toString(new MulOp(mAlloc.getType(), mAlloc.getCount()).remap(mAlloc)));
         }
-        return String.format("malloc(%s)", toString(new MulOp(mAlloc.getType(), mAlloc.getCount())));
+        return String.format("malloc(%s)",
+                toString(new MulOp(mAlloc.getType(), mAlloc.getCount()).remap(mAlloc)));
     }
 
     private String toStringPrint(PrintCommand print) {
@@ -1162,10 +1166,13 @@ public class CppViewer extends LanguageViewer {
         for (var node : nodes) {
             if (node instanceof FunctionDefinition functionDefinition
                     && functionDefinition.getName().toString().equals("main")) {
-                return functionDefinition.makeMethod(
+                MethodDefinition method = functionDefinition.makeMethod(
                         null,
                         List.of(DeclarationModifier.PUBLIC, DeclarationModifier.STATIC)
                 );
+                // Обёртка живёт только на время отрисовки — размечаем её исходной функцией
+                method.getDeclaration().remap(functionDefinition.getDeclaration());
+                return method.remap(functionDefinition);
             }
         }
 
@@ -1574,7 +1581,9 @@ public class CppViewer extends LanguageViewer {
             return neg.concat(String.format("%s.contains(%s)", left, toString(op.getLeft())));
         } else if (binaryExpression instanceof ReferenceEqOp op) {
             String neg = op.isNegative() ? "!=" : "==";
-            return String.format("%s %s %s", toString(new PointerPackOp(op.getLeft())), neg, toString(new PointerPackOp(op.getRight())));
+            return String.format("%s %s %s",
+                    toString(new PointerPackOp(op.getLeft()).remap(op.getLeft())), neg,
+                    toString(new PointerPackOp(op.getRight()).remap(op.getRight())));
         } else if (binaryExpression instanceof InstanceOfOp op) {
             return String.format("dynamic_cast<%s>(%s) != nullptr", toString(op.getType()), toString(op.getLeft()));
         } else if (binaryExpression instanceof FloorDivOp op) {

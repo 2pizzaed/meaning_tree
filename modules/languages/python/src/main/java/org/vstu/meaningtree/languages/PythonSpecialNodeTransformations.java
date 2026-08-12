@@ -49,7 +49,7 @@ public class PythonSpecialNodeTransformations {
             needDeleting = initializer instanceof VariableDeclaration;
         }
 
-        Expression condition = new BoolLiteral(true);
+        Expression condition = new BoolLiteral(true).remap(generalFor);
         if (generalFor.hasCondition()) {
             condition = generalFor.getCondition();
         }
@@ -77,13 +77,13 @@ public class PythonSpecialNodeTransformations {
         if (needDeleting) {
             VariableDeclaration varDecl = (VariableDeclaration) initializer;
             for (VariableDeclarator declarator : varDecl.getDeclarators()) {
-                result.add(new DeleteStatement(declarator.getIdentifier()));
+                result.add(new DeleteStatement(declarator.getIdentifier()).remap(declarator));
             }
         }
         if (initializer == null) {
-            return new Node[] {new WhileLoop(condition, body)};
+            return new Node[] {new WhileLoop(condition, body).remap(generalFor)};
         }
-        return new Node[] {initializer, new WhileLoop(condition, body)};
+        return new Node[] {initializer, new WhileLoop(condition, body).remap(generalFor)};
     }
 
     private static void _prepend_continue_with_expression(CompoundStatement compound, Node update) {
@@ -130,21 +130,26 @@ public class PythonSpecialNodeTransformations {
 
     private static Expression negateCondition(Expression condition) {
         return switch (condition) {
-            case BoolLiteral boolLiteral -> boolLiteral.getValue() ? new BoolLiteral(false) : new BoolLiteral(true);
+            case BoolLiteral boolLiteral -> (boolLiteral.getValue() ? new BoolLiteral(false) : new BoolLiteral(true))
+                    .remap(boolLiteral);
             case NotOp notOp -> notOp.getArgument();
-            case EqOp eqOp -> new NotEqOp(eqOp.getLeft(), eqOp.getRight());
-            case NotEqOp notEqOp -> new EqOp(notEqOp.getLeft(), notEqOp.getRight());
-            case LtOp ltOp -> new GeOp(ltOp.getLeft(), ltOp.getRight());
-            case GtOp gtOp -> new LeOp(gtOp.getLeft(), gtOp.getRight());
-            case LeOp leOp -> new GtOp(leOp.getLeft(), leOp.getRight());
-            case GeOp geOp -> new LtOp(geOp.getLeft(), geOp.getRight());
-            default -> new NotOp(new ParenthesizedExpression(condition));
+            case EqOp eqOp -> new NotEqOp(eqOp.getLeft(), eqOp.getRight()).remap(eqOp);
+            case NotEqOp notEqOp -> new EqOp(notEqOp.getLeft(), notEqOp.getRight()).remap(notEqOp);
+            case LtOp ltOp -> new GeOp(ltOp.getLeft(), ltOp.getRight()).remap(ltOp);
+            case GtOp gtOp -> new LeOp(gtOp.getLeft(), gtOp.getRight()).remap(gtOp);
+            case LeOp leOp -> new GtOp(leOp.getLeft(), leOp.getRight()).remap(leOp);
+            case GeOp geOp -> new LtOp(geOp.getLeft(), geOp.getRight()).remap(geOp);
+            default -> new NotOp(new ParenthesizedExpression(condition).remap(condition)).remap(condition);
         };
     }
 
     public static Node representDoWhile(DoWhileLoop doWhile) {
         Expression condition = negateCondition(doWhile.getCondition());
-        IfStatement breakCondition = new IfStatement(condition, new CompoundStatement(new BreakStatement()), null);
+        IfStatement breakCondition = new IfStatement(
+                condition,
+                new CompoundStatement(new BreakStatement().remap(doWhile)).remap(doWhile),
+                null
+        ).remap(doWhile);
         List<Node> body;
         if (doWhile.getBody() instanceof CompoundStatement compound) {
             body = new ArrayList<>(List.of(compound.getNodes()));
@@ -153,7 +158,10 @@ public class PythonSpecialNodeTransformations {
             body.add(doWhile.getBody());
         }
         body.add(breakCondition);
-        return new WhileLoop(new BoolLiteral(true), new CompoundStatement(body));
+        return new WhileLoop(
+                new BoolLiteral(true).remap(doWhile),
+                new CompoundStatement(body).remap(doWhile.getBody())
+        ).remap(doWhile);
     }
 
     public static Node detectCompoundComparison(Node expressionNode) {
@@ -212,16 +220,16 @@ public class PythonSpecialNodeTransformations {
                         Expression v = longestPath.get(i + 1);
                         if (!cyclic) {
                             if (dag.isTagged(u, v)) {
-                                compound.add(new LeOp(u, v));
+                                compound.add(new LeOp(u, v).remap(op));
                             } else {
-                                compound.add(new LtOp(u, v));
+                                compound.add(new LtOp(u, v).remap(op));
                             }
                         } else {
                             // Путь цикличен, значит не производим составление составного сравнения
                             if (dag.isTagged(u, v)) {
-                                result.add(new LeOp(u, v));
+                                result.add(new LeOp(u, v).remap(op));
                             } else {
-                                result.add(new LtOp(u, v));
+                                result.add(new LtOp(u, v).remap(op));
                             }
                         }
                         visited.add(u);
@@ -233,7 +241,7 @@ public class PythonSpecialNodeTransformations {
                         if (compound.size() == 1) {
                             result.add(compound.getFirst());
                         } else {
-                            result.add(new CompoundComparison(compound.toArray(new BinaryComparison[0])));
+                            result.add(new CompoundComparison(compound.toArray(new BinaryComparison[0])).remap(op));
                         }
                     } else if (!cyclic) {
                         throw new MeaningTreeException("Something bad in DAG longest path");
@@ -283,9 +291,9 @@ public class PythonSpecialNodeTransformations {
 
         for (NodeInfo info : def.getBody()) {
             if (info.node() instanceof SimpleIdentifier ident && ident.equals(instanceName)) {
-                replaceOrThrow(def, info, new SelfReference(instanceName.getName()));
+                replaceOrThrow(def, info, new SelfReference(instanceName.getName()).remap(ident));
             } else if (info.node() instanceof SimpleIdentifier ident && ident.getName().equals("super")) {
-                replaceOrThrow(def, info, new SuperClassReference());
+                replaceOrThrow(def, info, new SuperClassReference().remap(ident));
             }
         }
 

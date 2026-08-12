@@ -169,7 +169,7 @@ public class ParenthesesFiller {
                 (arg instanceof BinaryExpression && tok.arity == OperatorArity.UNARY) ||
                 gluesIntoOtherOperator(tok, arg, argTok)
         ) {
-            arg = new ParenthesizedExpression(arg);
+            arg = new ParenthesizedExpression(arg).remap(arg);
         }
         return arg;
     }
@@ -205,18 +205,18 @@ public class ParenthesesFiller {
 
 
         if (tokLeft != null && tokLeft.precedence > tok.precedence && !(left instanceof ParenthesizedExpression)) {
-            left = new ParenthesizedExpression(left);
+            left = new ParenthesizedExpression(left).remap(left);
         }
 
         if (tokRight != null && tokRight.precedence > tok.precedence && !(right instanceof ParenthesizedExpression)) {
-            right = new ParenthesizedExpression(right);
+            right = new ParenthesizedExpression(right).remap(right);
         }
 
         if (tokRight != null && right instanceof BinaryExpression rightBinOp) {
             if (tok.precedence == tokRight.precedence
                     && tok.assoc == tokRight.assoc && tok.assoc == OperatorAssociativity.LEFT
             ) {
-                right = new ParenthesizedExpression(rightBinOp);
+                right = new ParenthesizedExpression(rightBinOp).remap(rightBinOp);
             }
         }
 
@@ -224,7 +224,7 @@ public class ParenthesesFiller {
             if (tok.precedence == tokLeft.precedence
                     && tok.assoc == tokLeft.assoc && tok.assoc == OperatorAssociativity.RIGHT
             ) {
-                left = new ParenthesizedExpression(leftBinOp);
+                left = new ParenthesizedExpression(leftBinOp).remap(leftBinOp);
             }
         }
 

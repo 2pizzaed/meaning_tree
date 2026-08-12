@@ -29,9 +29,19 @@ public class SourceMapGenerator {
     private static final String START_TAG = "\u2060AST_START_"; // \u2060 = word joiner (невидимый)
     private static final String END_TAG = "\u2060AST_END";
 
+    /** Разметка узла собственным рендерингом. */
+    private static final char OWN_MARK = 'N';
+    /** Разметка узла через {@link Label#REMAPPED}: отрисован не он сам, а его замена. */
+    private static final char REMAPPED_MARK = 'R';
+
     /**
      * Обёртывает каждый отрисованный узел невидимыми маркерами с его id, чтобы затем
      * восстановить байтовые границы узлов в готовом коде.
+     * <p>
+     * Узлы, созданные во время отрисовки, несут {@link Label#REMAPPED} и размечаются id своего
+     * прообраза. Такая разметка помечается отдельным символом: прообраз может отрисовываться и
+     * сам (например, вызов {@code print(x)} снаружи созданного при отрисовке идентификатора
+     * {@code print}), и тогда его собственные границы точнее — см. {@link #buildSourceMap}.
      * <p>
      * Состояние (какие узлы уже размечены) живёт в экземпляре, а не в статике: экземпляр
      * создаётся на один прогон, поэтому два генератора не мешают друг другу.
@@ -41,11 +51,15 @@ public class SourceMapGenerator {
 
         @Override
         public String intercept(Node node, String rendered, HookContext context) {
-            long id = node.hasLabel(Label.REMAPPED) ? node.getLabel(Label.REMAPPED).attributeAsLong() : node.getId();
-            if (!watermarked.add(id)) {
+            boolean isRemapped = node.hasLabel(Label.REMAPPED);
+            long id = isRemapped ? node.getLabel(Label.REMAPPED).attributeAsLong() : node.getId();
+            // Повторно отрисованный узел размечается один раз; замены не считаем повтором,
+            // иначе первая же из них закрыла бы прообразу собственную разметку
+            if (!isRemapped && !watermarked.add(id)) {
                 return rendered;
             }
-            return START_TAG + id + END_TAG + rendered + START_TAG + '/' + id + END_TAG;
+            char mark = isRemapped ? REMAPPED_MARK : OWN_MARK;
+            return START_TAG + mark + id + END_TAG + rendered + START_TAG + '/' + mark + id + END_TAG;
         }
     }
 
@@ -94,18 +108,18 @@ public class SourceMapGenerator {
      * @return SourceMap с байтовыми смещениями
      */
     private SourceMap buildSourceMap(NodeIterable root, String instrumentedCode) {
-        Map<Long, Pair<Integer, Integer>> result = new HashMap<>();
+        // Собственная разметка узла точнее разметки его замен, поэтому копим их раздельно
+        Map<Long, Pair<Integer, Integer>> ownPositions = new HashMap<>();
+        Map<Long, Pair<Integer, Integer>> remappedPositions = new HashMap<>();
 
-        Pattern tagPattern = Pattern.compile(START_TAG + "(/?)(\\d+)" + END_TAG);
+        Pattern tagPattern = Pattern.compile(START_TAG + "(/?)([NR])(\\d+)" + END_TAG);
         Matcher matcher = tagPattern.matcher(instrumentedCode);
 
         StringBuilder cleanCode = new StringBuilder();
         int lastEnd = 0;
 
-        // стек для открытых узлов
-        Deque<Long> stack = new ArrayDeque<>();
-        // начало узла (в байтах)
-        Map<Long, Integer> startOffsets = new HashMap<>();
+        // стек открытых узлов: id, начало в байтах и вид разметки
+        Deque<long[]> stack = new ArrayDeque<>();
 
         while (matcher.find()) {
             // добавляем кусок до тэга
@@ -113,23 +127,28 @@ public class SourceMapGenerator {
             lastEnd = matcher.end();
 
             boolean isClose = matcher.group(1).equals("/");
-            long nodeId = Long.parseLong(matcher.group(2));
+            char mark = matcher.group(2).charAt(0);
+            long nodeId = Long.parseLong(matcher.group(3));
 
             if (!isClose) {
                 // начало узла в байтах
-                int byteOffset = utf8Length(cleanCode);
-                startOffsets.put(nodeId, byteOffset);
-                stack.push(nodeId);
+                stack.push(new long[] {nodeId, utf8Length(cleanCode), mark});
             } else {
                 // конец узла в байтах
-                Long openId = stack.pop();
-                int start = startOffsets.get(openId);
-                int end = utf8Length(cleanCode);
-                result.put(openId, Pair.of(start, end - start));
+                long[] open = stack.pop();
+                int start = (int) open[1];
+                int length = utf8Length(cleanCode) - start;
+                Map<Long, Pair<Integer, Integer>> target =
+                        open[2] == OWN_MARK ? ownPositions : remappedPositions;
+                // У замен побеждает самая внешняя: она покрывает весь отрисованный ими текст
+                target.put(open[0], Pair.of(start, length));
             }
         }
 
         cleanCode.append(instrumentedCode.substring(lastEnd));
+
+        Map<Long, Pair<Integer, Integer>> result = new HashMap<>(remappedPositions);
+        result.putAll(ownPositions);
 
         Map<String, Number> metrics = new LinkedHashMap<>();
         metrics.put("cyclomatic", cyclomaticComplexityAnalyzer.analyze(root));

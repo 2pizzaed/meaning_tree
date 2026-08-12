@@ -506,7 +506,18 @@ public class SimpleTypeInferrer {
             }
         }
 
-        variableDeclaration.setType(chooseGeneralType(types));
+        Type inferred = chooseGeneralType(types);
+        Type current = variableDeclaration.getType();
+        if (current != null && current.equals(inferred)) {
+            // Вывод дал тот же тип: подменять узел нельзя. Вывод выполняется в том числе при
+            // отрисовке, и замена эквивалентного узла на новый экземпляр меняла бы id типа в
+            // дереве на каждую генерацию — source map переставал бы воспроизводиться
+            return;
+        }
+        if (current != null) {
+            inferred.remap(current);
+        }
+        variableDeclaration.setType(inferred);
     }
 
     public static void inference(@NotNull Declaration declaration, @NotNull ScopeTable scope) {

@@ -164,8 +164,20 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         return _labels.stream().anyMatch((Label l) -> l.getId() == id);
     }
 
-    public Node remap(Node other) {
-        return setLabel(new Label(Label.REMAPPED, other.getId()));
+    /**
+     * Помечает узел как отображение другого узла: текст, отрисованный этим узлом, в source map
+     * припишется прообразу.
+     * <p>
+     * Обязателен для всякого узла, созданного во время отрисовки: у потребителя source map на
+     * руках только исходное дерево, и id эфемерного узла ему указать не на что, а прообраз без
+     * метки вовсе выпал бы из разметки. См. {@link org.vstu.meaningtree.languages.SourceMapGenerator}.
+     * <p>
+     * Возвращает сам узел, чтобы метку можно было навесить прямо в выражении создания.
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends Node> T remap(Node other) {
+        setLabel(new Label(Label.REMAPPED, other.getId()));
+        return (T) this;
     }
 
     @Override

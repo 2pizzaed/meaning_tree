@@ -51,6 +51,14 @@ public class SourceMapGenerator {
 
     public SourceMapGenerator(LanguageTranslator translator) {
         this.translator = translator.clone();
+        // clone() переносит только конфигурацию, а привязка к файлу проекта должна попасть
+        // в готовую карту (см. buildSourceMap), поэтому копируем её отдельно
+        if (translator.hasSourceContext()) {
+            this.translator.withSourceContext(
+                    translator.getProjectRootPath().orElseThrow(),
+                    translator.getCurrentFileRelPath().orElseThrow()
+            );
+        }
     }
 
     public SourceMap process(MeaningTree meaningTree) {

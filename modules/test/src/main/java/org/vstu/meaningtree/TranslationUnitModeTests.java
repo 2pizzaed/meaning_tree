@@ -327,6 +327,8 @@ public class TranslationUnitModeTests {
     @Test
     void expressionModeRejectsWholeProgram() {
         assertThrows(UnsupportedParsingException.class,
+                () -> new JavaTranslator(EXPRESSION_CONFIG).getMeaningTree(JAVA_PROGRAM));
+        assertThrows(UnsupportedParsingException.class,
                 () -> new PythonTranslator(EXPRESSION_CONFIG).getMeaningTree(PYTHON_PROGRAM));
         assertThrows(UnsupportedParsingException.class,
                 () -> new CppTranslator(EXPRESSION_CONFIG).getMeaningTree(CPP_PROGRAM));

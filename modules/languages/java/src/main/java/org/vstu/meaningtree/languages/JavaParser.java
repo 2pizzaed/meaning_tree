@@ -138,6 +138,11 @@ public class JavaParser extends LanguageParser {
         }
 
         Node node = parseTSNode(rootNode);
+        if (isExpressionMode() && !(node instanceof Expression)
+                && !(node instanceof ExpressionStatement)
+                && !(node instanceof AssignmentStatement)) {
+            throw new UnsupportedParsingException("Cannot parse the code as expression in expression mode");
+        }
         if (node instanceof AssignmentExpression expr) {
             node = expr.toStatement();
         }

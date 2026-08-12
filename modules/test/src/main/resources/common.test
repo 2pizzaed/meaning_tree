@@ -1512,7 +1512,13 @@ group: WhileLoop
     case: DoWhileLoopTransformation
         java:
             do {
-                a += 1;
+                a++;
+            } while (a != m);
+
+        c++:
+            do
+            {
+                a++;
             } while (a != m);
 
         isolated python:
@@ -1525,7 +1531,13 @@ group: WhileLoop
     case: DoWhileLoopTransformationWithComplexExpression
         java:
             do {
-                a += 1;
+                a++;
+            } while (!has_errors() && a < 35 && flag);
+
+        c++:
+            do
+            {
+                a++;
             } while (!has_errors() && a < 35 && flag);
 
         isolated python:
@@ -1537,7 +1549,15 @@ group: WhileLoop
 
     case: EmptyDoWhileLoopTransformation
         java:
-            do {} while (true);
+            do {
+
+            } while (true);
+
+        c++:
+            do
+            {
+
+            } while (true);
 
         isolated python:
             while True:

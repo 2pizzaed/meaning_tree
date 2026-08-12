@@ -122,6 +122,7 @@ public class CppParser extends LanguageParser {
         registerTSNodeHandler("if_statement", IfStatement.class, this::fromIfStatement);
         registerTSNodeHandler("for_statement", Loop.class, this::fromForStatement);
         registerTSNodeHandler("while_statement", Loop.class, this::fromWhile);
+        registerTSNodeHandler("do_statement", DoWhileLoop.class, this::fromDoWhile);
         registerTSNodeHandler("break_statement", BreakStatement.class, this::fromBreakStatement);
         registerTSNodeHandler("continue_statement", ContinueStatement.class, this::fromContinueStatement);
         registerTSNodeHandler("switch_statement", SwitchStatement.class, this::fromSwitchStatement);
@@ -522,6 +523,15 @@ public class CppParser extends LanguageParser {
         }
 
         return new WhileLoop(mtCond, mtBody);
+    }
+
+    private DoWhileLoop fromDoWhile(TSNode node) {
+        Statement body = (Statement) parseTSNode(node.getChildByFieldName("body"));
+        Expression condition = (Expression) parseTSNode(node.getChildByFieldName("condition"));
+        if (condition instanceof ParenthesizedExpression parenthesizedExpression) {
+            condition = parenthesizedExpression.getExpression();
+        }
+        return new DoWhileLoop(condition, body);
     }
 
     private LoopType getLoopType(TSNode node) {

@@ -153,6 +153,7 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(RangeForLoop.class, this::toStringRangeForLoop);
         registerRenderer(GeneralForLoop.class, this::toStringGeneralForLoop);
         registerRenderer(WhileLoop.class, this::toStringWhileLoop);
+        registerRenderer(DoWhileLoop.class, this::toStringDoWhileLoop);
         registerRenderer(InfiniteLoop.class, this::toStringInfiniteLoop);
         registerRenderer(SwitchStatement.class, this::toStringSwitchStatement);
         registerRenderer(FunctionDefinition.class, this::toStringFunctionDefinition);
@@ -680,6 +681,21 @@ public class CppViewer extends LanguageViewer {
             decreaseIndentLevel();
             return result;
         }
+    }
+
+    private String toStringDoWhileLoop(DoWhileLoop doWhileLoop) {
+        String header = "do";
+        Statement body = doWhileLoop.getBody();
+        String condition = "while (" + toString(doWhileLoop.getCondition()) + ");";
+
+        if (body instanceof CompoundStatement compoundStatement) {
+            return header + (_openBracketOnSameLine ? " " : "\n") + toString(compoundStatement) + " " + condition;
+        }
+
+        increaseIndentLevel();
+        String renderedBody = indent(toString(body));
+        decreaseIndentLevel();
+        return header + "\n" + renderedBody + "\n" + indent(condition);
     }
 
     private String toStringShape(Shape shape) {

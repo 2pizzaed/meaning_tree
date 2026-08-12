@@ -990,6 +990,21 @@ group: SimpleStatements
             int a = 3, b = 45;
 
 
+    case: ChainedAssignment
+        main python:
+            a = b = 1
+
+        java:
+            int a;
+            int b;
+            a = b = 1;
+
+        c++:
+            int a;
+            int b;
+            a = b = 1;
+
+
 group: Conditions
     case: IfElseCompound
         python:

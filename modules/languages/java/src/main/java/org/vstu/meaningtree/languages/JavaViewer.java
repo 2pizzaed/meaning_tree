@@ -49,6 +49,7 @@ import org.vstu.meaningtree.nodes.statements.EmptyStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.ReturnStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.ListUnpackingAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
@@ -111,6 +112,7 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(SetLiteral.class, this::toStringSetLiteral);
         registerRenderer(DictionaryLiteral.class, this::toStringDictionaryLiteral);
         registerRenderer(MultipleAssignmentStatement.class, this::toStringMultipleAssignmentStatement);
+        registerRenderer(ChainedAssignmentStatement.class, this::toStringChainedAssignmentStatement);
         registerRenderer(PlainCollectionLiteral.class, this::toStringPlainCollectionLiteral);
         registerRenderer(InterpolatedStringLiteral.class, this::toStringInterpolatedStringLiteral);
         registerRenderer(FloatLiteral.class, this::toStringFloatLiteral);
@@ -1910,6 +1912,20 @@ public class JavaViewer extends LanguageViewer {
         }
 
         return builder.toString();
+    }
+
+    private String toStringChainedAssignmentStatement(ChainedAssignmentStatement statement) {
+        String assignments = statement.getTargets().stream()
+                .map(this::toString)
+                .collect(Collectors.joining(" = "))
+                + " = " + toString(statement.getValue()) + ";";
+        if (statement.getVariableDeclarations().isEmpty()) {
+            return assignments;
+        }
+        String declarations = statement.getVariableDeclarations().stream()
+                .map(this::toString)
+                .collect(Collectors.joining("\n"));
+        return declarations + "\n" + assignments;
     }
 
     private String getForRangeUpdate(RangeForLoop forRangeLoop) {

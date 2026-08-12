@@ -41,6 +41,7 @@ import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.modules.*;
 import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.ListUnpackingAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
@@ -132,6 +133,7 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(CommaExpression.class, (node, tab) -> String.join(", ", node.getExpressions().stream().map(this::toString).toList().toArray(new String[0])));
         registerTabRenderer(ExpressionSequence.class, (node, tab) -> String.join(", ", node.getExpressions().stream().map(this::toString).toList().toArray(new String[0])));
         registerTabRenderer(MultipleAssignmentStatement.class, (node, tab) -> assignmentToString(node));
+        registerTabRenderer(ChainedAssignmentStatement.class, (node, tab) -> chainedAssignmentToString(node));
         registerTabRenderer(CastTypeExpression.class, (node, tab) -> callsToString(node));
         registerTabRenderer(Comprehension.class, (node, tab) -> comprehensionToString(node));
         registerTabRenderer(EmptyStatement.class, (node, tab) -> emptyStatementToString(node));
@@ -462,6 +464,11 @@ public class PythonViewer extends LanguageViewer {
         builder.append(' ');
         builder.append(rvalues.stream().map(this::toString).collect(Collectors.joining(", ")));
         return builder.toString();
+    }
+
+    private String chainedAssignmentToString(ChainedAssignmentStatement statement) {
+        String targets = statement.getTargets().stream().map(this::toString).collect(Collectors.joining(" = "));
+        return targets + " = " + toString(statement.getValue());
     }
 
     private String entryPointToString(ProgramEntryPoint programEntryPoint, Tab tab) {

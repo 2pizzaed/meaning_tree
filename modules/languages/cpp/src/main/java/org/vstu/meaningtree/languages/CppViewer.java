@@ -50,6 +50,7 @@ import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
 import org.vstu.meaningtree.nodes.memory.MemoryFreeCall;
 import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.ListUnpackingAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
@@ -146,6 +147,7 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(Comment.class, this::toStringComment);
         registerRenderer(InterpolatedStringLiteral.class, this::fromInterpolatedString);
         registerRenderer(MultipleAssignmentStatement.class, this::fromMultipleAssignmentStatement);
+        registerRenderer(ChainedAssignmentStatement.class, this::toStringChainedAssignmentStatement);
         registerRenderer(IfStatement.class, this::toStringIfStatement);
         registerRenderer(CompoundStatement.class, this::toStringCompoundStatement);
         registerRenderer(RangeForLoop.class, this::toStringRangeForLoop);
@@ -1054,6 +1056,20 @@ public class CppViewer extends LanguageViewer {
             builder.append("\n");
         }
         return builder.substring(0, builder.length() - 1);
+    }
+
+    private String toStringChainedAssignmentStatement(ChainedAssignmentStatement statement) {
+        String assignments = statement.getTargets().stream()
+                .map(this::toString)
+                .collect(Collectors.joining(" = "))
+                + " = " + toString(statement.getValue()) + ";";
+        if (statement.getVariableDeclarations().isEmpty()) {
+            return assignments;
+        }
+        String declarations = statement.getVariableDeclarations().stream()
+                .map(this::toString)
+                .collect(Collectors.joining("\n"));
+        return declarations + "\n" + assignments;
     }
 
     private String toStringCompoundComparison(CompoundComparison cmpCmp) {

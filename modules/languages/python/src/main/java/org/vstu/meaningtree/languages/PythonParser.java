@@ -37,6 +37,7 @@ import org.vstu.meaningtree.nodes.io.PrintValues;
 import org.vstu.meaningtree.nodes.modules.*;
 import org.vstu.meaningtree.nodes.statements.*;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.ListUnpackingAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
@@ -941,6 +942,11 @@ public class PythonParser extends LanguageParser {
     }
 
     private Node fromAssignmentStatementTSNode(TSNode node) {
+        if (node.getType().equals("assignment")
+                && node.getChildByFieldName("right").getType().equals("assignment")) {
+            return fromChainedAssignmentStatementTSNode(node);
+        }
+
         TSNode operator = node.getChildByFieldName("left").getNextSibling();
         AugmentedAssignmentOperator augOp;
         switch (getCodePiece(operator)) {
@@ -1082,6 +1088,31 @@ public class PythonParser extends LanguageParser {
         }
 
         return new AssignmentStatement(leftExpr, rightExpr, augOp);
+    }
+
+    private ChainedAssignmentStatement fromChainedAssignmentStatementTSNode(TSNode node) {
+        List<Expression> targets = new ArrayList<>();
+        TSNode current = node;
+        while (current.getType().equals("assignment")) {
+            targets.add((Expression) parseTSNode(current.getChildByFieldName("left")));
+            current = current.getChildByFieldName("right");
+        }
+
+        Expression value = (Expression) parseTSNode(current);
+        Type valueType = ctx.inferType(value);
+        List<VariableDeclaration> declarations = new ArrayList<>();
+        for (Expression target : targets) {
+            if (target instanceof SimpleIdentifier identifier
+                    && ctx.getScopeTable().getVariableType(identifier) == null) {
+                ctx.getScopeTable().changeVariableType(identifier, valueType);
+                declarations.add(new VariableDeclaration(
+                        (Type) valueType.freshClone(),
+                        (SimpleIdentifier) identifier.freshClone()
+                ));
+            }
+        }
+
+        return new ChainedAssignmentStatement(targets, value, declarations);
     }
 
     private Node fromList(TSNode node, String type) {

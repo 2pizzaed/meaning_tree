@@ -64,10 +64,7 @@ import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator.POW;
@@ -80,7 +77,16 @@ public class JavaViewer extends LanguageViewer {
     private final boolean _bracketsAroundCaseBranches;
     private final boolean _autoVariableDeclaration;
 
-    private Type _methodReturnType = null;
+    /**
+     * Признак «мы внутри синтетического {@code void main}», который {@link #makeSimpleProgram}
+     * печатает текстом.
+     * <p>
+     * Настоящий объемлющий метод спрашивается у контекста разбора
+     * ({@code ctx.getEnclosingNode(MethodDefinition.class)}), но синтетического main нет в
+     * дереве — на стеке кадров его узла не существует, поэтому здесь флаг законен: вопрос не
+     * про предков в дереве.
+     */
+    private static final String SYNTHETIC_VOID_MAIN = "javaSyntheticVoidMain";
 
     public JavaViewer(LanguageTranslator translator, int indentSpaceCount,
                       boolean openBracketOnSameLine,
@@ -788,8 +794,25 @@ public class JavaViewer extends LanguageViewer {
         return "(%s) %s".formatted(castType, value);
     }
 
+    /**
+     * Возвращает ли объемлющий метод {@code void}.
+     * <p>
+     * Порядок проверок существенный. Синтетический main — это <b>самый внешний</b> контекст:
+     * узла в дереве у него нет, и он объемлет всё, что печатается внутри него. Поэтому флаг
+     * спрашивается последним — любое настоящее определение метода на стеке кадров ближе, и
+     * отвечать должно оно. Проверь флаг первым — и {@code return x;} внутри метода
+     * анонимного класса, объявленного в теле main, схлопнется в {@code return;}.
+     */
+    private boolean isInVoidMethod() {
+        Optional<MethodDefinition> enclosing = ctx.getEnclosingNode(MethodDefinition.class);
+        if (enclosing.isPresent()) {
+            return enclosing.get().getDeclaration().getReturnType() instanceof NoReturn;
+        }
+        return ctx.getFlag(SYNTHETIC_VOID_MAIN).orElse(false);
+    }
+
     private String toStringReturnStatement(ReturnStatement returnStatement) {
-        if (_methodReturnType instanceof NoReturn)
+        if (isInVoidMethod())
             return "return;";
 
         Expression expression = returnStatement.getExpression();
@@ -1113,9 +1136,6 @@ public class JavaViewer extends LanguageViewer {
     private String toStringMethodDefinition(MethodDefinition methodDefinition) {
         StringBuilder builder = new StringBuilder();
 
-        // Нужен для отслеживания необходимости в return
-        _methodReturnType = methodDefinition.getDeclaration().getReturnType();
-
         // Преобразование типа нужно, чтобы избежать вызова toString(Node node)
         String methodDeclaration = toString(methodDefinition.getDeclaration());
         builder.append(methodDeclaration);
@@ -1125,8 +1145,6 @@ public class JavaViewer extends LanguageViewer {
             { builder.append(" ").append(body).append("\n"); }
         else
             { builder.append("\n").append(indent(body)).append("\n"); }
-
-        _methodReturnType = null;
 
         return builder.toString();
     }
@@ -1986,12 +2004,31 @@ public class JavaViewer extends LanguageViewer {
         return builder.toString();
     }
 
+    /**
+     * Имя класса, в который {@link #makeSimpleProgram} заворачивает программу без главного
+     * класса. Класс существует только в выводе: узла у него нет, поэтому и владельца его
+     * методов приходится собирать здесь — см. {@link #simpleProgramOwner()}.
+     */
+    private static final String SIMPLE_PROGRAM_CLASS_NAME = "Main";
+
+    /**
+     * Владелец методов синтетического класса.
+     * <p>
+     * Раньше сюда передавался {@code null}, и {@code FunctionDefinition.makeMethod} падал на
+     * {@code owner.freshClone()} — то есть {@link #makeSimpleProgram} ломался на любой
+     * функции верхнего уровня, а ветка с {@code mainMethod != null} была недостижима вовсе.
+     */
+    private UserType simpleProgramOwner() {
+        return new org.vstu.meaningtree.nodes.types.user.Class(
+                new SimpleIdentifier(SIMPLE_PROGRAM_CLASS_NAME));
+    }
+
     private String makeSimpleProgram(List<Node> nodes) {
         StringBuilder builder = new StringBuilder();
 
         builder.append("package main;\n\n");
 
-        builder.append("public class Main {\n\n");
+        builder.append("public class %s {\n\n".formatted(SIMPLE_PROGRAM_CLASS_NAME));
         increaseIndentLevel();
 
         var mainMethod = getMainMethod(nodes);
@@ -2008,16 +2045,17 @@ public class JavaViewer extends LanguageViewer {
             // Вставляем mainMethod (с уже добавленными не-методами)
             // Вставляем фиксированный main
             builder.append(indent("public static void main(String[] args) {\n"));
-            _methodReturnType = new NoReturn();
+            ctx.set(SYNTHETIC_VOID_MAIN, true);
             increaseIndentLevel();
-
-            var constructor = ctx.viewingIterateBody(mainBody);
-            for (var node : constructor) {
-                constructor.appendString(indent(toString(node)));
+            try {
+                var constructor = ctx.viewingIterateBody(mainBody);
+                for (var node : constructor) {
+                    constructor.appendString(indent(toString(node)));
+                }
+                builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            } finally {
+                ctx.remove(SYNTHETIC_VOID_MAIN);
             }
-            builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
-
-            _methodReturnType = null;
 
             decreaseIndentLevel();
             builder.append(indent("}\n"));
@@ -2056,7 +2094,7 @@ public class JavaViewer extends LanguageViewer {
             if (node instanceof FunctionDefinition functionDefinition
                     && functionDefinition.getName().toString().equals("main")) {
                 return functionDefinition.makeMethod(
-                        null,
+                        simpleProgramOwner(),
                         List.of(DeclarationModifier.PUBLIC, DeclarationModifier.STATIC)
                 );
             }
@@ -2073,7 +2111,7 @@ public class JavaViewer extends LanguageViewer {
                     && !functionDefinition.getName().toString().equals("main")) {
                 methods.add(
                         functionDefinition.makeMethod(
-                                null,
+                                simpleProgramOwner(),
                                 List.of(DeclarationModifier.PUBLIC)
                         )
                 );

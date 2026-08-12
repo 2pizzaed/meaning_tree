@@ -169,11 +169,14 @@ public class PythonViewer extends LanguageViewer {
         return builder.toString();
     }
 
+    /**
+     * Второй путь диспетчеризации — с отступом. Идёт через {@link #renderPrepared}, иначе
+     * узлы, отрендеренные этим путём (в Python — почти всё дерево), не попадут в стек кадров
+     * и {@code ctx.isInNode(...)} начнёт врать.
+     */
     public String toString(Node node, Tab tab) {
         Node preparedNode = applyPreRenderPreparations(node);
-        String result = dispatchRenderer(preparedNode, tab);
-        result = this.applyHooks(preparedNode, result);
-        return result;
+        return renderPrepared(preparedNode, tab);
     }
 
     private String emptyStatementToString(EmptyStatement emptyStatement) {

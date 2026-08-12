@@ -241,14 +241,45 @@ abstract public class LanguageViewer extends TranslatorComponent {
         return analyzeSupport(tree, true);
     }
 
+    /**
+     * Единственная точка диспетчеризации рендеринга — через неё проходит каждый узел.
+     * Поэтому именно здесь ведётся стек кадров ({@link TranslatorContext#callFrames()}):
+     * {@code try/finally} гарантирует, что контекст не протечёт при исключении.
+     * <p>
+     * В кадр кладётся {@code preparedNode} (после {@link HookPhase#BEFORE_NODE_RENDER}), а не
+     * исходный узел: иначе после подмены узла подготовкой идентичность разъедется и
+     * {@link TranslatorContext#depthOf(Node)} начнёт врать. По типу разницы нет.
+     */
     public final String toString(Node node) {
         Objects.requireNonNull(node);
         Node preparedNode = applyPreRenderPreparations(node);
         if (preparedNode.hasLabel(Label.DUMMY)) {
             return "";
         }
-        String result = dispatchRenderer(preparedNode);
-        return applyHooks(preparedNode, result);
+        return renderPrepared(preparedNode, null);
+    }
+
+    /**
+     * Рендеринг уже подготовленного узла с ведением стека кадров.
+     * <p>
+     * Через этот метод обязан проходить <b>каждый</b> путь диспетчеризации: у языка их может
+     * быть больше одного (например, {@code PythonViewer} диспетчеризует с контекстом-отступом),
+     * и путь в обход стека делает контекст разбора неполным — узел не увидят ни
+     * {@link TranslatorContext#isInNode}, ни {@link TranslatorContext#getEnclosingNode}.
+     *
+     * @param preparedNode узел <b>после</b> {@link HookPhase#BEFORE_NODE_RENDER}: именно он
+     *                     кладётся в кадр, иначе после подмены узла подготовкой идентичность
+     *                     разъедется и {@link TranslatorContext#depthOf(Node)} начнёт врать
+     * @param context      контекст рендерера или {@code null}
+     */
+    protected final String renderPrepared(Node preparedNode, Object context) {
+        Objects.requireNonNull(preparedNode, "preparedNode must not be null");
+        ctx.enterNode(preparedNode);
+        try {
+            return applyHooks(preparedNode, dispatchRenderer(preparedNode, context));
+        } finally {
+            ctx.leaveFrame();
+        }
     }
 
     public abstract OperatorToken mapToToken(Expression expr);

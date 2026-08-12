@@ -2,6 +2,7 @@ package org.vstu.meaningtree.languages;
 
 import org.vstu.meaningtree.languages.configs.Config;
 import org.vstu.meaningtree.languages.configs.ConfigParameter;
+import org.vstu.meaningtree.utils.frames.FrameStack;
 import org.vstu.meaningtree.utils.hooks.HookHost;
 import org.vstu.meaningtree.utils.hooks.HookRegistry;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
@@ -49,6 +50,11 @@ public abstract class TranslatorComponent implements HookHost {
     @Override
     public ScopeTable hookScope() {
         return ctx.getScopeTable();
+    }
+
+    @Override
+    public FrameStack hookFrames() {
+        return ctx.callFrames();
     }
 
     @Override

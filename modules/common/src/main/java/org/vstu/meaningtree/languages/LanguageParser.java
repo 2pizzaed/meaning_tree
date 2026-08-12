@@ -32,7 +32,23 @@ abstract public class LanguageParser extends TranslatorComponent {
     protected TSLanguage _tsLanguage;
     private TSTree _tsTreeCache = null;
 
-    private final Map<String, Function<TSNode, Node>> tsNodeHandlers = new LinkedHashMap<>();
+    /**
+     * Обработчик узла tree-sitter вместе с типом узла, который он строит.
+     * <p>
+     * Тип объявляется в точке регистрации, а не выводится из сигнатуры метода: только так он
+     * проверяется компилятором и виден там, где на него смотрят. Неточные объявления
+     * допускаются осознанно — полиморфный handler объявляет ближайшего общего предка
+     * ({@code Expression}, в крайнем случае {@code Node}); тогда запросы к контексту разбора
+     * загрубляются до этого предка (см. {@link FrameStack#nearestFrame}).
+     */
+    protected record HandlerEntry(Class<? extends Node> produces, Function<TSNode, Node> handler) {
+        public HandlerEntry {
+            Objects.requireNonNull(produces, "produces must not be null");
+            Objects.requireNonNull(handler, "handler must not be null");
+        }
+    }
+
+    private final Map<String, HandlerEntry> tsNodeHandlers = new LinkedHashMap<>();
     private final LoopIterationAnalyzer loopIterationAnalyzer = new LoopIterationAnalyzer();
 
     public LanguageParser(LanguageTranslator translator, TSLanguage language) {
@@ -163,46 +179,59 @@ abstract public class LanguageParser extends TranslatorComponent {
         }
     }
 
+    /**
+     * Единственная точка диспетчеризации разбора — через неё проходит каждый узел tree-sitter.
+     * Поэтому именно здесь ведётся стек кадров ({@link TranslatorContext#callFrames()}):
+     * {@code try/finally} гарантирует, что контекст не протечёт при исключении.
+     * <p>
+     * Тип узла известен <b>до</b> вызова handler'а — он объявлен при регистрации; сам
+     * построенный узел появляется в кадре перед снятием, поэтому его видят хуки
+     * {@link HookPhase#AFTER_NODE_PARSE}, но не дети (на спуске узла ещё не существует).
+     */
     protected final Node parseTSNode(TSNode node) {
         if (node.isNull()) {
             return null;
         }
-        Optional<Node> fromRegistry = parseWithRegistry(node);
-        if (fromRegistry.isPresent()) {
-            Node parsed = fromRegistry.get();
+        HandlerEntry entry = tsNodeHandlers.get(node.getType());
+        if (entry == null) {
+            throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));
+        }
+        ctx.enterSource(node, entry.produces());
+        try {
+            Node parsed = entry.handler().apply(node);
+            if (parsed == null) {
+                // Сохраняем прежнее поведение: handler, вернувший null, означает «не разобрал»
+                throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));
+            }
             Node createdNode = hooks.run(HookPhase.AFTER_NODE_PARSE, parsed, parsed, node);
+            ctx.completeFrame(createdNode);
             matchParserNodes(node, createdNode);
             return createdNode;
+        } finally {
+            ctx.leaveFrame();
         }
-        throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));
     }
 
-    protected final void registerTSNodeHandler(String tsNodeType, Function<TSNode, Node> handler) {
+    /**
+     * @param produces тип узла, который строит handler. Объявляется обязательно: на нём
+     *                 построен контекст разбора (см. {@link HandlerEntry}).
+     */
+    protected final void registerTSNodeHandler(String tsNodeType, Class<? extends Node> produces,
+                                               Function<TSNode, Node> handler) {
         Objects.requireNonNull(tsNodeType, "tsNodeType must not be null");
-        Objects.requireNonNull(handler, "handler must not be null");
-        tsNodeHandlers.put(tsNodeType, handler);
+        tsNodeHandlers.put(tsNodeType, new HandlerEntry(produces, handler));
     }
 
-    protected final void registerTSNodeHandler(Collection<String> tsNodeTypes, Function<TSNode, Node> handler) {
+    protected final void registerTSNodeHandler(Collection<String> tsNodeTypes, Class<? extends Node> produces,
+                                               Function<TSNode, Node> handler) {
         Objects.requireNonNull(tsNodeTypes, "tsNodeTypes must not be null");
         for (String tsNodeType : tsNodeTypes) {
-            registerTSNodeHandler(tsNodeType, handler);
+            registerTSNodeHandler(tsNodeType, produces, handler);
         }
     }
 
-    protected final Optional<Function<TSNode, Node>> resolveTsNodeHandler(String tsNodeType) {
+    protected final Optional<HandlerEntry> resolveTsNodeHandler(String tsNodeType) {
         return Optional.ofNullable(tsNodeHandlers.get(tsNodeType));
-    }
-
-    protected final Optional<Node> parseWithRegistry(TSNode node) {
-        if (node == null || node.isNull()) {
-            return Optional.empty();
-        }
-        Function<TSNode, Node> handler = tsNodeHandlers.get(node.getType());
-        if (handler == null) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(handler.apply(node));
     }
 
     public final boolean supportsTSNodeType(String tsNodeType) {

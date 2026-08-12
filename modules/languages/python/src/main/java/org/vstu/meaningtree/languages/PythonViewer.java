@@ -499,8 +499,11 @@ public class PythonViewer extends LanguageViewer {
         }
         List<Node> nodes = new ArrayList<>(programEntryPoint.getBody());
         if (omitEntryPointInNonFullMode && entryPointFunction != null && canFlattenEntryPointFunction(entryPointFunction)) {
-            nodes.remove(entryPointFunction);
-            nodes.addAll(entryPointFunction.getBody().getNodeList());
+            long entryPointId = entryPointFunction.getId();
+            boolean entryPointWasInBody = nodes.removeIf(node -> node.getId() == entryPointId);
+            if (entryPointWasInBody) {
+                nodes.addAll(entryPointFunction.getBody().getNodeList());
+            }
         }
         if (!getConfigParameter("translationUnitMode").equalsValue("full") && entryPointIf != null && !omitEntryPointInNonFullMode) {
             Statement body = entryPointIf.getBranches().getFirst().getBody();

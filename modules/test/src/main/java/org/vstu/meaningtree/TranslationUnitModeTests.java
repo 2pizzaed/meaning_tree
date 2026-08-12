@@ -373,6 +373,23 @@ public class TranslationUnitModeTests {
     }
 
     @Test
+    void pythonSimpleDoesNotDuplicateAlreadyFlattenedForeignEntryPoint() {
+        String javaCode = new PythonTranslator(SIMPLE_CONFIG).getCode(
+                new JavaTranslator(SIMPLE_CONFIG).getMeaningTree(
+                        "class Main { public static void main(String[] args) { int s = 0; s++; } }"
+                )
+        );
+        assertEquals("s: int = 0\ns += 1", javaCode.strip());
+
+        String cppCode = new PythonTranslator(SIMPLE_CONFIG).getCode(
+                new CppTranslator(SIMPLE_CONFIG).getMeaningTree(
+                        "int main() { int s = 0; s++; }"
+                )
+        );
+        assertEquals("s: int = 0\ns += 1", cppCode.strip());
+    }
+
+    @Test
     void simpleModeKeepsCodeWithoutEntryPointAsIs() {
         String javaCode = new JavaTranslator(SIMPLE_CONFIG).getCode(
                 new JavaTranslator(SIMPLE_CONFIG).getMeaningTree(JAVA_WITHOUT_ENTRY_POINT));

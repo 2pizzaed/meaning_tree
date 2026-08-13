@@ -1159,7 +1159,10 @@ public class CppViewer extends LanguageViewer {
         } else if (_new instanceof PlacementNewExpression placementNew) {
             return String.format("new(%s) %s", toStringArguments(placementNew.getConstructorArguments()), toString(placementNew.getType()));
         } else if (_new instanceof ObjectNewExpression objectNew) {
-            return String.format("new %s(%s)", toString(objectNew.getType()), toStringArguments(objectNew.getConstructorArguments()));
+            // Объект на стеке — это временный объект, а не выделение памяти: Box(1)
+            String allocation = objectNew.isStackAllocated() ? "" : "new ";
+            return String.format("%s%s(%s)", allocation, toString(objectNew.getType()),
+                    toStringArguments(objectNew.getConstructorArguments()));
         } else {
             throw new UnsupportedViewingException("Unknown new expression");
         }
@@ -1316,6 +1319,17 @@ public class CppViewer extends LanguageViewer {
         Expression rValue = variableDeclarator.getRValue();
         if (rValue == null) {
             return variableName.concat(arrayDeclarator);
+        }
+
+        // Объект на стеке конструируется прямо в объявлении: Box a(1)
+        if (rValue instanceof ObjectNewExpression objectNew
+                && objectNew.isStackAllocated()
+                && !(rValue instanceof PlacementNewExpression)) {
+            if (objectNew.getConstructorArguments().isEmpty()) {
+                return variableName.concat(arrayDeclarator);
+            }
+            return "%s%s(%s)".formatted(variableName, arrayDeclarator,
+                    toStringArguments(objectNew.getConstructorArguments()));
         }
 
         return "%s%s = %s".formatted(variableName, arrayDeclarator, toString(rValue));

@@ -1371,6 +1371,20 @@ public class CppParser extends LanguageParser {
         return declarator.getNamedChild(declarator.getNamedChildCount() - 1);
     }
 
+    /**
+     * Явная инициализация объекта на стеке: Box a(1). Конструктор вызывается прямо в объявлении,
+     * поэтому у объявителя вместо значения стоит список аргументов.
+     */
+    private ObjectNewExpression fromStackAllocation(@NotNull TSNode argumentList, Type type) {
+        List<Expression> arguments = new ArrayList<>();
+        for (int i = 0; i < argumentList.getNamedChildCount(); i++) {
+            arguments.add((Expression) parseTSNode(argumentList.getNamedChild(i)));
+        }
+        var expression = new ObjectNewExpression((Type) type.freshClone(), arguments);
+        expression.setStackAllocated(true);
+        return expression;
+    }
+
     //has size effects
     private VariableDeclaration fromDeclarator(@NotNull TSNode tsDeclarator, Type mainType) {
         if (tsDeclarator.getType().equals("type_qualifier") && getCodePiece(tsDeclarator).equals("const")) {
@@ -1414,7 +1428,9 @@ public class CppParser extends LanguageParser {
             TSNode tsValue = tsDeclarator.getChildByFieldName("value");
 
             SimpleIdentifier variableName = (SimpleIdentifier) parseTSNode(tsVariableName);
-            Expression value = (Expression) parseTSNode(tsValue);
+            Expression value = tsValue.getType().equals("argument_list")
+                    ? fromStackAllocation(tsValue, type)
+                    : (Expression) parseTSNode(tsValue);
             if (value instanceof PlainCollectionLiteral col) {
                 if (mainType instanceof PlainCollectionType arrayType) {
                     col.setTypeHint((Type) arrayType.getItemType().freshClone());

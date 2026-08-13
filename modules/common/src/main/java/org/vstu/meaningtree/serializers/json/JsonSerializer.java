@@ -1867,6 +1867,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray targets = new JsonArray();
         for (var t : expr.getConstructorArguments()) targets.add(serialize(t));
         json.add("arguments", targets);
+        json.addProperty("is_stack_allocated", expr.isStackAllocated());
         return json;
     }
 
@@ -1877,6 +1878,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("target_type", serialize(expr.getType()));
         json.add("shape", serialize(expr.getShape()));
         json.add("initializer", expr.getInitializer() != null ? serialize(expr.getInitializer()) : null);
+        json.addProperty("is_stack_allocated", expr.isStackAllocated());
         return json;
     }
 
@@ -1925,6 +1927,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray targets = new JsonArray();
         for (var t : expr.getConstructorArguments()) targets.add(serialize(t));
         json.add("arguments", targets);
+        json.addProperty("is_stack_allocated", expr.isStackAllocated());
         return json;
     }
 

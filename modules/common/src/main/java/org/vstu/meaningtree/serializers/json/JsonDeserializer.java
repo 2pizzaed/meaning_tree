@@ -33,6 +33,7 @@ import org.vstu.meaningtree.nodes.expressions.literals.*;
 import org.vstu.meaningtree.nodes.expressions.logical.*;
 import org.vstu.meaningtree.nodes.expressions.math.*;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ArrayNewExpression;
+import org.vstu.meaningtree.nodes.expressions.newexpr.NewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.PlacementNewExpression;
 import org.vstu.meaningtree.nodes.expressions.other.*;
@@ -798,14 +799,14 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             case "delete_expression" -> new DeleteExpression(
                     deserializeExpression(json.getAsJsonObject("expr"))
             );
-            case "object_new_expression" -> new ObjectNewExpression(
+            case "object_new_expression" -> restoreStackAllocation(new ObjectNewExpression(
                     (Type) deserialize(json.getAsJsonObject("target_type")),
                     deserializeExpressionList(json.getAsJsonArray("arguments"))
-            );
-            case "placement_new_expression" -> new PlacementNewExpression(
+            ), json);
+            case "placement_new_expression" -> restoreStackAllocation(new PlacementNewExpression(
                     (Type) deserialize(json.getAsJsonObject("target_type")),
                     deserializeExpressionList(json.getAsJsonArray("arguments"))
-            );
+            ), json);
             case "pointer_member_access" -> new PointerMemberAccess(
                     deserializeExpression(json.getAsJsonObject("expression")),
                     (SimpleIdentifier) deserialize(json.getAsJsonObject("member"))
@@ -1226,7 +1227,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 ArrayInitializer initializer = json.has("initializer") && !json.get("initializer").isJsonNull()
                         ? (ArrayInitializer) deserialize(json.getAsJsonObject("initializer"))
                         : null;
-                yield new ArrayNewExpression(targetType, shape, initializer);
+                yield restoreStackAllocation(new ArrayNewExpression(targetType, shape, initializer), json);
             }
             case "string_format" -> {
                 Expression template = deserializeExpression(json.getAsJsonObject("template"));
@@ -1406,6 +1407,13 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
 
     private Expression deserializeExpression(JsonObject json) {
         return (Expression) deserialize(json);
+    }
+
+    private NewExpression restoreStackAllocation(NewExpression expression, JsonObject json) {
+        if (json.has("is_stack_allocated")) {
+            expression.setStackAllocated(json.get("is_stack_allocated").getAsBoolean());
+        }
+        return expression;
     }
 
     private List<Expression> deserializeExpressionList(JsonArray array) {

@@ -345,6 +345,11 @@ public class JSONSerializerTests {
                 int* p = new int(5);
                 delete p;
                 """);
+        cpp(snippets, "stack_allocation", """
+                Box a(1);
+                Box b(1, 2 + 3);
+                Box* c = new Box(1);
+                """);
         snippets.add(new Snippet("c++", "functions", """
                 int add(int a, int b) {
                     return a + b;

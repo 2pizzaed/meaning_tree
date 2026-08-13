@@ -9,6 +9,12 @@ import java.util.Objects;
 public abstract class NewExpression extends Expression {
     @TreeNode protected Type type;
 
+    /**
+     * Объект создаётся на стеке, а не в динамической памяти: C++ Box a(1) вместо new Box(1).
+     * Признак значим только для языков с ручным управлением памятью, остальные его игнорируют.
+     */
+    private boolean stackAllocated = false;
+
     protected NewExpression(Type type) {
         this.type = type;
     }
@@ -17,17 +23,26 @@ public abstract class NewExpression extends Expression {
         return type;
     }
 
+    public boolean isStackAllocated() {
+        return stackAllocated;
+    }
+
+    public NewExpression setStackAllocated(boolean stackAllocated) {
+        this.stackAllocated = stackAllocated;
+        return this;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         NewExpression that = (NewExpression) o;
-        return Objects.equals(type, that.type);
+        return stackAllocated == that.stackAllocated && Objects.equals(type, that.type);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), type);
+        return Objects.hash(super.hashCode(), type, stackAllocated);
     }
 
     @Override

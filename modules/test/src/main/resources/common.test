@@ -828,6 +828,19 @@ group: SimpleStatements
         c++:
             int a = 456;
 
+    case: StackAllocatedObjectDeclaration
+        main c++:
+            Box a(1);
+            Box b(1, x + 2);
+
+        java:
+            Box a = new Box(1);
+            Box b = new Box(1, x + 2);
+
+        python:
+            a: Box = Box(1)
+            b: Box = Box(1, x + 2)
+
 
     case: LocalVariableInference
         main c++:

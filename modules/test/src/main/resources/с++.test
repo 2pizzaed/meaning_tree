@@ -336,6 +336,17 @@ group: OtherExpression
         c++:
             new MyClass(a, b, c);
 
+    case: StackAllocatedObject
+        c++:
+            Box a(1);
+            Box b(1, x + 2);
+            std::string s("abc");
+
+        c++:
+            Box a(1);
+            Box b(1, x + 2);
+            std::string s("abc");
+
     case: FunctionCall
         c++:
             func(a, b, 1234, 4556);

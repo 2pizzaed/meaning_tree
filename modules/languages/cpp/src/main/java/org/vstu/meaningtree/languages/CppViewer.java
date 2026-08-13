@@ -1205,8 +1205,13 @@ public class CppViewer extends LanguageViewer {
             }
             */
             if (arrayNew.getInitializer() != null) {
-                // newBuilder.append(' ');
-                newBuilder.append(String.format("{%s}", toStringArguments(arrayNew.getInitializer().getValues())));
+                if (shouldUseHeapAllocation(arrayNew)) {
+                    newBuilder.append("new ");
+                    newBuilder.append(toString(arrayNew.getType()));
+                    newBuilder.append(toString(arrayNew.getShape()));
+                    newBuilder.append(' ');
+                }
+                newBuilder.append("{%s}".formatted(toStringArguments(arrayNew.getInitializer().getValues())));
             } else {
                 newBuilder.append("new ");
                 newBuilder.append(toString(arrayNew.getType()));
@@ -1361,10 +1366,16 @@ public class CppViewer extends LanguageViewer {
 
     @NotNull
     private String toStringVariableDeclarator(@NotNull VariableDeclarator variableDeclarator, Type type) {
+        return toStringVariableDeclarator(variableDeclarator, type, false);
+    }
+
+    @NotNull
+    private String toStringVariableDeclarator(@NotNull VariableDeclarator variableDeclarator, Type type,
+                                              boolean useHeapArrayAllocation) {
         String variableName = toString(variableDeclarator.getIdentifier());
 
         String arrayDeclarator = "";
-        if (type instanceof ArrayType array) {
+        if (!useHeapArrayAllocation && type instanceof ArrayType array) {
             StringBuilder builder = new StringBuilder();
             for (Expression expr : array.getShape().getDimensions()) {
                 if (expr != null) {
@@ -1381,7 +1392,7 @@ public class CppViewer extends LanguageViewer {
             return variableName.concat(arrayDeclarator);
         }
 
-        if (type instanceof ArrayType && rValue instanceof ArrayNewExpression arrayNew
+        if (!useHeapArrayAllocation && type instanceof ArrayType && rValue instanceof ArrayNewExpression arrayNew
                 && arrayNew.getInitializer() == null) {
             return variableName.concat(toString(arrayNew.getShape()));
         }
@@ -1405,8 +1416,9 @@ public class CppViewer extends LanguageViewer {
         StringBuilder builder = new StringBuilder();
 
         Type declarationType = variableDeclaration.getType();
-        String type = toString(declarationType);
-        if (declarationType instanceof ArrayType array) {
+        boolean useHeapArrayAllocation = usesHeapArrayAllocation(variableDeclaration);
+        String type = useHeapArrayAllocation ? "auto*" : toString(declarationType);
+        if (!useHeapArrayAllocation && declarationType instanceof ArrayType array) {
             type = toString(array.getItemType());
         }
         builder
@@ -1414,7 +1426,7 @@ public class CppViewer extends LanguageViewer {
                 .append(" ");
 
         for (VariableDeclarator variableDeclarator : variableDeclaration.getDeclarators()) {
-            builder.append(toStringVariableDeclarator(variableDeclarator, declarationType)).append(", ");
+            builder.append(toStringVariableDeclarator(variableDeclarator, declarationType, useHeapArrayAllocation)).append(", ");
         }
         // Чтобы избежать лишней головной боли на проверки "а последняя ли это декларация",
         // я автоматически после каждой декларации добавляю запятую и пробел,
@@ -1425,6 +1437,18 @@ public class CppViewer extends LanguageViewer {
 
         builder.append(";");
         return builder.toString();
+    }
+
+    private boolean usesHeapArrayAllocation(VariableDeclaration declaration) {
+        if (!getConfigParameter("preferHeapAlloc").asBoolean() || !(declaration.getType() instanceof ArrayType)) {
+            return false;
+        }
+        return Arrays.stream(declaration.getDeclarators()).allMatch(declarator ->
+                declarator.getRValue() instanceof ArrayNewExpression arrayNew && shouldUseHeapAllocation(arrayNew));
+    }
+
+    private boolean shouldUseHeapAllocation(NewExpression newExpression) {
+        return getConfigParameter("preferHeapAlloc").asBoolean() && !newExpression.isStackAllocated();
     }
 
     @NotNull

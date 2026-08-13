@@ -41,7 +41,8 @@ public class CppTranslator extends LanguageTranslator {
     @Override
     protected Config extendConfigParameters() {
         var cMode = ConfigParameters.registerIfNotExists(this, "preferC", new ConfigValue(false), ConfigScope.ANY);
-        return new Config(cMode);
+        var heapAllocation = ConfigParameters.registerIfNotExists(this, "preferHeapAlloc", new ConfigValue(false), ConfigScope.VIEWER);
+        return new Config(cMode, heapAllocation);
     }
 
     @Override

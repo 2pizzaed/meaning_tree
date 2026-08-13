@@ -2282,33 +2282,33 @@ group: Other
 
 
     case: ListComprehensionWithoutIf
-        python:
+        main python:
             for x in range(m):
-                if x > func([next(k) for _ in range(t)]):
+                if x > func([next(k) for _item in range(t)]):
                     print("Good")
 
         java:
-            for (int x = 0; x < m; i++) {
-                ArrayList<Object> _tmp_compreh = new ArrayList<Object>();
-                for (int _ = 0; _ < t; _++) {
-                    _tmp_compreh.add(next(k));
+            for (int x = 0; x < m; x++) {
+                java.util.ArrayList<Object> _tmp_compreh_1 = new java.util.ArrayList<Object>();
+                for (int _item = 0; _item < t; _item++) {
+                    _tmp_compreh_1.add(next(k));
                 }
-                if (x > func(_tmp_compreh)) {
-                    print("Good");
+                if (x > func(_tmp_compreh_1)) {
+                    System.out.println("Good");
                 }
             }
 
         c++:
-            for (int x = 0; x < m; i++)
+            for (int x = 0; x < m; x++)
             {
-                list<object> _tmp_compreh;
-                for (int _ = 0; _ < t; _++)
+                std::vector<object> _tmp_compreh_1;
+                for (int _item = 0; _item < t; _item++)
                 {
-                    _tmp_compreh.push_back(next(k));
+                    _tmp_compreh_1.push_back(next(k));
                 }
-                if (x > func(_tmp_compreh))
+                if (x > func(_tmp_compreh_1))
                 {
-                    print("Good");
+                    std::cout << "Good" << std::endl;
                 }
             }
 
@@ -2316,38 +2316,38 @@ group: Other
 
 
     case: ListComprehension
-        python:
+        main python:
             for x in range(m):
-                if x > func([next(k) for _ in range(t) if x > 5]):
+                if x > func([next(k) for _item in range(t) if x > 5]):
                     print("Good")
 
         java:
-            for (int x = 0; x < m; i++) {
-                ArrayList<Object> _tmp_compreh = new ArrayList<Object>();
-                for (int _ = 0; _ < t; _++) {
+            for (int x = 0; x < m; x++) {
+                java.util.ArrayList<Object> _tmp_compreh_1 = new java.util.ArrayList<Object>();
+                for (int _item = 0; _item < t; _item++) {
                     if (x > 5) {
-                        _tmp_compreh.add(next(k));
+                        _tmp_compreh_1.add(next(k));
                     }
                 }
-                if (x > func(_tmp_compreh)) {
-                    print("Good");
+                if (x > func(_tmp_compreh_1)) {
+                    System.out.println("Good");
                 }
             }
 
         c++:
-            for (int x = 0; x < m; i++)
+            for (int x = 0; x < m; x++)
             {
-                list<object> _tmp_compreh;
-                for (int _ = 0; _ < t; _++)
+                std::vector<object> _tmp_compreh_1;
+                for (int _item = 0; _item < t; _item++)
                 {
                     if (x > 5)
                     {
-                        _tmp_compreh.push_back(next(k));
+                        _tmp_compreh_1.push_back(next(k));
                     }
                 }
-                if (x > func(_tmp_compreh))
+                if (x > func(_tmp_compreh_1))
                 {
-                    print("Good");
+                    std::cout << "Good" << std::endl;
                 }
             }
 

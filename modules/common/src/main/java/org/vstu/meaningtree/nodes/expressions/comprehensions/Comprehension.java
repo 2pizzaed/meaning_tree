@@ -63,7 +63,7 @@ public abstract class Comprehension extends Expression {
     @Override
     public Comprehension clone() {
         Comprehension obj = (Comprehension) super.clone();
-        obj.condition = condition.clone();
+        obj.condition = condition == null ? null : condition.clone();
         obj.item = item.cloneItem();
         return obj;
     }

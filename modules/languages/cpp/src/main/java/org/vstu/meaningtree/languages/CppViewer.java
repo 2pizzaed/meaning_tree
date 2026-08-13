@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
+import org.vstu.meaningtree.languages.helpers.ComprehensionLowerer;
 import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
 import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
 import org.vstu.meaningtree.languages.support.features.UninferableVariableTypeFeature;
@@ -86,6 +87,46 @@ public class CppViewer extends LanguageViewer {
         _bracketsAroundCaseBranches = false;
         _autoVariableDeclaration = false;
         configureSupportAndRenderers();
+    }
+
+    @Override
+    protected MeaningTree preprocessTree(MeaningTree tree) {
+        return ComprehensionLowerer.lower(tree, new ComprehensionLowerer.Target() {
+            @Override
+            public Type collectionType(ComprehensionLowerer.CollectionKind kind) {
+                return switch (kind) {
+                    case LIST -> new ListType(objectType());
+                    case SET -> new SetType(objectType());
+                    case DICTIONARY -> new OrderedDictionaryType(objectType(), objectType());
+                };
+            }
+
+            @Override
+            public Expression createCollection(ComprehensionLowerer.CollectionKind kind) {
+                return null;
+            }
+
+            @Override
+            public Expression append(SimpleIdentifier collection, ComprehensionLowerer.CollectionKind kind,
+                                     List<Expression> values, Node origin) {
+                if (kind == ComprehensionLowerer.CollectionKind.DICTIONARY) {
+                    Expression pair = new FunctionCall(new SimpleIdentifier("std::make_pair").remap(origin), values)
+                            .remap(origin);
+                    return new MethodCall(collection, new SimpleIdentifier("insert").remap(origin), pair);
+                }
+                String method = kind == ComprehensionLowerer.CollectionKind.SET ? "insert" : "push_back";
+                return new MethodCall(collection, new SimpleIdentifier(method).remap(origin), values);
+            }
+
+            @Override
+            public String loopVariableName(String originalName, int ordinal) {
+                return originalName;
+            }
+
+            private Type objectType() {
+                return new org.vstu.meaningtree.nodes.types.user.Class(new SimpleIdentifier("object"));
+            }
+        });
     }
 
     private void configureSupportAndRenderers() {

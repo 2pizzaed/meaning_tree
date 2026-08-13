@@ -1,8 +1,10 @@
 package org.vstu.meaningtree.languages;
 
 import org.jetbrains.annotations.Nullable;
+import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
+import org.vstu.meaningtree.languages.helpers.ComprehensionLowerer;
 import org.vstu.meaningtree.languages.support.SemanticFeature;
 import org.vstu.meaningtree.languages.support.features.*;
 import org.vstu.meaningtree.nodes.*;
@@ -102,6 +104,37 @@ public class JavaViewer extends LanguageViewer {
 
     public JavaViewer(LanguageTranslator translator) {
         this(translator, 4, true, false, false);
+    }
+
+    @Override
+    protected MeaningTree preprocessTree(MeaningTree tree) {
+        return ComprehensionLowerer.lower(tree, new ComprehensionLowerer.Target() {
+            @Override
+            public Type collectionType(ComprehensionLowerer.CollectionKind kind) {
+                return switch (kind) {
+                    case LIST -> new ListType(new UnknownType());
+                    case SET -> new SetType(new UnknownType());
+                    case DICTIONARY -> new OrderedDictionaryType(new UnknownType(), new UnknownType());
+                };
+            }
+
+            @Override
+            public Expression createCollection(ComprehensionLowerer.CollectionKind kind) {
+                return new ObjectNewExpression(collectionType(kind));
+            }
+
+            @Override
+            public Expression append(SimpleIdentifier collection, ComprehensionLowerer.CollectionKind kind,
+                                     List<Expression> values, Node origin) {
+                String method = kind == ComprehensionLowerer.CollectionKind.DICTIONARY ? "put" : "add";
+                return new MethodCall(collection, new SimpleIdentifier(method).remap(origin), values);
+            }
+
+            @Override
+            public String loopVariableName(String originalName, int ordinal) {
+                return "_".equals(originalName) ? "_item_" + ordinal : originalName;
+            }
+        });
     }
 
     private void configureSupportAndRenderers() {

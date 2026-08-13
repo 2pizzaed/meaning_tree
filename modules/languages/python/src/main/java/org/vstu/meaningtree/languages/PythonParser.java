@@ -235,10 +235,29 @@ public class PythonParser extends LanguageParser {
     private Node detectAnnotated(TSNode node) {
         TSNode definition = node.getChildByFieldName("definition");
         if (definition.getType().equals("class_definition")) {
-            return fromClass(definition);
+            return fromClass(definition, fromDecorators(node));
         } else {
             return fromFunctionTSNode(node);
         }
+    }
+
+    private List<Annotation> fromDecorators(TSNode decoratedDefinition) {
+        List<Annotation> annotations = new ArrayList<>();
+        for (int i = 0; i < decoratedDefinition.getNamedChildCount(); i++) {
+            TSNode child = decoratedDefinition.getNamedChild(i);
+            if (child.getType().equals("decorator")) {
+                annotations.add(fromDecorator(child));
+            }
+        }
+        return annotations;
+    }
+
+    private static boolean isDataclassAnnotation(Annotation annotation) {
+        if (!annotation.hasName()) {
+            return false;
+        }
+        String name = annotation.getName().internalRepresentation();
+        return name.equals("dataclass") || name.equals("dataclasses.dataclass");
     }
 
     private DefinitionArgument fromDefinitionArgument(TSNode node) {
@@ -369,7 +388,7 @@ public class PythonParser extends LanguageParser {
     private Annotation fromDecorator(TSNode node) {
         TSNode child = node.getNamedChild(0);
         if (child.getType().equals("call")) {
-            Node unknownCall = fromFunctionCall(node);
+            Node unknownCall = fromFunctionCall(child);
             if (unknownCall instanceof FunctionCall call) {
                 return new Annotation(PythonSpecificFeatures.getFunctionName(call), call.getArguments().toArray(new Expression[0]));
             } else {
@@ -452,6 +471,11 @@ public class PythonParser extends LanguageParser {
     }
 
     private ClassDefinition fromClass(TSNode node) {
+        return fromClass(node, List.of());
+    }
+
+    private ClassDefinition fromClass(TSNode node, List<Annotation> decorators) {
+        boolean isDataclass = decorators.stream().anyMatch(PythonParser::isDataclassAnnotation);
         TSNode superclasses = node.getChildByFieldName("superclasses");
         Type[] supertypes = new Type[0];
         if (!superclasses.isNull()) {
@@ -461,11 +485,11 @@ public class PythonParser extends LanguageParser {
             }
         }
 
-        ClassDeclaration classDecl = new ClassDeclaration(new ArrayList<>(),
-                (SimpleIdentifier) parseTSNode(node.getChildByFieldName("name")),
-                supertypes
-        );
-        UserType type = new Class((SimpleIdentifier) classDecl.getName().freshClone());
+        SimpleIdentifier className = (SimpleIdentifier) parseTSNode(node.getChildByFieldName("name"));
+        ClassDeclaration classDecl = isDataclass
+                ? new StructureDeclaration(new ArrayList<>(), className, supertypes)
+                : new ClassDeclaration(new ArrayList<>(), className, supertypes);
+        UserType type = (UserType) classDecl.getTypeNode().freshClone();
 
         CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"), true);
 
@@ -516,9 +540,9 @@ public class PythonParser extends LanguageParser {
             }
         }
 
-        ClassDefinition def = new ClassDefinition(classDecl, body);
-
-        return def;
+        return isDataclass
+                ? new StructureDefinition(classDecl, body)
+                : new ClassDefinition(classDecl, body);
     }
 
     private Statement fromForLoop(TSNode node) {

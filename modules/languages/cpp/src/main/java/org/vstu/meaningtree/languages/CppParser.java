@@ -11,10 +11,7 @@ import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
-import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
-import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
-import org.vstu.meaningtree.nodes.definitions.ObjectConstructorDefinition;
-import org.vstu.meaningtree.nodes.definitions.ObjectDestructorDefinition;
+import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.*;
@@ -69,6 +66,7 @@ import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
+import org.vstu.meaningtree.nodes.types.user.Structure;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -83,6 +81,7 @@ public class CppParser extends LanguageParser {
         registerTSNodeHandler(List.of("ERROR", "parameter_pack_expansion"), Node.class, node -> parseTSNode(node.getNamedChild(0)));
         registerTSNodeHandler("translation_unit", ProgramEntryPoint.class, this::fromTranslationUnit);
         registerTSNodeHandler("class_specifier", ClassDefinition.class, this::fromClassSpecifier);
+        registerTSNodeHandler("struct_specifier", StructureDefinition.class, this::fromStructSpecifier);
         registerTSNodeHandler("function_definition", FunctionDefinition.class, this::fromFunction);
         registerTSNodeHandler("expression_statement", Node.class, this::fromExpressionStatement);
         registerTSNodeHandler("binary_expression", Expression.class, this::fromBinaryExpression);
@@ -280,6 +279,18 @@ public class CppParser extends LanguageParser {
     }
 
     private ClassDefinition fromClassSpecifier(TSNode node) {
+        return fromClassLikeSpecifier(node, false);
+    }
+
+    private StructureDefinition fromStructSpecifier(TSNode node) {
+        return (StructureDefinition) fromClassLikeSpecifier(node, true);
+    }
+
+    /**
+     * Разбирает class_specifier или struct_specifier. Отличаются они только видимостью членов
+     * по умолчанию (private у класса, public у структуры) и типом создаваемых узлов.
+     */
+    private ClassDefinition fromClassLikeSpecifier(TSNode node, boolean isStructure) {
         SimpleIdentifier className = (SimpleIdentifier) fromIdentifier(node.getChildByFieldName("name"));
         TSNode baseClassClause = node.getChildByFieldName("base_class_clause");
         if (baseClassClause.isNull()) {
@@ -292,11 +303,13 @@ public class CppParser extends LanguageParser {
             }
         }
         List<Type> parents = fromBaseClasses(baseClassClause);
-        ClassDeclaration declaration = new ClassDeclaration(List.of(), className, parents.toArray(Type[]::new));
+        ClassDeclaration declaration = isStructure
+                ? new StructureDeclaration(List.of(), className, parents.toArray(Type[]::new))
+                : new ClassDeclaration(List.of(), className, parents.toArray(Type[]::new));
 
         TSNode body = node.getChildByFieldName("body");
         List<Node> members = new ArrayList<>();
-        DeclarationModifier visibility = DeclarationModifier.PRIVATE;
+        DeclarationModifier visibility = isStructure ? DeclarationModifier.PUBLIC : DeclarationModifier.PRIVATE;
         for (int i = 0; i < body.getNamedChildCount(); i++) {
             TSNode child = body.getNamedChild(i);
             switch (child.getType()) {
@@ -307,7 +320,10 @@ public class CppParser extends LanguageParser {
             }
         }
 
-        return new ClassDefinition(declaration, new CompoundStatement(members));
+        CompoundStatement classBody = new CompoundStatement(members);
+        return isStructure
+                ? new StructureDefinition(declaration, classBody)
+                : new ClassDefinition(declaration, classBody);
     }
 
     private List<Type> fromBaseClasses(TSNode node) {
@@ -899,6 +915,10 @@ public class CppParser extends LanguageParser {
         String type = getCodePiece(node);
         if (node.getType().equals("type_identifier") || node.getType().equals("primitive_type")) {
             return fromTypeByString(type);
+        }
+        else if (node.getType().equals("struct_specifier")) {
+            // C-style ссылка на структуру по имени: struct Point p;
+            return new Structure((Identifier) fromIdentifier(node.getChildByFieldName("name")));
         }
         else if (node.getType().equals("sized_type_specifier")) {
             return parseSizedTypeSpecifier(node);

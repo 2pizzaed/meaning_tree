@@ -690,3 +690,76 @@ group: StructuresOOP
                     cleanup();
                 }
             };
+
+
+    case: StructFieldsToDataclass
+        main c++:
+            struct Point
+            {
+                int x = 0;
+                int y = 0;
+            };
+
+        python:
+            from dataclasses import dataclass
+            @dataclass
+            class Point:
+                x: int = 0
+                y: int = 0
+
+
+    case: DataclassToStruct
+        main python:
+            @dataclass
+            class Point:
+                x: int = 0
+                y: int = 0
+
+        c++:
+            struct Point
+            {
+                int x = 0;
+                int y = 0;
+            };
+
+
+    case: StructWithPrivateSection
+        main c++:
+            struct Config
+            {
+                int timeout = 30;
+            private:
+                int secret = 0;
+            };
+
+        c++:
+            struct Config
+            {
+                int timeout = 30;
+            private:
+                int secret = 0;
+            };
+
+
+    case: StructInheritanceAndMethods
+        main c++:
+            struct Child : public Parent
+            {
+                int value = 42;
+
+                int doubled()
+                {
+                    return value * 2;
+                }
+            };
+
+        c++:
+            struct Child : public Parent
+            {
+                int value = 42;
+
+                int doubled()
+                {
+                    return value * 2;
+                }
+            };

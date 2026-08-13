@@ -320,7 +320,11 @@ public class CppViewer extends LanguageViewer {
     /*******************************************************************/
     /* Перевод определения функции */
     private String toStringClassDeclaration(ClassDeclaration declaration) {
-        StringBuilder builder = new StringBuilder("class ");
+        return toStringClassDeclarationAs(declaration, declaration instanceof StructureDeclaration);
+    }
+
+    private String toStringClassDeclarationAs(ClassDeclaration declaration, boolean asStruct) {
+        StringBuilder builder = new StringBuilder(asStruct ? "struct " : "class ");
         builder.append(toString(declaration.getName()));
         if (!declaration.getParents().isEmpty()) {
             builder.append(" : ");
@@ -332,11 +336,15 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringClassDefinition(ClassDefinition definition) {
+        boolean asStruct = isRenderedAsStruct(definition);
+        // У структуры члены по умолчанию публичные, у класса — приватные
+        DeclarationModifier defaultAccess = asStruct ? DeclarationModifier.PUBLIC : DeclarationModifier.PRIVATE;
+
         StringBuilder builder = new StringBuilder();
-        builder.append(toString(definition.getDeclaration())).append("\n{");
+        builder.append(toStringClassDeclarationAs(definition.getDeclaration(), asStruct)).append("\n{");
 
         increaseIndentLevel();
-        DeclarationModifier currentAccess = DeclarationModifier.PRIVATE;
+        DeclarationModifier currentAccess = defaultAccess;
         for (Node member : definition.getBody().getNodes()) {
             String memberCode = toString(member);
             if (memberCode.isEmpty()) {
@@ -350,7 +358,7 @@ public class CppViewer extends LanguageViewer {
             }
 
             builder.append("\n");
-            if (currentAccess == DeclarationModifier.PRIVATE) {
+            if (currentAccess == defaultAccess) {
                 builder.append(indent(memberCode));
             } else {
                 builder.append(indent(indent(memberCode)));
@@ -360,6 +368,15 @@ public class CppViewer extends LanguageViewer {
 
         builder.append("\n").append(indent("}")).append(";");
         return builder.toString();
+    }
+
+    /**
+     * Как struct раскрывается только структура: C++ struct, Python dataclass. Обычный класс
+     * всегда остается классом, иначе обратная конверсия C++ class -> C++ теряет ключевое слово.
+     */
+    private boolean isRenderedAsStruct(ClassDefinition definition) {
+        return definition instanceof StructureDefinition
+                || definition.getDeclaration() instanceof StructureDeclaration;
     }
 
     private DeclarationModifier getMemberAccess(Node member) {

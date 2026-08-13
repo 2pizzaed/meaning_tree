@@ -234,6 +234,7 @@ public class JsonNodeTypeClassMapper {
 
         // Definitions
         register("class_definition", ClassDefinition.class);
+        register("structure_definition", StructureDefinition.class);
         register("object_constructor_definition", ObjectConstructorDefinition.class);
         register("object_destructor_definition", ObjectDestructorDefinition.class);
         register("method_definition", MethodDefinition.class);

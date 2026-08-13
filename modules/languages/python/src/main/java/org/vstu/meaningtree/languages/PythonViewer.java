@@ -123,6 +123,8 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(ObjectDestructorDefinition.class, this::objectDestructorToString);
         registerTabRenderer(ClassDeclaration.class, this::classDeclToString);
         registerTabRenderer(ClassDefinition.class, this::classToString);
+        registerTabRenderer(StructureDeclaration.class, this::structDeclToString);
+        registerTabRenderer(StructureDefinition.class, this::structToString);
         registerTabRenderer(FunctionDeclaration.class, this::functionDeclarationToString);
         registerTabRenderer(Import.class, (node, tab) -> importToString(node));
         registerTabRenderer(ExpressionStatement.class, (node, tab) -> toString(node));
@@ -345,6 +347,23 @@ public class PythonViewer extends LanguageViewer {
         return toString(new ClassDefinition(decl, new CompoundStatement().remap(decl)).remap(decl), tab);
     }
 
+    /**
+     * Структура транслируется в класс, помеченный декоратором dataclass. Сам декоратор без
+     * {@code from dataclasses import dataclass} нерабочий, поэтому импорт откладывается в
+     * контекст: точка входа допишет его в шапку программы, если его там еще нет.
+     */
+    private String structToString(StructureDefinition def, Tab tab) {
+        ctx.preserveImport(new ImportMembersFromModule(
+                new SimpleIdentifier("dataclasses").remap(def),
+                new SimpleIdentifier("dataclass").remap(def)
+        ).remap(def));
+        return String.format("@dataclass\n%s%s", tab, classToString(def, tab));
+    }
+
+    private String structDeclToString(StructureDeclaration decl, Tab tab) {
+        return toString(new StructureDefinition(decl, new CompoundStatement().remap(decl)).remap(decl), tab);
+    }
+
     private String functionToString(Definition func, Tab tab) {
         StringBuilder function = new StringBuilder();
         FunctionDeclaration decl = (FunctionDeclaration) func.getDeclaration();
@@ -524,7 +543,8 @@ public class PythonViewer extends LanguageViewer {
         } else if (getConfigParameter("translationUnitMode").equalsValue("full") && entryPointIf != null) {
             nodes.add(entryPointIf);
         }
-        return nodeListToString(nodes, tab);
+        String body = nodeListToString(nodes, tab);
+        return ctx.prependPreservedImports(body, nodes, tab.toString(), imp -> toString(imp, tab));
     }
 
     /**

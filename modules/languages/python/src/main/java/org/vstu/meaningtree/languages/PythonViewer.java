@@ -675,7 +675,9 @@ public class PythonViewer extends LanguageViewer {
         StringBuilder rValues = new StringBuilder();
         VariableDeclarator[] decls = varDecl.getDeclarators();
 
-        long rValuesCount = Arrays.stream(decls).filter((VariableDeclarator decl) -> decl.hasInitialization() && decl.getRValue() != null).count();
+        long rValuesCount = Arrays.stream(decls)
+                .filter(decl -> hasDeclarationInitialValue(decl, varDecl.getType()))
+                .count();
 
         for (int i = 0; i < decls.length; i++) {
             lValues.append(toString(decls[i].getIdentifier()));
@@ -686,8 +688,9 @@ public class PythonViewer extends LanguageViewer {
                     && !getConfigParameter("disableTypeAnnotations").asBoolean()) {
                  lValues.append(String.format(": %s", toString(varDecl.getType())));
             }
-            if (decls[i].hasInitialization() && decls[i].getRValue() != null) {
-                rValues.append(toString(decls[i].getRValue()));
+            String initialValue = declarationInitialValueToString(decls[i], varDecl.getType());
+            if (initialValue != null) {
+                rValues.append(initialValue);
             } else if (rValuesCount > 0) {
                 rValues.append("None");
             }
@@ -702,6 +705,23 @@ public class PythonViewer extends LanguageViewer {
             return lValues.toString();
         }
         return String.format("%s = %s", lValues, rValues);
+    }
+
+    private boolean hasDeclarationInitialValue(VariableDeclarator declarator, Type declaredType) {
+        return (declarator.hasInitialization() && declarator.getRValue() != null)
+                || (declaredType instanceof ArrayType arrayType
+                && arrayType.getShape().getDimensions().stream().allMatch(dimension -> dimension != null));
+    }
+
+    private String declarationInitialValueToString(VariableDeclarator declarator, Type declaredType) {
+        if (declarator.hasInitialization() && declarator.getRValue() != null) {
+            return toString(declarator.getRValue());
+        }
+        if (declaredType instanceof ArrayType arrayType
+                && arrayType.getShape().getDimensions().stream().allMatch(dimension -> dimension != null)) {
+            return arrayAllocationToString(arrayType.getItemType(), arrayType.getShape());
+        }
+        return null;
     }
 
     private String typeToString(Type type) {
@@ -1005,13 +1025,7 @@ public class PythonViewer extends LanguageViewer {
                 if (newExpr.getInitializer() != null) {
                     return toString(newExpr.getInitializer());
                 } else {
-                    Shape shape = newExpr.getShape();
-                    String result = _getListComprehensionByDimension(shape.getDimensionCount(),
-                            shape.getDimension(shape.getDimensionCount() - 1), String.format("%s()", toString(newExpr.getType())));
-                    for (int i = shape.getDimensionCount() - 2; i >= 0; i--) {
-                        result = _getListComprehensionByDimension(i + 1, shape.getDimension(i), result);
-                    }
-                    return result;
+                    return arrayAllocationToString(newExpr.getType(), newExpr.getShape());
                 }
             }
             case ObjectNewExpression newExpr -> {
@@ -1035,6 +1049,15 @@ public class PythonViewer extends LanguageViewer {
             }
             case null, default -> throw new UnsupportedViewingException("Not a callable object");
         }
+    }
+
+    private String arrayAllocationToString(Type itemType, Shape shape) {
+        String result = _getListComprehensionByDimension(shape.getDimensionCount(),
+                shape.getDimension(shape.getDimensionCount() - 1), "%s()".formatted(toString(itemType)));
+        for (int i = shape.getDimensionCount() - 2; i >= 0; i--) {
+            result = _getListComprehensionByDimension(i + 1, shape.getDimension(i), result);
+        }
+        return result;
     }
 
     private String arrayInitializerToString(ArrayInitializer initializer) {

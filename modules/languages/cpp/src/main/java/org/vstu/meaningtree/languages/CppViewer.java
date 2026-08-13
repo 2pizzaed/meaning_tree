@@ -1211,7 +1211,8 @@ public class CppViewer extends LanguageViewer {
                 newBuilder.append("new ");
                 newBuilder.append(toString(arrayNew.getType()));
                 for (int i = 0; i < arrayNew.getShape().getDimensionCount(); i++) {
-                    newBuilder.append(String.format("[%s]", arrayNew.getShape().getDimension(i)));
+                    Expression dimension = arrayNew.getShape().getDimension(i);
+                    newBuilder.append("[%s]".formatted(dimension == null ? "" : toString(dimension)));
                 }
             }
             return newBuilder.toString();
@@ -1378,6 +1379,11 @@ public class CppViewer extends LanguageViewer {
         Expression rValue = variableDeclarator.getRValue();
         if (rValue == null) {
             return variableName.concat(arrayDeclarator);
+        }
+
+        if (type instanceof ArrayType && rValue instanceof ArrayNewExpression arrayNew
+                && arrayNew.getInitializer() == null) {
+            return variableName.concat(toString(arrayNew.getShape()));
         }
 
         // Объект на стеке конструируется прямо в объявлении: Box a(1)

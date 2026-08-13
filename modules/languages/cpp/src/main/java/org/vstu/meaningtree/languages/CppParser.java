@@ -1217,40 +1217,61 @@ public class CppParser extends LanguageParser {
             return new PointerInputCommand(arguments.getFirst(), arguments.subList(1, arguments.size()));
         }
 
-        if ((clearFunctionName.toString().equals("malloc") || clearFunctionName.toString().equals("сalloc") ||
-                clearFunctionName.toString().equals("_malloc") || clearFunctionName.toString().equals("_сalloc"))
+        String allocationFunction = clearFunctionName.toString();
+        if ((allocationFunction.equals("malloc") || allocationFunction.equals("_malloc"))
                 && arguments.size() == 1) {
-            Type foundType = null;
-            Expression count = new IntegerLiteral(1);
-            for (Expression arg : arguments) {
-                if (arg instanceof SizeofExpression sizeOf && sizeOf.getExpression() instanceof Type type) {
-                    foundType = type;
-                } else if (arg instanceof MulOp mulOp) {
-                    if (mulOp.getLeft() instanceof SizeofExpression sizeOf && sizeOf.getExpression() instanceof Type type) {
-                        foundType = type;
-                    }
-                    if (!(mulOp.getRight() instanceof SizeofExpression)) {
-                        count = mulOp.getRight();
-                    }
-
-                    if (mulOp.getRight() instanceof SizeofExpression sizeOf && sizeOf.getExpression() instanceof Type type) {
-                        foundType = type;
-                    }
-                    if (!(mulOp.getLeft() instanceof SizeofExpression)) {
-                        count = mulOp.getLeft();
-                    }
-                }
-            }
-            if (foundType != null) {
-                return new MemoryAllocationCall(foundType, count, functionName.toString().equals("сalloc"));
+            AllocationShape shape = allocationShape(arguments.getFirst());
+            if (shape != null) {
+                return new MemoryAllocationCall(shape.type(), shape.count(), false);
             }
         }
 
-        if (functionName.toString().equals("free") && arguments.size() == 1) {
+        if ((allocationFunction.equals("calloc") || allocationFunction.equals("_calloc"))
+                && arguments.size() == 2) {
+            Type type = sizeofType(arguments.getFirst());
+            Expression count = arguments.getLast();
+            if (type == null) {
+                type = sizeofType(arguments.getLast());
+                count = arguments.getFirst();
+            }
+            if (type != null) {
+                return new MemoryAllocationCall(type, count, true);
+            }
+        }
+
+        if (clearFunctionName.toString().equals("free") && arguments.size() == 1) {
             return new MemoryFreeCall(arguments.getFirst());
         }
 
         return new FunctionCall(functionName, arguments);
+    }
+
+    private record AllocationShape(Type type, Expression count) {}
+
+    private AllocationShape allocationShape(Expression expression) {
+        Type directType = sizeofType(expression);
+        if (directType != null) {
+            return new AllocationShape(directType, new IntegerLiteral(1).remap(expression));
+        }
+        if (!(expression instanceof MulOp multiplication)) {
+            return null;
+        }
+        Type leftType = sizeofType(multiplication.getLeft());
+        if (leftType != null) {
+            return new AllocationShape(leftType, multiplication.getRight());
+        }
+        Type rightType = sizeofType(multiplication.getRight());
+        if (rightType != null) {
+            return new AllocationShape(rightType, multiplication.getLeft());
+        }
+        return null;
+    }
+
+    private Type sizeofType(Expression expression) {
+        if (expression instanceof SizeofExpression sizeOf && sizeOf.getExpression() instanceof Type type) {
+            return type;
+        }
+        return null;
     }
 
     @NotNull

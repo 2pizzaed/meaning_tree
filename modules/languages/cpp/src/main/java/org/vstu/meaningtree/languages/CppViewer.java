@@ -400,6 +400,9 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringClassDefinition(ClassDefinition definition) {
+        if (isCMode()) {
+            return toStringCStructureDefinition(definition);
+        }
         boolean asStruct = isRenderedAsStruct(definition);
         // У структуры члены по умолчанию публичные, у класса — приватные
         DeclarationModifier defaultAccess = asStruct ? DeclarationModifier.PUBLIC : DeclarationModifier.PRIVATE;
@@ -432,6 +435,35 @@ public class CppViewer extends LanguageViewer {
 
         builder.append("\n").append(indent("}")).append(";");
         return builder.toString();
+    }
+
+    private String toStringCStructureDefinition(ClassDefinition definition) {
+        if (!isRenderedAsStruct(definition) || !definition.getDeclaration().getParents().isEmpty()) {
+            throw new UnsupportedViewingException("C mode supports only structures without inheritance");
+        }
+
+        String name = toString(definition.getDeclaration().getName());
+        List<String> fields = new ArrayList<>();
+        for (Node member : definition.getBody().getNodes()) {
+            if (!(member instanceof FieldDeclaration field)
+                    || field.getModifiers().contains(DeclarationModifier.PRIVATE)
+                    || field.getModifiers().contains(DeclarationModifier.PROTECTED)
+                    || field.getModifiers().contains(DeclarationModifier.STATIC)) {
+                throw new UnsupportedViewingException("C mode structures may contain only public instance fields");
+            }
+            fields.add(toString(field));
+        }
+        if (fields.isEmpty()) {
+            throw new UnsupportedViewingException("C mode does not support empty structures");
+        }
+
+        StringBuilder builder = new StringBuilder("typedef struct ").append(name).append("\n{");
+        increaseIndentLevel();
+        for (String field : fields) {
+            builder.append("\n").append(indent(field));
+        }
+        decreaseIndentLevel();
+        return builder.append("\n} ").append(name).append(";").toString();
     }
 
     /**
@@ -498,7 +530,14 @@ public class CppViewer extends LanguageViewer {
         String name = toString(functionDeclaration.getName());
         builder.append(name);
 
-        String parameters = toStringParameters(functionDeclaration.getArguments());
+        if (isCMode() && functionDeclaration.getReturnType() instanceof ArrayType) {
+            throw new UnsupportedViewingException("C functions cannot return arrays by value");
+        }
+        String parameters = isCMode()
+                && functionDeclaration.getName().toString().equals("main")
+                && functionDeclaration.getArguments().isEmpty()
+                ? "(void)"
+                : toStringParameters(functionDeclaration.getArguments());
         builder.append(parameters);
 
         return builder.toString();
@@ -560,6 +599,10 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringDeclarationArgument(DeclarationArgument parameter) {
+        if (isCMode() && parameter.getType() instanceof ArrayType array) {
+            return "%s %s%s".formatted(toString(array.getItemType()), toString(parameter.getName()),
+                    toString(array.getShape()));
+        }
         String type = toString(parameter.getType());
         String name = toString(parameter.getName());
         return "%s %s".formatted(type, name);
@@ -1110,11 +1153,9 @@ public class CppViewer extends LanguageViewer {
 
     private String toStringMemoryAllocation(MemoryAllocationCall mAlloc) {
         if (mAlloc.isClearAllocation()) {
-            return String.format("calloc(%s)",
-                    toString(new MulOp(mAlloc.getType(), mAlloc.getCount()).remap(mAlloc)));
+            return "calloc(%s, sizeof(%s))".formatted(toString(mAlloc.getCount()), toString(mAlloc.getType()));
         }
-        return String.format("malloc(%s)",
-                toString(new MulOp(mAlloc.getType(), mAlloc.getCount()).remap(mAlloc)));
+        return "malloc(sizeof(%s) * %s)".formatted(toString(mAlloc.getType()), toString(mAlloc.getCount()));
     }
 
     private String toStringPrint(PrintCommand print) {
@@ -1225,6 +1266,9 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringDelete(DeleteExpression del) {
+        if (isCMode()) {
+            return "free(%s)".formatted(toString(del.getTarget()));
+        }
         StringBuilder builder = new StringBuilder("delete");
         if (del.isCollectionTarget()) {
             builder.append("[]");
@@ -1235,6 +1279,9 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringNew(NewExpression _new) {
+        if (isCMode()) {
+            return toStringCAllocation(_new);
+        }
         if (_new instanceof ArrayNewExpression arrayNew) {
             StringBuilder newBuilder = new StringBuilder();
             // DISABLED DUE TO RARE SYNTAX
@@ -1272,6 +1319,36 @@ public class CppViewer extends LanguageViewer {
         } else {
             throw new UnsupportedViewingException("Unknown new expression");
         }
+    }
+
+    private String toStringCAllocation(NewExpression allocation) {
+        if (allocation instanceof PlacementNewExpression) {
+            throw new UnsupportedViewingException("Placement new is unavailable in C mode");
+        }
+        if (allocation instanceof ObjectNewExpression objectNew) {
+            if (objectNew.isStackAllocated() || !objectNew.getConstructorArguments().isEmpty()) {
+                throw new UnsupportedViewingException("C mode cannot lower object construction");
+            }
+            return "malloc(sizeof(%s))".formatted(toString(objectNew.getType()));
+        }
+        if (allocation instanceof ArrayNewExpression arrayNew) {
+            if (arrayNew.getInitializer() != null) {
+                throw new UnsupportedViewingException("C mode cannot lower initialized dynamic arrays");
+            }
+            if (arrayNew.getShape().getDimensionCount() != 1) {
+                throw new UnsupportedViewingException("C mode can lower only one-dimensional dynamic arrays");
+            }
+            List<String> dimensions = new ArrayList<>();
+            for (Expression dimension : arrayNew.getShape().getDimensions()) {
+                if (dimension == null) {
+                    throw new UnsupportedViewingException("Dynamic array dimensions must be known in C mode");
+                }
+                dimensions.add(toString(dimension));
+            }
+            return "malloc(sizeof(%s) * %s)".formatted(toString(arrayNew.getType()),
+                    String.join(" * ", dimensions));
+        }
+        throw new UnsupportedViewingException("Unknown allocation in C mode");
     }
 
     private String toStringSizeof(SizeofExpression sizeof) {
@@ -1350,7 +1427,7 @@ public class CppViewer extends LanguageViewer {
             }
         }
 
-        builder.append("int main(int argc, char * argv[]) {\n\n");
+        builder.append(isCMode() ? "int main(void) {\n\n" : "int main(int argc, char * argv[]) {\n\n");
         increaseIndentLevel();
 
         var mainFunc = getMainFunction(nodes);
@@ -1385,8 +1462,9 @@ public class CppViewer extends LanguageViewer {
     private String toStringEntryPoint(ProgramEntryPoint entryPoint) {
         // TODO: required main function creation or expression mode
 
+        String prefix = isCMode() && requiresCStandardLibrary(entryPoint) ? "#include <stdlib.h>\n" : "";
         if (getConfigParameter("translationUnitMode").equalsValue("full") && !entryPoint.hasEntryPoint()) {
-            return makeSimpleProgram(entryPoint.getBody());
+            return prefix + makeSimpleProgram(entryPoint.getBody());
         }
 
         StringBuilder builder = new StringBuilder();
@@ -1394,7 +1472,15 @@ public class CppViewer extends LanguageViewer {
             builder.append(toString(node));
             builder.append("\n");
         }
-        return builder.toString();
+        return prefix + builder;
+    }
+
+    private boolean requiresCStandardLibrary(ProgramEntryPoint entryPoint) {
+        return new MeaningTree(entryPoint).anyMatch(node -> node instanceof MemoryAllocationCall
+                || node instanceof MemoryFreeCall
+                || node instanceof NewExpression
+                || node instanceof DeleteExpression
+                || node instanceof DeleteStatement);
     }
 
     @NotNull
@@ -1458,9 +1544,11 @@ public class CppViewer extends LanguageViewer {
 
         Type declarationType = variableDeclaration.getType();
         boolean useHeapArrayAllocation = usesHeapArrayAllocation(variableDeclaration);
-        String type = useHeapArrayAllocation ? "auto*" : toString(declarationType);
+        String type;
         if (!useHeapArrayAllocation && declarationType instanceof ArrayType array) {
             type = toString(array.getItemType());
+        } else {
+            type = useHeapArrayAllocation ? "auto*" : toString(declarationType);
         }
         builder
                 .append(type)
@@ -1481,7 +1569,8 @@ public class CppViewer extends LanguageViewer {
     }
 
     private boolean usesHeapArrayAllocation(VariableDeclaration declaration) {
-        if (!getConfigParameter("preferHeapAlloc").asBoolean() || !(declaration.getType() instanceof ArrayType)) {
+        if (isCMode() || !getConfigParameter("preferHeapAlloc").asBoolean()
+                || !(declaration.getType() instanceof ArrayType)) {
             return false;
         }
         return Arrays.stream(declaration.getDeclarators()).allMatch(declarator ->
@@ -1686,20 +1775,37 @@ public class CppViewer extends LanguageViewer {
                 }
                 yield String.format("%s &", toStringType(ref.getTargetType()));
             }
-            case DictionaryType dct -> String.format("std::map<%s, %s>", toStringType(dct.getKeyType()), toStringType(dct.getValueType()));
-            case ArrayType array ->  String.format("std::array<%s>", toStringType(array.getItemType()));
-            case UnmodifiableListType array ->  String.format("std::array<%s>", toStringType(array.getItemType()));
-            case SetType set ->  String.format("std::set<%s>", toStringType(set.getItemType()));
-            case PlainCollectionType lst -> String.format("std::vector<%s>", toStringType(lst.getItemType()));
-            case StringType str -> "std::string"; // TODO: пока нет способа хорошо представить юникод-строки
+            case DictionaryType dct -> cCollectionType(String.format("std::map<%s, %s>", toStringType(dct.getKeyType()), toStringType(dct.getValueType())));
+            case ArrayType array -> {
+                if (isCMode()) {
+                    throw new UnsupportedViewingException("C array types require a declarator");
+                }
+                yield String.format("std::array<%s>", toStringType(array.getItemType()));
+            }
+            case UnmodifiableListType array -> cCollectionType(String.format("std::array<%s>", toStringType(array.getItemType())));
+            case SetType set -> cCollectionType(String.format("std::set<%s>", toStringType(set.getItemType())));
+            case PlainCollectionType lst -> cCollectionType(String.format("std::vector<%s>", toStringType(lst.getItemType())));
+            case StringType str -> isCMode() ? "%schar *".formatted(str.isConst() ? "const " : "") : "std::string";
             case GenericUserType gusr -> String.format("%s<%s>", toString(gusr.getQualifiedName()), toStringArguments(List.of(gusr.getTypeParameters())));
             case UserType usr -> toString(usr.getQualifiedName());
             default -> throw new IllegalStateException("Unexpected value: " + type);
         };
-        if (type.isConst() && !(type instanceof ReferenceType) && !(type instanceof PointerType)) {
+        if (type.isConst() && !(type instanceof ReferenceType) && !(type instanceof PointerType)
+                && !(isCMode() && type instanceof StringType)) {
             return "const ".concat(initialType);
         }
         return initialType;
+    }
+
+    private String cCollectionType(String cppType) {
+        if (isCMode()) {
+            throw new UnsupportedViewingException("C mode supports arrays but not C++ collection types");
+        }
+        return cppType;
+    }
+
+    private boolean isCMode() {
+        return getConfigParameter("preferC").asBoolean();
     }
 
     @NotNull

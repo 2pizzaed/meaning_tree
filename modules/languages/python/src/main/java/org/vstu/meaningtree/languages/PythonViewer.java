@@ -152,6 +152,8 @@ public class PythonViewer extends LanguageViewer {
         registerUnsupportedFeature(new LabeledLoopFeature());
         registerUnsupportedFeature(new StatementJumpFeature());
         registerUnsupportedFeature(new ConstructorDelegationFeature());
+        registerUnsupportedFeature(new PointerTypeFeature());
+        registerUnsupportedFeature(new ConstInFunctionSignatureFeature());
         registerUnsupportedFeature(FallthroughCaseBlock.class);
     }
 
@@ -696,8 +698,8 @@ public class PythonViewer extends LanguageViewer {
             typeStr = userType.getName().toString();
         } else if (type instanceof NoReturn) {
             typeStr = "None";
-        } else if (type instanceof PointerType ptr) {
-            typeStr = toString(ptr.getTargetType());
+        } else if (type instanceof PointerType) {
+            throw new UnsupportedViewingException("Pointer type cannot be converted to Python");
         } else if (type instanceof ReferenceType ref) {
             typeStr = toString(ref.getTargetType());
         } else if (type instanceof LiteralType literal) {

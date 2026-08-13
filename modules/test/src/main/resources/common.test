@@ -1732,6 +1732,54 @@ group: Functions
                 return a + b;
             }
 
+    case: FunctionWithReferenceArguments
+        main c++:
+            void increment(int & counter)
+            {
+                counter = counter + 1;
+            }
+
+        java:
+            public static void increment(Integer counter) {
+                counter = counter + 1;
+            }
+
+        python:
+            def increment(counter: int) -> None:
+                counter = counter + 1
+
+    case: FunctionWithReferenceReturnType
+        main c++:
+            int & pick(int & left, double & value, bool & flag)
+            {
+                return left;
+            }
+
+        java:
+            public static Integer pick(Integer left, Double value, Boolean flag) {
+                return left;
+            }
+
+        python:
+            def pick(left: int, value: float, flag: bool) -> int:
+                return left
+
+    case: FunctionWithCustomTypeReferences
+        main c++:
+            Data & merge(Data & first, Data & second)
+            {
+                return first;
+            }
+
+        java:
+            public static Data merge(Data first, Data second) {
+                return first;
+            }
+
+        python:
+            def merge(first: Data, second: Data) -> Data:
+                return first
+
 
 group: StructuresOOP
     case: ClassDefinitionWithOnlyFields

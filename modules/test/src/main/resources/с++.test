@@ -419,6 +419,93 @@ group: Pointers
         c++:
             a->b;
 
+group: FunctionsWithPointersAndReferences
+    case: PointerArgumentsAndReturnType
+        c++:
+            int * transform(int * data, int & out)
+            {
+                return data;
+            }
+
+        c++:
+            int * transform(int * data, int & out)
+            {
+                return data;
+            }
+
+    case: ReferenceArgumentsAndReturnType
+        c++:
+            int & pick(int & left, double & value)
+            {
+                return left;
+            }
+
+        c++:
+            int & pick(int & left, double & value)
+            {
+                return left;
+            }
+
+    case: ConstInFunctionSignature
+        c++:
+            const int & clamp(const int & value, int * const limit)
+            {
+                return value;
+            }
+
+        c++:
+            const int & clamp(const int & value, int * const limit)
+            {
+                return value;
+            }
+
+    case: ReferenceToPointerInFunctionSignature
+        c++:
+            int * & alias(int * & source)
+            {
+                return source;
+            }
+
+        c++:
+            int * & alias(int * & source)
+            {
+                return source;
+            }
+
+    case: VoidPointerInFunctionSignature
+        c++:
+            void * allocate(void * source)
+            {
+                return source;
+            }
+
+        c++:
+            void * allocate(void * source)
+            {
+                return source;
+            }
+
+    case: PointerReturningClassMethod
+        c++:
+            class Buffer
+            {
+            public:
+                int * data(int & index)
+                {
+                    return storage;
+                }
+            };
+
+        c++:
+            class Buffer
+            {
+            public:
+                int * data(int & index)
+                {
+                    return storage;
+                }
+            };
+
 group: ComplexExpressionTest
     case: ComplexTest1
         c++:

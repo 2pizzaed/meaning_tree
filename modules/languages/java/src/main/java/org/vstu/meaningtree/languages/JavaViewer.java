@@ -8,6 +8,8 @@ import org.vstu.meaningtree.languages.support.features.ForEachMultipleDeclarator
 import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
 import org.vstu.meaningtree.languages.support.features.PointerSubtractionInUnpackFeature;
 import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
+import org.vstu.meaningtree.languages.support.features.PointerTypeFeature;
+import org.vstu.meaningtree.languages.support.features.ConstInFunctionSignatureFeature;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -120,8 +122,8 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(QualifiedIdentifier.class, this::toStringQualifiedIdentifier);
         registerRenderer(StringLiteral.class, this::toStringStringLiteral);
         registerRenderer(UserType.class, this::toStringUserType);
-        registerRenderer(ReferenceType.class, ref -> toString(ref.getTargetType()));
-        registerRenderer(PointerType.class, ptr -> toString(ptr.getTargetType()));
+        // Ссылка на примитив выражается объектом-обёрткой: int& -> Integer
+        registerRenderer(ReferenceType.class, ref -> wrapperTypeName(ref.getTargetType()));
         registerRenderer(MemoryAllocationCall.class, m -> toString(m.toNew()));
         registerRenderer(MemoryFreeCall.class, m -> toString(m.toDelete()));
         registerRenderer(Type.class, this::toStringType);
@@ -248,6 +250,8 @@ public class JavaViewer extends LanguageViewer {
         registerUnsupportedFeature(new PointerToMemberOperatorFeature());
         registerUnsupportedFeature(new ForEachMultipleDeclaratorsFeature());
         registerUnsupportedFeature(new NonDirectionalRangeForFeature());
+        registerUnsupportedFeature(new PointerTypeFeature());
+        registerUnsupportedFeature(new ConstInFunctionSignatureFeature());
     }
 
 
@@ -1496,7 +1500,6 @@ public class JavaViewer extends LanguageViewer {
             case SetType setType -> toStringSetType(setType);
             case DictionaryType dictType -> toStringDictionaryType(dictType);
             case PlainCollectionType plain -> toStringPlainCollectionType(plain);
-            case PointerType ptr -> toString(ptr.getTargetType());
             case OptionalType optionalType -> "Optional<%s>".formatted(toString(optionalType));
             default -> throw new IllegalStateException("Unexpected value: " + type.getClass());
         };

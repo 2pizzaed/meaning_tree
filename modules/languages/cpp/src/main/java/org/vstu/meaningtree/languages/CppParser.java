@@ -250,11 +250,20 @@ public class CppParser extends LanguageParser {
         }
 
         Type returnType = fromType(node.getChildByFieldName("type"));
+        if (hasConstQualifier(node)) {
+            returnType.setConst(true);
+        }
+
+        // Возвращаемый тип-указатель или тип-ссылка обёртывает объявитель функции: int* f(), int& f()
+        DeclaratorWithType unwrapped = unwrapIndirections(node.getChildByFieldName("declarator"), returnType);
+        returnType = unwrapped.type();
+        TSNode functionDeclarator = unwrapped.declarator();
+
         Identifier identifier = (Identifier) fromIdentifier(
-                node.getChildByFieldName("declarator").getChildByFieldName("declarator")
+                functionDeclarator.getChildByFieldName("declarator")
         );
         List<DeclarationArgument> parameters = fromFunctionParameters(
-                node.getChildByFieldName("declarator").getChildByFieldName("parameters")
+                functionDeclarator.getChildByFieldName("parameters")
         );
 
         var declaration = new FunctionDeclaration(
@@ -388,6 +397,16 @@ public class CppParser extends LanguageParser {
         }
 
         return fromFunction(node).makeMethod(owner.getTypeNode(), modifiers);
+    }
+
+    private boolean hasConstQualifier(TSNode node) {
+        for (int i = 0; i < node.getChildCount(); i++) {
+            TSNode child = node.getChild(i);
+            if (child.getType().equals("type_qualifier") && getCodePiece(child).equals("const")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasStorageSpecifier(TSNode node, String value) {
@@ -1312,6 +1331,46 @@ public class CppParser extends LanguageParser {
         return sepDecl;
     }
 
+    /**
+     * Объявитель без обёрток указателей и ссылок вместе с типом, накопленным из этих обёрток.
+     */
+    private record DeclaratorWithType(TSNode declarator, Type type) {}
+
+    /**
+     * Снимает обёртки указателей и ссылок с объявителя (int* p, int& r, int *&f()).
+     * Внешняя обёртка применяется к базовому типу первой, поэтому int *&f() даёт ссылку на указатель.
+     */
+    private DeclaratorWithType unwrapIndirections(@NotNull TSNode declarator, Type baseType) {
+        Type type = baseType;
+        TSNode current = declarator;
+
+        while (!current.isNull()) {
+            if (current.getType().equals("pointer_declarator")) {
+                type = new PointerType(type instanceof NoReturn ? new UnknownType() : type);
+            } else if (current.getType().equals("reference_declarator")) {
+                type = new ReferenceType(type);
+            } else {
+                break;
+            }
+            // const в самой обёртке относится к ней, а не к цели: int * const p
+            if (hasConstQualifier(current)) {
+                type.setConst(true);
+            }
+            current = innerDeclarator(current);
+        }
+
+        return new DeclaratorWithType(current, type);
+    }
+
+    private TSNode innerDeclarator(@NotNull TSNode declarator) {
+        TSNode inner = declarator.getChildByFieldName("declarator");
+        if (!inner.isNull() || declarator.getNamedChildCount() == 0) {
+            return inner;
+        }
+        // У reference_declarator вложенный объявитель не помечен полем
+        return declarator.getNamedChild(declarator.getNamedChildCount() - 1);
+    }
+
     //has size effects
     private VariableDeclaration fromDeclarator(@NotNull TSNode tsDeclarator, Type mainType) {
         if (tsDeclarator.getType().equals("type_qualifier") && getCodePiece(tsDeclarator).equals("const")) {
@@ -1333,20 +1392,11 @@ public class CppParser extends LanguageParser {
             TSNode tsVariableName = tsDeclarator.getChildByFieldName("declarator");
             Type type = mainType;
 
-            if (tsVariableName.getType().equals("pointer_declarator")) {
-                type = new PointerType(mainType);
-                if (mainType instanceof NoReturn) {
-                    type = new PointerType(new UnknownType());
-                }
-                if ((tsVariableName.getNamedChild(0).getType().equals("type_qualifier") &&
-                        getCodePiece(tsVariableName.getNamedChild(0)).equals("const"))
-                ) {
-                    type.setConst(true);
-                }
-                tsVariableName = tsVariableName.getChildByFieldName("declarator");
-            } else if (tsVariableName.getType().equals("reference_declarator")) {
-                type = new ReferenceType(mainType);
-                tsVariableName = tsVariableName.getNamedChild(0);
+            if (tsVariableName.getType().equals("pointer_declarator")
+                    || tsVariableName.getType().equals("reference_declarator")) {
+                DeclaratorWithType unwrapped = unwrapIndirections(tsVariableName, mainType);
+                type = unwrapped.type();
+                tsVariableName = unwrapped.declarator();
             } else if (tsVariableName.getType().equals("array_declarator")) {
                 List<Expression> dimensions = new ArrayList<>();
                 TSNode arrayDimension = tsVariableName;
@@ -1375,18 +1425,14 @@ public class CppParser extends LanguageParser {
 
             VariableDeclarator declarator = new VariableDeclarator(variableName, value);
             return new VariableDeclaration(type, declarator);
+        } else if (tsDeclarator.getType().equals("pointer_declarator")
+                || tsDeclarator.getType().equals("reference_declarator")) {
+            DeclaratorWithType unwrapped = unwrapIndirections(tsDeclarator, mainType);
+            // Объявитель под указателями и ссылками может быть составным: int* a[5]
+            return fromDeclarator(unwrapped.declarator(), unwrapped.type());
         } else {
-            Type type = mainType;
-
-            if (tsDeclarator.getType().equals("pointer_declaration")) {
-                type = new PointerType(mainType);
-                if (mainType instanceof NoReturn) {
-                    type = new PointerType(new UnknownType());
-                }
-            } else if (tsDeclarator.getType().equals("reference_declaration")) {
-                type = new ReferenceType(mainType);
-            }
-            return new VariableDeclaration(type, new VariableDeclarator((SimpleIdentifier) fromIdentifier(tsDeclarator)));
+            return new VariableDeclaration(mainType,
+                    new VariableDeclarator((SimpleIdentifier) fromIdentifier(tsDeclarator)));
         }
         return null;
     }

@@ -2399,48 +2399,8 @@ group: Other
             (a + b * c) + 6 * (a = 3);
 
 
-    case: EntryPointConflictingWithC++
-        python:
-            a = 3
-            f()
+    case[translationUnitMode="full"]: StandardEntryPoint
 
-            def main():
-                return 0
-
-            if __name == "__main__":
-                main()
-
-        c++:
-            int a = 3;
-            f();
-
-            int main()
-            {
-                return 0;
-            }
-
-            int main()
-            {
-                main();
-                return 0;
-            }
-
-        java:
-            class Main {
-                public static int a = 3;
-
-                public static int main() {
-                    return 0;
-                }
-
-                public static void main(String[] args) {
-                    f();
-                    main();
-                }
-            }
-
-
-    case: StandardEntryPoint
         python:
             from funcs import func
             a: int = 1
@@ -2449,8 +2409,8 @@ group: Other
                 func(a)
                 return 0
 
-            if __name == "__main__":
-                main()
+            if __name__ == "__main__":
+                run()
 
         c++:
             #include "funcs.func"
@@ -2479,6 +2439,5 @@ group: Other
 
                 public static void main(String[] args) {
                     run();
-                    main();
                 }
-        }
+            }

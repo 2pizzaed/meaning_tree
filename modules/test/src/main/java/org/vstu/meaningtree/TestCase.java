@@ -1,34 +1,55 @@
 package org.vstu.meaningtree;
 
+import com.google.gson.JsonObject;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class TestCase {
+    private static final Pattern CASE_HEADER = Pattern.compile("(?m)^\\h*case(?:\\[([^\\]]*)])?:\\s*(\\S+)\\h*$");
+    private static final Pattern IGNORE_DIRECTIVE = Pattern.compile("(?m)^\\h*ignore\\h+(\\S+)\\h*->\\h*(\\S+)\\h*;\\h*$");
+
     private final String _name;
+    private final JsonObject _configuration;
+    private final Set<ConversionDirection> _ignoredConversions;
     private List<TestCodeGroup> _codeGroups; // Группы, состоящие из альтернатив кода на одном языке
     private SingleTestCode _mainCode; // Основной язык, если установлен, то все преобразования производятся от него
 
-    public TestCase(String testCase) {
+    public TestCase(String testCase, JsonObject groupConfiguration) {
         _name = parseName(testCase);
-        parseCodes(testCase);
+        _configuration = TestCaseOptions.mergeConfiguration(groupConfiguration, parseConfiguration(testCase));
+        _ignoredConversions = parseIgnoredConversions(testCase);
+        parseCodes(IGNORE_DIRECTIVE.matcher(testCase).replaceAll(""));
     }
 
     private String parseName(String testCase) {
-        Pattern namePattern = Pattern.compile("case:\\s+(\\w*)");
-        Matcher nameMatcher = namePattern.matcher(testCase);
+        Matcher nameMatcher = CASE_HEADER.matcher(testCase);
 
         if (!nameMatcher.find()) {
             throw new IllegalArgumentException("Имя тест-кейса не найдено!");
         }
-        return nameMatcher.group(1);
+        return nameMatcher.group(2);
+    }
+
+    private JsonObject parseConfiguration(String testCase) {
+        Matcher header = CASE_HEADER.matcher(testCase);
+        if (!header.find()) {
+            throw new IllegalArgumentException("Заголовок тест-кейса не найден!");
+        }
+        return TestCaseOptions.parseConfiguration(header.group(1), header.group());
+    }
+
+    private Set<ConversionDirection> parseIgnoredConversions(String testCase) {
+        Matcher directive = IGNORE_DIRECTIVE.matcher(testCase);
+        Set<ConversionDirection> ignored = new HashSet<>();
+        while (directive.find()) {
+            ignored.add(new ConversionDirection(directive.group(1), directive.group(2)));
+        }
+        return ignored;
     }
 
     private void parseCodes(String testCase) {
@@ -83,6 +104,14 @@ public class TestCase {
 
     public String getName() { return _name; }
 
+    public JsonObject getConfiguration() {
+        return _configuration.deepCopy();
+    }
+
+    public boolean ignoresConversion(String sourceLanguage, String targetLanguage) {
+        return _ignoredConversions.contains(new ConversionDirection(sourceLanguage, targetLanguage));
+    }
+
     public List<TestCodeGroup> getCodeGroups() {
         return new ArrayList<>(_codeGroups);
     }
@@ -97,5 +126,8 @@ public class TestCase {
 
     public String[] getLanguages() {
         return _codeGroups.stream().flatMap(Collection::stream).map(SingleTestCode::getLanguage).distinct().toArray(String[]::new);
+    }
+
+    private record ConversionDirection(String sourceLanguage, String targetLanguage) {
     }
 }

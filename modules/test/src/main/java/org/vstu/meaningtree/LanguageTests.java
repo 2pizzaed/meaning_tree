@@ -53,16 +53,25 @@ class LanguageTests {
 
     @BeforeAll
     static void setUp() throws IOException {
-        //TODO: hardcoded конфигурация для всех языков. В будущем лучше придумать, как задавать её прямо в тестах
         HashMap<String, Object> defaultConfig = new HashMap<>() {{
             put("translationUnitMode", "simple");
             put("skipErrors", false);
         }};
 
-        _config.addLanguageConfig(new TestLanguageConfig(new JavaTranslator(defaultConfig), "java", false));
-        _config.addLanguageConfig(new TestLanguageConfig(new PythonTranslator(defaultConfig), "python", true));
-        _config.addLanguageConfig(new TestLanguageConfig(new CppTranslator(defaultConfig), "c++", false));
+        registerLanguageSpecificConfigurations();
+        _config.addLanguageConfig(
+                new TestLanguageConfig(JavaTranslator::new, JavaTranslator.class, "java", false, defaultConfig),
+                new TestLanguageConfig(PythonTranslator::new, PythonTranslator.class, "python", true, defaultConfig),
+                new TestLanguageConfig(CppTranslator::new, CppTranslator.class, "c++", false, defaultConfig)
+        );
         parseTestsFiles();
+    }
+
+    private static void registerLanguageSpecificConfigurations() {
+        // Language-specific options are registered lazily by their constructors.
+        new JavaTranslator();
+        new PythonTranslator();
+        new CppTranslator();
     }
 
     List<DynamicTest> createTests(TestCase testCase) {
@@ -94,6 +103,8 @@ class LanguageTests {
             tests.add(DynamicTest.dynamicTest(
                     String.format("%s by %s", testCase.getName(), testScheme),
                     () -> {
+                        var sourceTranslator = sourceLangConfig.createTranslator(testCase.getConfiguration());
+                        var destTranslator = destLangConfig.createTranslator(testCase.getConfiguration());
                         if (source.getFirst().getType().equals(TestCodeType.MAIN)) {
                             // Выполняем проверку на равенство кода по следующей схеме: (source -> dest) == dest
 
@@ -101,8 +112,8 @@ class LanguageTests {
                             String formatedSourceCode = source.getFirst().getFormattedCode(sourceCodeFormatter);
 
                             // Преобразуем код первого языка в MT, а затем MT - в код второго языка
-                            String destSourceCode = destCodeFormatter.format(destLangConfig.translator().getCode(
-                                    sourceLangConfig.translator().getMeaningTree(formatedSourceCode)
+                            String destSourceCode = destCodeFormatter.format(destTranslator.getCode(
+                                    sourceTranslator.getMeaningTree(formatedSourceCode)
                             ));
 
                             boolean anyMatch = dest.stream().map((SingleTestCode code) -> code.getFormattedCode(destCodeFormatter))
@@ -124,8 +135,8 @@ class LanguageTests {
                             List<String> formattedSourceCode = source.stream().map((SingleTestCode code) -> code.getFormattedCode(sourceCodeFormatter)).toList();
 
                             // Перегнать код на втором языке в MT, затем превратить в код на первом языке
-                            String destSourceCode = sourceLangConfig.translator().getCode(
-                                    destLangConfig.translator().getMeaningTree(dest.getFirst().getFormattedCode(destCodeFormatter))
+                            String destSourceCode = sourceTranslator.getCode(
+                                    destTranslator.getMeaningTree(dest.getFirst().getFormattedCode(destCodeFormatter))
                             );
 
                             boolean anyMatch = formattedSourceCode.stream().anyMatch((String sourceCodeAlt) -> sourceCodeFormatter.equals(sourceCodeAlt, destSourceCode));

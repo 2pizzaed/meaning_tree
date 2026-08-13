@@ -909,7 +909,7 @@ group: Other
             (a + b * c) + 6 * (a := 3)
 
 
-    case: StandardEntryPoint
+    case[translationUnitMode="full"]: StandardEntryPoint
         python:
             from funcs import func
             a: int = 1

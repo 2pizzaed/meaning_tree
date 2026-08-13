@@ -31,7 +31,11 @@ public class TestCombinator {
                     // альтернативы не должны преобразовываться в другой язык (бессмысленно)
                     || right.size() > 1 && left.size() == 1 && !hasMain
                     // статический блок кода не должен подвергаться преобразованию в другой язык
-                    || right.size() == 1 && right.getFirst().getType().equals(TestCodeType.ISOLATED) && !hasMain;
+                    || right.size() == 1 && right.getFirst().getType().equals(TestCodeType.ISOLATED) && !hasMain
+                    || testCase.ignoresConversion(
+                            hasMain ? left.getLanguage() : right.getLanguage(),
+                            hasMain ? right.getLanguage() : left.getLanguage()
+                    );
         });
 
         return result;

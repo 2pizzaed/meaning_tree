@@ -31,8 +31,9 @@ public class ConditionBranch extends Statement implements HasBodyStatement {
         return Objects.hash(super.hashCode(), condition, body);
     }
 
+    @Override
     public ConditionBranch clone() {
-        ConditionBranch clone = new ConditionBranch(condition, body);
+        ConditionBranch clone = (ConditionBranch) super.clone();
         clone.body = body.clone();
         clone.condition = condition.clone();
         return clone;

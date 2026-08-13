@@ -5,7 +5,6 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.nodes.Declaration;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.Type;
-import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
@@ -119,8 +118,8 @@ public class ScopeTableElement implements Serializable {
 
     public void registerDeclaration(@NotNull SimpleIdentifier name, @NotNull Declaration decl) {
         localDeclarations.put(name, decl);
-        if (decl instanceof ClassDeclaration cls) {
-            Type type = cls.getTypeNode();
+        Type type = ScopeTable.declaredTypeOf(decl);
+        if (type != null) {
             typeDeclarations.put(type, decl);
             registerType(name, type);
         }

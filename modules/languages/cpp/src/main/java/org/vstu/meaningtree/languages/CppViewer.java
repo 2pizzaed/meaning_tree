@@ -162,6 +162,7 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(ObjectDestructorDefinition.class, this::toStringObjectDestructorDefinition);
         registerRenderer(ClassDeclaration.class, this::toStringClassDeclaration);
         registerRenderer(ClassDefinition.class, this::toStringClassDefinition);
+        registerRenderer(EnumDeclaration.class, this::toStringEnumDeclaration);
         registerRenderer(DeclarationArgument.class, this::toStringDeclarationArgument);
         registerRenderer(ArrayInitializer.class, this::toStringArrayInitializer);
         registerRenderer(ReturnStatement.class, this::toStringReturnStatement);
@@ -332,6 +333,28 @@ public class CppViewer extends LanguageViewer {
                     .map(parent -> "public " + toString(parent))
                     .collect(Collectors.joining(", ")));
         }
+        return builder.toString();
+    }
+
+    private String toStringEnumDeclaration(EnumDeclaration declaration) {
+        StringBuilder builder = new StringBuilder(declaration.isScoped() ? "enum class " : "enum ");
+        builder.append(toString(declaration.getName())).append("\n{");
+
+        increaseIndentLevel();
+        List<String> constants = new ArrayList<>();
+        for (Identifier constant : declaration.getConstants()) {
+            Expression value = declaration.getConstant(constant);
+            String constantCode = value == null
+                    ? toString(constant)
+                    : "%s = %s".formatted(toString(constant), toString(value));
+            constants.add(indent(constantCode));
+        }
+        decreaseIndentLevel();
+
+        if (!constants.isEmpty()) {
+            builder.append("\n").append(String.join(",\n", constants));
+        }
+        builder.append("\n").append(indent("}")).append(";");
         return builder.toString();
     }
 
@@ -1115,10 +1138,29 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringMemberAccess(MemberAccess memAccess) {
+        // Константа перечисления квалифицируется в C++ через ::, а не через точку
+        if (isEnumConstantAccess(memAccess)) {
+            return String.format("%s::%s", toString(memAccess.getExpression()), toString(memAccess.getMember()));
+        }
+
         String token = memAccess instanceof PointerMemberAccess || memAccess.getExpression() instanceof SelfReference
                 ? "->"
                 : ".";
         return String.format("%s%s%s",toString(memAccess.getExpression()), token, toString(memAccess.getMember()));
+    }
+
+    /**
+     * Обращение вида {@code Color.RED}, где {@code Color} — видимое в текущей области
+     * перечисление, а {@code RED} — его константа.
+     */
+    private boolean isEnumConstantAccess(MemberAccess memAccess) {
+        if (!(memAccess.getExpression() instanceof SimpleIdentifier owner)) {
+            return false;
+        }
+        return ctx.getScopeTable()
+                .findDeclaration(owner, EnumDeclaration.class)
+                .map(declaration -> ((EnumDeclaration) declaration).hasConstant(memAccess.getMember()))
+                .orElse(false);
     }
 
     private String fromInterpolatedString(InterpolatedStringLiteral interpolatedStringLiteral) {

@@ -7,6 +7,7 @@ import org.vstu.meaningtree.nodes.Definition;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
+import org.vstu.meaningtree.nodes.declarations.EnumDeclaration;
 import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
@@ -197,11 +198,24 @@ public class ScopeTable implements Serializable {
         return types.registerType(name, type);
     }
 
+    /**
+     * Тип, который объявление вводит в программу. Есть только у объявлений пользовательских
+     * типов: классов, структур и перечислений.
+     */
+    @Nullable
+    static Type declaredTypeOf(@NotNull Declaration declaration) {
+        return switch (declaration) {
+            case ClassDeclaration cls -> cls.getTypeNode();
+            case EnumDeclaration enumDeclaration -> enumDeclaration.getTypeNode();
+            default -> null;
+        };
+    }
+
     public void registerDeclaration(@NotNull SimpleIdentifier name, @NotNull Declaration declaration) {
         if (current.getParent() == null) {
             symbols.registerDeclaration(name, declaration);
-            if (declaration instanceof ClassDeclaration cls) {
-                Type type = cls.getTypeNode();
+            Type type = declaredTypeOf(declaration);
+            if (type != null) {
                 registerTypeDeclaration(type, declaration);
                 registerType(name, type);
             }

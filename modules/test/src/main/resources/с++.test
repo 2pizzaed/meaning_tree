@@ -763,3 +763,27 @@ group: StructuresOOP
                     return value * 2;
                 }
             };
+
+
+    case: LocalEnumInFunction
+        main c++:
+            void f()
+            {
+                enum Color
+                {
+                    RED,
+                    GREEN
+                };
+                Color c = Color::RED;
+            }
+
+        c++:
+            void f()
+            {
+                enum Color
+                {
+                    RED,
+                    GREEN
+                };
+                Color c = Color::RED;
+            }

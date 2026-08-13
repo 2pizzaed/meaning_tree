@@ -1301,6 +1301,28 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         ? new ClassDeclaration(modifiers, name, typeParams, parents.toArray(new Type[0]))
                         : ClassDeclaration.withTypeNode(modifiers, name, typeParams, typeNode, parents.toArray(new Type[0]));
             }
+            case "enum_declaration" -> {
+                List<DeclarationModifier> modifiers = deserializeModifiers(json.getAsJsonArray("modifiers"));
+                Identifier name = (Identifier) deserialize(json.getAsJsonObject("name"));
+                LinkedHashMap<Identifier, Expression> constants = new LinkedHashMap<>();
+                for (JsonElement elem : json.getAsJsonArray("constants")) {
+                    JsonObject constant = elem.getAsJsonObject();
+                    JsonElement value = constant.get("value");
+                    constants.put(
+                            (Identifier) deserialize(constant.getAsJsonObject("name")),
+                            value == null || value.isJsonNull() ? null : deserializeExpression(value.getAsJsonObject())
+                    );
+                }
+                boolean scoped = !json.has("scoped") || json.get("scoped").getAsBoolean();
+                org.vstu.meaningtree.nodes.types.user.Enum typeNode = json.has("type_node") && !json.get("type_node").isJsonNull()
+                        ? (org.vstu.meaningtree.nodes.types.user.Enum) deserialize(json.getAsJsonObject("type_node"))
+                        : null;
+                EnumDeclaration declaration = typeNode == null
+                        ? new EnumDeclaration(modifiers, name, constants, scoped)
+                        : EnumDeclaration.withTypeNode(modifiers, name, constants, scoped, typeNode);
+                declaration.setAnnotations(deserializeAnnotations(json.getAsJsonArray("annotations")));
+                yield declaration;
+            }
             case "function_declaration" -> {
                 Identifier name = (Identifier) deserialize(json.getAsJsonObject("name"));
                 Type returnType = (Type) deserialize(json.getAsJsonObject("return_type"));

@@ -123,6 +123,7 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(ObjectDestructorDefinition.class, this::objectDestructorToString);
         registerTabRenderer(ClassDeclaration.class, this::classDeclToString);
         registerTabRenderer(ClassDefinition.class, this::classToString);
+        registerTabRenderer(EnumDeclaration.class, this::enumToString);
         registerTabRenderer(StructureDeclaration.class, this::structDeclToString);
         registerTabRenderer(StructureDefinition.class, this::structToString);
         registerTabRenderer(FunctionDeclaration.class, this::functionDeclarationToString);
@@ -345,6 +346,40 @@ public class PythonViewer extends LanguageViewer {
 
     private String classDeclToString(ClassDeclaration decl, Tab tab) {
         return toString(new ClassDefinition(decl, new CompoundStatement().remap(decl)).remap(decl), tab);
+    }
+
+    /**
+     * Перечисление транслируется в класс, унаследованный от {@code enum.Enum}. Константам без
+     * явного значения выдается {@code auto()}: пустое присваивание в Python недопустимо.
+     * Нужные имена откладываются в контекст импортов — их допишет точка входа программы.
+     */
+    private String enumToString(EnumDeclaration decl, Tab tab) {
+        Tab constantTab = tab.up();
+        List<String> constants = new ArrayList<>();
+        boolean needsAuto = false;
+        for (Identifier constant : decl.getConstants()) {
+            Expression value = decl.getConstant(constant);
+            needsAuto |= value == null;
+            constants.add(constantTab.concat("%s = %s".formatted(
+                    toString(constant),
+                    value == null ? "auto()" : toString(value)
+            )));
+        }
+        if (constants.isEmpty()) {
+            constants.add(constantTab.concat("pass"));
+        }
+
+        List<Identifier> importedMembers = new ArrayList<>();
+        importedMembers.add(new SimpleIdentifier("Enum").remap(decl));
+        if (needsAuto) {
+            importedMembers.add(new SimpleIdentifier("auto").remap(decl));
+        }
+        ctx.preserveImport(new ImportMembersFromModule(
+                new SimpleIdentifier("enum").remap(decl),
+                importedMembers
+        ).remap(decl));
+
+        return "class %s(Enum):\n%s".formatted(toString(decl.getName()), String.join("\n", constants));
     }
 
     /**

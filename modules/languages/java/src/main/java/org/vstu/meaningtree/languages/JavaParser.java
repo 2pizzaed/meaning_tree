@@ -96,6 +96,7 @@ public class JavaParser extends LanguageParser {
         registerTSNodeHandler("package_declaration", PackageDeclaration.class, this::fromPackageDeclarationTSNode);
         registerTSNodeHandler("scoped_identifier", ScopedIdentifier.class, this::fromScopedIdentifierTSNode);
         registerTSNodeHandler("class_declaration", ClassDefinition.class, this::fromClassDeclarationTSNode);
+        registerTSNodeHandler("enum_declaration", EnumDeclaration.class, this::fromEnumDeclarationTSNode);
         registerTSNodeHandler("field_declaration", FieldDeclaration.class, this::fromFieldDeclarationTSNode);
         registerTSNodeHandler("string_literal", StringLiteral.class, this::fromStringLiteralTSNode);
         registerTSNodeHandler("method_declaration", Definition.class, this::fromMethodDeclarationTSNode);
@@ -792,6 +793,39 @@ public class JavaParser extends LanguageParser {
         }
 
         return modifiers;
+    }
+
+    /**
+     * Разбирает {@code enum Name { A, B }}. Константы с аргументами конструктора или собственным
+     * телом, а также методы и поля перечисления не поддерживаются: это требует конструкторов,
+     * которых у {@link EnumDeclaration} нет.
+     */
+    private EnumDeclaration fromEnumDeclarationTSNode(TSNode node) {
+        List<DeclarationModifier> modifiers = new ArrayList<>();
+        List<Annotation> annotations = new ArrayList<>();
+        if (node.getChild(0).getType().equals("modifiers")) {
+            modifiers.addAll(fromModifiers(annotations, node.getChild(0)));
+        }
+
+        Identifier enumName = fromIdentifierTSNode(node.getChildByFieldName("name"));
+        TSNode body = node.getChildByFieldName("body");
+
+        LinkedHashMap<Identifier, Expression> constants = new LinkedHashMap<>();
+        for (int i = 0; i < body.getNamedChildCount(); i++) {
+            TSNode child = body.getNamedChild(i);
+            if (!child.getType().equals("enum_constant")) {
+                throw new UnsupportedParsingException(
+                        "Java enum with members is not supported: " + child.getType());
+            }
+            if (!child.getChildByFieldName("arguments").isNull() || !child.getChildByFieldName("body").isNull()) {
+                throw new UnsupportedParsingException("Java enum constant with arguments or body is not supported");
+            }
+            constants.put(fromIdentifierTSNode(child.getChildByFieldName("name")), null);
+        }
+
+        EnumDeclaration declaration = new EnumDeclaration(modifiers, enumName, constants, true);
+        declaration.setAnnotations(annotations);
+        return declaration;
     }
 
     private ClassDefinition fromClassDeclarationTSNode(TSNode node) {

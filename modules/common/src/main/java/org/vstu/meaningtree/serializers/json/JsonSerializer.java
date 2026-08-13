@@ -571,6 +571,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case DeclarationArgument declarationArgument -> serializeDeclarationArgument(declarationArgument);
             case Annotation anno -> serializeAnnotation(anno);
             case ClassDeclaration classDeclaration -> serializeClassDeclaration(classDeclaration);
+            case EnumDeclaration enumDeclaration -> serializeEnumDeclaration(enumDeclaration);
             case ObjectConstructorDeclaration objectConstructorDefinition -> serializeMethodDeclaration(objectConstructorDefinition);
             case ObjectDestructorDeclaration objectDestructorDefinition -> serializeMethodDeclaration(objectDestructorDefinition);
             case SeparatedVariableDeclaration separatedVariableDeclaration -> serializeSeparatedVariableDeclaration(separatedVariableDeclaration);
@@ -2304,6 +2305,30 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray genTypes = new JsonArray();
         for (var t : decl.getTypeParameters()) genTypes.add(serialize(t));
         json.add("generic_type_params", genTypes);
+        json.add("type_node", serialize(decl.getTypeNode()));
+        JsonArray anno = new JsonArray();
+        for (var t : decl.getAnnotations()) anno.add(serialize(t));
+        json.add("annotations", anno);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeEnumDeclaration(@NotNull EnumDeclaration decl) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
+        JsonArray modifiers = new JsonArray();
+        for (var t : decl.getModifiers()) modifiers.add(enumToValue(t));
+        json.add("modifiers", modifiers);
+        json.add("name", serialize(decl.getName()));
+        JsonArray constants = new JsonArray();
+        for (var entry : decl.getConstantsWithValues().entrySet()) {
+            JsonObject constant = new JsonObject();
+            constant.add("name", serialize(entry.getKey()));
+            constant.add("value", entry.getValue() == null ? JsonNull.INSTANCE : serialize(entry.getValue()));
+            constants.add(constant);
+        }
+        json.add("constants", constants);
+        json.addProperty("scoped", decl.isScoped());
         json.add("type_node", serialize(decl.getTypeNode()));
         JsonArray anno = new JsonArray();
         for (var t : decl.getAnnotations()) anno.add(serialize(t));

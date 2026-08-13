@@ -2,10 +2,7 @@ package org.vstu.meaningtree.utils.analysis.types;
 
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.nodes.*;
-import org.vstu.meaningtree.nodes.declarations.Annotation;
-import org.vstu.meaningtree.nodes.declarations.ListUnpackingVariableDeclaration;
-import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
-import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
+import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
@@ -533,6 +530,8 @@ public class SimpleTypeInferrer {
             case SeparatedVariableDeclaration separatedVariableDeclaration -> inference(separatedVariableDeclaration, scope);
             case ListUnpackingVariableDeclaration listUnpackingVariableDeclaration -> inference(listUnpackingVariableDeclaration, scope);
             case PackageDeclaration packageDeclaration -> {} // do nothing
+            // объявление перечисления не вводит переменных, выводить нечего
+            case EnumDeclaration enumDeclaration -> {}
             default -> throw new IllegalStateException("Unexpected declaration type: " + declaration.getClass());
         }
     }

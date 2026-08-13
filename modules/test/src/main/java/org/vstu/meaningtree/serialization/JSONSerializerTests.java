@@ -199,6 +199,13 @@ public class JSONSerializerTests {
                     }
                 }
                 """));
+        snippets.add(new Snippet("java", "enumDeclaration", """
+                enum Color {
+                    RED,
+                    GREEN,
+                    BLUE
+                }
+                """));
         snippets.add(new Snippet("java", "imports", """
                 import java.util.List;
                 import java.util.*;
@@ -273,6 +280,11 @@ public class JSONSerializerTests {
 
                     def get(self):
                         return self.value
+                """);
+        python(snippets, "enumDeclaration", """
+                class Color(Enum):
+                    RED = auto()
+                    GREEN = 5
                 """);
         python(snippets, "imports", """
                 import math
@@ -357,6 +369,28 @@ public class JSONSerializerTests {
 
                 int main() {
                     return add(1, 2);
+                }
+                """));
+        snippets.add(new Snippet("c++", "enumDeclaration", """
+                enum Color {
+                    RED = 1,
+                    GREEN,
+                    BLUE = 4
+                };
+
+                int main() {
+                    Color c = Color::RED;
+                    return 0;
+                }
+                """));
+        snippets.add(new Snippet("c++", "scopedEnumDeclaration", """
+                enum class Color {
+                    RED,
+                    GREEN
+                };
+
+                int main() {
+                    return 0;
                 }
                 """));
         snippets.add(new Snippet("c++", "includes", """

@@ -69,6 +69,7 @@ import org.vstu.meaningtree.nodes.types.user.GenericClass;
 import org.vstu.meaningtree.nodes.types.user.Structure;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 public class CppParser extends LanguageParser {
@@ -82,6 +83,7 @@ public class CppParser extends LanguageParser {
         registerTSNodeHandler("translation_unit", ProgramEntryPoint.class, this::fromTranslationUnit);
         registerTSNodeHandler("class_specifier", ClassDefinition.class, this::fromClassSpecifier);
         registerTSNodeHandler("struct_specifier", StructureDefinition.class, this::fromStructSpecifier);
+        registerTSNodeHandler("enum_specifier", EnumDeclaration.class, this::fromEnumSpecifier);
         registerTSNodeHandler("function_definition", FunctionDefinition.class, this::fromFunction);
         registerTSNodeHandler("expression_statement", Node.class, this::fromExpressionStatement);
         registerTSNodeHandler("binary_expression", Expression.class, this::fromBinaryExpression);
@@ -287,6 +289,63 @@ public class CppParser extends LanguageParser {
     }
 
     /**
+     * Разбирает {@code enum Name { A, B = 2 }} и {@code enum class Name { ... }}. Базовый тип
+     * ({@code enum Name : int}) и анонимные перечисления не поддерживаются.
+     */
+    private EnumDeclaration fromEnumSpecifier(TSNode node) {
+        TSNode name = node.getChildByFieldName("name");
+        if (name.isNull()) {
+            throw new UnsupportedParsingException("Anonymous C++ enum is not supported");
+        }
+        TSNode body = node.getChildByFieldName("body");
+        if (body.isNull()) {
+            throw new UnsupportedParsingException("C++ enum without body is not supported");
+        }
+        if (!node.getChildByFieldName("base").isNull()) {
+            throw new UnsupportedParsingException("C++ enum with explicit base type is not supported");
+        }
+
+        LinkedHashMap<Identifier, Expression> constants = new LinkedHashMap<>();
+        for (int i = 0; i < body.getNamedChildCount(); i++) {
+            TSNode enumerator = body.getNamedChild(i);
+            if (!enumerator.getType().equals("enumerator")) {
+                continue;
+            }
+            TSNode value = enumerator.getChildByFieldName("value");
+            constants.put(
+                    (Identifier) fromIdentifier(enumerator.getChildByFieldName("name")),
+                    value.isNull() ? null : (Expression) parseTSNode(value)
+            );
+        }
+
+        EnumDeclaration declaration = new EnumDeclaration(
+                List.of(),
+                (Identifier) fromIdentifier(name),
+                constants,
+                isScopedEnum(node)
+        );
+        // Единица трансляции собирается без BodyConstructor, поэтому объявление регистрируется
+        // здесь: иначе Color::RED ниже по коду не с чем будет сопоставить
+        ctx.getScopeTable().registerDeclaration(
+                declaration.getName().getSimpleIdentifierOrThrow(), declaration);
+        return declaration;
+    }
+
+    /**
+     * {@code enum class} и {@code enum struct} квалифицируют константы именем перечисления,
+     * обычный {@code enum} выносит их в окружающую область видимости.
+     */
+    private boolean isScopedEnum(TSNode node) {
+        for (int i = 0; i < node.getChildCount(); i++) {
+            String childType = node.getChild(i).getType();
+            if (childType.equals("class") || childType.equals("struct")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Разбирает class_specifier или struct_specifier. Отличаются они только видимостью членов
      * по умолчанию (private у класса, public у структуры) и типом создаваемых узлов.
      */
@@ -478,7 +537,13 @@ public class CppParser extends LanguageParser {
     private CompoundStatement fromBlock(TSNode node) {
         var statements = ctx.createNodeBody(true);
         for (int i = 1; i < node.getChildCount() - 1; i++) {
-            statements.add(parseTSNode(node.getChild(i)));
+            TSNode child = node.getChild(i);
+            // Объявление типа внутри блока (enum, class, struct) завершается точкой с запятой,
+            // которая лежит в дереве отдельным узлом рядом с ним, а не внутри него
+            if (child.getType().equals(";")) {
+                continue;
+            }
+            statements.add(parseTSNode(child));
         }
         return statements.build();
     }
@@ -1473,6 +1538,20 @@ public class CppParser extends LanguageParser {
         return null;
     }
 
+    /**
+     * Квалифицированное имя вида {@code Color::RED}, где {@code Color} — видимое перечисление,
+     * а {@code RED} — его константа.
+     */
+    private boolean isEnumConstantAccess(QualifiedIdentifier qualified) {
+        if (!(qualified.getScope() instanceof SimpleIdentifier owner)) {
+            return false;
+        }
+        return ctx.getScopeTable()
+                .findDeclaration(owner, EnumDeclaration.class)
+                .map(declaration -> ((EnumDeclaration) declaration).hasConstant(qualified.getMember()))
+                .orElse(false);
+    }
+
     private QualifiedIdentifier rightToLeftQualified(Identifier left, Identifier right) {
         if (right instanceof QualifiedIdentifier rightQualified) {
             SimpleIdentifier ident = (SimpleIdentifier) rightQualified.getScope();
@@ -1489,7 +1568,13 @@ public class CppParser extends LanguageParser {
         } else if (node.getType().equals("qualified_identifier")) {
             Identifier right = (Identifier) fromIdentifier(node.getChildByFieldName("name"));
             SimpleIdentifier left = (SimpleIdentifier) fromIdentifier(node.getChildByFieldName("scope"));
-            return rightToLeftQualified(left, right);
+            QualifiedIdentifier qualified = rightToLeftQualified(left, right);
+            // Color::RED — это то же обращение к константе перечисления, что Color.RED в
+            // Java и Python, поэтому в дереве оно представляется одинаково
+            if (isEnumConstantAccess(qualified)) {
+                return new MemberAccess(qualified.getScope(), qualified.getMember());
+            }
+            return qualified;
         } else if (node.getType().equals("field_expression")) {
             Node treeNode = parseTSNode(node.getChildByFieldName("argument"));
             String operator = node.getChild(1).getType();

@@ -2076,6 +2076,115 @@ group: StructuresOOP
                     }
             };
 
+group: Enums
+    case: EnumWithoutValues
+        main java:
+            enum Color {
+                RED,
+                GREEN,
+                BLUE
+            }
+
+        python:
+            from enum import Enum, auto
+            class Color(Enum):
+                RED = auto()
+                GREEN = auto()
+                BLUE = auto()
+
+        c++:
+            enum class Color
+            {
+                RED,
+                GREEN,
+                BLUE
+            };
+
+
+    case: EnumWithValues
+        main c++:
+            enum Color
+            {
+                RED = 1,
+                GREEN = 2,
+                BLUE = 4
+            };
+
+        python:
+            from enum import Enum
+            class Color(Enum):
+                RED = 1
+                GREEN = 2
+                BLUE = 4
+
+        java:
+            enum Color {
+                RED,
+                GREEN,
+                BLUE
+            }
+
+
+    case: EnumWithPartialValues
+        main c++:
+            enum class Color
+            {
+                RED,
+                GREEN = 5,
+                BLUE
+            };
+
+        python:
+            from enum import Enum, auto
+            class Color(Enum):
+                RED = auto()
+                GREEN = 5
+                BLUE = auto()
+
+
+    case: PythonEnumToOtherLanguages
+        main python:
+            class Color(Enum):
+                RED = auto()
+                GREEN = auto()
+
+        java:
+            enum Color {
+                RED,
+                GREEN
+            }
+
+        c++:
+            enum class Color
+            {
+                RED,
+                GREEN
+            };
+
+
+    case: EnumConstantAccess
+        main c++:
+            enum class Color
+            {
+                RED,
+                GREEN
+            };
+            Color c = Color::RED;
+
+        python:
+            from enum import Enum, auto
+            class Color(Enum):
+                RED = auto()
+                GREEN = auto()
+            c: Color = Color.RED
+
+        java:
+            enum Color {
+                RED,
+                GREEN
+            }
+            Color c = Color.RED;
+
 group: Other
     case: Import
         python:

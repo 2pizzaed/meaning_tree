@@ -4,12 +4,7 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.support.SemanticFeature;
-import org.vstu.meaningtree.languages.support.features.ForEachMultipleDeclaratorsFeature;
-import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
-import org.vstu.meaningtree.languages.support.features.PointerSubtractionInUnpackFeature;
-import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
-import org.vstu.meaningtree.languages.support.features.PointerTypeFeature;
-import org.vstu.meaningtree.languages.support.features.ConstInFunctionSignatureFeature;
+import org.vstu.meaningtree.languages.support.features.*;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -178,6 +173,7 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(PackageDeclaration.class, this::toStringPackageDeclaration);
         registerRenderer(ClassDeclaration.class, this::toStringClassDeclaration);
         registerRenderer(ClassDefinition.class, this::toStringClassDefinition);
+        registerRenderer(EnumDeclaration.class, this::toStringEnumDeclaration);
         registerRenderer(Comment.class, this::toStringComment);
         registerRenderer(BreakStatement.class, this::toStringBreakStatement);
         registerRenderer(ContinueStatement.class, this::toStringContinueStatement);
@@ -1241,6 +1237,37 @@ public class JavaViewer extends LanguageViewer {
             result += " extends " + toString(decl.getParents().getFirst());
         }
         return result;
+    }
+
+    /**
+     * Явные значения констант отбрасываются: задать их в Java можно только через конструктор
+     * перечисления, а конструкторы перечислений не поддерживаются.
+     */
+    private String toStringEnumDeclaration(EnumDeclaration decl) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(toStringAnnotations(decl.getAnnotations()));
+
+        String modifiers = toString(decl.getModifiers());
+        if (!modifiers.isEmpty()) {
+            modifiers += " ";
+        }
+        builder.append(modifiers).append("enum ").append(toString(decl.getName()));
+
+        increaseIndentLevel();
+        String constants = decl.getConstants().stream()
+                .map(constant -> indent(toString(constant)))
+                .collect(Collectors.joining(",\n"));
+        decreaseIndentLevel();
+        String body = constants.isEmpty()
+                ? "{\n" + indent("}")
+                : "{\n" + constants + "\n" + indent("}");
+
+        if (_openBracketOnSameLine) {
+            builder.append(" ").append(body);
+        } else {
+            builder.append("\n").append(indent(body));
+        }
+        return builder.toString();
     }
 
     private String toStringConstructorCall(ConstructorCall call) {

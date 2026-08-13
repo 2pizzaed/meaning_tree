@@ -94,7 +94,8 @@ public class PythonParser extends LanguageParser {
         registerTSNodeHandler("interpolation", Node.class, node -> parseTSNode(node.getNamedChild(0)));
         registerTSNodeHandler("slice", Range.class, this::fromSlice);
         registerTSNodeHandler("for_statement", ForLoop.class, this::fromForLoop);
-        registerTSNodeHandler("class_definition", ClassDefinition.class, this::fromClass);
+        // Node, а не ClassDefinition: класс, унаследованный от enum.Enum, разбирается в EnumDeclaration
+        registerTSNodeHandler("class_definition", Node.class, this::fromClass);
         registerTSNodeHandler("comment", Comment.class, this::fromComment);
         registerTSNodeHandler("boolean_operator", BinaryExpression.class, this::fromBooleanOperatorTSNode);
         registerTSNodeHandler("none", NullLiteral.class, node -> new NullLiteral());
@@ -470,11 +471,88 @@ public class PythonParser extends LanguageParser {
         return new DeclarationArgument(type, identifier, initial);
     }
 
-    private ClassDefinition fromClass(TSNode node) {
+    private Node fromClass(TSNode node) {
         return fromClass(node, List.of());
     }
 
-    private ClassDefinition fromClass(TSNode node, List<Annotation> decorators) {
+    private Node fromClass(TSNode node, List<Annotation> decorators) {
+        if (isEnumClass(node)) {
+            return fromEnumClass(node, decorators);
+        }
+        return fromRegularClass(node, decorators);
+    }
+
+    /**
+     * Наследование от {@code enum.Enum} — это не обычный базовый класс, а объявление
+     * перечисления, поэтому такой класс разбирается в {@link EnumDeclaration}.
+     */
+    private boolean isEnumClass(TSNode node) {
+        TSNode superclasses = node.getChildByFieldName("superclasses");
+        if (superclasses.isNull()) {
+            return false;
+        }
+        for (int i = 0; i < superclasses.getNamedChildCount(); i++) {
+            String superclass = getCodePiece(superclasses.getNamedChild(i));
+            if (superclass.equals("Enum") || superclass.equals("enum.Enum")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Тело перечисления читается прямо из дерева tree-sitter, а не через
+     * {@code fromCompoundTSNode}: константы — это не поля класса и не переменные, регистрировать
+     * их в области видимости как переменные не нужно.
+     */
+    private EnumDeclaration fromEnumClass(TSNode node, List<Annotation> decorators) {
+        SimpleIdentifier enumName = (SimpleIdentifier) parseTSNode(node.getChildByFieldName("name"));
+        TSNode body = node.getChildByFieldName("body");
+
+        LinkedHashMap<Identifier, Expression> constants = new LinkedHashMap<>();
+        for (int i = 0; i < body.getNamedChildCount(); i++) {
+            TSNode child = body.getNamedChild(i);
+            if (child.getType().equals("pass_statement")) {
+                continue;
+            }
+            TSNode assignment = child.getType().equals("expression_statement") && child.getNamedChildCount() == 1
+                    ? child.getNamedChild(0)
+                    : child;
+            if (!assignment.getType().equals("assignment")) {
+                throw new UnsupportedParsingException(
+                        "Python enum member is not supported: " + child.getType());
+            }
+            TSNode left = assignment.getChildByFieldName("left");
+            if (!left.getType().equals("identifier")) {
+                throw new UnsupportedParsingException("Unsupported Python enum constant: " + getCodePiece(left));
+            }
+            TSNode value = assignment.getChildByFieldName("right");
+            constants.put(
+                    (Identifier) parseTSNode(left),
+                    isAutoValue(value) ? null : (Expression) parseTSNode(value)
+            );
+        }
+
+        EnumDeclaration declaration = new EnumDeclaration(List.of(), enumName, constants, true);
+        declaration.setAnnotations(decorators);
+        return declaration;
+    }
+
+    /**
+     * {@code auto()} назначает значение автоматически, то есть явного значения у константы нет.
+     */
+    private boolean isAutoValue(TSNode value) {
+        if (value.isNull() || !value.getType().equals("call")) {
+            return false;
+        }
+        if (value.getChildByFieldName("arguments").getNamedChildCount() != 0) {
+            return false;
+        }
+        String function = getCodePiece(value.getChildByFieldName("function"));
+        return function.equals("auto") || function.equals("enum.auto");
+    }
+
+    private ClassDefinition fromRegularClass(TSNode node, List<Annotation> decorators) {
         boolean isDataclass = decorators.stream().anyMatch(PythonParser::isDataclassAnnotation);
         TSNode superclasses = node.getChildByFieldName("superclasses");
         Type[] supertypes = new Type[0];

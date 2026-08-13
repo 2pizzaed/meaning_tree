@@ -40,7 +40,8 @@ public class PythonTranslator extends LanguageTranslator {
     protected Config extendConfigParameters() {
         var compoundComparisons = ConfigParameters.registerIfNotExists(this, "disableCompoundComparisons", new ConfigValue(false), ConfigScope.VIEWER);
         var typeAnno = ConfigParameters.registerIfNotExists(this, "disableTypeAnnotations", new ConfigValue(false), ConfigScope.VIEWER);
-        return new Config(compoundComparisons, typeAnno);
+        var fixedListSize = ConfigParameters.registerIfNotExists(this, "ensureFixedListSize", new ConfigValue(false), ConfigScope.PARSER);
+        return new Config(compoundComparisons, typeAnno, fixedListSize);
     }
 
     @Override

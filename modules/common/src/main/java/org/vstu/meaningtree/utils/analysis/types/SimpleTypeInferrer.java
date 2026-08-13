@@ -160,6 +160,13 @@ public class SimpleTypeInferrer {
             valueType = chooseGeneralType(inferredTypes);
         }
 
+        if (valueType instanceof ArrayType nestedArray) {
+            return new ArrayType(
+                    (Type) nestedArray.getItemType().freshClone(),
+                    nestedArray.getDimensionsCount() + 1
+            );
+        }
+
         var size = new IntegerLiteral(arrayLiteral.getList().size());
         return new ArrayType(valueType, size);
     }
@@ -201,6 +208,16 @@ public class SimpleTypeInferrer {
         }
         else if (first instanceof BooleanType && second instanceof BooleanType) {
             return new BooleanType();
+        }
+        else if (first instanceof ArrayType firstArray && second instanceof ArrayType secondArray
+                && firstArray.getDimensionsCount() == secondArray.getDimensionsCount()) {
+            Type itemType = chooseGeneralType(firstArray.getItemType(), secondArray.getItemType());
+            return itemType instanceof UnknownType
+                    ? itemType
+                    : new ArrayType(itemType, firstArray.getDimensionsCount());
+        }
+        else if (first.equals(second)) {
+            return (Type) first.freshClone();
         }
 
         return new UnknownType();

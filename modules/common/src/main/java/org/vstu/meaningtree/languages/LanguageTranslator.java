@@ -85,10 +85,9 @@ public abstract class LanguageTranslator implements Cloneable {
      * @param rawConfig - конфигурация в формате "название - значение" в виде строки (тип будет выведен автоматически из строки)
      */
     public LanguageTranslator(Map<String, Object> rawConfig) {
+        Config extended = Optional.ofNullable(extendConfigParameters()).orElse(new Config());
         var configBuilder = new ConfigBuilder().fromRawMap(this.getClass(), rawConfig);
-        _config = _config.merge(
-                Optional.ofNullable(extendConfigParameters()).orElse(new Config()),
-                configBuilder.toConfig());
+        _config = _config.merge(extended, configBuilder.toConfig());
     }
 
     public LanguageTranslator(Config config) {

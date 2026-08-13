@@ -54,10 +54,7 @@ import org.vstu.meaningtree.nodes.types.builtin.BooleanType;
 import org.vstu.meaningtree.nodes.types.builtin.FloatType;
 import org.vstu.meaningtree.nodes.types.builtin.IntType;
 import org.vstu.meaningtree.nodes.types.builtin.StringType;
-import org.vstu.meaningtree.nodes.types.containers.ListType;
-import org.vstu.meaningtree.nodes.types.containers.OrderedDictionaryType;
-import org.vstu.meaningtree.nodes.types.containers.SetType;
-import org.vstu.meaningtree.nodes.types.containers.UnmodifiableListType;
+import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
 
@@ -1165,6 +1162,11 @@ public class PythonParser extends LanguageParser {
             Type leftType = scopeTable.getVariableType(variableName);
             Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? new UnknownType() :
                     (Type) parseTSNode(node.getChildByFieldName("type"));
+            if (getConfigParameter("ensureFixedListSize").asBoolean()
+                    && rightExpr instanceof ArrayLiteral
+                    && declaredType instanceof ListType listType) {
+                declaredType = fixedSizeArrayType(listType);
+            }
             Type rightType = ctx.inferType(rightExpr); // already uses scopeTable by default
 
             if (declaredType != null && !(declaredType instanceof UnknownType)) {
@@ -1224,11 +1226,28 @@ public class PythonParser extends LanguageParser {
             exprs.add(expr);
         }
         return switch (type) {
-            case "list" -> new ListLiteral(exprs.toArray(new Expression[0]));
+            case "list" -> getConfigParameter("ensureFixedListSize").asBoolean()
+                    ? new ArrayLiteral(exprs)
+                    : new ListLiteral(exprs.toArray(new Expression[0]));
             case "tuple" -> new UnmodifiableListLiteral(exprs.toArray(new Expression[0]));
             case "set" -> new SetLiteral(exprs.toArray(new Expression[0]));
             default -> null;
         };
+    }
+
+    /**
+     * Maps a Python {@code list[T]} annotation to a fixed-size array type.
+     * Nested list annotations become dimensions of one array type, so
+     * {@code list[list[int]]} is represented as {@code int[][]}.
+     */
+    private ArrayType fixedSizeArrayType(ListType listType) {
+        Type itemType = listType;
+        int dimensions = 0;
+        while (itemType instanceof ListType nestedList) {
+            dimensions++;
+            itemType = nestedList.getItemType();
+        }
+        return new ArrayType((Type) itemType.freshClone(), dimensions);
     }
 
     private CompoundStatement fromCompoundTSNode(TSNode node, boolean newScope) {

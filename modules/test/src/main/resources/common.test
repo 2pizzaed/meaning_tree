@@ -2355,7 +2355,7 @@ group: Other
     case: ArrayNewSingleDimensionWithInit
         java:
             int[] args = new int[] {1, 2, 3, 4, 5};
-        python:
+        isolated python:
             args: list[int] = [1, 2, 3, 4, 5]
         c++:
             int args[] = {1, 2, 3, 4, 5};
@@ -2364,7 +2364,7 @@ group: Other
     case: ArrayNewMultiDimensionWithInit
         java:
             int[][] args = new int[][] {{1, 2}, {3, 4}, {5, 6}};
-        python:
+        isolated python:
             args: list[list[int]] = [[1, 2], [3, 4], [5, 6]]
         c++:
             int args[][] = {{1, 2}, {3, 4}, {5, 6}};
@@ -2373,7 +2373,7 @@ group: Other
     case: ArrayNewSingleDimensionWithoutInit
         java:
             int[] args = new int[35 + x.y()];
-        python:
+        isolated python:
             args: list[int] = [int() for _ in range(35 + x.y())]
         c++:
             int args[35 + x.y()];
@@ -2382,7 +2382,7 @@ group: Other
     case: ArrayNewMultiDimensionWithoutInit
         java:
             int[] args = new int[a][b];
-        python:
+        isolated python:
             args: list[int] = [[int() for __ in range(b)] for _ in range(a)]
         c++:
             int args[a][b];

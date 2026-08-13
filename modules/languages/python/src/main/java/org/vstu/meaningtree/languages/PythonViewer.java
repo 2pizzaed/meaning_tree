@@ -727,11 +727,14 @@ public class PythonViewer extends LanguageViewer {
             } else {
                 typeStr = "list";
             }
-        } else if (type instanceof ArrayType listType) {
-            if (listType.getItemType() != null) {
-                typeStr = String.format("list[%s]",  toString(listType.getItemType()));
-            } else {
+        } else if (type instanceof ArrayType arrayType) {
+            if (arrayType.getItemType() == null) {
                 typeStr = "list";
+            } else {
+                typeStr = typeToString(arrayType.getItemType());
+                for (int i = 0; i < arrayType.getDimensionsCount(); i++) {
+                    typeStr = "list[%s]".formatted(typeStr);
+                }
             }
         } else if (type instanceof SetType setType) {
             if (setType.getItemType() != null) {

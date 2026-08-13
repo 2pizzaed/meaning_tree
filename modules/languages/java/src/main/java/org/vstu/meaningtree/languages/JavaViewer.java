@@ -1635,10 +1635,26 @@ public class JavaViewer extends LanguageViewer {
         }
 
         if (rValue != null) {
-            builder.append(" = ").append(toString(rValue));
+            builder.append(" = ");
+            if (rValue instanceof ArrayLiteral arrayLiteral && type instanceof ArrayType) {
+                builder.append("new ")
+                        .append(toString(type))
+                        .append(" ")
+                        .append(toStringArrayLiteralInitializer(arrayLiteral));
+            } else {
+                builder.append(toString(rValue));
+            }
         }
 
         return builder.toString();
+    }
+
+    private String toStringArrayLiteralInitializer(PlainCollectionLiteral literal) {
+        return literal.getList().stream()
+                .map(value -> value instanceof PlainCollectionLiteral nested
+                        ? toStringArrayLiteralInitializer(nested)
+                        : toString(value))
+                .collect(Collectors.joining(", ", "{", "}"));
     }
 
     public String toStringVariableDeclaration(VariableDeclaration stmt) {

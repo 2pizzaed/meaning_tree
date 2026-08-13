@@ -79,7 +79,8 @@ group: GroupName
 
 Rules:
 
-- `group:` and `case:` names are word-like identifiers parsed with regexes; keep names simple.
+- `group:` and `case:` names are word-like identifiers parsed with regexes; keep names simple. Both headers accept optional JSON-valued configuration overrides: `group[translationUnitMode="full"]: EntryPoint` or `case[skipErrors=false]: Recovery`. A case overrides the same option inherited from its group.
+- Inside a case, add `ignore <source> -> <target>;` to omit exactly that conversion direction from generated checks, for example `ignore python -> java;`. Use it only for known, intentional gaps; it does not suppress other directions.
 - Each language block is introduced by `<language>:` or by a prefixed form: `main <language>:`, `alt <language>:`, `isolated <language>:`.
 - Supported language names in current tests are `java`, `python`, and `c++`.
 - At least two language blocks are normally needed for a useful conversion case.

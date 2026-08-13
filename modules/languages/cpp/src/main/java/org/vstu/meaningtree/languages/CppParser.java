@@ -69,6 +69,7 @@ import org.vstu.meaningtree.nodes.types.user.GenericClass;
 import org.vstu.meaningtree.nodes.types.user.Structure;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 
@@ -1478,13 +1479,14 @@ public class CppParser extends LanguageParser {
             List<Expression> dimensions = new ArrayList<>();
             TSNode arrayDimension = tsDeclarator;
             while (!arrayDimension.isNull() && arrayDimension.getType().equals("array_declarator")) {
-                if (!arrayDimension.getChildByFieldName("value").isNull()) {
-                    dimensions.add((Expression) parseTSNode(arrayDimension.getChildByFieldName("value")));
+                if (!arrayDimension.getChildByFieldName("size").isNull()) {
+                    dimensions.add((Expression) parseTSNode(arrayDimension.getChildByFieldName("size")));
                 } else {
                     dimensions.add(null);
                 }
                 arrayDimension = arrayDimension.getChildByFieldName("declarator");
             }
+            Collections.reverse(dimensions);
             mainType = new ArrayType(mainType, dimensions.size(), dimensions);
             return new VariableDeclaration(mainType, new VariableDeclarator((SimpleIdentifier) parseTSNode(arrayDimension)));
         } else if (tsDeclarator.getType().equals("init_declarator")) {
@@ -1500,13 +1502,14 @@ public class CppParser extends LanguageParser {
                 List<Expression> dimensions = new ArrayList<>();
                 TSNode arrayDimension = tsVariableName;
                 while (!arrayDimension.isNull() && arrayDimension.getType().equals("array_declarator")) {
-                    if (!arrayDimension.getChildByFieldName("value").isNull()) {
-                        dimensions.add((Expression) parseTSNode(arrayDimension.getChildByFieldName("value")));
+                    if (!arrayDimension.getChildByFieldName("size").isNull()) {
+                        dimensions.add((Expression) parseTSNode(arrayDimension.getChildByFieldName("size")));
                     } else {
                         dimensions.add(null);
                     }
                     arrayDimension = arrayDimension.getChildByFieldName("declarator");
                 }
+                Collections.reverse(dimensions);
                 type = new ArrayType(mainType, dimensions.size(), dimensions);
                 tsVariableName = arrayDimension;
             }

@@ -1638,12 +1638,14 @@ public class JavaViewer extends LanguageViewer {
             builder.append(" = ");
             if (rValue instanceof ArrayLiteral arrayLiteral && type instanceof ArrayType) {
                 builder.append("new ")
-                        .append(toString(type))
+                        .append(toStringDeclarationType(type))
                         .append(" ")
                         .append(toStringArrayLiteralInitializer(arrayLiteral));
             } else {
                 builder.append(toString(rValue));
             }
+        } else if (type instanceof ArrayType arrayType && arrayType.getShape().getDimension(0) != null) {
+            builder.append(" = ").append(toStringArrayAllocation(arrayType));
         }
 
         return builder.toString();
@@ -1655,6 +1657,25 @@ public class JavaViewer extends LanguageViewer {
                         ? toStringArrayLiteralInitializer(nested)
                         : toString(value))
                 .collect(Collectors.joining(", ", "{", "}"));
+    }
+
+    private String toStringDeclarationType(Type type) {
+        if (!(type instanceof ArrayType arrayType)) {
+            return toString(type);
+        }
+        return toString(arrayType.getItemType()) + "[]".repeat(arrayType.getDimensionsCount());
+    }
+
+    private String toStringArrayAllocation(ArrayType type) {
+        StringBuilder builder = new StringBuilder("new ").append(toString(type.getItemType()));
+        for (Expression dimension : type.getShape().getDimensions()) {
+            builder.append("[");
+            if (dimension != null) {
+                builder.append(toString(dimension));
+            }
+            builder.append("]");
+        }
+        return builder.toString();
     }
 
     public String toStringVariableDeclaration(VariableDeclaration stmt) {
@@ -1669,7 +1690,7 @@ public class JavaViewer extends LanguageViewer {
                 && declarationType instanceof UnknownType
                 && stmt.getDeclarators().length == 1
                 && stmt.getFirstDeclarator().getRValue() != null;
-        String type = useVar ? "var" : toString(declarationType);
+        String type = useVar ? "var" : toStringDeclarationType(declarationType);
         if (declarationType.isConst()) {
             builder.append("final ");
         }

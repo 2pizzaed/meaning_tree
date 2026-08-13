@@ -1006,10 +1006,10 @@ public class PythonViewer extends LanguageViewer {
                     return toString(newExpr.getInitializer());
                 } else {
                     Shape shape = newExpr.getShape();
-                    String result = _getListComprehensionByDimension(1,
+                    String result = _getListComprehensionByDimension(shape.getDimensionCount(),
                             shape.getDimension(shape.getDimensionCount() - 1), String.format("%s()", toString(newExpr.getType())));
                     for (int i = shape.getDimensionCount() - 2; i >= 0; i--) {
-                        result = _getListComprehensionByDimension(shape.getDimensionCount() - i, shape.getDimension(i), result);
+                        result = _getListComprehensionByDimension(i + 1, shape.getDimension(i), result);
                     }
                     return result;
                 }
@@ -1042,7 +1042,7 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String _getListComprehensionByDimension(int depth, Expression dimension, String fillExpression) {
-        return String.format("[%s for %s in range(%s)]", fillExpression, "_".repeat(depth), dimension);
+        return String.format("[%s for %s in range(%s)]", fillExpression, "_".repeat(depth), toString(dimension));
     }
 
     private String argumentsToString(List<Expression> expressions) {

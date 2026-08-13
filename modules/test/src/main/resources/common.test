@@ -2381,9 +2381,9 @@ group: Other
 
     case: ArrayNewMultiDimensionWithoutInit
         java:
-            int[] args = new int[a][b];
+            int[][] args = new int[a][b];
         isolated python:
-            args: list[int] = [[int() for __ in range(b)] for _ in range(a)]
+            args: list[list[int]] = [[int() for __ in range(b)] for _ in range(a)]
         c++:
             int args[a][b];
 

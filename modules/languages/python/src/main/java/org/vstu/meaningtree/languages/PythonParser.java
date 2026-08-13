@@ -303,7 +303,10 @@ public class PythonParser extends LanguageParser {
             Expression start = null, stop, step = null;
             List<Expression> exprs = call.getArguments();
             switch (exprs.size()) {
-                case 1 -> stop = exprs.get(0);
+                case 1 -> {
+                    start = new IntegerLiteral("0", false, false);
+                    stop = exprs.get(0);
+                }
                 case 2 -> {
                     start = exprs.get(0);
                     stop = exprs.get(1);
@@ -314,9 +317,11 @@ public class PythonParser extends LanguageParser {
                     step = exprs.get(2);
                 }
             }
-            Range.Direction rangeType = Range.Direction.UNKNOWN;
+            Range.Direction rangeType = Range.Direction.UP;
             if (step instanceof IntegerLiteral intLit) {
                 rangeType = intLit.getLongValue() < 0 ? Range.Direction.DOWN : Range.Direction.UP;
+            } else if (step != null) {
+                rangeType = Range.Direction.UNKNOWN;
             }
             return new Range(start, stop, step, false, true, rangeType);
         }

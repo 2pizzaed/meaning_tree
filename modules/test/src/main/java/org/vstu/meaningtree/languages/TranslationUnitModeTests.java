@@ -1,11 +1,8 @@
-package org.vstu.meaningtree;
+package org.vstu.meaningtree.languages;
 
 import org.junit.jupiter.api.Test;
+import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
-import org.vstu.meaningtree.languages.CppTranslator;
-import org.vstu.meaningtree.languages.JavaTranslator;
-import org.vstu.meaningtree.languages.LanguageTranslator;
-import org.vstu.meaningtree.languages.PythonTranslator;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;

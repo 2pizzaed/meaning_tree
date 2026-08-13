@@ -6,7 +6,11 @@ import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.modules.Import;
+import org.vstu.meaningtree.nodes.modules.ImportAllFromModule;
+import org.vstu.meaningtree.nodes.modules.ImportMembersFromModule;
+import org.vstu.meaningtree.nodes.modules.ImportModule;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.frames.Frame;
 import org.vstu.meaningtree.utils.frames.FrameStack;
@@ -14,6 +18,8 @@ import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class TranslatorContext {
     protected TranslatorComponent owner;
@@ -282,6 +288,12 @@ public class TranslatorContext {
         return new BodyConstructor(this, getFlag("scopeForEachCompound").orElse(false));
     }
 
+    /**
+     * Откладывает импорт, который понадобился рендереру по ходу отрисовки: о некоторых
+     * импортах становится известно только тогда (например, Python-структуре нужен
+     * {@code from dataclasses import dataclass}). Забирает отложенное тот, кто отрисовывает
+     * шапку программы, — обычно через {@link #prependPreservedImports}.
+     */
     public void preserveImport(Import importNode) {
         imports.add(importNode);
     }
@@ -290,6 +302,92 @@ public class TranslatorContext {
         var dump = List.copyOf(imports);
         imports.clear();
         return dump;
+    }
+
+    /**
+     * Забирает отложенные импорты, которых еще нет среди {@code existingNodes}, попутно
+     * отсеивая повторы внутри самой пачки: один и тот же импорт мог отложиться столько раз,
+     * сколько в программе конструкций, которым он нужен.
+     */
+    public List<Import> flushMissingImports(Collection<? extends Node> existingNodes) {
+        List<Import> missing = new ArrayList<>();
+        for (Import preserved : flushImports()) {
+            if (isImportCovered(preserved, missing) || isImportCovered(preserved, existingNodes)) {
+                continue;
+            }
+            missing.add(preserved);
+        }
+        return missing;
+    }
+
+    /**
+     * Дописывает перед готовым телом программы импорты, отложенные через
+     * {@link #preserveImport} и еще отсутствующие в {@code existingNodes}.
+     * <p>
+     * Отрисовка импорта передается вызывающим: у языка может быть свой путь диспетчеризации
+     * (в Python — с отступом), а импорт обязан пройти именно по нему, иначе он не попадет в
+     * source map наравне с остальными узлами.
+     *
+     * @param body          уже отрисованное тело программы
+     * @param existingNodes узлы этого тела: по ним проверяется, что импорта еще нет
+     * @param linePrefix    отступ, с которого начинается строка на этом уровне
+     * @param render        отрисовка одного импорта
+     * @return тело с шапкой из недостающих импортов
+     */
+    public String prependPreservedImports(String body,
+                                          Collection<? extends Node> existingNodes,
+                                          String linePrefix,
+                                          Function<Import, String> render) {
+        List<Import> missing = flushMissingImports(existingNodes);
+        if (missing.isEmpty()) {
+            return body;
+        }
+        List<String> lines = new ArrayList<>();
+        for (Import missingImport : missing) {
+            lines.add(linePrefix + render.apply(missingImport));
+        }
+        lines.add(body);
+        return String.join("\n", lines);
+    }
+
+    /**
+     * Проверяет, покрыт ли {@code required} каким-либо импортом из {@code nodes}.
+     */
+    public static boolean isImportCovered(Import required, Collection<? extends Node> nodes) {
+        return nodes.stream().anyMatch(node -> node instanceof Import existing && coversImport(existing, required));
+    }
+
+    /**
+     * Делает ли импорт {@code existing} ненужным импорт {@code required}.
+     * <p>
+     * Сравнение идет по содержимому, а не через {@code equals} узлов: у отложенного импорта
+     * есть метка {@link Label#REMAPPED}, которую {@link Node#equals} учитывает, поэтому
+     * одинаковые по смыслу импорты равными не окажутся.
+     */
+    public static boolean coversImport(Import existing, Import required) {
+        if (!(existing instanceof ImportModule from) || !(required instanceof ImportModule needed)) {
+            return false;
+        }
+        if (!from.getModuleName().internalRepresentation()
+                .equals(needed.getModuleName().internalRepresentation())) {
+            return false;
+        }
+        if (!(needed instanceof ImportMembersFromModule requiredMembers)) {
+            // Импорт модуля целиком заменяется только таким же импортом модуля целиком
+            return existing.getClass().equals(required.getClass());
+        }
+        if (existing instanceof ImportAllFromModule) {
+            return true;
+        }
+        if (!(existing instanceof ImportMembersFromModule presentMembers)) {
+            return false;
+        }
+        Set<String> present = presentMembers.getMembers().stream()
+                .map(Identifier::internalRepresentation)
+                .collect(Collectors.toSet());
+        return requiredMembers.getMembers().stream()
+                .map(Identifier::internalRepresentation)
+                .allMatch(present::contains);
     }
 
     public BodyConstructor createNodeBody(boolean newScope) {

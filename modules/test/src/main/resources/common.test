@@ -1578,6 +1578,103 @@ group: WhileLoop
                     break
 
 
+group: LoopElse
+    case: WhileLoopElseWithBreak
+        main python:
+            while x < m:
+                if x == k:
+                    break
+                x += 1
+            else:
+                y = 1
+
+        java:
+            boolean _loop_else_1 = true;
+            while (x < m) {
+                if (x == k) {
+                    _loop_else_1 = false;
+                    break;
+                }
+                x++;
+            }
+            if (_loop_else_1) {
+                int y = 1;
+            }
+
+        c++:
+            bool _loop_else_1 = true;
+            while (x < m)
+            {
+                if (x == k)
+                {
+                    _loop_else_1 = false;
+                    break;
+                }
+                x++;
+            }
+            if (_loop_else_1)
+            {
+                int y = 1;
+            }
+
+
+    case: RangeForLoopElseWithBreak
+        main python:
+            for i in range(0, 10, c):
+                if i == k:
+                    break
+            else:
+                y = 1
+
+        java:
+            boolean _loop_else_1 = true;
+            for (int i = 0; i < 10; i += c) {
+                if (i == k) {
+                    _loop_else_1 = false;
+                    break;
+                }
+            }
+            if (_loop_else_1) {
+                int y = 1;
+            }
+
+        c++:
+            bool _loop_else_1 = true;
+            for (int i = 0; i < 10; i += c)
+            {
+                if (i == k)
+                {
+                    _loop_else_1 = false;
+                    break;
+                }
+            }
+            if (_loop_else_1)
+            {
+                int y = 1;
+            }
+
+
+    case: WhileLoopElseWithoutBreak
+        main python:
+            while x < m:
+                x += 1
+            else:
+                y = 1
+
+        java:
+            while (x < m) {
+                x++;
+            }
+            int y = 1;
+
+        c++:
+            while (x < m)
+            {
+                x++;
+            }
+            int y = 1;
+
+
 group: SwitchStatement
     case: SimpleMatch
         python:

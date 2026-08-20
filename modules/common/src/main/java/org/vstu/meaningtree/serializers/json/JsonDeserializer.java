@@ -1055,6 +1055,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("condition")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopElseBranch(loop, json);
                 applyLoopMetadata(loop, json);
                 yield loop;
             }
@@ -1063,6 +1064,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         deserializeExpression(json.getAsJsonObject("condition")),
                         (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopElseBranch(loop, json);
                 applyLoopMetadata(loop, json);
                 yield loop;
             }
@@ -1076,6 +1078,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 Statement body = (Statement) deserialize(json.getAsJsonObject("body"));
                 var loop = new GeneralForLoop(
                         initializer, condition, update, body);
+                applyLoopElseBranch(loop, json);
                 applyLoopMetadata(loop, json);
                 yield loop;
             }
@@ -1085,6 +1088,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     (SimpleIdentifier) deserialize(json.getAsJsonObject("identifier")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopElseBranch(loop, json);
                 applyLoopMetadata(loop, json);
                 yield loop;
             }
@@ -1094,6 +1098,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     deserializeExpression(json.getAsJsonObject("container")),
                     (Statement) deserialize(json.getAsJsonObject("body"))
                 );
+                applyLoopElseBranch(loop, json);
                 applyLoopMetadata(loop, json);
                 yield loop;
             }
@@ -1102,6 +1107,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     (Statement) deserialize(json.getAsJsonObject("body")),
                     parseEnum(LoopType.class, json.get("original_loop_type").getAsString())
                 );
+                applyLoopElseBranch(loop, json);
                 applyLoopMetadata(loop, json);
                 yield loop;
             }
@@ -1507,6 +1513,13 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
     private void applyLoopMetadata(Loop loop, JsonObject json) {
         if (json.has("iteration_estimate") && !json.get("iteration_estimate").isJsonNull()) {
             loop.setIterationEstimate(deserializeLoopIterationEstimate(json.getAsJsonObject("iteration_estimate")));
+        }
+    }
+
+    /** elseBranch is a real child node (Python's loop else-clause), not analysis metadata. */
+    private void applyLoopElseBranch(Loop loop, JsonObject json) {
+        if (json.has("elseBranch") && !json.get("elseBranch").isJsonNull()) {
+            loop.setElseBranch((Statement) deserialize(json.getAsJsonObject("elseBranch")));
         }
     }
 

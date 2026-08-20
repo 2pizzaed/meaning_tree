@@ -303,6 +303,19 @@ public class JSONSerializerTests {
                 # строчный
                 x = 1
                 """);
+        python(snippets, "loopElse", """
+                for i in range(5):
+                    if i == 3:
+                        break
+                else:
+                    x = 1
+
+                y = 0
+                while y < 5:
+                    y += 1
+                else:
+                    x = 2
+                """);
         python(snippets, "chainedComparison", "b = 1 < 2 < 3");
         python(snippets, "containsOperator", "b = 1 in [1, 2]");
         python(snippets, "io", """

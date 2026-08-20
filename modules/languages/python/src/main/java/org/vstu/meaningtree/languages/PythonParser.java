@@ -645,28 +645,47 @@ public class PythonParser extends LanguageParser {
         }
         Node right = parseTSNode(node.getChildByFieldName("right"));
         Statement body = (Statement) parseTSNode(node.getChildByFieldName("body"));
+        Statement elseBranch = fromLoopElseClause(node);
+        Loop loop;
         if (right instanceof FunctionCall call) {
             Range range = rangeFromFunction(call);
             if (range != null && left instanceof SimpleIdentifier simpleLeft) {
-                return new RangeForLoop(range, simpleLeft, body);
+                loop = new RangeForLoop(range, simpleLeft, body);
+            } else {
+                loop = new ForEachLoop(decl, (Expression) right, body);
             }
-            return new ForEachLoop(decl, (Expression) right, body);
         } else {
-            return new ForEachLoop(decl, (Expression) right, body);
+            loop = new ForEachLoop(decl, (Expression) right, body);
         }
+        loop.setElseBranch(elseBranch);
+        return loop;
     }
 
     private Loop fromWhileLoop(TSNode node) {
         Expression condition = (Expression) parseTSNode(node.getChildByFieldName("condition"));
         Statement body = (Statement)  parseTSNode(node.getChildByFieldName("body"));
+        Statement elseBranch = fromLoopElseClause(node);
+        Loop loop;
         if (
                 condition instanceof IntegerLiteral integer && integer.getLongValue() != 0
                 || condition instanceof BoolLiteral bool && bool.getValue()
                 || condition instanceof StringLiteral str && !str.getUnescapedValue().isEmpty()
         ) {
-            return new InfiniteLoop(body, getLoopType(node));
+            loop = new InfiniteLoop(body, getLoopType(node));
+        } else {
+            loop = new WhileLoop(condition, body);
         }
-        return new WhileLoop(condition, body);
+        loop.setElseBranch(elseBranch);
+        return loop;
+    }
+
+    @Nullable
+    private Statement fromLoopElseClause(TSNode node) {
+        TSNode altNode = node.getChildByFieldName("alternative");
+        if (altNode.isNull() || !altNode.getType().equals("else_clause")) {
+            return null;
+        }
+        return (Statement) parseTSNode(altNode.getChildByFieldName("body"));
     }
 
     private LoopType getLoopType(TSNode node) {

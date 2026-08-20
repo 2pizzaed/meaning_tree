@@ -5,6 +5,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.helpers.ComprehensionLowerer;
+import org.vstu.meaningtree.languages.helpers.LoopElseLowerer;
 import org.vstu.meaningtree.languages.support.SemanticFeature;
 import org.vstu.meaningtree.languages.support.features.*;
 import org.vstu.meaningtree.nodes.*;
@@ -108,6 +109,10 @@ public class JavaViewer extends LanguageViewer {
 
     @Override
     protected MeaningTree preprocessTree(MeaningTree tree) {
+        return LoopElseLowerer.lower(comprehensionLowered(tree));
+    }
+
+    private MeaningTree comprehensionLowered(MeaningTree tree) {
         return ComprehensionLowerer.lower(tree, new ComprehensionLowerer.Target() {
             @Override
             public Type collectionType(ComprehensionLowerer.CollectionKind kind) {

@@ -1332,6 +1332,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         }
 
         json.add("body", serialize(stmt.getBody()));
+        if (stmt.hasElseBranch()) {
+            json.add("elseBranch", serialize(stmt.getElseBranch()));
+        }
         json.addProperty("id", stmt.getId());
         return withLoopMetadata(stmt, json);
     }
@@ -1362,6 +1365,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("identifier", serialize(stmt.getIdentifier()));
         json.add("range", serialize(stmt.getRange()));
         json.add("body", serialize(stmt.getBody()));
+        if (stmt.hasElseBranch()) {
+            json.add("elseBranch", serialize(stmt.getElseBranch()));
+        }
 
         json.addProperty("id", stmt.getId());
         return withLoopMetadata(stmt, json);
@@ -1375,6 +1381,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("item", serialize(stmt.getItem()));
         json.add("container", serialize(stmt.getExpression()));
         json.add("body", serialize(stmt.getBody()));
+        if (stmt.hasElseBranch()) {
+            json.add("elseBranch", serialize(stmt.getElseBranch()));
+        }
 
         return withLoopMetadata(stmt, json);
     }
@@ -1386,6 +1395,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
         json.add("condition", serialize(stmt.getCondition()));
         json.add("body", serialize(stmt.getBody()));
+        if (stmt.hasElseBranch()) {
+            json.add("elseBranch", serialize(stmt.getElseBranch()));
+        }
 
         json.addProperty("id", stmt.getId());
         return withLoopMetadata(stmt, json);
@@ -1481,6 +1493,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
         json.add("body", serialize(stmt.getBody()));
         json.add("condition", serialize(stmt.getCondition()));
+        if (stmt.hasElseBranch()) {
+            json.add("elseBranch", serialize(stmt.getElseBranch()));
+        }
 
         json.addProperty("id", stmt.getId());
         return withLoopMetadata(stmt, json);
@@ -2457,6 +2472,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(loop));
         json.add("body", serialize(loop.getBody()));
         json.addProperty("original_loop_type", enumToValue(loop.getLoopType()));
+        if (loop.hasElseBranch()) {
+            json.add("elseBranch", serialize(loop.getElseBranch()));
+        }
         return withLoopMetadata(loop, json);
     }
 

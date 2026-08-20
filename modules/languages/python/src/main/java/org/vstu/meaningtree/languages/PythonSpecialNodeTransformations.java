@@ -75,7 +75,11 @@ public class PythonSpecialNodeTransformations {
         if (initializer != null) {
             result.add(initializer);
         }
-        result.add(new WhileLoop(condition, body).remap(generalFor));
+        WhileLoop whileLoop = new WhileLoop(condition, body).remap(generalFor);
+        if (generalFor.hasElseBranch()) {
+            whileLoop.setElseBranch(generalFor.getElseBranch());
+        }
+        result.add(whileLoop);
         if (needDeleting) {
             VariableDeclaration varDecl = (VariableDeclaration) initializer;
             for (VariableDeclarator declarator : varDecl.getDeclarators()) {
@@ -157,10 +161,14 @@ public class PythonSpecialNodeTransformations {
             body.add(doWhile.getBody());
         }
         body.add(breakCondition);
-        return new WhileLoop(
+        WhileLoop whileLoop = new WhileLoop(
                 new BoolLiteral(true).remap(doWhile),
                 new CompoundStatement(body).remap(doWhile.getBody())
         ).remap(doWhile);
+        if (doWhile.hasElseBranch()) {
+            whileLoop.setElseBranch(doWhile.getElseBranch());
+        }
+        return whileLoop;
     }
 
     public static Node detectCompoundComparison(Node expressionNode) {

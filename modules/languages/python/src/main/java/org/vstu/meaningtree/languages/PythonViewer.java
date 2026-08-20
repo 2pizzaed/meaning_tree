@@ -615,6 +615,7 @@ public class PythonViewer extends LanguageViewer {
                     )
             );
             builder.append(branchStmtToString(rangeFor.getBody(), tab));
+            builder.append(loopElseToString(rangeFor, tab));
         } else if (stmt instanceof GeneralForLoop generalFor) {
             return toString(tab, PythonSpecialNodeTransformations.representGeneralFor(generalFor));
         } else if (stmt instanceof DoWhileLoop doWhile) {
@@ -622,6 +623,7 @@ public class PythonViewer extends LanguageViewer {
         } else if (stmt instanceof WhileLoop whileLoop) {
             builder.append(String.format("while %s:\n", toString(whileLoop.getCondition())));
             builder.append(branchStmtToString(whileLoop.getBody(), tab));
+            builder.append(loopElseToString(whileLoop, tab));
         } else if (stmt instanceof ForEachLoop forEachLoop) {
             List<Expression> identifiers = new ArrayList<>();
             for (VariableDeclarator decl : forEachLoop.getItem().getDeclarators()) {
@@ -629,6 +631,7 @@ public class PythonViewer extends LanguageViewer {
             }
             builder.append(String.format("for %s in %s:\n", argumentsToString(identifiers), toString(forEachLoop.getExpression())));
             builder.append(branchStmtToString(forEachLoop.getBody(), tab));
+            builder.append(loopElseToString(forEachLoop, tab));
         } else if (stmt instanceof SwitchStatement switchStmt) {
             tab = tab.up();
             builder.append(String.format("match %s:\n", toString(switchStmt.getTargetExpression())));
@@ -666,8 +669,19 @@ public class PythonViewer extends LanguageViewer {
         } else if (stmt instanceof InfiniteLoop infLoop) {
             builder.append("while True:\n");
             builder.append(branchStmtToString(infLoop.getBody(), tab));
+            builder.append(loopElseToString(infLoop, tab));
         }
         return builder.toString();
+    }
+
+    private String loopElseToString(Loop loop, Tab tab) {
+        if (!loop.hasElseBranch()) {
+            return "";
+        }
+        if (!(loop.getElseBranch() instanceof CompoundStatement)) {
+            return String.format("\n%selse:\n%s\n", tab, branchStmtToString(loop.getElseBranch(), tab.up()));
+        }
+        return String.format("\n%selse:\n%s\n", tab, branchStmtToString(loop.getElseBranch(), tab));
     }
 
     private String variableDeclarationToString(VariableDeclaration varDecl) {

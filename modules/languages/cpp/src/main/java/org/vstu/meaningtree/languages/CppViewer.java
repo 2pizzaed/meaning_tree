@@ -412,7 +412,8 @@ public class CppViewer extends LanguageViewer {
 
         increaseIndentLevel();
         DeclarationModifier currentAccess = defaultAccess;
-        for (Node member : definition.getBody().getNodes()) {
+        var constructor = ctx.viewingIterateBody(definition.getBody().getNodeList());
+        for (Node member : constructor) {
             String memberCode = toString(member);
             if (memberCode.isEmpty()) {
                 continue;
@@ -431,6 +432,7 @@ public class CppViewer extends LanguageViewer {
                 builder.append(indent(indent(memberCode)));
             }
         }
+        constructor.getNodes();
         decreaseIndentLevel();
 
         builder.append("\n").append(indent("}")).append(";");
@@ -444,7 +446,8 @@ public class CppViewer extends LanguageViewer {
 
         String name = toString(definition.getDeclaration().getName());
         List<String> fields = new ArrayList<>();
-        for (Node member : definition.getBody().getNodes()) {
+        var constructor = ctx.viewingIterateBody(definition.getBody().getNodeList());
+        for (Node member : constructor) {
             if (!(member instanceof FieldDeclaration field)
                     || field.getModifiers().contains(DeclarationModifier.PRIVATE)
                     || field.getModifiers().contains(DeclarationModifier.PROTECTED)
@@ -453,6 +456,7 @@ public class CppViewer extends LanguageViewer {
             }
             fields.add(toString(field));
         }
+        constructor.getNodes();
         if (fields.isEmpty()) {
             throw new UnsupportedViewingException("C mode does not support empty structures");
         }
@@ -1468,7 +1472,7 @@ public class CppViewer extends LanguageViewer {
         }
 
         StringBuilder builder = new StringBuilder();
-        for (Node node : ctx.iterateBody(entryPoint)) {
+        for (Node node : ctx.viewingIterateBody(entryPoint)) {
             builder.append(toString(node));
             builder.append("\n");
         }

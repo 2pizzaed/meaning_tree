@@ -2288,7 +2288,7 @@ public class JavaViewer extends LanguageViewer {
         }
 
         StringBuilder builder = new StringBuilder();
-        for (Node node : ctx.iterateBody(entryPoint)) {
+        for (Node node : ctx.viewingIterateBody(entryPoint)) {
             builder.append("%s\n".formatted(toString(node)));
         }
 

@@ -1363,11 +1363,12 @@ public class JavaParser extends LanguageParser {
 
         */
 
+        List<Node> body = statements.getNodes();
+
         if (mainMethod != null && getConfigParameter("translationUnitMode").equalsValue("simple")) {
             return new ProgramEntryPoint(Arrays.asList(mainMethod.getBody().getNodes()), mainClass, mainMethod);
         }
 
-        List<Node> body = statements.getNodes();
         if (mainMethod != null && getConfigParameter("translationUnitMode").equalsValue("procedural")) {
             return JavaProceduralProgramTransformer.transform(body, mainClass, mainMethod);
         }

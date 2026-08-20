@@ -1476,12 +1476,11 @@ public class CppViewer extends LanguageViewer {
             return prefix + makeSimpleProgram(entryPoint.getBody());
         }
 
-        StringBuilder builder = new StringBuilder();
-        for (Node node : ctx.viewingIterateBody(entryPoint)) {
-            builder.append(toString(node));
-            builder.append("\n");
+        var constructor = ctx.viewingIterateBody(entryPoint);
+        for (Node node : constructor) {
+            constructor.appendString(toString(node));
         }
-        return prefix + builder;
+        return prefix + String.join("\n", constructor.stringBuffer()) + "\n";
     }
 
     private boolean requiresCStandardLibrary(ProgramEntryPoint entryPoint) {

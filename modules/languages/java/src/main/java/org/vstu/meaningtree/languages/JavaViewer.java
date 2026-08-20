@@ -2292,12 +2292,12 @@ public class JavaViewer extends LanguageViewer {
             return makeSimpleProgram(nodes);
         }
 
-        StringBuilder builder = new StringBuilder();
-        for (Node node : ctx.viewingIterateBody(entryPoint)) {
-            builder.append("%s\n".formatted(toString(node)));
+        var constructor = ctx.viewingIterateBody(entryPoint);
+        for (Node node : constructor) {
+            constructor.appendString(toString(node));
         }
 
-        return builder.toString();
+        return String.join("\n", constructor.stringBuffer()) + "\n";
     }
 
     public String toStringScopedIdentifier(ScopedIdentifier scopedIdent) {

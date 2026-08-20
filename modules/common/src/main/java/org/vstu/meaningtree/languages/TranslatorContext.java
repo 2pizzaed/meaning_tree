@@ -47,6 +47,8 @@ public class TranslatorContext {
     protected Deque<BodyConstructor> activeBodyConstructors = new ArrayDeque<>();
     private Map<String, Object> ctxVariables = new HashMap<>();
     private List<Import> imports = new ArrayList<>();
+    private final Set<Long> rejectedNodeIds = new HashSet<>();
+    private final Set<Long> ignoredNodeIds = new HashSet<>();
 
     TranslatorContext(TranslatorComponent component, LanguageTranslator translator) {
         this.owner = component;
@@ -286,6 +288,38 @@ public class TranslatorContext {
 
     public BodyConstructor createNodeBody() {
         return new BodyConstructor(this, getFlag("scopeForEachCompound").orElse(false));
+    }
+
+    /**
+     * Помечает узел как отклонённый: если он окажется кандидатом на добавление в
+     * {@link BodyConstructor} (через add/insert/substitute), тот его не добавит и не
+     * зарегистрирует. Разовая пометка — снимается при первой проверке.
+     * @param node отклоняемый узел
+     * @return тот же узел
+     */
+    public Node rejectNode(Node node) {
+        rejectedNodeIds.add(node.getId());
+        return node;
+    }
+
+    /**
+     * Помечает узел как игнорируемый для таблиц видимости: при регистрации узла в
+     * {@link BodyConstructor} он не попадёт в {@link ScopeTable}, но сам узел всё равно
+     * будет добавлен в тело/вывод. Разовая пометка — снимается при первой проверке.
+     * @param node игнорируемый узел
+     * @return тот же узел
+     */
+    public Node ignoreNode(Node node) {
+        ignoredNodeIds.add(node.getId());
+        return node;
+    }
+
+    boolean consumeRejection(Node node) {
+        return rejectedNodeIds.remove(node.getId());
+    }
+
+    boolean consumeIgnore(Node node) {
+        return ignoredNodeIds.remove(node.getId());
     }
 
     /**

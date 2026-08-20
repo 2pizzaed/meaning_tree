@@ -89,30 +89,42 @@ public class StringBodyConstructor extends BodyConstructor {
     }
 
     public StringBodyConstructor add(Node node) {
+        int before = nodes.size();
         super.add(node);
-        stringBuffer.add(withIndent(getViewer().toString(node)));
+        if (nodes.size() > before) {
+            stringBuffer.add(withIndent(getViewer().toString(node)));
+        }
         return this;
     }
 
     public StringBodyConstructor insert(int index, Node node) {
+        int before = nodes.size();
         super.insert(index, node);
-        stringBuffer.add(normalizeStringBufferIndex(index), withIndent(getViewer().toString(node)));
+        if (nodes.size() > before) {
+            stringBuffer.add(normalizeStringBufferIndex(index), withIndent(getViewer().toString(node)));
+        }
         return this;
     }
 
     public StringBodyConstructor substitute(int index, Node node) {
         super.substitute(index, node);
-        stringBuffer.set(index, withIndent(getViewer().toString(node)));
+        // substitute применился, только если это тот же объект: reject() оставляет старый узел на месте
+        if (nodes.get(index) == node) {
+            stringBuffer.set(index, withIndent(getViewer().toString(node)));
+        }
         return this;
     }
 
     public StringBodyConstructor insertBeforeLast(int index, Node node) {
         int insertIndex = currentNodeIndex() + index;
+        int before = nodes.size();
         super.insert(insertIndex, node);
-        stringBuffer.add(
-                normalizeStringBufferIndex(insertIndex),
-                withIndent(getViewer().toString(node))
-        );
+        if (nodes.size() > before) {
+            stringBuffer.add(
+                    normalizeStringBufferIndex(insertIndex),
+                    withIndent(getViewer().toString(node))
+            );
+        }
         return this;
     }
 

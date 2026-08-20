@@ -50,12 +50,14 @@ public class BodyConstructor implements Iterable<Node> {
     }
 
     public BodyConstructor add(Node node) {
+        if (ctx.consumeRejection(node)) return this;
         nodes.add(node);
         setNodeHook(node);
         return this;
     }
 
     public BodyConstructor insert(int index, Node node) {
+        if (ctx.consumeRejection(node)) return this;
         nodes.add(index, node);
         afterInsert(index);
         setNodeHook(node);
@@ -70,6 +72,7 @@ public class BodyConstructor implements Iterable<Node> {
     }
 
     public BodyConstructor substitute(int index, Node node) {
+        if (ctx.consumeRejection(node)) return this;
         nodes.set(index, node);
         setNodeHook(node);
         return this;
@@ -101,25 +104,27 @@ public class BodyConstructor implements Iterable<Node> {
     }
 
     private void setNodeHook(Node node) {
-        if (node instanceof ClassDefinition def) {
-            for (Node clsComponent : def.getBody().getNodes()) {
-                if (clsComponent instanceof FieldDeclaration field) {
-                    field.setParentDeclaration(def.getDeclaration());
-                } else if (clsComponent instanceof MethodDefinition method) {
-                    method.getDeclaration().setParentDeclaration(def.getDeclaration());
+        if (!ctx.consumeIgnore(node)) {
+            if (node instanceof ClassDefinition def) {
+                for (Node clsComponent : def.getBody().getNodes()) {
+                    if (clsComponent instanceof FieldDeclaration field) {
+                        field.setParentDeclaration(def.getDeclaration());
+                    } else if (clsComponent instanceof MethodDefinition method) {
+                        method.getDeclaration().setParentDeclaration(def.getDeclaration());
+                    }
                 }
+                ctx.scope.registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
+            } else if (node instanceof FunctionDefinition def) {
+                ctx.scope.registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
+            } else if (node instanceof VariableDeclaration varDecl) {
+                ctx.scope.registerVariable(varDecl);
+            } else if (node instanceof SeparatedVariableDeclaration sepDecl) {
+                ctx.scope.registerVariable(sepDecl);
+            } else if (node instanceof EnumDeclaration decl) {
+                ctx.scope.registerDeclaration(decl.getName().getSimpleIdentifierOrThrow(), decl);
+            } else if (node instanceof Import imprt) {
+                ctx.scope.registerImport(imprt);
             }
-            ctx.scope.registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
-        } else if (node instanceof FunctionDefinition def) {
-            ctx.scope.registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
-        } else if (node instanceof VariableDeclaration varDecl) {
-            ctx.scope.registerVariable(varDecl);
-        } else if (node instanceof SeparatedVariableDeclaration sepDecl) {
-            ctx.scope.registerVariable(sepDecl);
-        } else if (node instanceof EnumDeclaration decl) {
-            ctx.scope.registerDeclaration(decl.getName().getSimpleIdentifierOrThrow(), decl);
-        } else if (node instanceof Import imprt) {
-            ctx.scope.registerImport(imprt);
         }
         ctx.processInfer(node);
     }

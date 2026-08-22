@@ -36,10 +36,7 @@ abstract public class LanguageParser extends TranslatorComponent {
      * Обработчик узла tree-sitter вместе с типом узла, который он строит.
      * <p>
      * Тип объявляется в точке регистрации, а не выводится из сигнатуры метода: только так он
-     * проверяется компилятором и виден там, где на него смотрят. Неточные объявления
-     * допускаются осознанно — полиморфный handler объявляет ближайшего общего предка
-     * ({@code Expression}, в крайнем случае {@code Node}); тогда запросы к контексту разбора
-     * загрубляются до этого предка (см. {@link FrameStack#nearestFrame}).
+     * проверяется компилятором.
      */
     protected record HandlerEntry(Class<? extends Node> produces, Function<TSNode, Node> handler) {
         public HandlerEntry {

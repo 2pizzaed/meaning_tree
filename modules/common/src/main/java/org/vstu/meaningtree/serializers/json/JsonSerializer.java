@@ -1148,6 +1148,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("target", serialize(expr.getLValue()));
         json.add("value", serialize(expr.getRValue()));
         json.addProperty("augmented_operator", enumToValue(expr.getAugmentedOperator()));
+        json.add("real_type", serialize(expr.getRealType()));
 
         return json;
     }
@@ -1210,6 +1211,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("target", serialize(stmt.getLValue()));
         json.add("value", serialize(stmt.getRValue()));
         json.addProperty("augmented_operator", enumToValue(stmt.getAugmentedOperator()));
+        json.add("real_type", serialize(stmt.getRealType()));
 
         return json;
     }
@@ -1245,6 +1247,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             if (varDecl.getRValue() != null) {
                 jsonDeclaration.add("rvalue", serialize(varDecl.getRValue()));
             }
+            jsonDeclaration.add("real_type", serialize(varDecl.getRealType()));
             declarators.add(jsonDeclaration);
         }
 
@@ -1722,6 +1725,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray declarations = new JsonArray();
         for (var declaration : stmt.getVariableDeclarations()) declarations.add(serialize(declaration));
         json.add("variable_declarations", declarations);
+        json.add("real_type", serialize(stmt.getRealType()));
         return json;
     }
 

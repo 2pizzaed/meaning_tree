@@ -22,6 +22,7 @@ import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
 import org.vstu.meaningtree.nodes.interfaces.HasAssignmentEffect;
 import org.vstu.meaningtree.nodes.interfaces.HasBodyStatement;
+import org.vstu.meaningtree.nodes.interfaces.HasComputedType;
 import org.vstu.meaningtree.nodes.modules.PackageDeclaration;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
@@ -32,11 +33,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
 import org.vstu.meaningtree.nodes.statements.conditions.components.MatchValueCaseBlock;
-import org.vstu.meaningtree.nodes.statements.loops.DoWhileLoop;
-import org.vstu.meaningtree.nodes.statements.loops.ForEachLoop;
-import org.vstu.meaningtree.nodes.statements.loops.GeneralForLoop;
-import org.vstu.meaningtree.nodes.statements.loops.RangeForLoop;
-import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
+import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
@@ -392,7 +389,34 @@ public class SimpleTypeInferrer {
     @NotNull
     public static Type inference(@NotNull AssignmentExpression assignmentExpression, @NotNull ScopeTable scope) {
         AddOp addOp = new AddOp(assignmentExpression.getLValue(), assignmentExpression.getRValue());
-        return inference(addOp, scope);
+        Type generalType = inference(addOp, scope);
+
+        Type rvalueType = inference(assignmentExpression.getRValue(), scope);
+        updateRealType(assignmentExpression, rvalueType);
+
+        return generalType;
+    }
+
+    /**
+     * Записывает фактический тип присваиваемого/инициализирующего значения в realType узла,
+     * если вывод дал что-то отличное от текущего значения.
+     * <p>
+     * Как и для {@link VariableDeclaration#setType}, эквивалентный тип не подменяется:
+     * это сохраняет id узла в дереве стабильным между повторными проходами вывода.
+     * <p>
+     * Выведенный тип клонируется через {@code freshClone()} перед установкой: некоторые
+     * методы вывода (например, для {@code ArrayLiteral}) возвращают тип, частично построенный
+     * из уже присутствующих в дереве узлов (typeHint), и приживление такого узла как есть
+     * сделало бы его достижимым из двух мест дерева одновременно.
+     */
+    private static void updateRealType(@NotNull HasComputedType node, @NotNull Type inferred) {
+        Type current = node.getRealType();
+        if (current.equals(inferred)) {
+            return;
+        }
+        Type detached = (Type) inferred.freshClone();
+        detached.remap(current);
+        node.setRealType(detached);
     }
 
     @NotNull
@@ -455,8 +479,10 @@ public class SimpleTypeInferrer {
                     assignmentStatement.getAugmentedOperator()
             );
             inference(assignmentExpression, scope);
+            updateRealType(assignmentStatement, assignmentExpression.getRealType());
         } else if (stmt instanceof ChainedAssignmentStatement chainedAssignmentStatement) {
             Type valueType = inference(chainedAssignmentStatement.getValue(), scope);
+            updateRealType(chainedAssignmentStatement, valueType);
             for (Expression target : chainedAssignmentStatement.getTargets()) {
                 if (target instanceof SimpleIdentifier identifier) {
                     Type currentType = scope.getVariableType(identifier);
@@ -553,7 +579,8 @@ public class SimpleTypeInferrer {
 
     public static void inference(@NotNull VariableDeclarator variableDeclarator, @NotNull ScopeTable scope) {
         if (variableDeclarator.hasInitialization()) {
-            inference(variableDeclarator.getRValue(), scope);
+            Type rvalueType = inference(variableDeclarator.getRValue(), scope);
+            updateRealType(variableDeclarator, rvalueType);
         }
         inference(variableDeclarator.getIdentifier(), scope);
     }
@@ -566,9 +593,7 @@ public class SimpleTypeInferrer {
             scope.registerVariable(variableDeclaration);
 
             for (var variableDeclarator : variableDeclaration.getDeclarators()) {
-                if (variableDeclarator.hasInitialization()) {
-                    inference(variableDeclarator.getRValue(), scope);
-                }
+                inference(variableDeclarator, scope);
             }
 
             return;

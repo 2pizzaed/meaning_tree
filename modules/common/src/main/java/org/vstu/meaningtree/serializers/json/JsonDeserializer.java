@@ -41,6 +41,7 @@ import org.vstu.meaningtree.nodes.expressions.pointers.PointerMemberAccess;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
+import org.vstu.meaningtree.nodes.interfaces.HasComputedType;
 import org.vstu.meaningtree.nodes.interfaces.NestedDeclaration;
 import org.vstu.meaningtree.nodes.io.*;
 import org.vstu.meaningtree.nodes.memory.MemoryAllocationCall;
@@ -509,6 +510,10 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
 
             if (node instanceof Expression expression && json.has("value_estimate") && !json.get("value_estimate").isJsonNull()) {
                 expression.setValueEstimate(deserializeExpressionValueEstimate(json.getAsJsonObject("value_estimate")));
+            }
+
+            if (node instanceof HasComputedType computedType && json.has("real_type") && !json.get("real_type").isJsonNull()) {
+                computedType.setRealType((Type) deserialize(json.getAsJsonObject("real_type")));
             }
         }
 
@@ -1499,7 +1504,11 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             SimpleIdentifier identifier = (SimpleIdentifier) deserialize(declJson.getAsJsonObject("identifier"));
             Expression rvalue = declJson.has("rvalue") && !declJson.get("rvalue").isJsonNull()
                     ? deserializeExpression(declJson.getAsJsonObject("rvalue")) : null;
-            declarators.add(restoreId(new VariableDeclarator(identifier, rvalue), declJson));
+            VariableDeclarator declarator = restoreId(new VariableDeclarator(identifier, rvalue), declJson);
+            if (declJson.has("real_type") && !declJson.get("real_type").isJsonNull()) {
+                declarator.setRealType((Type) deserialize(declJson.getAsJsonObject("real_type")));
+            }
+            declarators.add(declarator);
         }
         return declarators;
     }

@@ -3,17 +3,23 @@ package org.vstu.meaningtree.nodes.statements.assignments;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Statement;
+import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.expressions.other.AssignmentExpression;
 import org.vstu.meaningtree.nodes.interfaces.HasAssignmentEffect;
+import org.vstu.meaningtree.nodes.interfaces.HasComputedType;
 import org.vstu.meaningtree.nodes.interfaces.HasInitialization;
+import org.vstu.meaningtree.nodes.types.UnknownType;
 
 import java.util.Objects;
 
-public class AssignmentStatement extends Statement implements HasInitialization, HasAssignmentEffect {
+public class AssignmentStatement extends Statement implements HasInitialization, HasAssignmentEffect, HasComputedType {
     @TreeNode private Expression lvalue;
     @TreeNode private Expression rvalue;
     @TreeNode private AugmentedAssignmentOperator operatorType;
+
+    /** См. {@link HasComputedType}. */
+    @TreeNode private Type realType = new UnknownType();
 
     public AssignmentStatement(Expression id, Expression value, AugmentedAssignmentOperator op) {
         lvalue = id;
@@ -42,10 +48,21 @@ public class AssignmentStatement extends Statement implements HasInitialization,
     }
 
     @Override
+    public Type getRealType() {
+        return realType;
+    }
+
+    @Override
+    public void setRealType(Type realType) {
+        this.realType = realType;
+    }
+
+    @Override
     public AssignmentStatement clone() {
         AssignmentStatement obj = (AssignmentStatement) super.clone();
         obj.lvalue = lvalue.clone();
         obj.rvalue = rvalue.clone();
+        obj.realType = realType.clone();
         return obj;
     }
 
@@ -54,11 +71,12 @@ public class AssignmentStatement extends Statement implements HasInitialization,
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
         AssignmentStatement that = (AssignmentStatement) o;
-        return Objects.equals(lvalue, that.lvalue) && Objects.equals(rvalue, that.rvalue) && operatorType == that.operatorType;
+        return Objects.equals(lvalue, that.lvalue) && Objects.equals(rvalue, that.rvalue)
+                && operatorType == that.operatorType && Objects.equals(realType, that.realType);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), lvalue, rvalue, operatorType);
+        return Objects.hash(super.hashCode(), lvalue, rvalue, operatorType, realType);
     }
 }

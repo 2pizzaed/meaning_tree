@@ -8,6 +8,7 @@ import org.vstu.meaningtree.languages.PythonTranslator;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.Loop;
+import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
@@ -71,11 +72,13 @@ public class LoopElseLowererTests {
         long breakCount = StreamSupport.stream(root.getNodes()[1].spliterator(), false)
                 .filter(info -> info.node() instanceof BreakStatement)
                 .count();
-        long assignmentCount = StreamSupport.stream(root.getNodes()[1].spliterator(), false)
-                .filter(info -> info.node() instanceof AssignmentStatement)
+        long flagAssignmentCount = StreamSupport.stream(root.getNodes()[1].spliterator(), false)
+                .filter(info -> info.node() instanceof AssignmentStatement assignment
+                        && assignment.getLValue() instanceof SimpleIdentifier target
+                        && target.getName().startsWith("_loop_else_"))
                 .count();
         assertEquals(1, breakCount);
-        assertEquals(1, assignmentCount, "flag = false; must be injected exactly once, right before the break");
+        assertEquals(1, flagAssignmentCount, "flag = false; must be injected exactly once, right before the break");
     }
 
     @Test

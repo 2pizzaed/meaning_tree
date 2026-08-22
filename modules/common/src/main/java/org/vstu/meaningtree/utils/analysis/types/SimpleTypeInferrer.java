@@ -30,17 +30,24 @@ import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatem
 import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
+import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
+import org.vstu.meaningtree.nodes.statements.conditions.components.MatchValueCaseBlock;
+import org.vstu.meaningtree.nodes.statements.loops.DoWhileLoop;
+import org.vstu.meaningtree.nodes.statements.loops.ForEachLoop;
+import org.vstu.meaningtree.nodes.statements.loops.GeneralForLoop;
+import org.vstu.meaningtree.nodes.statements.loops.RangeForLoop;
+import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalLong;
 
 public class SimpleTypeInferrer {
-    // Simple type inferrer based on Hindley-Milner (??)
-
     @NotNull
     public static NumericType inference(@NotNull NumericLiteral numericLiteral) {
         return switch (numericLiteral) {
@@ -238,44 +245,52 @@ public class SimpleTypeInferrer {
         );
     }
 
-    @NotNull
-    private static List<Expression> expressionChildren(@NotNull Expression expression) {
-        return expression.allChildren()
-                .stream()
-                .filter(node -> node instanceof Expression)
-                .map(node -> (Expression) node)
-                .toList();
-    }
-
+    /**
+     * Проталкивает тип выражения внутрь: назначает его всем переменным,
+     * входящим в это выражение.
+     * <p>
+     * Обход нерекурсивный, но спускается только по выражениям: тип относится
+     * к вычислению, поэтому во вложенные объявления, типы и тела лямбд заходить
+     * нельзя — идентификаторы там к этому вычислению отношения не имеют.
+     * Повторные записи одного и того же типа безопасны, так как тип может только
+     * повышаться (неизвестный -> известный, int -> float).
+     */
     public static void backwardVariableTypeSet(
             @NotNull Expression expression,
             @NotNull ScopeTable scope,
             @NotNull Type type) {
-        List<Expression> children;
-        if (expression instanceof SimpleIdentifier identifier) {
-            children = List.of(identifier);
-        }
-        else {
-            children = expressionChildren(expression);
-        }
+        var queue = new ArrayDeque<Expression>();
+        queue.add(expression);
 
-        for (Expression childExpression : children) {
+        while (!queue.isEmpty()) {
+            Expression current = queue.remove();
 
-            if (childExpression instanceof SimpleIdentifier identifier) {
-                Type possibleType = scope.getVariableType(identifier);
+            if (current instanceof SimpleIdentifier identifier) {
+                upgradeVariableType(identifier, scope, type);
+                continue;
+            }
 
-                if (possibleType == null || possibleType instanceof UnknownType) {
-                    scope.changeVariableType(identifier, type);
-                }
-                // Добавить что-то про обобщение типов
-                else if (possibleType instanceof IntType
-                        && type instanceof FloatType) {
-                    scope.changeVariableType(identifier, type);
+            for (Node child : current.allChildren()) {
+                if (child instanceof Expression childExpression) {
+                    queue.add(childExpression);
                 }
             }
-            else {
-                backwardVariableTypeSet(childExpression, scope, type);
-            }
+        }
+    }
+
+    private static void upgradeVariableType(
+            @NotNull SimpleIdentifier identifier,
+            @NotNull ScopeTable scope,
+            @NotNull Type type) {
+        Type possibleType = scope.getVariableType(identifier);
+
+        if (possibleType == null || possibleType instanceof UnknownType) {
+            scope.changeVariableType(identifier, type);
+        }
+        // Добавить что-то про обобщение типов
+        else if (possibleType instanceof IntType
+                && type instanceof FloatType) {
+            scope.changeVariableType(identifier, type);
         }
     }
 
@@ -317,7 +332,7 @@ public class SimpleTypeInferrer {
             leftType = rightType;
         }
         else if (rightType instanceof UnknownType) {
-            backwardVariableTypeSet(left, scope, leftType);
+            backwardVariableTypeSet(right, scope, leftType);
             rightType = leftType;
         }
 
@@ -458,16 +473,49 @@ public class SimpleTypeInferrer {
     }
 
     public static void inference(@NotNull CompoundStatement compoundStatement, @NotNull ScopeTable scope) {
+        long previousScopeId = scope.currentScopeId();
+        boolean scopeSwitched = enterBoundScope(compoundStatement, scope);
 
-        for (var node : compoundStatement.getNodes()) {
+        try {
+            for (var node : compoundStatement.getNodes()) {
 
-            if (node instanceof Statement statement) {
-                inference(statement, scope);
-            }
-            else if (node instanceof Expression expression) {
-                inference(expression, scope);
+                if (node instanceof Statement statement) {
+                    inference(statement, scope);
+                }
+                else if (node instanceof Expression expression) {
+                    inference(expression, scope);
+                }
             }
         }
+        finally {
+            if (scopeSwitched) {
+                scope.setCurrentScope(previousScopeId);
+            }
+        }
+    }
+
+    /**
+     * Переключает таблицу областей видимости на область, привязанную к данному телу.
+     * Новая область не создается: используется только та, что уже была построена
+     * при разборе тела, иначе вывод остается в текущей области.
+     *
+     * @return {@code true}, если переключение произошло и область нужно вернуть обратно
+     */
+    private static boolean enterBoundScope(
+            @NotNull CompoundStatement compoundStatement,
+            @NotNull ScopeTable scope) {
+        OptionalLong boundScopeId = compoundStatement.getScopeId();
+        if (boundScopeId.isEmpty()) {
+            return false;
+        }
+
+        long scopeId = boundScopeId.getAsLong();
+        if (scopeId == scope.currentScopeId() || scope.findScope(scopeId).isEmpty()) {
+            return false;
+        }
+
+        scope.setCurrentScope(scopeId);
+        return true;
     }
 
     public static void inference(@NotNull IfStatement ifStatement, @NotNull ScopeTable scope) {
@@ -511,6 +559,21 @@ public class SimpleTypeInferrer {
     }
 
     public static void inference(@NotNull VariableDeclaration variableDeclaration, @NotNull ScopeTable scope) {
+        if (isKnown(variableDeclaration.getType())) {
+            // Объявленный тип известен, выводить нечего. Его нужно только внести
+            // в область видимости, чтобы использования переменной опирались
+            // на объявление, а не на догадки по контексту
+            scope.registerVariable(variableDeclaration);
+
+            for (var variableDeclarator : variableDeclaration.getDeclarators()) {
+                if (variableDeclarator.hasInitialization()) {
+                    inference(variableDeclarator.getRValue(), scope);
+                }
+            }
+
+            return;
+        }
+
         var types = new ArrayList<Type>();
 
         for (var variableDeclarator : variableDeclaration.getDeclarators()) {
@@ -581,7 +644,10 @@ public class SimpleTypeInferrer {
             }
         }
 
-        scope.changeVariableType(declarationArgument.getName(), type);
+        if (!(type instanceof UnknownType)
+                || !isKnown(scope.getVariableType(declarationArgument.getName()))) {
+            scope.changeVariableType(declarationArgument.getName(), type);
+        }
     }
 
     public static void inference(@NotNull Node node, @NotNull ScopeTable scope) {
@@ -595,17 +661,88 @@ public class SimpleTypeInferrer {
             case Declaration variableDeclaration -> inference(variableDeclaration, scope);
             case VariableDeclarator variableDeclarator -> inference(variableDeclarator, scope);
             case Expression expression -> inference(expression, scope);
-            case HasBodyStatement hasBodyStatement -> {
-                if (hasBodyStatement.getBody() instanceof CompoundStatement compoundStatement) {
-                    for (var possibleStatement: compoundStatement.getNodes()) {
-                        if (possibleStatement instanceof Statement statement) {
-                            inference(statement, scope);
-                        }
-                    }
-                }
-            }
+            case HasBodyStatement hasBodyStatement -> inferenceWithBody(hasBodyStatement, scope);
             default -> {
                 /* TODO: проанализировать, какие еще есть варианты для обобщения... */
+            }
+        }
+    }
+
+    /**
+     * Выводит типы для узла с телом: сначала для заголовка (условия, инициализатора,
+     * шага, перебираемого выражения), затем для самого тела.
+     * <p>
+     * Заголовок цикла со счетчиком обрабатывается в области видимости тела, потому что
+     * объявленная в нем переменная принадлежит именно телу. Условие же вычисляется
+     * снаружи, и обрабатывать его нужно в текущей области — иначе переменная, впервые
+     * связанная в условии, зарегистрировалась бы во вложенной области и пропала бы
+     * для кода после цикла.
+     */
+    public static void inferenceWithBody(@NotNull HasBodyStatement hasBodyStatement, @NotNull ScopeTable scope) {
+        CompoundStatement body = hasBodyStatement.getBody() instanceof CompoundStatement compoundStatement
+                ? compoundStatement
+                : null;
+
+        long previousScopeId = scope.currentScopeId();
+        boolean scopeSwitched = body != null
+                && headerBelongsToBodyScope(hasBodyStatement)
+                && enterBoundScope(body, scope);
+
+        try {
+            inferenceHeader(hasBodyStatement, scope);
+
+            if (body != null) {
+                inference(body, scope);
+            }
+        }
+        finally {
+            if (scopeSwitched) {
+                scope.setCurrentScope(previousScopeId);
+            }
+        }
+    }
+
+    /**
+     * Объявляет ли заголовок узла переменные, принадлежащие телу. Верно для циклов
+     * со счетчиком или элементом перебора и неверно для условий, которые вычисляются
+     * в объемлющей области видимости.
+     */
+    private static boolean headerBelongsToBodyScope(@NotNull HasBodyStatement hasBodyStatement) {
+        return hasBodyStatement instanceof GeneralForLoop
+                || hasBodyStatement instanceof RangeForLoop
+                || hasBodyStatement instanceof ForEachLoop;
+    }
+
+    /**
+     * Выводит типы для заголовка узла с телом.
+     * <p>
+     * Тип условия наружу не проталкивается: условие часто является сравнением,
+     * и {@code BooleanType} ушел бы в его операнды, а не в само условие.
+     */
+    private static void inferenceHeader(@NotNull HasBodyStatement hasBodyStatement, @NotNull ScopeTable scope) {
+        switch (hasBodyStatement) {
+            case ConditionBranch conditionBranch -> inference(conditionBranch.getCondition(), scope);
+            case MatchValueCaseBlock matchValueCaseBlock -> inference(matchValueCaseBlock.getMatchValue(), scope);
+            case WhileLoop whileLoop -> inference(whileLoop.getCondition(), scope);
+            case DoWhileLoop doWhileLoop -> inference(doWhileLoop.getCondition(), scope);
+            case GeneralForLoop generalForLoop -> {
+                if (generalForLoop.hasInitializer()) {
+                    inference(generalForLoop.getInitializer(), scope);
+                }
+                if (generalForLoop.hasCondition()) {
+                    inference(generalForLoop.getCondition(), scope);
+                }
+                if (generalForLoop.hasUpdate()) {
+                    inference(generalForLoop.getUpdate(), scope);
+                }
+            }
+            case RangeForLoop rangeForLoop -> inference(rangeForLoop.getRange(), scope);
+            case ForEachLoop forEachLoop -> {
+                inference(forEachLoop.getExpression(), scope);
+                inference(forEachLoop.getItem(), scope);
+            }
+            default -> {
+                // У остальных узлов с телом заголовка нет
             }
         }
     }
@@ -614,5 +751,9 @@ public class SimpleTypeInferrer {
         for (var node: nodes) {
             inference(node, scope);
         }
+    }
+
+    private static boolean isKnown(Type type) {
+        return type != null && !(type instanceof UnknownType);
     }
 }

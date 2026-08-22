@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Objects;
 
 public class MethodDeclaration extends FunctionDeclaration implements NestedDeclaration<ClassDeclaration> {
-    @TreeNode private UserType owner;
+    private UserType owner;
     private ClassDeclaration parent;
 
     public MethodDeclaration(UserType owner,

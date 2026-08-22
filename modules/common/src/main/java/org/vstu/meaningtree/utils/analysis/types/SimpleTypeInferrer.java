@@ -337,6 +337,15 @@ public class SimpleTypeInferrer {
             return new BooleanType();
         }
         else if (binaryExpression instanceof DivOp) {
+            // FloatType — по умолчанию для деления, как в Python (/ всегда даёт float).
+            // Но если оба операнда — уже известные целочисленные типы, отдаём предпочтение
+            // C-подобной семантике: int / int усекается до int (Java, C++ и т.п.).
+            // Различить эти два случая по одному только DivOp без языкового контекста нельзя,
+            // это компромисс: известные целые типы не переопределяются в float.
+            if (leftType instanceof NumericType && rightType instanceof NumericType
+                    && !(leftType instanceof FloatType) && !(rightType instanceof FloatType)) {
+                return chooseGeneralType(leftType, rightType);
+            }
             return new FloatType();
         }
 

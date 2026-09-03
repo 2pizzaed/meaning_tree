@@ -13,13 +13,9 @@ import org.vstu.meaningtree.utils.TreeSitterUtils;
 import org.vstu.meaningtree.utils.analysis.AnalysisPipeline;
 import org.vstu.meaningtree.utils.analysis.imports.ImportResolver;
 import org.vstu.meaningtree.utils.analysis.types.conversion.TypeConversionReport;
-import org.vstu.meaningtree.utils.analysis.types.conversion.TypeConversionSemantics;
 import org.vstu.meaningtree.utils.hooks.HookHandle;
 import org.vstu.meaningtree.utils.hooks.HookOrder;
 import org.vstu.meaningtree.utils.hooks.HookPhase;
-import org.vstu.meaningtree.utils.scopes.OverloadSemantics;
-import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
-import org.vstu.meaningtree.utils.scopes.ScopePolicy;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
 import java.util.*;
@@ -84,8 +80,8 @@ abstract public class LanguageParser extends TranslatorComponent {
     /**
      * Строит {@link AnalysisPipeline} этого языка и запускает его на построенном дереве.
      * Языковые правила и резолвинг импортов конвейер сам берёт у {@code translator}
-     * (см. {@link org.vstu.meaningtree.languages.LanguageTranslator#getOverloadSemantics()} и
-     * соседние методы); здесь только вызов и снятие результата.
+     * (см. {@link LanguageTranslator#getLanguageBehavior()} и
+     * {@link LanguageTranslator#getImportResolver()}); здесь только вызов и снятие результата.
      */
     private void runAnalysisPipeline(MeaningTree tree, ScopeTable scope) {
         typeConversionReport = new AnalysisPipeline(tree, scope, translator)
@@ -105,40 +101,21 @@ abstract public class LanguageParser extends TranslatorComponent {
     }
 
     /**
-     * Правила языка о перегрузках. По умолчанию — перегрузка по сигнатуре: так устроено
-     * большинство языков, а тот, где одноимённые определения затеняют друг друга,
-     * переопределяет метод.
+     * Правила языка, которыми параметризуются разбор и анализ. Обоснование каждого умолчания —
+     * в {@link LanguageBehavior#defaults()}; язык заменяет только то, в чём от умолчания
+     * отходит.
+     * <p>
+     * Здесь парсер — источник истины: именно он знает свой язык, а
+     * {@link TranslatorComponent#languageBehavior()} у остальных компонентов лишь пересылает
+     * вопрос транслятору.
+     * <p>
+     * Метод вызывается во время {@code super()} этого класса (см.
+     * {@link TranslatorComponent#languageBehavior()}), поэтому переопределение не имеет права
+     * читать поля своего экземпляра. Держите ответ в {@code private static final} поле.
      */
-    protected OverloadSemantics getOverloadSemantics() {
-        return OverloadSemantics.bySignature();
-    }
-
-    /**
-     * Границы областей видимости этого языка. По умолчанию блочные: так устроено большинство
-     * языков, а тот, где область открывает только определение, переопределяет метод.
-     */
-    protected ScopePolicy getScopePolicy() {
-        return ScopePolicy.blockScoped();
-    }
-
-    /**
-     * Правило, по которому присваивание этого языка выбирает переменную. По умолчанию
-     * связывается ближайшая видимая: так устроены языки с явным объявлением переменных, где
-     * присвоить неизвестному имени нельзя вовсе. Язык с неявным объявлением переопределяет
-     * метод.
-     */
-    protected AssignmentBinding getAssignmentBinding() {
-        return AssignmentBinding.ENCLOSING;
-    }
-
     @Override
-    protected AssignmentBinding assignmentBinding() {
-        return getAssignmentBinding();
-    }
-
-    /** Language-specific primitive conversion rules; the default uses only common semantics. */
-    protected TypeConversionSemantics getTypeConversionSemantics() {
-        return TypeConversionSemantics.common();
+    protected LanguageBehavior languageBehavior() {
+        return LanguageBehavior.defaults();
     }
 
     public Optional<TypeConversionReport> getTypeConversionReport() {

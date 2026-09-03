@@ -1,6 +1,7 @@
 package org.vstu.meaningtree.utils.analysis;
 
 import org.vstu.meaningtree.MeaningTree;
+import org.vstu.meaningtree.languages.LanguageBehavior;
 import org.vstu.meaningtree.languages.LanguageTranslator;
 import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEvaluator;
 import org.vstu.meaningtree.utils.analysis.imports.ImportResolver;
@@ -77,12 +78,16 @@ public final class AnalysisPipeline {
      *                    каталогов проекта
      */
     public AnalysisPipeline run(boolean withImports) {
+        // Правила берутся один раз: все проходы обязаны описывать один и тот же язык, а
+        // повторный опрос транслятора этого не гарантирует и ничего не даёт взамен
+        LanguageBehavior behavior = translator.getLanguageBehavior();
+
         new OverrideResolver(tree, scope).resolve();
         new SymbolResolver(tree, scope).resolve();
-        new OverloadIndexer(tree, scope, translator.getOverloadSemantics()).index();
+        new OverloadIndexer(tree, scope, behavior.overloadSemantics()).index();
         TypeConversionAnalyzer typeConversionAnalyzer = new TypeConversionAnalyzer(
-                translator.getTypeConversionSemantics(), translator.getOverloadSemantics());
-        new OverloadCallResolver(tree, scope, typeConversionAnalyzer, translator.getOverloadSemantics())
+                behavior.typeConversionSemantics(), behavior.overloadSemantics());
+        new OverloadCallResolver(tree, scope, typeConversionAnalyzer, behavior.overloadSemantics())
                 .resolveAll();
         typeConversionReport = typeConversionAnalyzer.analyze(tree, scope);
         ExpressionValueEvaluator evaluator = new ExpressionValueEvaluator(tree, scope);

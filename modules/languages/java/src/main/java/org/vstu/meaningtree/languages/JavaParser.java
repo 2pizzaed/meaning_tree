@@ -71,7 +71,6 @@ import org.vstu.meaningtree.utils.analysis.imports.ImportResolver;
 import org.vstu.meaningtree.utils.analysis.imports.JavaImportResolver;
 import org.vstu.meaningtree.utils.analysis.imports.JavaLibraryImportRegistry;
 import org.vstu.meaningtree.utils.analysis.types.JavaTypeConversionSemantics;
-import org.vstu.meaningtree.utils.analysis.types.conversion.TypeConversionSemantics;
 import org.vstu.meaningtree.utils.modules.ImportPathConverter;
 import org.vstu.meaningtree.utils.scopes.ScopeLookupMode;
 
@@ -86,9 +85,13 @@ public class JavaParser extends LanguageParser {
         configureTsNodeHandlers();
     }
 
+    private static final LanguageBehavior BEHAVIOR = LanguageBehavior.defaults()
+            .withTypeConversionSemantics(new JavaTypeConversionSemantics());
+
+    /** От умолчаний язык отходит только в правилах преобразования примитивных типов. */
     @Override
-    protected TypeConversionSemantics getTypeConversionSemantics() {
-        return new JavaTypeConversionSemantics();
+    protected LanguageBehavior languageBehavior() {
+        return BEHAVIOR;
     }
 
     private void configureTsNodeHandlers() {

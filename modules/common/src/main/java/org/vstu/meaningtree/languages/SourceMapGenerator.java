@@ -131,12 +131,12 @@ public class SourceMapGenerator {
      * метаданными {@link AnalysisPipeline} (перегрузки, преобразования типов и т.д.).
      * <p>
      * Правила берутся у того транслятора, чью сторону перевода таблица описывает: границы
-     * областей и семантику перегрузок нельзя подставить от другого языка, иначе таблица опишет
-     * программу, которой нет. Резолвинг импортов здесь не выполняется — это единственная стадия
+     * областей, связывание и семантику перегрузок нельзя подставить от другого языка, иначе
+     * таблица опишет программу, которой нет. Резолвинг импортов здесь не выполняется — это единственная стадия
      * с обходом файловой системы, и карте кода она ничего не добавляет.
      */
     private ScopeTable analyzedScope(MeaningTree tree, LanguageTranslator rules) {
-        ScopeTable scope = ScopeTableBuilder.build(tree, rules.getScopePolicy(), rules.getAssignmentBinding());
+        ScopeTable scope = ScopeTableBuilder.build(tree, rules.getLanguageBehavior());
         new AnalysisPipeline(tree, scope, rules).run(false);
         return scope;
     }

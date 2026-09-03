@@ -128,8 +128,7 @@ class PythonScopeBindingTests {
                     counter = counter + 1
                 """);
 
-        ScopeTable rebuilt = ScopeTableBuilder.build(
-                tree, translator.getScopePolicy(), translator.getAssignmentBinding());
+        ScopeTable rebuilt = ScopeTableBuilder.build(tree, translator.getLanguageBehavior());
 
         long boundScopes = rebuilt.allScopes().stream()
                 .filter(scope -> !scope.allRebinds().isEmpty())

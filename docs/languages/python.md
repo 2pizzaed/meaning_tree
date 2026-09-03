@@ -166,8 +166,9 @@ String code = pythonViewer.toString(meaningTree);
   Присваивание в Python объявляет локальное имя, поэтому `x = 2` внутри функции затеняет
   одноимённую внешнюю переменную, а не меняет её; писать во внешнее имя можно только объявив
   его `global` или `nonlocal`. Само перенаправление хранит таблица областей видимости
-  (`ScopeTableElement.rebinds`), а правило связывания задаёт
-  `PythonParser.getAssignmentBinding()` (`AssignmentBinding.LOCAL`).
+  (`ScopeTableElement.rebinds`), а правило связывания задаёт `PythonParser.languageBehavior()`
+  (`AssignmentBinding.LOCAL`, см.
+  [docs/references/language-behavior.md](../references/language-behavior.md)).
 
 - Аннотация типа у имени, объявленного `global` или `nonlocal`, в Python запрещена
   (`SyntaxError`), поэтому такой формы разбор не ожидает.

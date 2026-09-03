@@ -16,10 +16,6 @@ import org.vstu.meaningtree.utils.Experimental;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.analysis.imports.ImportResolver;
 import org.vstu.meaningtree.utils.analysis.types.conversion.TypeConversionReport;
-import org.vstu.meaningtree.utils.analysis.types.conversion.TypeConversionSemantics;
-import org.vstu.meaningtree.utils.scopes.OverloadSemantics;
-import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
-import org.vstu.meaningtree.utils.scopes.ScopePolicy;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.tokens.Token;
 import org.vstu.meaningtree.utils.tokens.TokenGroup;
@@ -261,36 +257,24 @@ public abstract class LanguageTranslator implements Cloneable {
     }
 
     /**
-     * Языковые правила анализа, которыми параметризуется {@link org.vstu.meaningtree.utils.analysis.AnalysisPipeline}.
-     * Делегируют парсеру этого языка ({@link #_language}): именно там они переопределяются
-     * по языкам, здесь — только публичный фасад, которым может пользоваться код вне пакета
-     * {@code languages}.
+     * Языковые правила анализа, которыми параметризуются {@link org.vstu.meaningtree.utils.analysis.AnalysisPipeline}
+     * и {@link org.vstu.meaningtree.utils.analysis.ScopeTableBuilder}. Делегируют парсеру этого
+     * языка ({@link #_language}): именно там они объявляются по языкам, здесь — только
+     * публичный фасад, которым может пользоваться код вне пакета {@code languages}.
      */
-    public OverloadSemantics getOverloadSemantics() {
-        return _language.getOverloadSemantics();
+    public LanguageBehavior getLanguageBehavior() {
+        // До init парсера ещё нет, и правила языка спросить не у кого. Это не редкий случай:
+        // конструкторы трансляторов пишутся как init(new XParser(this), new XViewer(this)),
+        // то есть контекст вьювера создаётся аргументом — раньше присваивания _language,
+        // и уже он спрашивает правила. Без умолчания здесь падало бы каждое создание
+        // транслятора. Контекст вьювера потом пересоздаётся в init, поэтому умолчание до
+        // трансляции не доживает.
+        return _language == null ? LanguageBehavior.defaults() : _language.languageBehavior();
     }
 
-    /** Границы областей видимости языка этого транслятора; см. {@link LanguageParser#getScopePolicy()}. */
-    public ScopePolicy getScopePolicy() {
-        return _language.getScopePolicy();
-    }
-
-    /**
-     * Правило связывания при присваивании; см. {@link LanguageParser#getAssignmentBinding()}.
-     * <p>
-     * До {@link #init} парсера ещё нет, и правило языка спросить не у кого: тогда действует
-     * умолчание — то же, что у языка, который метод не переопределяет.
-     */
-    public AssignmentBinding getAssignmentBinding() {
-        return _language == null ? AssignmentBinding.ENCLOSING : _language.getAssignmentBinding();
-    }
-
-    public TypeConversionSemantics getTypeConversionSemantics() {
-        return _language.getTypeConversionSemantics();
-    }
-
+    /** Резолвер импортов языка; {@code null} и до {@link #init}, и если язык их не резолвит. */
     public @Nullable ImportResolver getImportResolver() {
-        return _language.getImportResolver();
+        return _language == null ? null : _language.getImportResolver();
     }
 
     public MeaningTree getMeaningTree(String code) {

@@ -15,7 +15,6 @@ import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.frames.Frame;
 import org.vstu.meaningtree.utils.frames.FrameStack;
 import org.vstu.meaningtree.utils.modules.ImportBuffer;
-import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.ScopePolicy;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
@@ -62,7 +61,7 @@ public class TranslatorContext {
         this.owner = component;
         this.translator = translator;
         this.scope = new ScopeTable();
-        this.scope.setAssignmentBinding(component.assignmentBinding());
+        this.scope.setAssignmentBinding(component.languageBehavior().assignmentBinding());
     }
 
     public LanguageTokenizer requireTokenizer() {
@@ -307,7 +306,8 @@ public class TranslatorContext {
      */
     private void pushRenderScope(Node node) {
         boolean opens = node instanceof CompoundStatement body
-                && translator.getScopePolicy().opensScope(body, frames.at(1).flatMap(Frame::node).orElse(null));
+                && owner.languageBehavior().scopePolicy()
+                        .opensScope(body, frames.at(1).flatMap(Frame::node).orElse(null));
         scopePerFrame.push(opens);
         if (opens) {
             scope.enter();

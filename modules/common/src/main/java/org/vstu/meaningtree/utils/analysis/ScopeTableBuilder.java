@@ -2,9 +2,9 @@ package org.vstu.meaningtree.utils.analysis;
 
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
+import org.vstu.meaningtree.languages.LanguageBehavior;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
-import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.ScopePolicy;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
@@ -19,10 +19,10 @@ import java.util.Map;
  * {@code TranslatorContext.registerInScope}). Поэтому работает на любом дереве: только что
  * распарсенном, десериализованном из JSON или собранном программно/тестом.
  * <p>
- * Границы областей задаёт {@link ScopePolicy} языка, из которого дерево получено: единого
- * правила здесь быть не может, потому что в Java и C++ область открывает любой блок, а в Python
- * только определение. Политика передаётся явно, без умолчания, — иначе проход молча приписывал
- * бы дереву чужие правила видимости.
+ * Правила языка, из которого дерево получено, задаёт {@link LanguageBehavior}: единого правила
+ * здесь быть не может, потому что в Java и C++ область открывает любой блок, а в Python только
+ * определение. Правила передаются явно, без умолчания, — иначе проход молча приписывал бы
+ * дереву чужие правила видимости.
  * <p>
  * Проход по готовому дереву заодно закрывает пробел попутной сборки: C++ строит тела классов и
  * единицу трансляции в обход {@code BodyConstructor} (см. {@code CppParser.fromTranslationUnit},
@@ -45,21 +45,18 @@ public final class ScopeTableBuilder {
     private ScopeTableBuilder() {
     }
 
-    public static ScopeTable build(MeaningTree tree, ScopePolicy policy) {
-        return build(tree, policy, AssignmentBinding.ENCLOSING);
-    }
-
     /**
-     * Правило связывания при присваивании передаётся вместе с политикой областей по той же
-     * причине: перестроенная таблица обязана совпасть с той, что собрал разбор, иначе один и
-     * тот же код опишут две разные таблицы.
+     * Правила языка принимаются целиком, а не по одной черте, потому что перестроенная таблица
+     * обязана совпасть с той, что собрал разбор. Пока границы областей и правило связывания
+     * передавались двумя аргументами, их можно было взять от разных языков — и получить
+     * таблицу, описывающую программу, которой нет.
      */
-    public static ScopeTable build(MeaningTree tree, ScopePolicy policy, AssignmentBinding binding) {
+    public static ScopeTable build(MeaningTree tree, LanguageBehavior behavior) {
         ScopeTable scope = new ScopeTable();
-        scope.setAssignmentBinding(binding);
+        scope.setAssignmentBinding(behavior.assignmentBinding());
         Map<Long, List<NodeInfo>> childrenByParentId = groupByParent(tree.iterate());
         NodeInfo root = tree.getNodeById(tree.getRootNode().getId());
-        visit(root, scope, childrenByParentId, policy);
+        visit(root, scope, childrenByParentId, behavior.scopePolicy());
         return scope;
     }
 

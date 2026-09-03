@@ -65,7 +65,6 @@ import org.vstu.meaningtree.utils.analysis.imports.PythonImportResolver;
 import org.vstu.meaningtree.utils.analysis.imports.PythonLibraryImportRegistry;
 import org.vstu.meaningtree.utils.analysis.types.PythonTypeConversionSemantics;
 import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
-import org.vstu.meaningtree.utils.analysis.types.conversion.TypeConversionSemantics;
 import org.vstu.meaningtree.utils.modules.ImportPathConverter;
 import org.vstu.meaningtree.utils.scopes.OverloadSemantics;
 import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
@@ -82,42 +81,38 @@ public class PythonParser extends LanguageParser {
         configureTsNodeHandlers();
     }
 
-    @Override
-    protected TypeConversionSemantics getTypeConversionSemantics() {
-        return new PythonTypeConversionSemantics();
-    }
+    private static final LanguageBehavior BEHAVIOR = LanguageBehavior.defaults()
+            .withScopePolicy(ScopePolicy.definitionScoped())
+            .withAssignmentBinding(AssignmentBinding.LOCAL)
+            .withOverloadSemantics(OverloadSemantics.shadowing())
+            .withTypeConversionSemantics(new PythonTypeConversionSemantics());
 
     /**
-     * В Python перегрузок нет: второй {@code def} того же имени связывает имя заново, и первое
-     * определение становится недостижимым. Поэтому одноимённые определения — затенение, а не
-     * группа перегрузок. {@code typing.overload} остаётся вне поддержки: это аннотация для
-     * статической проверки, во время исполнения она диспетчеризацию не создаёт.
+     * Python отходит от умолчаний во всех четырёх правилах, и все четыре — об одном: чем
+     * видимость имён и разрешение вызовов в Python отличаются от C-семейства.
+     * <p>
+     * <b>Границы областей.</b> В Python область видимости открывает только определение: имя,
+     * присвоенное внутри {@code if}, {@code for}, {@code while} или {@code try}, остаётся
+     * локальным именем функции или модуля и доступно после блока. Разбор следует тому же
+     * правилу — тела операторов собираются {@code fromCompoundTSNode(node, false)}.
+     * <p>
+     * <b>Связывание при присваивании.</b> В Python присваивание объявляет локальное имя:
+     * {@code x = 2} внутри функции создаёт переменную функции, а модульную {@code x} затеняет,
+     * а не меняет. Писать во внешнее имя можно только объявив его {@code global} или
+     * {@code nonlocal} — тогда цель присваивания задаёт привязка в
+     * {@link org.vstu.meaningtree.utils.scopes.ScopeTableElement}.
+     * <p>
+     * <b>Перегрузки.</b> В Python перегрузок нет: второй {@code def} того же имени связывает
+     * имя заново, и первое определение становится недостижимым. Поэтому одноимённые
+     * определения — затенение, а не группа перегрузок. {@code typing.overload} остаётся вне
+     * поддержки: это аннотация для статической проверки, во время исполнения она
+     * диспетчеризацию не создаёт.
+     * <p>
+     * <b>Преобразования типов.</b> Уточняются {@link PythonTypeConversionSemantics}.
      */
     @Override
-    protected OverloadSemantics getOverloadSemantics() {
-        return OverloadSemantics.shadowing();
-    }
-
-    /**
-     * В Python область видимости открывает только определение: имя, присвоенное внутри
-     * {@code if}, {@code for}, {@code while} или {@code try}, остаётся локальным именем функции
-     * или модуля и доступно после блока. Разбор следует тому же правилу — тела операторов
-     * собираются {@code fromCompoundTSNode(node, false)}.
-     */
-    @Override
-    protected ScopePolicy getScopePolicy() {
-        return ScopePolicy.definitionScoped();
-    }
-
-    /**
-     * В Python присваивание объявляет локальное имя: {@code x = 2} внутри функции создаёт
-     * переменную функции, а модульную {@code x} затеняет, а не меняет. Писать во внешнее имя
-     * можно только объявив его {@code global} или {@code nonlocal} — тогда цель присваивания
-     * задаёт привязка в {@link org.vstu.meaningtree.utils.scopes.ScopeTableElement}.
-     */
-    @Override
-    protected AssignmentBinding getAssignmentBinding() {
-        return AssignmentBinding.LOCAL;
+    protected LanguageBehavior languageBehavior() {
+        return BEHAVIOR;
     }
 
     private void configureTsNodeHandlers() {

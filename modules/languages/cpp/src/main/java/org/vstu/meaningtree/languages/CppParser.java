@@ -74,7 +74,6 @@ import org.vstu.meaningtree.nodes.types.user.Structure;
 import org.vstu.meaningtree.utils.analysis.imports.CppImportResolver;
 import org.vstu.meaningtree.utils.analysis.imports.ImportResolver;
 import org.vstu.meaningtree.utils.analysis.types.CppTypeConversionSemantics;
-import org.vstu.meaningtree.utils.analysis.types.conversion.TypeConversionSemantics;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -87,9 +86,13 @@ public class CppParser extends LanguageParser {
         configureTsNodeHandlers();
     }
 
+    private static final LanguageBehavior BEHAVIOR = LanguageBehavior.defaults()
+            .withTypeConversionSemantics(new CppTypeConversionSemantics());
+
+    /** От умолчаний язык отходит только в правилах преобразования примитивных типов. */
     @Override
-    protected TypeConversionSemantics getTypeConversionSemantics() {
-        return new CppTypeConversionSemantics();
+    protected LanguageBehavior languageBehavior() {
+        return BEHAVIOR;
     }
 
     private void configureTsNodeHandlers() {

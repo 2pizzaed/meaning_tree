@@ -5,7 +5,6 @@ import org.vstu.meaningtree.languages.configs.ConfigParameter;
 import org.vstu.meaningtree.utils.frames.FrameStack;
 import org.vstu.meaningtree.utils.hooks.HookHost;
 import org.vstu.meaningtree.utils.hooks.HookRegistry;
-import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
 public abstract class TranslatorComponent implements HookHost {
@@ -50,14 +49,20 @@ public abstract class TranslatorComponent implements HookHost {
     }
 
     /**
-     * Правило связывания при присваивании, с которым создаётся таблица областей контекста.
+     * Правила языка, с которыми создаётся контекст этого компонента.
      * <p>
      * Спрашивается у компонента, а не у транслятора напрямую, потому что контекст парсера
      * создаётся его собственным конструктором — раньше, чем транслятор узнаёт о парсере, и
-     * обращение к транслятору в этот момент ничего не вернуло бы.
+     * обращение к транслятору в этот момент ничего не вернуло бы. Поэтому
+     * {@link LanguageParser} на этот вопрос отвечает сам, а вьювер и токенизатор пересылают
+     * его транслятору: к моменту их работы парсер уже установлен.
+     * <p>
+     * Следствие, важное для реализаций: метод вызывается из конструктора
+     * {@link TranslatorContext}, то есть во время {@code super()} компонента. Читать поля
+     * своего экземпляра ответ не имеет права — см. контракт в {@link LanguageBehavior}.
      */
-    protected AssignmentBinding assignmentBinding() {
-        return translator.getAssignmentBinding();
+    protected LanguageBehavior languageBehavior() {
+        return translator.getLanguageBehavior();
     }
 
     /**

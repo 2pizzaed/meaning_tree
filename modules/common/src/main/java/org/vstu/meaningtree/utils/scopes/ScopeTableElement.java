@@ -58,6 +58,18 @@ public class ScopeTableElement implements Serializable {
     @NotNull
     private final List<OverloadGroup> overloadGroups;
 
+    /**
+     * Имена, которые эта область объявила связанными не здесь, а в области-предке:
+     * python-{@code global} и {@code nonlocal}.
+     * <p>
+     * Карта смотрит вперёд, от области к цели, а не наоборот: искать имя в этой области —
+     * частая операция, и перенаправление обязано быть ответом на неё, а не отдельным
+     * обходом всех потомков. Цель — всегда строгий предок, поэтому цепочка привязок конечна
+     * и разрешается простым циклом.
+     */
+    @NotNull
+    private final Map<SimpleIdentifier, ScopeTableElement> rebinds;
+
     public ScopeTableElement(long id, @Nullable ScopeTableElement parent, @Nullable Node owner) {
         this.id = id;
         this.parent = parent;
@@ -67,6 +79,7 @@ public class ScopeTableElement implements Serializable {
         this.declaredTypes = new HashMap<>();
         this.typeDeclarations = new HashMap<>();
         this.overloadGroups = new ArrayList<>();
+        this.rebinds = new HashMap<>();
         setOwner(owner);
     }
 
@@ -153,7 +166,66 @@ public class ScopeTableElement implements Serializable {
         typeDeclarations.put(type, declaration);
     }
 
+    /**
+     * Объявляет, что имя в этой области связано областью {@code target}, а не здесь.
+     *
+     * @throws IllegalArgumentException если цель не строгий предок: привязка на себя или вниз
+     *                                  замкнула бы цепочку разрешения в цикл
+     */
+    public void rebindName(@NotNull SimpleIdentifier name, @NotNull ScopeTableElement target) {
+        if (!target.isStrictAncestorOf(this)) {
+            throw new IllegalArgumentException(
+                    "Scope binding target must be a strict ancestor scope, got scope " + target.getId()
+                            + " for scope " + getId());
+        }
+        rebinds.put(name, target);
+    }
+
+    /** Цель привязки, объявленной именно этой областью, без прохода по цепочке. */
+    public Optional<ScopeTableElement> rebindTarget(@NotNull SimpleIdentifier name) {
+        return Optional.ofNullable(rebinds.get(name));
+    }
+
+    /** Все привязки, объявленные этой областью, — для сериализации таблицы. */
+    @NotNull
+    public Map<SimpleIdentifier, ScopeTableElement> allRebinds() {
+        return Map.copyOf(rebinds);
+    }
+
+    /**
+     * Область, которая на самом деле владеет этим именем при взгляде отсюда.
+     * <p>
+     * Цепочка проходится до конца: {@code global x} внутри функции, которая сама объявила
+     * {@code x} через {@code nonlocal}, обязан привести туда же, куда привёл бы напрямую.
+     * Цикла быть не может — каждый шаг поднимается к строгому предку.
+     *
+     * @return область-цель либо {@code this}, если имя не привязано
+     */
+    @NotNull
+    public ScopeTableElement resolveBinding(@NotNull SimpleIdentifier name) {
+        ScopeTableElement current = this;
+        ScopeTableElement target;
+        while ((target = current.rebinds.get(name)) != null) {
+            current = target;
+        }
+        return current;
+    }
+
+    private boolean isStrictAncestorOf(@NotNull ScopeTableElement descendant) {
+        for (ScopeTableElement current = descendant.parent; current != null; current = current.parent) {
+            if (current == this) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void removeVariable(@NotNull SimpleIdentifier name) {
+        ScopeTableElement target = resolveBinding(name);
+        if (target != this) {
+            target.removeVariable(name);
+            return;
+        }
         if (!variables.containsKey(name) && parent != null) {
             parent.removeVariable(name);
             return;
@@ -163,11 +235,16 @@ public class ScopeTableElement implements Serializable {
     }
 
     public boolean hasVariable(@NotNull SimpleIdentifier name) {
-        return variables.containsKey(name);
+        ScopeTableElement target = resolveBinding(name);
+        return target != this ? target.hasVariable(name) : variables.containsKey(name);
     }
 
     @Nullable
     public Type getVariableType(@NotNull SimpleIdentifier name) {
+        ScopeTableElement target = resolveBinding(name);
+        if (target != this) {
+            return target.getVariableType(name);
+        }
         Type type = variables.get(name);
         if (type != null) {
             return detachType(type);
@@ -179,6 +256,10 @@ public class ScopeTableElement implements Serializable {
     }
 
     public Optional<VariableDeclaration> getVariableDeclaration(@NotNull SimpleIdentifier name, @Nullable Type type) {
+        ScopeTableElement target = resolveBinding(name);
+        if (target != this) {
+            return target.getVariableDeclaration(name, type);
+        }
         if (variableDeclarations.containsKey(name)
                 && (type == null || Objects.equals(variables.get(name), type))) {
             return Optional.of(variableDeclarations.get(name));
@@ -189,19 +270,58 @@ public class ScopeTableElement implements Serializable {
         return Optional.empty();
     }
 
+    /**
+     * Тип переменной, которую свяжет присваивание этому имени отсюда.
+     * <p>
+     * Отличается от {@link #getVariableType} тем, что зависит от {@link AssignmentBinding}:
+     * при {@link AssignmentBinding#LOCAL} видимая снаружи одноимённая переменная целью
+     * присваивания не является, поэтому и типа у цели ещё нет. Ровно этим отличаются
+     * «присвоить известной переменной» и «объявить новую», а по форме узла они неразличимы.
+     */
+    @Nullable
+    public Type getAssignmentTargetType(@NotNull SimpleIdentifier name, @NotNull AssignmentBinding binding) {
+        if (binding == AssignmentBinding.ENCLOSING) {
+            return getVariableType(name);
+        }
+        ScopeTableElement target = resolveBinding(name);
+        Type type = target.variables.get(name);
+        return type == null ? null : detachType(type);
+    }
+
     public void changeVariableType(@NotNull SimpleIdentifier name,
                                    @NotNull Type type,
-                                   boolean createIfNotExists) {
+                                   boolean createIfNotExists,
+                                   @NotNull AssignmentBinding binding) {
+        ScopeTableElement target = resolveBinding(name);
+        if (target != this) {
+            target.changeVariableType(name, type, createIfNotExists, binding);
+            return;
+        }
+
+        if (binding == AssignmentBinding.LOCAL) {
+            if (!variables.containsKey(name) && !createIfNotExists) {
+                throw new IllegalArgumentException("No such variable: " + name);
+            }
+            variables.put(name, detachType(type));
+            return;
+        }
+
         if (getVariableType(name) == null && !createIfNotExists) {
             throw new IllegalArgumentException("No such variable: " + name);
         }
 
         if (!variables.containsKey(name) && parent != null && parent.getVariableType(name) != null) {
-            parent.changeVariableType(name, type, false);
+            parent.changeVariableType(name, type, false, binding);
             return;
         }
 
         variables.put(name, detachType(type));
+    }
+
+    public void changeVariableType(@NotNull SimpleIdentifier name,
+                                   @NotNull Type type,
+                                   boolean createIfNotExists) {
+        changeVariableType(name, type, createIfNotExists, AssignmentBinding.ENCLOSING);
     }
 
     public void changeVariableType(@NotNull SimpleIdentifier name, @NotNull Type type) {

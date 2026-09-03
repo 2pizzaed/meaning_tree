@@ -99,6 +99,13 @@ export type BytePosition = [offset: number, length: number];
 export interface ScopeTableDocument {
     type: "scope_table";
     current_scope_id: ScopeId;
+    /**
+     * Правило языка, по которому присваивание выбирает переменную:
+     * `ENCLOSING` — связывается ближайшая видимая одноимённая (Java, C++),
+     * `LOCAL` — переменная текущей области, а внешняя затеняется (Python).
+     * Отсутствует в документах, записанных до появления правила; это означает `ENCLOSING`.
+     */
+    assignment_binding?: "ENCLOSING" | "LOCAL";
     symbols: {
         declarations: Array<{
             /** `Identifier.internalRepresentation()`; `null`, если идентификатора нет. */
@@ -178,6 +185,14 @@ export interface ScopeEntry {
     type_declarations: Array<{
         type_ref: AnyType;
         declaration: ScopeNodeRef;
+    }>;
+    /**
+     * Имена, объявленные в этой области связанными снаружи (`global` / `nonlocal`), и
+     * области-цели. Цель — всегда строгий предок. Отсутствует или пусто, если привязок нет.
+     */
+    rebinds?: Array<{
+        name?: string | null;
+        scope_id: ScopeId;
     }>;
 }
 
@@ -1036,6 +1051,17 @@ export interface ResourceContextStatementNode extends NodeBase<"resource_context
     body: AnyNode;
 }
 
+/**
+ * Объявление о том, что имена связаны не в этой области, а снаружи: python-`global x, y`
+ * и `nonlocal a`. Само перенаправление лежит не в дереве, а в `rebinds` области видимости.
+ */
+export interface ScopeDeclarationStatementNode extends NodeBase<"scope_declaration_statement"> {
+    /** `GLOBAL` — корневая область программы, `NONLOCAL` — ближайшая объемлющая функция. */
+    kind: "GLOBAL" | "NONLOCAL";
+    /** Имена, минимум одно. */
+    names: AnyNode[];
+}
+
 /* --- Циклы -------------------------------------------------------------- */
 
 /** Общие для всех циклов поля. */
@@ -1561,6 +1587,7 @@ export type NodeTypeName =
     | "catch_clause"
     | "raise_exception_statement"
     | "resource_context_statement"
+    | "scope_declaration_statement"
     | "general_for_loop"
     | "range_for_loop"
     | "for_each_loop"
@@ -1754,6 +1781,7 @@ export type AnyNode =
     | CaseBlockNode
     | ExceptionCatchStatementNode
     | ResourceContextStatementNode
+    | ScopeDeclarationStatementNode
     | CatchClauseNode
     | RaiseExceptionStatementNode
     | GeneralForLoopNode

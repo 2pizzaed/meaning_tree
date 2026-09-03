@@ -4,6 +4,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.ScopePolicy;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
@@ -45,7 +46,17 @@ public final class ScopeTableBuilder {
     }
 
     public static ScopeTable build(MeaningTree tree, ScopePolicy policy) {
+        return build(tree, policy, AssignmentBinding.ENCLOSING);
+    }
+
+    /**
+     * Правило связывания при присваивании передаётся вместе с политикой областей по той же
+     * причине: перестроенная таблица обязана совпасть с той, что собрал разбор, иначе один и
+     * тот же код опишут две разные таблицы.
+     */
+    public static ScopeTable build(MeaningTree tree, ScopePolicy policy, AssignmentBinding binding) {
         ScopeTable scope = new ScopeTable();
+        scope.setAssignmentBinding(binding);
         Map<Long, List<NodeInfo>> childrenByParentId = groupByParent(tree.iterate());
         NodeInfo root = tree.getNodeById(tree.getRootNode().getId());
         visit(root, scope, childrenByParentId, policy);

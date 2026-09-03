@@ -68,6 +68,7 @@ MeaningTree meaningTree = pythonLanguage.getMeaningTree("a = 10");
 - `Type`
 - `UnaryOperator`
 - `WhileStatement`
+- `GlobalStatement` / `NonlocalStatement` (`ScopeDeclarationStatement`)
 
 
 # PythonViewer
@@ -160,3 +161,13 @@ String code = pythonViewer.toString(meaningTree);
 - `async with` и распаковка кортежа в `as`-цели (`with a() as (x, y)`) не поддерживаются:
   признака асинхронности у узла нет, а имя ресурса — один идентификатор. Подробности — в
   [docs/references/resource-context.md](../references/resource-context.md).
+
+- `global` и `nonlocal` разбираются в `ScopeDeclarationStatement` и выводятся обратно как есть.
+  Присваивание в Python объявляет локальное имя, поэтому `x = 2` внутри функции затеняет
+  одноимённую внешнюю переменную, а не меняет её; писать во внешнее имя можно только объявив
+  его `global` или `nonlocal`. Само перенаправление хранит таблица областей видимости
+  (`ScopeTableElement.rebinds`), а правило связывания задаёт
+  `PythonParser.getAssignmentBinding()` (`AssignmentBinding.LOCAL`).
+
+- Аннотация типа у имени, объявленного `global` или `nonlocal`, в Python запрещена
+  (`SyntaxError`), поэтому такой формы разбор не ожидает.

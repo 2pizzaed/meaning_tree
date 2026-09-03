@@ -8,6 +8,8 @@ import org.vstu.meaningtree.languages.helpers.ComprehensionLowerer;
 import org.vstu.meaningtree.languages.helpers.LoopElseLowerer;
 import org.vstu.meaningtree.languages.helpers.MultiCatchSplitter;
 import org.vstu.meaningtree.languages.helpers.ResourceContextLowerer;
+import org.vstu.meaningtree.languages.helpers.ScopeDeclarationLowerer;
+import org.vstu.meaningtree.languages.support.features.NonlocalBindingFeature;
 import org.vstu.meaningtree.languages.helpers.TryElseLowerer;
 import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
 import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
@@ -101,7 +103,8 @@ public class CppViewer extends LanguageViewer {
     protected MeaningTree preprocessTree(MeaningTree tree) {
         // Владение ресурсами снимается первым: дальше по конвейеру никакой узел о нём не знает
         return MultiCatchSplitter.lower(TryElseLowerer.lower(
-                LoopElseLowerer.lower(comprehensionLowered(ResourceContextLowerer.flatten(tree)))));
+                LoopElseLowerer.lower(comprehensionLowered(
+                        ResourceContextLowerer.flatten(ScopeDeclarationLowerer.dropGlobals(tree))))));
     }
 
     private MeaningTree comprehensionLowered(MeaningTree tree) {
@@ -267,6 +270,7 @@ public class CppViewer extends LanguageViewer {
         registerUnsupportedFeature(new PointerToMemberOperatorFeature());
         registerUnsupportedFeature(new UninferableVariableTypeFeature());
         registerUnsupportedFeature(new TryFinallyFeature());
+        registerUnsupportedFeature(new NonlocalBindingFeature());
         registerUnsupportedFeature(MatMulOp.class);
     }
 

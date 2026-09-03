@@ -18,6 +18,7 @@ import org.vstu.meaningtree.utils.hooks.HookHandle;
 import org.vstu.meaningtree.utils.hooks.HookOrder;
 import org.vstu.meaningtree.utils.hooks.HookPhase;
 import org.vstu.meaningtree.utils.scopes.OverloadSemantics;
+import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.ScopePolicy;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
@@ -118,6 +119,21 @@ abstract public class LanguageParser extends TranslatorComponent {
      */
     protected ScopePolicy getScopePolicy() {
         return ScopePolicy.blockScoped();
+    }
+
+    /**
+     * Правило, по которому присваивание этого языка выбирает переменную. По умолчанию
+     * связывается ближайшая видимая: так устроены языки с явным объявлением переменных, где
+     * присвоить неизвестному имени нельзя вовсе. Язык с неявным объявлением переопределяет
+     * метод.
+     */
+    protected AssignmentBinding getAssignmentBinding() {
+        return AssignmentBinding.ENCLOSING;
+    }
+
+    @Override
+    protected AssignmentBinding assignmentBinding() {
+        return getAssignmentBinding();
     }
 
     /** Language-specific primitive conversion rules; the default uses only common semantics. */

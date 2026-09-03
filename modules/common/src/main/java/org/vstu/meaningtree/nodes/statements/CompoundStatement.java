@@ -63,6 +63,17 @@ public class CompoundStatement extends Statement {
         nodes.add(index, node);
     }
 
+    /**
+     * Убирает узел из тела. Сравнение по ссылке, а не по значению: {@code Node.equals}
+     * сравнивает без идентификатора, поэтому два одинаковых по тексту оператора в одном теле
+     * неразличимы и удалился бы первый, а не тот, который просили.
+     *
+     * @return был ли узел в теле
+     */
+    public boolean remove(Node node) {
+        return nodes.removeIf(existing -> existing == node);
+    }
+
     public CompoundStatement clone() {
         var clone = (CompoundStatement) super.clone();
         clone.nodes = new ArrayList<>(nodes.stream().map(Node::clone).toList());

@@ -147,6 +147,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject root = new JsonObject();
         root.addProperty("type", "scope_table");
         root.addProperty("current_scope_id", scopeTable.currentScopeId());
+        root.addProperty("assignment_binding", scopeTable.getAssignmentBinding().name());
 
         JsonObject symbols = new JsonObject();
         // Одно имя может нести несколько деклараций (перегрузки), поэтому на имя приходится
@@ -288,6 +289,15 @@ public class JsonSerializer implements Serializer<JsonObject> {
                 typeDeclarations.add(typeDeclaration);
             }
             item.add("type_declarations", typeDeclarations);
+
+            JsonArray rebinds = new JsonArray();
+            for (var entry : scope.allRebinds().entrySet()) {
+                JsonObject rebind = new JsonObject();
+                rebind.add("name", serializeScopeIdentifier(entry.getKey()));
+                rebind.addProperty("scope_id", entry.getValue().getId());
+                rebinds.add(rebind);
+            }
+            item.add("rebinds", rebinds);
 
             scopes.add(item);
         }
@@ -646,6 +656,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case ExceptionCatchStatement stmt -> serializeExceptionCatchStatement(stmt);
             case CatchClause clause -> serializeCatchClause(clause);
             case ResourceContextStatement stmt -> serializeResourceContextStatement(stmt);
+            case ScopeDeclarationStatement stmt -> serializeScopeDeclarationStatement(stmt);
             case RaiseExceptionStatement stmt -> serializeRaiseExceptionStatement(stmt);
             case InfiniteLoop infLoop -> serializeInfiniteLoop(infLoop);
             case GeneralForLoop stmt -> serializeGeneralForLoop(stmt);
@@ -1430,6 +1441,21 @@ public class JsonSerializer implements Serializer<JsonObject> {
         if (stmt.hasFinallyBranch()) {
             json.add("finallyBranch", serialize(stmt.getFinallyBranch()));
         }
+
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeScopeDeclarationStatement(@NotNull ScopeDeclarationStatement stmt) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
+        json.addProperty("kind", stmt.getKind().name());
+
+        JsonArray names = new JsonArray();
+        for (SimpleIdentifier name : stmt.getNames()) {
+            names.add(serialize(name));
+        }
+        json.add("names", names);
 
         return json;
     }

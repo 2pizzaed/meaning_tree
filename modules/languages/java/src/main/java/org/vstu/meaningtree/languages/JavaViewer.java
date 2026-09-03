@@ -5,6 +5,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.helpers.ComprehensionLowerer;
+import org.vstu.meaningtree.languages.helpers.ScopeDeclarationLowerer;
 import org.vstu.meaningtree.languages.helpers.LoopElseLowerer;
 import org.vstu.meaningtree.languages.helpers.TryElseLowerer;
 import org.vstu.meaningtree.languages.support.SemanticFeature;
@@ -123,7 +124,8 @@ public class JavaViewer extends LanguageViewer {
 
     @Override
     protected MeaningTree preprocessTree(MeaningTree tree) {
-        return TryElseLowerer.lower(LoopElseLowerer.lower(comprehensionLowered(tree)));
+        return TryElseLowerer.lower(LoopElseLowerer.lower(
+                comprehensionLowered(ScopeDeclarationLowerer.dropGlobals(tree))));
     }
 
     private MeaningTree comprehensionLowered(MeaningTree tree) {
@@ -310,6 +312,7 @@ public class JavaViewer extends LanguageViewer {
         registerUnsupportedFeature(new ConstInFunctionSignatureFeature());
         registerUnsupportedFeature(new MultipleInheritanceForJavaFeature());
         registerUnsupportedFeature(new BareRaiseFeature());
+        registerUnsupportedFeature(new NonlocalBindingFeature());
     }
 
 

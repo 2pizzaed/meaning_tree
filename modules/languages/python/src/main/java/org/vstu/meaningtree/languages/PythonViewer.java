@@ -121,6 +121,11 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(FunctionCall.class, (node, tab) -> callsToString(node));
         registerTabRenderer(BreakStatement.class, (node, tab) -> "break");
         registerTabRenderer(DeleteStatement.class, (node, tab) -> String.format("del %s", toString(node.getTarget())));
+        registerTabRenderer(ScopeDeclarationStatement.class, (node, tab) -> String.format(
+                "%s %s",
+                node.getKind() == ScopeDeclarationStatement.Kind.GLOBAL ? "global" : "nonlocal",
+                node.getNames().stream().map(this::toString).collect(Collectors.joining(", "))
+        ));
         registerTabRenderer(DeleteExpression.class, (node, tab) -> toString(node.toStatement()));
         registerTabRenderer(Range.class, (node, tab) -> rangeToString(node));
         registerTabRenderer(ContinueStatement.class, (node, tab) -> "continue");

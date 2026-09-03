@@ -14,6 +14,7 @@ import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.modules.Import;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.nodes.statements.ScopeDeclarationStatement;
 import org.vstu.meaningtree.nodes.statements.exceptions.components.CatchClause;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.UserType;
@@ -68,6 +69,14 @@ public class ScopeTable implements Serializable {
     private final Map<FunctionDeclaration, OverloadGroup> groupByDeclaration;
 
     private long nextScopeId;
+
+    /**
+     * Правило языка, по которому присваивание выбирает переменную. Свойство программы, а не
+     * области: одна таблица описывает один разбор, и разные его части не могут следовать
+     * разным правилам.
+     */
+    @NotNull
+    private AssignmentBinding assignmentBinding = AssignmentBinding.ENCLOSING;
 
     /**
      * Текущая область сущностей.
@@ -130,6 +139,15 @@ public class ScopeTable implements Serializable {
         if (rootScopeMustExist) {
             throw new IllegalStateException("Cannot leave root scope");
         }
+    }
+
+    @NotNull
+    public AssignmentBinding getAssignmentBinding() {
+        return assignmentBinding;
+    }
+
+    public void setAssignmentBinding(@NotNull AssignmentBinding assignmentBinding) {
+        this.assignmentBinding = assignmentBinding;
     }
 
     public ScopeTableElement scope() {
@@ -254,7 +272,60 @@ public class ScopeTable implements Serializable {
             registerImport(imprt);
         } else if (node instanceof CatchClause clause && clause.hasName()) {
             registerCatchVariable(Objects.requireNonNull(clause.getName()), clause.getExceptionTypes());
+        } else if (node instanceof ScopeDeclarationStatement declaration) {
+            registerScopeDeclaration(declaration);
         }
+    }
+
+    /**
+     * Записывает привязки, объявленные {@code global} / {@code nonlocal}, в текущую область.
+     * <p>
+     * Живёт здесь, а не в разборе, потому что тот же оператор встречается и в готовом дереве:
+     * без общей точки {@code ScopeTableBuilder} восстановил бы таблицу без привязок, и
+     * перестроенная таблица разошлась бы с собранной при разборе.
+     */
+    public void registerScopeDeclaration(@NotNull ScopeDeclarationStatement declaration) {
+        for (SimpleIdentifier name : declaration.getNames()) {
+            ScopeTableElement target = switch (declaration.getKind()) {
+                case GLOBAL -> scopes.get(rootScopeId());
+                case NONLOCAL -> nonlocalTarget(name);
+            };
+            // Цель, совпавшая с текущей областью, — не ошибка, а вырожденный случай:
+            // `global x` в самом модуле и `nonlocal` без объемлющей функции ничего не
+            // перенаправляют, потому что перенаправлять некуда.
+            if (target != null && target != current) {
+                current.rebindName(name, target);
+            }
+        }
+    }
+
+    /**
+     * Область, которую связывает {@code nonlocal}: ближайшая объемлющая функция.
+     * <p>
+     * Области классов пропускаются — тело класса своих имён вложенным функциям не отдаёт, и
+     * {@code nonlocal} в них не смотрит. Корневая тоже: имя модуля связывает {@code global},
+     * а {@code nonlocal} до него не доходит. Область, где имя уже объявлено, предпочтительнее
+     * ближайшей: между объявлением и присваиванием могут лежать вложенные функции.
+     * <p>
+     * Отсутствие подходящей области в Python — {@code SyntaxError}, но разбор принимает и
+     * фрагменты кода, вырванные из своего окружения, поэтому вместо отказа возвращается
+     * ближайшая подходящая область либо {@code null}, если её нет вовсе.
+     */
+    @Nullable
+    private ScopeTableElement nonlocalTarget(@NotNull SimpleIdentifier name) {
+        ScopeTableElement nearest = null;
+        for (ScopeTableElement scope = current.getParent(); scope != null; scope = scope.getParent()) {
+            if (scope.getParent() == null || scope.belongsToClass().isPresent()) {
+                continue;
+            }
+            if (scope.hasVariable(name)) {
+                return scope;
+            }
+            if (nearest == null) {
+                nearest = scope;
+            }
+        }
+        return nearest;
     }
 
     /**
@@ -299,7 +370,22 @@ public class ScopeTable implements Serializable {
     }
 
     public void changeVariableType(@NotNull SimpleIdentifier name, @NotNull Type type, boolean createIfNotExists) {
-        current.changeVariableType(name, type, createIfNotExists);
+        current.changeVariableType(name, type, createIfNotExists, assignmentBinding);
+    }
+
+    /**
+     * Тип переменной, которую свяжет присваивание этому имени в текущей области, по правилу
+     * {@link #getAssignmentBinding()}. Отсутствие типа означает, что присваивание вводит новое
+     * имя, а не меняет существующее.
+     */
+    @Nullable
+    public Type getAssignmentTargetType(@NotNull SimpleIdentifier name) {
+        return current.getAssignmentTargetType(name, assignmentBinding);
+    }
+
+    /** Объявлено ли имя в текущей области связанным снаружи ({@code global} / {@code nonlocal}). */
+    public boolean isRebound(@NotNull SimpleIdentifier name) {
+        return current.resolveBinding(name) != current;
     }
 
     public void changeVariableType(@NotNull SimpleIdentifier name, @NotNull Type type) {

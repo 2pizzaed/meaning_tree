@@ -427,6 +427,9 @@ public class SourceMapGeneratorTests {
                         """, () -> new JavaTranslator(CONFIG)),
                 new Sample("python", """
                         x = 1
+                        def bump():
+                            global x
+                            x = x + 1
                         if x > 0:
                             x = 2
                         else:

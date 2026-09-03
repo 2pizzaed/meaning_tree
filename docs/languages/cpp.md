@@ -127,6 +127,11 @@ MeaningTree meaningTree = cppLanguage.getMeaningTree("int main() { int a = 10; }
 - **Нет владения ресурсами**: java-try-with-resources и python-`with` разворачиваются в плоский
   блок с объявлением и `delete`; обратный разбор такого блока в узел не делается. Подробности —
   в [docs/references/resource-context.md](../references/resource-context.md).
+- **Нет объявлений привязки имён**: python-`global` снимается перед выводом
+  (`ScopeDeclarationLowerer.dropGlobals`) — в C++ присваивание имени, объявленному снаружи, и
+  так уходит наружу, поэтому объявление ничего не добавляет. Python-`nonlocal` отвергается
+  (`NonlocalBindingFeature`): он указывает на промежуточную область, которой в C++
+  соответствовать нечему.
 
 # CppViewer
 

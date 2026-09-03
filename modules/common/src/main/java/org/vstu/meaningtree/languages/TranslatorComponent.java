@@ -5,6 +5,7 @@ import org.vstu.meaningtree.languages.configs.ConfigParameter;
 import org.vstu.meaningtree.utils.frames.FrameStack;
 import org.vstu.meaningtree.utils.hooks.HookHost;
 import org.vstu.meaningtree.utils.hooks.HookRegistry;
+import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
 public abstract class TranslatorComponent implements HookHost {
@@ -46,6 +47,17 @@ public abstract class TranslatorComponent implements HookHost {
     public void rollbackContext() {
         this.ctx = new TranslatorContext(this, translator);
         hooks.clearRunScoped();
+    }
+
+    /**
+     * Правило связывания при присваивании, с которым создаётся таблица областей контекста.
+     * <p>
+     * Спрашивается у компонента, а не у транслятора напрямую, потому что контекст парсера
+     * создаётся его собственным конструктором — раньше, чем транслятор узнаёт о парсере, и
+     * обращение к транслятору в этот момент ничего не вернуло бы.
+     */
+    protected AssignmentBinding assignmentBinding() {
+        return translator.getAssignmentBinding();
     }
 
     /**

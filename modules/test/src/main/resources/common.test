@@ -3069,3 +3069,48 @@ group: ResourceContext
             {
                 h();
             }
+
+
+group: ScopeBinding
+    case: GlobalDeclarationWritesOuterVariable
+        main python:
+            counter = 0
+            def bump():
+                global counter
+                counter = counter + 1
+
+        java:
+            int counter = 0;
+            public static Object bump() {
+                counter = counter + 1;
+            }
+
+        c++:
+            int counter = 0;
+            auto bump()
+            {
+                counter = counter + 1;
+            }
+
+
+    case: AssignmentWithoutDeclarationIsLocal
+        main python:
+            x = 1
+            def f():
+                x = 2
+                return x
+
+        java:
+            int x = 1;
+            public static Object f() {
+                int x = 2;
+                return x;
+            }
+
+        c++:
+            int x = 1;
+            auto f()
+            {
+                int x = 2;
+                return x;
+            }

@@ -68,6 +68,7 @@ import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.analysis.types.conversion.TypeConversionSemantics;
 import org.vstu.meaningtree.utils.modules.ImportPathConverter;
 import org.vstu.meaningtree.utils.scopes.OverloadSemantics;
+import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.ScopePolicy;
 import org.vstu.meaningtree.utils.scopes.ScopeLookupMode;
 
@@ -106,6 +107,17 @@ public class PythonParser extends LanguageParser {
     @Override
     protected ScopePolicy getScopePolicy() {
         return ScopePolicy.definitionScoped();
+    }
+
+    /**
+     * В Python присваивание объявляет локальное имя: {@code x = 2} внутри функции создаёт
+     * переменную функции, а модульную {@code x} затеняет, а не меняет. Писать во внешнее имя
+     * можно только объявив его {@code global} или {@code nonlocal} — тогда цель присваивания
+     * задаёт привязка в {@link org.vstu.meaningtree.utils.scopes.ScopeTableElement}.
+     */
+    @Override
+    protected AssignmentBinding getAssignmentBinding() {
+        return AssignmentBinding.LOCAL;
     }
 
     private void configureTsNodeHandlers() {
@@ -163,6 +175,7 @@ public class PythonParser extends LanguageParser {
         registerTSNodeHandler("try_statement", ExceptionCatchStatement.class, this::fromTryStatementTSNode);
         registerTSNodeHandler("with_statement", ResourceContextStatement.class, this::fromWithStatementTSNode);
         registerTSNodeHandler("raise_statement", RaiseExceptionStatement.class, this::fromRaiseStatementTSNode);
+        registerTSNodeHandler(List.of("global_statement", "nonlocal_statement"), ScopeDeclarationStatement.class, this::fromScopeDeclarationTSNode);
     }
 
     @Override
@@ -1161,7 +1174,7 @@ public class PythonParser extends LanguageParser {
 
         if (left instanceof SimpleIdentifier variableName && right != null) {
             var scopeTable = ctx.getScopeTable();
-            var leftType = scopeTable.getVariableType(variableName);
+            var leftType = scopeTable.getAssignmentTargetType(variableName);
             var rightType = ctx.inferType(right); // already uses scopeTable by default
 
             if (leftType == null || leftType instanceof UnknownType) {
@@ -1249,7 +1262,7 @@ public class PythonParser extends LanguageParser {
             }
 
             boolean allNew = augOp == AugmentedAssignmentOperator.NONE
-                    && idents.stream().allMatch(id -> ctx.getScopeTable().getVariableType((SimpleIdentifier) id) == null);
+                    && idents.stream().allMatch(id -> declaresNewVariable((SimpleIdentifier) id));
 
             if (allNew) {
                 // Вычисляем общий тип по всем выражениям
@@ -1297,7 +1310,8 @@ public class PythonParser extends LanguageParser {
                 && rightExpr != null
                 && augOp == AugmentedAssignmentOperator.NONE) {
             var scopeTable = ctx.getScopeTable();
-            Type leftType = scopeTable.getVariableType(variableName);
+            Type leftType = scopeTable.getAssignmentTargetType(variableName);
+            boolean rebound = scopeTable.isRebound(variableName);
             Type declaredType = node.getChildByFieldName("type") == null || node.getChildByFieldName("type").isNull() ? new UnknownType() :
                     (Type) parseTSNode(node.getChildByFieldName("type"));
             if (getConfigParameter("ensureFixedListSize").asBoolean()
@@ -1309,14 +1323,19 @@ public class PythonParser extends LanguageParser {
 
             if (declaredType != null && !(declaredType instanceof UnknownType)) {
                 scopeTable.changeVariableType(variableName, declaredType);
-                return new VariableDeclaration(declaredType, variableName, rightExpr);
-            } else if (leftType == null) {
+                if (!rebound) {
+                    return new VariableDeclaration(declaredType, variableName, rightExpr);
+                }
+            } else if (leftType == null && !rebound) {
                 scopeTable.changeVariableType(variableName, rightType);
                 return new VariableDeclaration(rightType, variableName, rightExpr);
             } else {
+                // У привязанного имени типа может ещё не быть: снаружи ему пока не присваивали
                 scopeTable.changeVariableType(
                         variableName,
-                        SimpleTypeInferrer.chooseGeneralType(List.of(leftType, rightType, declaredType))
+                        leftType == null
+                                ? rightType
+                                : SimpleTypeInferrer.chooseGeneralType(List.of(leftType, rightType, declaredType))
                 );
             }
         } else if (leftExpr instanceof SimpleIdentifier variableName
@@ -1345,7 +1364,7 @@ public class PythonParser extends LanguageParser {
         List<VariableDeclaration> declarations = new ArrayList<>();
         for (Expression target : targets) {
             if (target instanceof SimpleIdentifier identifier
-                    && ctx.getScopeTable().getVariableType(identifier) == null) {
+                    && declaresNewVariable(identifier)) {
                 ctx.getScopeTable().changeVariableType(identifier, valueType);
                 declarations.add(new VariableDeclaration(
                         (Type) valueType.freshClone(),
@@ -1408,6 +1427,37 @@ public class PythonParser extends LanguageParser {
         }
 
         return new ExceptionCatchStatement(body, catchClauses, elseBranch, finallyBranch);
+    }
+
+    /**
+     * {@code global x, y} и {@code nonlocal a}: узел — только запись объявления, а само
+     * перенаправление имени вносит {@code ScopeTable.register}, когда узел попадает в тело.
+     * Оно не делается здесь, потому что тот же оператор встречается и в дереве, пришедшем не
+     * из разбора, и разойтись эти два пути не должны.
+     */
+    private Node fromScopeDeclarationTSNode(TSNode node) {
+        ScopeDeclarationStatement.Kind kind = node.getType().equals("global_statement")
+                ? ScopeDeclarationStatement.Kind.GLOBAL
+                : ScopeDeclarationStatement.Kind.NONLOCAL;
+
+        List<SimpleIdentifier> names = new ArrayList<>();
+        for (int i = 0; i < node.getNamedChildCount(); i++) {
+            names.add(fromIdentifier(node.getNamedChild(i)).getSimpleIdentifierOrThrow());
+        }
+        return new ScopeDeclarationStatement(kind, names);
+    }
+
+    /**
+     * Вводит ли присваивание этому имени новую переменную.
+     * <p>
+     * Имя, объявленное {@code global} или {@code nonlocal}, не вводит её никогда: объявление
+     * говорит, что переменная уже есть снаружи, — даже когда там ей ещё не присваивали и типа
+     * у неё пока нет. Иначе вывод на язык с явными объявлениями объявил бы локальную и
+     * присваивание перестало бы доходить до внешнего имени.
+     */
+    private boolean declaresNewVariable(SimpleIdentifier name) {
+        var scopeTable = ctx.getScopeTable();
+        return !scopeTable.isRebound(name) && scopeTable.getAssignmentTargetType(name) == null;
     }
 
     private Node fromWithStatementTSNode(TSNode node) {

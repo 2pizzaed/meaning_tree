@@ -11,11 +11,15 @@ import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.nodes.statements.ScopeDeclarationStatement;
+import org.vstu.meaningtree.nodes.types.builtin.FloatType;
+import org.vstu.meaningtree.nodes.types.builtin.IntType;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.UserType;
 import org.vstu.meaningtree.serializers.json.JsonDeserializer;
 import org.vstu.meaningtree.serializers.json.JsonSerializer;
 import org.vstu.meaningtree.utils.SourceMap;
+import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.ScopeLookupMode;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
@@ -218,6 +222,121 @@ public class ScopeTableTests {
         assertTrue(restored.renderScopeTable()
                 .findDeclaration(local.getName(), FunctionDeclaration.class, ScopeLookupMode.CURRENT)
                 .isPresent());
+    }
+
+    @Test
+    void globalDeclarationRedirectsAssignmentToRootScope() {
+        ScopeTable scope = new ScopeTable();
+        scope.setAssignmentBinding(AssignmentBinding.LOCAL);
+        SimpleIdentifier counter = new SimpleIdentifier("counter");
+        scope.changeVariableType(counter, new IntType());
+        long rootScopeId = scope.currentScopeId();
+
+        scope.enter(new CompoundStatement());
+        scope.registerScopeDeclaration(new ScopeDeclarationStatement(ScopeDeclarationStatement.Kind.GLOBAL, counter));
+        scope.changeVariableType(counter, new FloatType());
+
+        assertTrue(scope.isRebound(counter));
+        assertTrue(scope.scope().allVariables().isEmpty());
+        assertInstanceOf(FloatType.class, scope.findScope(rootScopeId).orElseThrow().allVariables().get(counter));
+    }
+
+    @Test
+    void nonlocalDeclarationRedirectsToNearestFunctionSkippingClassScope() {
+        ScopeTable scope = new ScopeTable();
+        scope.setAssignmentBinding(AssignmentBinding.LOCAL);
+        SimpleIdentifier total = new SimpleIdentifier("total");
+
+        scope.enter(new CompoundStatement());
+        long outerFunctionScopeId = scope.currentScopeId();
+        scope.changeVariableType(total, new IntType());
+
+        scope.enter(new ClassDefinition(new ClassDeclaration(new SimpleIdentifier("Holder")), new CompoundStatement()));
+        scope.enter(new CompoundStatement());
+        scope.registerScopeDeclaration(new ScopeDeclarationStatement(ScopeDeclarationStatement.Kind.NONLOCAL, total));
+        scope.changeVariableType(total, new FloatType());
+
+        assertEquals(
+                outerFunctionScopeId,
+                scope.scope().resolveBinding(total).getId()
+        );
+        assertTrue(scope.scope().allVariables().isEmpty());
+        assertInstanceOf(
+                FloatType.class,
+                scope.findScope(outerFunctionScopeId).orElseThrow().allVariables().get(total)
+        );
+    }
+
+    @Test
+    void localBindingShadowsOuterVariableInsteadOfChangingIt() {
+        SimpleIdentifier x = new SimpleIdentifier("x");
+
+        ScopeTable enclosing = new ScopeTable();
+        enclosing.changeVariableType(x, new IntType());
+        enclosing.enter(new CompoundStatement());
+        enclosing.changeVariableType(x, new FloatType());
+        assertTrue(enclosing.scope().allVariables().isEmpty());
+        assertInstanceOf(FloatType.class, enclosing.findScope(enclosing.rootScopeId()).orElseThrow().allVariables().get(x));
+
+        ScopeTable local = new ScopeTable();
+        local.setAssignmentBinding(AssignmentBinding.LOCAL);
+        local.changeVariableType(x, new IntType());
+        long rootScopeId = local.rootScopeId();
+        local.enter(new CompoundStatement());
+        assertNull(local.getAssignmentTargetType(x), "an unbound name has no assignment target type yet");
+        local.changeVariableType(x, new FloatType());
+
+        assertInstanceOf(FloatType.class, local.scope().allVariables().get(x));
+        assertInstanceOf(IntType.class, local.findScope(rootScopeId).orElseThrow().allVariables().get(x));
+    }
+
+    @Test
+    void scopeBindingsSurviveScopeTableRoundTrip() {
+        SimpleIdentifier counter = new SimpleIdentifier("counter");
+        CompoundStatement body = new CompoundStatement(List.of(
+                new ScopeDeclarationStatement(ScopeDeclarationStatement.Kind.GLOBAL, counter)
+        ));
+
+        ScopeTable scope = new ScopeTable();
+        scope.setAssignmentBinding(AssignmentBinding.LOCAL);
+        scope.changeVariableType(counter, new IntType());
+        long rootScopeId = scope.currentScopeId();
+        scope.enter(body);
+        scope.register(body.getNodeList().getFirst());
+
+        ProgramEntryPoint root = new ProgramEntryPoint(List.of(body));
+        SourceMap sourceMap = new SourceMap(
+                "global counter",
+                root,
+                Map.<Long, Pair<Integer, Integer>>of(),
+                scope,
+                null,
+                "test",
+                Map.of(),
+                "D:\\project",
+                "src\\main\\Sample.py"
+        );
+
+        JsonObject json = new JsonSerializer().serialize(sourceMap);
+        assertEquals("LOCAL", json.getAsJsonObject("render_scope_table").get("assignment_binding").getAsString());
+
+        ScopeTable restored = new JsonDeserializer().deserializeSourceMap(json).renderScopeTable();
+        assertEquals(AssignmentBinding.LOCAL, restored.getAssignmentBinding());
+        assertTrue(restored.isRebound(counter));
+        assertEquals(rootScopeId, restored.scope().resolveBinding(counter).getId());
+    }
+
+    @Test
+    void rebindTargetMustBeStrictAncestor() {
+        ScopeTable scope = new ScopeTable();
+        var rootScope = scope.scope();
+        scope.enter(new CompoundStatement());
+        var innerScope = scope.scope();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> rootScope.rebindName(new SimpleIdentifier("x"), innerScope));
+        assertThrows(IllegalArgumentException.class,
+                () -> innerScope.rebindName(new SimpleIdentifier("x"), innerScope));
     }
 
     private static FunctionDeclaration functionDeclaration(String name) {

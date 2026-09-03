@@ -15,6 +15,7 @@ import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.frames.Frame;
 import org.vstu.meaningtree.utils.frames.FrameStack;
 import org.vstu.meaningtree.utils.modules.ImportBuffer;
+import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.ScopePolicy;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
@@ -61,6 +62,7 @@ public class TranslatorContext {
         this.owner = component;
         this.translator = translator;
         this.scope = new ScopeTable();
+        this.scope.setAssignmentBinding(component.assignmentBinding());
     }
 
     public LanguageTokenizer requireTokenizer() {

@@ -209,4 +209,12 @@ public JavaViewer(LanguageTokenizer tokenizer)
 | `autoVariableDeclaration`      | `true` — при первом присваивании автоматически генерировать `type name = …;`                      |
 
 > TODO:
-> Перенести в configs. 
+> Перенести в configs.
+
+## Текущие ограничения
+
+- **Нет объявлений привязки имён**: python-`global` снимается перед выводом
+  (`ScopeDeclarationLowerer.dropGlobals`) — в Java присваивание имени, объявленному снаружи, и
+  так уходит наружу, поэтому объявление ничего не добавляет. Python-`nonlocal` отвергается
+  (`NonlocalBindingFeature`): он указывает на промежуточную область, которой в Java
+  соответствовать нечему. 

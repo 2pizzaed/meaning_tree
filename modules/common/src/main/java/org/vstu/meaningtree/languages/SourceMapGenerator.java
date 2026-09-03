@@ -136,7 +136,7 @@ public class SourceMapGenerator {
      * с обходом файловой системы, и карте кода она ничего не добавляет.
      */
     private ScopeTable analyzedScope(MeaningTree tree, LanguageTranslator rules) {
-        ScopeTable scope = ScopeTableBuilder.build(tree, rules.getScopePolicy());
+        ScopeTable scope = ScopeTableBuilder.build(tree, rules.getScopePolicy(), rules.getAssignmentBinding());
         new AnalysisPipeline(tree, scope, rules).run(false);
         return scope;
     }

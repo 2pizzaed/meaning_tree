@@ -18,6 +18,7 @@ import org.vstu.meaningtree.utils.analysis.imports.ImportResolver;
 import org.vstu.meaningtree.utils.analysis.types.conversion.TypeConversionReport;
 import org.vstu.meaningtree.utils.analysis.types.conversion.TypeConversionSemantics;
 import org.vstu.meaningtree.utils.scopes.OverloadSemantics;
+import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.ScopePolicy;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.tokens.Token;
@@ -274,6 +275,16 @@ public abstract class LanguageTranslator implements Cloneable {
         return _language.getScopePolicy();
     }
 
+    /**
+     * Правило связывания при присваивании; см. {@link LanguageParser#getAssignmentBinding()}.
+     * <p>
+     * До {@link #init} парсера ещё нет, и правило языка спросить не у кого: тогда действует
+     * умолчание — то же, что у языка, который метод не переопределяет.
+     */
+    public AssignmentBinding getAssignmentBinding() {
+        return _language == null ? AssignmentBinding.ENCLOSING : _language.getAssignmentBinding();
+    }
+
     public TypeConversionSemantics getTypeConversionSemantics() {
         return _language.getTypeConversionSemantics();
     }
@@ -297,6 +308,13 @@ public abstract class LanguageTranslator implements Cloneable {
     protected void init(LanguageParser parser, LanguageViewer viewer) {
         _language = parser;
         _viewer = viewer;
+
+        // Контекст вьювера создан его конструктором — до этой строки, когда парсера ещё не
+        // было и языковое правило связывания спросить было не у кого. Пересоздаём, чтобы
+        // таблица областей вьювера жила по правилам своего языка, а не по умолчанию.
+        if (viewer != null) {
+            _viewer.rollbackContext();
+        }
 
         if (parser != null) {
             _language.setConfig(

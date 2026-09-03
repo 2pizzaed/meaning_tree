@@ -28,6 +28,7 @@ import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.ResourceContextStatement;
+import org.vstu.meaningtree.nodes.statements.ScopeDeclarationStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.exceptions.ExceptionCatchStatement;
@@ -935,6 +936,44 @@ public class JSONSerializerTests {
                 .toList();
         assertTrue(names.containsAll(List.of("reader", "source", "body", "e")),
                 "Traversal missed some children: " + names);
+    }
+
+    @Test
+    void scopeDeclarationStatementSurvivesRoundTrip() {
+        ScopeDeclarationStatement statement = new ScopeDeclarationStatement(
+                ScopeDeclarationStatement.Kind.GLOBAL,
+                List.of(new SimpleIdentifier("counter"), new SimpleIdentifier("total"))
+        );
+
+        ScopeDeclarationStatement restored = assertInstanceOf(ScopeDeclarationStatement.class,
+                new JsonDeserializer().deserialize(new JsonSerializer().serialize(statement)));
+
+        assertEquals(statement, statement.clone());
+        assertEquals(statement, restored);
+        assertEquals(ScopeDeclarationStatement.Kind.GLOBAL, restored.getKind());
+        assertEquals(2, restored.getNames().size());
+
+        // Вид объявления — часть значения узла, иначе nonlocal читался бы как global
+        ScopeDeclarationStatement nonlocal = new ScopeDeclarationStatement(
+                ScopeDeclarationStatement.Kind.NONLOCAL, new SimpleIdentifier("counter"));
+        assertNotEquals(
+                new ScopeDeclarationStatement(ScopeDeclarationStatement.Kind.GLOBAL, new SimpleIdentifier("counter")),
+                nonlocal);
+        assertEquals(ScopeDeclarationStatement.Kind.NONLOCAL,
+                assertInstanceOf(ScopeDeclarationStatement.class,
+                        new JsonDeserializer().deserialize(new JsonSerializer().serialize(nonlocal))).getKind());
+
+        List<String> names = nodesOf(statement, SimpleIdentifier.class).stream()
+                .map(SimpleIdentifier::getName)
+                .toList();
+        assertTrue(names.containsAll(List.of("counter", "total")),
+                "Traversal missed some children: " + names);
+    }
+
+    @Test
+    void scopeDeclarationRejectsEmptyNameList() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new ScopeDeclarationStatement(ScopeDeclarationStatement.Kind.GLOBAL, List.of()));
     }
 
     @Test

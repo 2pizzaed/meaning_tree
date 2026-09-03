@@ -70,6 +70,7 @@ import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.serializers.model.Deserializer;
 import org.vstu.meaningtree.utils.*;
 import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEstimate;
+import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.OverloadKind;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
@@ -279,6 +280,13 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             scopeTable.registerImport(resolveScopeNode(item, Import.class));
         }
 
+        // Правило связывания выставляется до восстановления областей: отсутствие поля
+        // означает документ, записанный до его появления, и там правило было ENCLOSING
+        if (json.has("assignment_binding") && !json.get("assignment_binding").isJsonNull()) {
+            scopeTable.setAssignmentBinding(
+                    parseEnum(AssignmentBinding.class, json.get("assignment_binding").getAsString()));
+        }
+
         restoreScopes(json, scopeTable);
         if (json.has("current_scope_id") && !json.get("current_scope_id").isJsonNull()) {
             scopeTable.setCurrentScope(json.get("current_scope_id").getAsLong());
@@ -357,6 +365,16 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 Type type = resolveScopeType(typeDeclarationItem.getAsJsonObject("type_ref"));
                 Declaration declaration = resolveScopeNode(typeDeclarationItem.getAsJsonObject("declaration"), Declaration.class);
                 scope.registerTypeDeclaration(type, declaration);
+            }
+
+            // Привязки восстанавливаются вторым проходом, когда все области уже созданы:
+            // цель — область-предок, а ссылка на неё в документе идёт по идентификатору
+            for (JsonObject rebindItem : arrayObjects(item, "rebinds")) {
+                SimpleIdentifier name = deserializeScopeSimpleIdentifier(rebindItem.get("name"));
+                ScopeTableElement target = scopeTable.findScope(rebindItem.get("scope_id").getAsLong())
+                        .orElseThrow(() -> new MeaningTreeSerializationException(
+                                "Unknown scope binding target: " + rebindItem));
+                scope.rebindName(name, target);
             }
         }
     }
@@ -1143,6 +1161,15 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         ? (Statement) deserialize(json.getAsJsonObject("finallyBranch")) : null;
                 yield new ExceptionCatchStatement(
                         body, deserializeResources(json), catchClauses, elseBranch, finallyBranch);
+            }
+            case "scope_declaration_statement" -> {
+                List<SimpleIdentifier> names = new ArrayList<>();
+                for (JsonElement element : json.getAsJsonArray("names")) {
+                    names.add((SimpleIdentifier) deserialize(element.getAsJsonObject()));
+                }
+                yield new ScopeDeclarationStatement(
+                        parseEnum(ScopeDeclarationStatement.Kind.class, json.get("kind").getAsString()),
+                        names);
             }
             case "resource_context_statement" -> {
                 Statement body = (Statement) deserialize(json.getAsJsonObject("body"));

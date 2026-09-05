@@ -45,7 +45,10 @@ public class CppTranslator extends LanguageTranslator {
         // Включено по умолчанию: без распознавания строка, написанная на Си, приезжает в другие
         // языки указателем на символ, а это потеря смысла, а не сохранение точности
         var charArrayAsString = ConfigParameters.registerIfNotExists(this, "preferCharArrayAsString", new ConfigValue(true), ConfigScope.PARSER);
-        return new Config(cMode, heapAllocation, charArrayAsString);
+        // Только вывод: разбор принимает оба написания независимо от настройки, иначе прочтение
+        // чужого текста зависело бы от того, как мы сами собираемся его печатать
+        var defaultNamespace = ConfigParameters.registerIfNotExists(this, "useDefaultNamespace", new ConfigValue(false), ConfigScope.VIEWER);
+        return new Config(cMode, heapAllocation, charArrayAsString, defaultNamespace);
     }
 
     @Override

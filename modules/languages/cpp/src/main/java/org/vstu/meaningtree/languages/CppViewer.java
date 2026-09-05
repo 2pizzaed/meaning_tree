@@ -127,7 +127,7 @@ public class CppViewer extends LanguageViewer {
             public Expression append(SimpleIdentifier collection, ComprehensionLowerer.CollectionKind kind,
                                      List<Expression> values, Node origin) {
                 if (kind == ComprehensionLowerer.CollectionKind.DICTIONARY) {
-                    Expression pair = new FunctionCall(new SimpleIdentifier("std::make_pair").remap(origin), values)
+                    Expression pair = new FunctionCall(new SimpleIdentifier(stdPrefix() + "make_pair").remap(origin), values)
                             .remap(origin);
                     return new MethodCall(collection, new SimpleIdentifier("insert").remap(origin), pair);
                 }
@@ -379,7 +379,7 @@ public class CppViewer extends LanguageViewer {
     private String toStringInput(InputCommand inputCommand) {
         StringBuilder builder = new StringBuilder();
 
-        builder.append("std::cin");
+        builder.append(stdPrefix()).append("cin");
         for (var expr : inputCommand.getArguments()) {
             builder.append(" >> ").append(toString(expr));
         }
@@ -1298,9 +1298,9 @@ public class CppViewer extends LanguageViewer {
             }
             return String.format("printf(%s, %s)", toString(fmt.getFormatString()), toStringFunctionCallArgumentsList(fmt.getArguments()));
         }
-        String res = String.format("std::cout << %s", print.getArguments().stream().map(this::toString).collect(Collectors.joining(" << ")));
+        String res = String.format("%scout << %s", stdPrefix(), print.getArguments().stream().map(this::toString).collect(Collectors.joining(" << ")));
         if (print instanceof PrintValues pVal) {
-            res += pVal.addsNewLine() ? " << std::endl" : "";
+            res += pVal.addsNewLine() ? " << %sendl".formatted(stdPrefix()) : "";
         }
         return res;
     }
@@ -1393,7 +1393,7 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String fromInterpolatedString(InterpolatedStringLiteral interpolatedStringLiteral) {
-        StringBuilder builder = new StringBuilder("std::format(\"");
+        StringBuilder builder = new StringBuilder("%sformat(\"".formatted(stdPrefix()));
         List<Expression> dynamicExprs = new ArrayList<>();
         for (Expression expr : interpolatedStringLiteral.components()) {
             if (expr instanceof StringLiteral str) {
@@ -1709,6 +1709,12 @@ public class CppViewer extends LanguageViewer {
             return body;
         }
         collapseHeaderSpellings();
+        if (usesDefaultNamespace()) {
+            // Директива приписывается к телу до того, как сверху ляжет шапка включений:
+            // prependPreserved строит шапку из буфера и ставит тело последним, поэтому
+            // "using namespace std;" оказывается ровно между ними — и при пустом буфере тоже
+            body = "using namespace std;\n\n" + body;
+        }
         return ctx.imports().prependPreserved(body, nodes, "", this::toString);
     }
 
@@ -2160,11 +2166,24 @@ public class CppViewer extends LanguageViewer {
         return toString(unwrapAlias(identifier));
     }
 
+    /** Имя из std, у которого под {@code using namespace std} снимается квалификация. */
+    private boolean isStdScope(@NotNull QualifiedIdentifier qualified) {
+        return usesDefaultNamespace()
+                && qualified.getScope() instanceof SimpleIdentifier scope
+                && scope.getName().equals("std");
+    }
+
     private String toStringIdentifier(@NotNull Identifier identifier) {
         return switch (identifier) {
             case SimpleIdentifier simpleIdentifier -> simpleIdentifier.getName();
             case ScopedIdentifier scopedIdentifier -> String.join(".", scopedIdentifier.getScopeResolution().stream().map(this::toStringIdentifier).toList());
             case QualifiedIdentifier qualifiedIdentifier -> {
+                // Под using namespace std авторский std::sqrt печатается голым именем наравне
+                // с теми std-именами, что генератор вставляет сам, — иначе в одном тексте
+                // соседствовали бы два написания одного и того же
+                if (isStdScope(qualifiedIdentifier)) {
+                    yield this.toStringIdentifier(qualifiedIdentifier.getMember());
+                }
                 yield String.format("%s::%s", this.toStringIdentifier(qualifiedIdentifier.getScope()), this.toStringIdentifier(qualifiedIdentifier.getMember()));
             }
             default -> throw new IllegalStateException("Unexpected value: " + identifier);
@@ -2232,22 +2251,22 @@ public class CppViewer extends LanguageViewer {
                 }
                 yield String.format("%s &", toStringType(ref.getTargetType()));
             }
-            case UnorderedDictionaryType dct -> cCollectionType(String.format("std::unordered_map<%s, %s>",
-                    toStringType(dct.getKeyType()), toStringType(dct.getValueType())), dct);
-            case DictionaryType dct -> cCollectionType(String.format("std::map<%s, %s>",
-                    toStringType(dct.getKeyType()), toStringType(dct.getValueType())), dct);
+            case UnorderedDictionaryType dct -> cCollectionType(String.format("%sunordered_map<%s, %s>",
+                    stdPrefix(), toStringType(dct.getKeyType()), toStringType(dct.getValueType())), dct);
+            case DictionaryType dct -> cCollectionType(String.format("%smap<%s, %s>",
+                    stdPrefix(), toStringType(dct.getKeyType()), toStringType(dct.getValueType())), dct);
             case ArrayType array -> {
                 if (isCMode()) {
                     throw new UnsupportedViewingException("C array types require a declarator");
                 }
-                yield cCollectionType(String.format("std::array<%s>", toStringType(array.getItemType())), array);
+                yield cCollectionType(String.format("%sarray<%s>", stdPrefix(), toStringType(array.getItemType())), array);
             }
-            case UnmodifiableListType array -> cCollectionType(String.format("std::array<%s>", toStringType(array.getItemType())), array);
-            case SetType set -> cCollectionType(String.format("std::set<%s>", toStringType(set.getItemType())), set);
-            case PlainCollectionType lst -> cCollectionType(String.format("std::vector<%s>", toStringType(lst.getItemType())), lst);
+            case UnmodifiableListType array -> cCollectionType(String.format("%sarray<%s>", stdPrefix(), toStringType(array.getItemType())), array);
+            case SetType set -> cCollectionType(String.format("%sset<%s>", stdPrefix(), toStringType(set.getItemType())), set);
+            case PlainCollectionType lst -> cCollectionType(String.format("%svector<%s>", stdPrefix(), toStringType(lst.getItemType())), lst);
             case StringType str -> isCStyleString(str)
                     ? "%s *".formatted(charElementSpelling(str))
-                    : cCollectionType("std::string", str);
+                    : cCollectionType(stdPrefix() + "string", str);
             case GenericUserType gusr -> String.format("%s<%s>", toString(gusr.getQualifiedName()), toStringArguments(List.of(gusr.getTypeParameters())));
             case UserType usr -> toString(usr.getQualifiedName());
             default -> throw new IllegalStateException("Unexpected value: " + type);
@@ -2301,6 +2320,35 @@ public class CppViewer extends LanguageViewer {
 
     private boolean isCMode() {
         return getConfigParameter("preferC").asBoolean();
+    }
+
+    /**
+     * Печатается ли программа под {@code using namespace std;} — тогда префикс {@code std::}
+     * не выводится нигде: ни у имён, вставленных самим генератором, ни у квалифицированных
+     * идентификаторов, пришедших из дерева.
+     * <p>
+     * Режим проверяется здесь, а не только в точке печати директивы: снять префикс там, где
+     * директиве негде встать, значит выдать несобираемый текст. Одно решение — один предикат.
+     */
+    private boolean usesDefaultNamespace() {
+        return !isCMode()
+                && getConfigParameter("useDefaultNamespace").asBoolean()
+                && hasProgramHeader();
+    }
+
+    /**
+     * Есть ли у программы шапка, куда встанет директива. В {@code simple} и {@code expression}
+     * её нет: тело — это содержимое main, и {@code using namespace std;} оказался бы внутри
+     * функции или вовсе вне программы.
+     */
+    private boolean hasProgramHeader() {
+        var mode = getConfigParameter("translationUnitMode");
+        return mode.equalsValue("full") || mode.equalsValue("procedural");
+    }
+
+    /** Префикс пространства имён для имени из std: пустой под {@code using namespace std}. */
+    private String stdPrefix() {
+        return usesDefaultNamespace() ? "" : "std::";
     }
 
     @NotNull

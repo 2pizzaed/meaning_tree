@@ -156,7 +156,7 @@ public class CppParser extends LanguageParser {
         registerTSNodeHandler("false", BoolLiteral.class, node -> new BoolLiteral(false));
         registerTSNodeHandler("system_lib_string", StringLiteral.class, node -> StringLiteral.fromEscaped(this.getCodePiece(node), StringLiteral.Type.NONE));
         registerTSNodeHandler("initializer_list", ArrayLiteral.class, this::fromInitializerList);
-        registerTSNodeHandler(List.of("primitive_type", "template_function", "placeholder_type_specifier", "sized_type_specifier", "type_descriptor"), Type.class, this::fromType);
+        registerTSNodeHandler(List.of("primitive_type", "template_function", "template_type", "placeholder_type_specifier", "sized_type_specifier", "type_descriptor"), Type.class, this::fromType);
         registerTSNodeHandler("sizeof_expression", SizeofExpression.class, this::fromSizeOf);
         registerTSNodeHandler("compound_statement", CompoundStatement.class, this::fromBlock);
         registerTSNodeHandler("new_expression", NewExpression.class, this::fromNewExpression);
@@ -188,6 +188,68 @@ public class CppParser extends LanguageParser {
     public void resetParserState() {
         super.resetParserState();
         ctx.set("binaryRecursive", -1);
+        usesDefaultNamespace = false;
+    }
+
+    /**
+     * Встретился ли в разбираемом тексте {@code using namespace std;}. Узла для директивы в
+     * семантическом дереве нет — она не описывает смысл программы, а лишь говорит, как читать
+     * неквалифицированные имена, — поэтому знание о ней живёт признаком разбора.
+     * <p>
+     * Состояние одного разбора, а не настройка: сбрасывается вместе с остальным состоянием
+     * парсера и никак не связано с тем, в каком написании программу собираются печатать.
+     */
+    private boolean usesDefaultNamespace = false;
+
+    /**
+     * Ищет {@code using namespace std;} по всему дереву до разбора, а не по ходу него: директива
+     * внутри функции стоит выше своих типов, но при разборе поддерева ({@code getMeaningTree(TSNode,
+     * String)}) в дерево вообще может не попасть. Предварительный обход снимает зависимость от
+     * порядка целиком.
+     */
+    private boolean lookupDefaultNamespace(TSNode node) {
+        if (node.getType().equals("using_declaration")) {
+            return isDefaultNamespaceDirective(node);
+        }
+        for (int i = 0; i < node.getNamedChildCount(); i++) {
+            if (lookupDefaultNamespace(node.getNamedChild(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** {@code using namespace std;} — единственная поддерживаемая форма using-объявления. */
+    private boolean isDefaultNamespaceDirective(TSNode usingDeclaration) {
+        return hasNamespaceKeyword(usingDeclaration)
+                && usingDeclaration.getNamedChildCount() == 1
+                && getCodePiece(usingDeclaration.getNamedChild(0)).equals("std");
+    }
+
+    /** Отличает {@code using namespace X;} от {@code using X::y;}: ключевое слово безымянное. */
+    private boolean hasNamespaceKeyword(TSNode usingDeclaration) {
+        for (int i = 0; i < usingDeclaration.getChildCount(); i++) {
+            if (usingDeclaration.getChild(i).getType().equals("namespace")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Узел, которому в дереве не место: {@code using namespace std;} уже учтён признаком
+     * {@link #usesDefaultNamespace}, а печатать его обратно — дело генератора, а не дерева.
+     * Любая другая форма using не поддерживается и разбор останавливает.
+     */
+    private boolean isSkippedDirective(TSNode node) {
+        if (!node.getType().equals("using_declaration")) {
+            return false;
+        }
+        if (!isDefaultNamespaceDirective(node)) {
+            throw new UnsupportedParsingException(
+                    "Only `using namespace std;` is supported, got: " + getCodePiece(node));
+        }
+        return true;
     }
 
     @NotNull
@@ -199,6 +261,8 @@ public class CppParser extends LanguageParser {
         if (!errors.isEmpty() && !getConfigParameter("skipErrors").asBoolean()) {
             throw new UnsupportedParsingException(String.format("Given code has syntax errors: %s", errors));
         }
+
+        usesDefaultNamespace = lookupDefaultNamespace(rootNode);
 
         Node node = parseTSNode(rootNode);
         if (node instanceof AssignmentExpression expr) {
@@ -221,6 +285,7 @@ public class CppParser extends LanguageParser {
     @Override
     public MeaningTree getMeaningTree(TSNode node, String code) {
         setCode(code);
+        usesDefaultNamespace = lookupDefaultNamespace(node);
         return new MeaningTree(parseTSNode(node));
     }
 
@@ -709,7 +774,7 @@ public class CppParser extends LanguageParser {
             TSNode child = node.getChild(i);
             // Объявление типа внутри блока (enum, class, struct) завершается точкой с запятой,
             // которая лежит в дереве отдельным узлом рядом с ним, а не внутри него
-            if (child.getType().equals(";")) {
+            if (child.getType().equals(";") || isSkippedDirective(child)) {
                 continue;
             }
             statements.add(parseTSNode(child));
@@ -1226,6 +1291,29 @@ public class CppParser extends LanguageParser {
         };
     }
 
+    /**
+     * Тип из std по неквалифицированному имени, либо {@code null}, если имя не из известных:
+     * {@code vector<int>} под {@code using namespace std} и {@code std::vector<int>} — один и
+     * тот же тип, различие только в написании, и решать это различие должно одно место.
+     */
+    @Nullable
+    private Type stdCollectionType(String name, List<Type> generic) {
+        Type type1 = !generic.isEmpty() ? generic.getFirst() : new UnknownType();
+        Type type2 = generic.size() > 1 ? generic.get(1) : new UnknownType();
+        return switch (name) {
+            // std::map упорядочен по ключу, std::unordered_map — нет: раньше оба вида
+            // сводились к одному узлу, из-за чего порядок терялся при переводе
+            case "map" -> new OrderedDictionaryType(type1, type2);
+            case "unordered_map" -> new UnorderedDictionaryType(type1, type2);
+            case "list", "vector", "array" -> new ListType(type1);
+            case "set" -> new SetType(type1);
+            case "string", "wstring" -> new StringType(8);
+            case "u16string" -> new StringType(16);
+            case "u32string" -> new StringType(32);
+            default -> null;
+        };
+    }
+
     private String reprQualifiedIdentifier(QualifiedIdentifier ident) {
         if (ident.getScope() instanceof QualifiedIdentifier leftQualified) {
             return String.format("%s::%s", reprQualifiedIdentifier(leftQualified), ident.getMember().toString());
@@ -1289,27 +1377,36 @@ public class CppParser extends LanguageParser {
             } else {
                 q = (QualifiedIdentifier) fromIdentifier(node);
             }
-            Type type1 = !generic.isEmpty() ? generic.getFirst() : new UnknownType();
-            Type type2 = generic.size() > 1 ? generic.get(1) : new UnknownType();
-            return switch (reprQualifiedIdentifier(q)) {
-                // std::map упорядочен по ключу, std::unordered_map — нет: раньше оба вида
-                // сводились к одному узлу, из-за чего порядок терялся при переводе
-                case "std::map" -> new OrderedDictionaryType(type1, type2);
-                case "std::unordered_map" -> new UnorderedDictionaryType(type1, type2);
-                case "std::list", "std::vector", "std::array" -> new ListType(type1);
-                case "std::set" -> new SetType(type1);
-                case "std::string", "std::wstring" -> new StringType(8);
-                case "std::u16string" -> new StringType(16);
-                case "std::u32string" -> new StringType(32);
-                default -> {
-                    // TODO: add support for symbol table
-                    if (generic.isEmpty()) {
-                        yield new Class(q);
-                    }
-                    yield new GenericClass(q, generic.toArray(new Type[0]));
+            String repr = reprQualifiedIdentifier(q);
+            if (repr.startsWith("std::")) {
+                Type stdType = stdCollectionType(repr.substring("std::".length()), generic);
+                if (stdType != null) {
+                    return stdType;
                 }
-            };
+            }
+            // TODO: add support for symbol table
+            if (generic.isEmpty()) {
+                return new Class(q);
+            }
+            return new GenericClass(q, generic.toArray(new Type[0]));
 
+        } else if (node.getType().equals("template_type")) {
+            // Голый vector<int> — тот же тип, что std::vector<int>, но только там, где
+            // пространство имён открыто директивой: без неё это пользовательский шаблон,
+            // случайно названный так же, и подменять его std-коллекцией нельзя
+            SimpleIdentifier name = new SimpleIdentifier(getCodePiece(node.getChildByFieldName("name")));
+            List<Type> generic = new ArrayList<>();
+            TSNode arguments = node.getChildByFieldName("arguments");
+            for (int i = 0; i < arguments.getNamedChildCount(); i++) {
+                generic.add(fromType(arguments.getNamedChild(i)));
+            }
+            if (usesDefaultNamespace) {
+                Type stdType = stdCollectionType(name.getName(), generic);
+                if (stdType != null) {
+                    return stdType;
+                }
+            }
+            return new GenericClass(name, generic.toArray(new Type[0]));
         } else {
             return new UnknownType();
         }
@@ -1953,6 +2050,9 @@ public class CppParser extends LanguageParser {
         Node entryPoint = null;
         for (int i = 0; i < node.getNamedChildCount(); i++) {
             TSNode currNode = node.getNamedChild(i);
+            if (isSkippedDirective(currNode)) {
+                continue;
+            }
             Node n = parseTSNode(currNode);
             nodes.add(n);
             if (n instanceof FunctionDefinition functionDefinition

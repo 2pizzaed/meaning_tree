@@ -1043,3 +1043,61 @@ group: StructuresOOP
                 @property
                 def my_prop(self):
                     return 1.0E31
+
+    case: NestedClassInsideMethod
+        python:
+            class Outer:
+                def make(self) -> None:
+                    class Helper:
+                        v: int = 1
+
+                    h: Helper = Helper()
+
+        python:
+            class Outer:
+                def make(self) -> None:
+                    class Helper:
+                        v: int = 1
+
+                    h: Helper = Helper()
+
+
+    case: NestedClassQualifiedReferenceInMethod
+        python:
+            class Outer:
+                class Inner:
+                    b: int = 2
+
+                def take(self, x: Outer.Inner) -> Outer.Inner:
+                    return x
+
+        python:
+            class Outer:
+                class Inner:
+                    b: int = 2
+
+                def take(self, x: Outer.Inner) -> Outer.Inner:
+                    return x
+
+
+    case: NestedClassInheritsSiblingByBareName
+        python:
+            class Outer:
+                class Animal:
+                    def speak(self) -> int:
+                        return 0
+
+                class Dog(Animal):
+                    def speak(self) -> int:
+                        return 1
+
+        python:
+            class Outer:
+                class Animal:
+                    def speak(self) -> int:
+                        return 0
+
+                class Dog(Animal):
+                    def speak(self) -> int:
+                        return 1
+

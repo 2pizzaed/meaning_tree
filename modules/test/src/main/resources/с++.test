@@ -789,6 +789,159 @@ group: StructuresOOP
             }
 
 
+    case: NestedClassInClass
+        main c++:
+            class Outer
+            {
+            public:
+                int a = 1;
+            private:
+                class Inner
+                {
+                public:
+                    int b = 2;
+                };
+            };
+
+        c++:
+            class Outer
+            {
+            public:
+                int a = 1;
+            private:
+                class Inner
+                {
+                public:
+                    int b = 2;
+                };
+            };
+
+
+    case: NestedStructInClass
+        main c++:
+            class Config
+            {
+            public:
+                struct Limits
+                {
+                    int soft = 10;
+                    int hard = 20;
+                };
+                int timeout = 30;
+            };
+
+        c++:
+            class Config
+            {
+            public:
+                struct Limits
+                {
+                    int soft = 10;
+                    int hard = 20;
+                };
+                int timeout = 30;
+            };
+
+
+    case: NestedEnumInClass
+        main c++:
+            class Palette
+            {
+            public:
+                enum class Color
+                {
+                    RED,
+                    GREEN
+                };
+            };
+
+        c++:
+            class Palette
+            {
+            public:
+                enum class Color
+                {
+                    RED,
+                    GREEN
+                };
+            };
+
+
+    case: NestedTypeQualifiedReference
+        main c++:
+            class Outer
+            {
+                class Inner
+                {
+                public:
+                    int b = 2;
+                };
+            public:
+                Outer::Inner take(Outer::Inner x)
+                {
+                    return x;
+                }
+            };
+
+        c++:
+            class Outer
+            {
+                class Inner
+                {
+                public:
+                    int b = 2;
+                };
+            public:
+                Outer::Inner take(Outer::Inner x)
+                {
+                    return x;
+                }
+            };
+
+
+    case: ClassDeclaredInFunctionBody
+        main c++:
+            void run()
+            {
+                class Helper
+                {
+                public:
+                    int v = 1;
+                };
+                Helper h;
+            }
+
+        c++:
+            void run()
+            {
+                class Helper
+                {
+                public:
+                    int v = 1;
+                };
+                Helper h;
+            }
+
+
+    case: CommentInClassBody
+        main c++:
+            class Account
+            {
+                // Balance in cents
+            public:
+                int balance = 0;
+            };
+
+        c++:
+            class Account
+            {
+                // Balance in cents
+            public:
+                int balance = 0;
+            };
+
+
+
 group: CStrings
     case: CharPointerInitializedByLiteral
         c++:

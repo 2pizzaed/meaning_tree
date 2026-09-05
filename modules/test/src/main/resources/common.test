@@ -2176,6 +2176,314 @@ group: StructuresOOP
                     }
             };
 
+    case: InterfaceWithMethodArgument
+        main java:
+            interface Listener {
+                int onEvent(int code);
+            }
+
+        python:
+            class Listener:
+                def onEvent(self, code: int) -> int:
+                    pass
+
+        c++:
+            class Listener
+            {
+            public:
+                virtual int onEvent(int code) = 0;
+            };
+
+
+group: NestedClasses
+    case: NestedClassWithFields
+        python:
+            class Outer:
+                a: int = 1
+
+                class Inner:
+                    b: int = 2
+
+        java:
+            class Outer {
+                public int a = 1;
+
+                class Inner {
+                    public int b = 2;
+                }
+            }
+
+        c++:
+            class Outer
+            {
+            public:
+                int a = 1;
+            private:
+                class Inner
+                {
+                public:
+                    int b = 2;
+                };
+            };
+
+
+    case: DeeplyNestedClasses
+        python:
+            class A:
+                class B:
+                    class C:
+                        v: int = 1
+
+        java:
+            class A {
+                class B {
+                    class C {
+                        public int v = 1;
+                    }
+                }
+            }
+
+        c++:
+            class A
+            {
+                class B
+                {
+                    class C
+                    {
+                    public:
+                        int v = 1;
+                    };
+                };
+            };
+
+
+    case: NestedClassWithMethods
+        main java:
+            class Outer {
+                class Inner {
+                    public int twice(int v) {
+                        return v * 2;
+                    }
+                }
+
+                public int use(int k) {
+                    return k + 1;
+                }
+            }
+
+        python:
+            class Outer:
+                class Inner:
+                    def twice(self, v: int) -> int:
+                        return v * 2
+
+                def use(self, k: int) -> int:
+                    return k + 1
+
+        c++:
+            class Outer
+            {
+                class Inner
+                {
+                public:
+                    virtual int twice(int v)
+                    {
+                        return v * 2;
+                    }
+                };
+            public:
+                virtual int use(int k)
+                {
+                    return k + 1;
+                }
+            };
+
+
+    case: QualifiedNestedTypeReference
+        main java:
+            class Outer {
+                class Inner {
+                    public int b = 2;
+                }
+
+                public Outer.Inner take(Outer.Inner x) {
+                    return x;
+                }
+            }
+
+        python:
+            class Outer:
+                class Inner:
+                    b: int = 2
+
+                def take(self, x: Outer.Inner) -> Outer.Inner:
+                    return x
+
+        c++:
+            class Outer
+            {
+                class Inner
+                {
+                public:
+                    int b = 2;
+                };
+            public:
+                virtual Outer::Inner take(Outer::Inner x)
+                {
+                    return x;
+                }
+            };
+
+
+    case: ClassInsideMethodIsNotQualified
+        main java:
+            class Outer {
+                class Member {
+                    public int v = 1;
+                }
+
+                public void make() {
+                    class Helper {
+                        public int w = 2;
+                    }
+                    Helper h;
+                    Outer.Member m;
+                }
+            }
+
+        python:
+            class Outer:
+                class Member:
+                    v: int = 1
+
+                def make(self) -> None:
+                    class Helper:
+                        w: int = 2
+                    h: Helper
+                    m: Outer.Member
+
+        c++:
+            class Outer
+            {
+                class Member
+                {
+                public:
+                    int v = 1;
+                };
+            public:
+                virtual void make()
+                {
+                    class Helper
+                    {
+                    public:
+                        int w = 2;
+                    };
+                    Helper h;
+                    Outer::Member m;
+                }
+            };
+
+
+    case: NestedClassInheritsSiblingNestedClass
+        main java:
+            class Outer {
+                class Animal {
+                    public int speak() {
+                        return 0;
+                    }
+                }
+
+                class Dog extends Outer.Animal {
+                    public int speak() {
+                        return 1;
+                    }
+                }
+            }
+
+        python:
+            class Outer:
+                class Animal:
+                    def speak(self) -> int:
+                        return 0
+
+                class Dog(Animal):
+                    def speak(self) -> int:
+                        return 1
+
+        c++:
+            class Outer
+            {
+                class Animal
+                {
+                public:
+                    virtual int speak()
+                    {
+                        return 0;
+                    }
+                };
+                class Dog : public Outer::Animal
+                {
+                public:
+                    virtual int speak()
+                    {
+                        return 1;
+                    }
+                };
+            };
+
+
+    case: NestedInterfaceInClass
+        main java:
+            class Outer {
+                interface Listener {
+                    int onEvent(int code);
+                }
+            }
+
+        python:
+            class Outer:
+                class Listener:
+                    def onEvent(self, code: int) -> int:
+                        pass
+
+        c++:
+            class Outer
+            {
+                class Listener
+                {
+                public:
+                    virtual int onEvent(int code) = 0;
+                };
+            };
+
+
+    case: NestedEnumInClass
+        main java:
+            class Outer {
+                enum Color {
+                    RED,
+                    GREEN
+                }
+            }
+
+        python:
+            from enum import Enum, auto
+            class Outer:
+                class Color(Enum):
+                    RED = auto()
+                    GREEN = auto()
+
+        c++:
+            class Outer
+            {
+                enum class Color
+                {
+                    RED,
+                    GREEN
+                };
+            };
+
+
 group: Enums
     case: EnumWithoutValues
         main java:

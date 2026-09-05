@@ -33,6 +33,7 @@ A new or changed node type is not complete until serializers/deserializers, `@Tr
 
 - Use a temporary directory for quick experiments, one-off regression probes, and small programs written only to inspect tree-sitter parser behavior. If temporarily placed under a module's test directory because that is the easiest way to use its classpath or grammar, remove the probe after the investigation.
 - Keep a test in the repository's normal test directory when it thoroughly exercises a complex feature or module from all relevant aspects and provides durable regression coverage.
+- Do not leave a partial test suite behind. When you touch a component that has no test suite of its own, writing one for the aspects under change is fine while developing, but such a file must not survive to the final state: it names the whole component while covering only the slice you happened to work on, and the next reader takes a green run on it as evidence the component works. Either grow it into coverage of the component from all relevant aspects, or delete it before handing off — the feature itself stays covered by the test suite that owns it.
 - For a small test that is unlikely to remain useful, remove it after the work or leave it only in a temporary directory; do not turn exploratory probes into permanent test-suite clutter.
 - Clean up transient test files and temporary test directories before handing off the work unless they intentionally remain in an ignored temporary location for continued investigation.
 

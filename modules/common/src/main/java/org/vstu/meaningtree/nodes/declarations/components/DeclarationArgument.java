@@ -23,6 +23,14 @@ public class DeclarationArgument extends Declaration {
     @TreeNode private SimpleIdentifier name;
     @Nullable @TreeNode private Expression initial;
 
+    /**
+     * Заменяет тип параметра. Нужен анализу, который уточняет тип уже после разбора — так же,
+     * как {@code VariableDeclaration.setType} для переменной.
+     */
+    public void setType(Type newType) {
+        type = newType;
+    }
+
     public Type getType() {
         if (isListUnpacking) {
             return new ArrayType(type, 1);

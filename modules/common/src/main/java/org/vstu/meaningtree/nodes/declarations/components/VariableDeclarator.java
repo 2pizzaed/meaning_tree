@@ -34,6 +34,14 @@ public class VariableDeclarator extends Node implements HasComputedType {
     }
 
     @Nullable
+    /**
+     * Заменяет инициализатор. Нужен анализу, который уточняет объявление уже после разбора —
+     * так же, как {@code VariableDeclaration.setType} для типа.
+     */
+    public void setRValue(@Nullable Expression rvalue) {
+        this.rvalue = rvalue;
+    }
+
     public Expression getRValue() {
         return rvalue;
     }

@@ -2,6 +2,7 @@ package org.vstu.meaningtree.utils.scopes;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.nodes.Declaration;
 import org.vstu.meaningtree.nodes.Definition;
 import org.vstu.meaningtree.nodes.Node;
@@ -227,6 +228,35 @@ public class ScopeTable implements Serializable {
             action.run();
             return null;
         });
+    }
+
+    /**
+     * {@link #inScope} для узла: действие выполняется в области того тела, внутри которого узел
+     * лежит по дереву.
+     * <p>
+     * Пара «найти ближайшую область по цепочке родителей, затем выполнить в ней» была дословно
+     * повторена в каждом проходе анализа, которому нужно разрешать имена там, где они написаны,
+     * а не там, где их застал обход. Копий было столько же, сколько проходов, и разойтись они
+     * могли молча: обход, забывший подняться до тела, ищет имя не в той области и находит чужое.
+     */
+    public <T> T inScopeOf(@Nullable NodeInfo info, @NotNull Supplier<T> action) {
+        return inScope(nearestScopeId(info), action);
+    }
+
+    /**
+     * Область ближайшего объемлющего тела, включая сам узел, если он и есть тело.
+     *
+     * @return {@code null}, если ни одно тело по цепочке родителей не привязано к области —
+     * штатный случай для дерева, собранного в обход разбора или пришедшего из десериализации
+     */
+    @Nullable
+    public static Long nearestScopeId(@Nullable NodeInfo info) {
+        for (NodeInfo current = info; current != null; current = current.parent()) {
+            if (current.node() instanceof CompoundStatement compound && compound.getScopeId().isPresent()) {
+                return compound.getScopeId().getAsLong();
+            }
+        }
+        return null;
     }
 
     public void setCurrentScopeOwner(@Nullable Node owner) {

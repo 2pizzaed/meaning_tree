@@ -177,19 +177,12 @@ public final class SymbolResolver {
         if (assignment.getRValue() == null) {
             return new UnknownType();
         }
-        return scopeTable.inScope(findNearestScopeId(nodeInfo).orElse(null),
+        return scopeTable.inScopeOf(nodeInfo,
                 () -> SimpleTypeInferrer.inference(assignment.getRValue(), scopeTable));
     }
 
     Optional<Long> findNearestScopeId(NodeInfo nodeInfo) {
-        NodeInfo current = nodeInfo;
-        while (current != null) {
-            if (current.node() instanceof CompoundStatement body && body.getScopeId().isPresent()) {
-                return Optional.of(body.getScopeId().getAsLong());
-            }
-            current = current.parent();
-        }
-        return Optional.empty();
+        return Optional.ofNullable(ScopeTable.nearestScopeId(nodeInfo));
     }
 
     Type chooseResolvedType(Type currentType, Type candidateType) {

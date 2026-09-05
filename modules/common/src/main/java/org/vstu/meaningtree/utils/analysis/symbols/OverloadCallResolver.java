@@ -359,16 +359,7 @@ public final class OverloadCallResolver {
 
     /** Разрешение кандидатов идёт в области самого вызова, а не там, где его нашёл обход. */
     private <T> T withSiteScope(NodeInfo info, java.util.function.Supplier<T> action) {
-        return scope.inScope(nearestScopeId(info), action);
-    }
-
-    private Long nearestScopeId(NodeInfo info) {
-        for (NodeInfo current = info; current != null; current = current.parent()) {
-            if (current.node() instanceof CompoundStatement compound && compound.getScopeId().isPresent()) {
-                return compound.getScopeId().getAsLong();
-            }
-        }
-        return null;
+        return scope.inScopeOf(info, action);
     }
 
     private static <T extends Node> T nearestParent(NodeInfo info, Class<T> type) {

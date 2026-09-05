@@ -103,7 +103,7 @@ public class DeclarationArgument extends Declaration {
         clone.isListUnpacking = isListUnpacking;
         clone.isDictUnpacking = isDictUnpacking;
         clone.name = name.clone();
-        clone.initial = initial.clone();
+        clone.initial = initial == null ? null : initial.clone();
         return clone;
     }
 }

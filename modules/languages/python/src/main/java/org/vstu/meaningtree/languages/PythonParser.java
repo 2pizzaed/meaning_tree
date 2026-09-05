@@ -638,11 +638,19 @@ public class PythonParser extends LanguageParser {
      * имён (снаружи внутрь) плюс собственное имя; иначе — {@code bareName} без изменений. Цепочка
      * вычисляется на месте, по дереву tree-sitter ({@code declNode.getParent()}), а не хранится в
      * отдельном состоянии парсера.
+     * <p>
+     * Подъём останавливается на теле функции ({@code function_definition}, {@code lambda}): класс,
+     * объявленный внутри функции или метода, — не член внешнего класса, и квалифицировать его
+     * именем этого класса нельзя.
      */
     private Identifier qualifiedClassName(TSNode declNode, Identifier bareName) {
         List<SimpleIdentifier> chain = new ArrayList<>();
         TSNode ancestor = declNode.getParent();
         while (!ancestor.isNull()) {
+            String type = ancestor.getType();
+            if (type.equals("function_definition") || type.equals("lambda")) {
+                break;
+            }
             if (ancestor.getType().equals("class_definition")) {
                 chain.addFirst((SimpleIdentifier) parseTSNode(ancestor.getChildByFieldName("name")));
             }
@@ -1160,7 +1168,54 @@ public class PythonParser extends LanguageParser {
             case "set":
                 return new SetType(new UnknownType());
             default:
+                TSNode dotted = dottedTypeName(typeNode);
+                if (dotted != null) {
+                    return new Class(scopedTypeName(dotted));
+                }
                 return new Class(new SimpleIdentifier(getCodePiece(typeNode)));
+        }
+    }
+
+    /**
+     * Возвращает узел {@code attribute}, если аннотация — точечное имя из одних идентификаторов
+     * ({@code Outer.Inner}), иначе {@code null}. Само имя типа может лежать как в обёртке
+     * {@code type}, так и напрямую; выражение вида {@code f().attr} именем типа не считается.
+     */
+    @Nullable
+    private TSNode dottedTypeName(TSNode typeNode) {
+        TSNode candidate = typeNode;
+        if (candidate.getType().equals("type") && candidate.getNamedChildCount() > 0) {
+            candidate = candidate.getNamedChild(0);
+        }
+        return candidate.getType().equals("attribute") && isDottedName(candidate) ? candidate : null;
+    }
+
+    private boolean isDottedName(TSNode node) {
+        if (node.getType().equals("identifier")) {
+            return true;
+        }
+        return node.getType().equals("attribute")
+                && node.getChildByFieldName("attribute").getType().equals("identifier")
+                && isDottedName(node.getChildByFieldName("object"));
+    }
+
+    /**
+     * Разбирает точечное имя типа в цепочку {@link ScopedIdentifier}. Без этого {@code Outer.Inner}
+     * становился одним {@link SimpleIdentifier} с точкой внутри имени, и квалификация не доезжала
+     * до целевого языка — в C++ её нужно печатать через {@code ::}.
+     */
+    private ScopedIdentifier scopedTypeName(TSNode node) {
+        List<SimpleIdentifier> chain = new ArrayList<>();
+        collectDottedName(node, chain);
+        return new ScopedIdentifier(chain);
+    }
+
+    private void collectDottedName(TSNode node, List<SimpleIdentifier> chain) {
+        if (node.getType().equals("attribute")) {
+            collectDottedName(node.getChildByFieldName("object"), chain);
+            chain.add(new SimpleIdentifier(getCodePiece(node.getChildByFieldName("attribute"))));
+        } else {
+            chain.add(new SimpleIdentifier(getCodePiece(node)));
         }
     }
 

@@ -113,6 +113,10 @@ public class CppParser extends LanguageParser {
         });
     }
 
+    /** Типы узлов tree-sitter, которыми в теле класса записывается вложенное объявление типа. */
+    private static final List<String> NESTED_TYPE_SPECIFIERS =
+            List.of("class_specifier", "struct_specifier", "enum_specifier", "union_specifier");
+
     private static final LanguageBehavior BEHAVIOR = LanguageBehavior.defaults()
             .withTypeConversionSemantics(new CppTypeConversionSemantics())
             .withStandardLibrary(new CppStandardLibrary());
@@ -491,9 +495,12 @@ public class CppParser extends LanguageParser {
             }
         }
         List<Type> parents = fromBaseClasses(baseClassClause);
+        Identifier qualifiedName = qualifiedClassName(node, className);
         ClassDeclaration declaration = isStructure
-                ? new StructureDeclaration(List.of(), className, parents.toArray(Type[]::new))
-                : new ClassDeclaration(List.of(), className, parents.toArray(Type[]::new));
+                ? StructureDeclaration.withTypeNode(List.of(), className, List.of(),
+                        new Structure(qualifiedName), parents.toArray(Type[]::new))
+                : ClassDeclaration.withTypeNode(List.of(), className, List.of(),
+                        new Class(qualifiedName), parents.toArray(Type[]::new));
 
         TSNode body = node.getChildByFieldName("body");
         List<Node> members = new ArrayList<>();
@@ -502,9 +509,13 @@ public class CppParser extends LanguageParser {
             TSNode child = body.getNamedChild(i);
             switch (child.getType()) {
                 case "access_specifier" -> visibility = fromAccessSpecifier(child);
+                case "comment" -> members.add(fromComment(child));
                 case "field_declaration" -> {
+                    TSNode nestedType = child.getChildByFieldName("type");
                     TSNode functionDeclarator = findDeclarator(child.getChildByFieldName("declarator"), "function_declarator");
-                    if (!functionDeclarator.isNull()) {
+                    if (!nestedType.isNull() && NESTED_TYPE_SPECIFIERS.contains(nestedType.getType())) {
+                        members.add(fromNestedTypeMember(child, nestedType, visibility));
+                    } else if (!functionDeclarator.isNull()) {
                         members.add(fromClassMethodDeclaration(child, functionDeclarator, declaration, visibility));
                     } else {
                         members.addAll(fromClassFields(child, visibility));
@@ -537,6 +548,76 @@ public class CppParser extends LanguageParser {
         return isStructure
                 ? new StructureDefinition(declaration, classBody)
                 : new ClassDefinition(declaration, classBody);
+    }
+
+    /**
+     * Разбирает вложенное объявление типа в теле класса. В дереве tree-sitter это
+     * {@code field_declaration}, у которого поле {@code type} — {@code *_specifier} с собственным
+     * телом, а {@code declarator} отсутствует:
+     * <pre>
+     * field_declaration [class Inner { ... };]
+     *   .type:
+     *   class_specifier [class Inner { ... }]
+     * </pre>
+     * Без этой ветки такой член уходил в разбор обычного поля и ронял парсер на пустом
+     * деклараторе.
+     */
+    private Node fromNestedTypeMember(TSNode fieldDeclaration, TSNode specifier, DeclarationModifier visibility) {
+        if (specifier.getType().equals("union_specifier")) {
+            throw new UnsupportedParsingException("Nested C++ union is not supported");
+        }
+        if (!fieldDeclaration.getChildByFieldName("declarator").isNull()) {
+            // struct P { ... } p; — объявление типа и переменной одним предложением
+            throw new UnsupportedParsingException(
+                    "Nested C++ type definition combined with a variable declaration is not supported");
+        }
+        if (specifier.getChildByFieldName("body").isNull()) {
+            throw new UnsupportedParsingException("Forward declaration of a nested C++ type is not supported");
+        }
+
+        Node member = parseTSNode(specifier);
+        if (visibility != DeclarationModifier.PRIVATE) {
+            Declaration memberDeclaration = member instanceof Definition definition
+                    ? definition.getDeclaration()
+                    : (Declaration) member;
+            memberDeclaration.addModifiers(visibility);
+        }
+        return member;
+    }
+
+    /**
+     * Имя объявляемого класса/структуры с учётом вложенности: если {@code declNode} лежит внутри
+     * тела другого {@code class_specifier}/{@code struct_specifier}, возвращает
+     * {@link QualifiedIdentifier} со всей цепочкой внешних имён плюс собственное имя, иначе —
+     * {@code bareName}. В C++ квалификация имени типа пишется через {@code ::}, поэтому цепочка
+     * собирается как {@code QualifiedIdentifier}, а не {@code ScopedIdentifier} (последний в этом
+     * парсере означает доступ к членам, {@code a.b.c}).
+     * <p>
+     * Подъём останавливается на теле функции ({@code compound_statement}): тип, объявленный внутри
+     * функции, — не член внешнего класса.
+     */
+    private Identifier qualifiedClassName(TSNode declNode, SimpleIdentifier bareName) {
+        List<SimpleIdentifier> chain = new ArrayList<>();
+        TSNode ancestor = declNode.getParent();
+        while (!ancestor.isNull()) {
+            String type = ancestor.getType();
+            if (type.equals("compound_statement")) {
+                break;
+            }
+            if (type.equals("class_specifier") || type.equals("struct_specifier")) {
+                chain.addFirst((SimpleIdentifier) fromIdentifier(ancestor.getChildByFieldName("name")));
+            }
+            ancestor = ancestor.getParent();
+        }
+        if (chain.isEmpty()) {
+            return (Identifier) bareName.freshClone();
+        }
+
+        Identifier qualified = chain.getFirst();
+        for (SimpleIdentifier segment : chain.subList(1, chain.size())) {
+            qualified = new QualifiedIdentifier(qualified, segment);
+        }
+        return new QualifiedIdentifier(qualified, (SimpleIdentifier) bareName.freshClone());
     }
 
     private List<Type> fromBaseClasses(TSNode node) {

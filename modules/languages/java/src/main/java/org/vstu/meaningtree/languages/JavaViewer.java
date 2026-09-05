@@ -966,9 +966,30 @@ public class JavaViewer extends LanguageViewer {
     private String toStringUserType(UserType userType) {
         if (userType instanceof GenericUserType generic) {
             String args = Arrays.stream(generic.getTypeParameters()).map(this::toString).collect(Collectors.joining(", "));
-            return String.format("%s<%s>", toString(generic.getName()), args);
+            return String.format("%s<%s>", toStringUserTypeName(generic), args);
         }
-        return toString(userType.getName());
+        return toStringUserTypeName(userType);
+    }
+
+    /**
+     * Имя пользовательского типа вместе с цепочкой вложенности: {@code Outer.Inner}. Печатать
+     * здесь {@code getName()} значило бы терять квалификацию, которую записал парсер — в том
+     * числе ту, что была в исходном коде.
+     */
+    private String toStringUserTypeName(UserType userType) {
+        return switch (userType.getQualifiedName()) {
+            case ScopedIdentifier scoped ->
+                    scoped.getScopeResolution().stream().map(this::toString).collect(Collectors.joining("."));
+            case QualifiedIdentifier qualified ->
+                    "%s.%s".formatted(toStringUserTypeNamePart(qualified.getScope()), toString(qualified.getMember()));
+            case Identifier identifier -> toString(identifier);
+        };
+    }
+
+    private String toStringUserTypeNamePart(Identifier identifier) {
+        return identifier instanceof QualifiedIdentifier qualified
+                ? "%s.%s".formatted(toStringUserTypeNamePart(qualified.getScope()), toString(qualified.getMember()))
+                : toString(identifier);
     }
 
     private String toStringStaticImportAll(StaticImportAll staticImportAll) {

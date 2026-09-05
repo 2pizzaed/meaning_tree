@@ -1534,12 +1534,18 @@ public class JavaParser extends LanguageParser {
      * {@link ScopedIdentifier} со всей цепочкой внешних имён (снаружи внутрь) плюс собственное имя;
      * иначе — {@code bareName} без изменений. Цепочка вычисляется на месте, по дереву tree-sitter
      * ({@code declNode.getParent()}), а не хранится в отдельном состоянии парсера.
+     * <p>
+     * Подъём останавливается на теле метода ({@code block}): класс, объявленный внутри метода, —
+     * не член внешнего класса, и квалифицировать его именем этого класса нельзя.
      */
     private Identifier qualifiedClassName(TSNode declNode, Identifier bareName) {
         List<SimpleIdentifier> chain = new ArrayList<>();
         TSNode ancestor = declNode.getParent();
         while (!ancestor.isNull()) {
             String type = ancestor.getType();
+            if (type.equals("block") || type.equals("constructor_body")) {
+                break;
+            }
             if (type.equals("class_declaration") || type.equals("interface_declaration")) {
                 chain.addFirst((SimpleIdentifier) fromIdentifierTSNode(ancestor.getChildByFieldName("name")));
             }

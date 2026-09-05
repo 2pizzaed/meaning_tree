@@ -407,7 +407,7 @@ public class CppViewer extends LanguageViewer {
 
     private String toStringEnumDeclaration(EnumDeclaration declaration) {
         StringBuilder builder = new StringBuilder(declaration.isScoped() ? "enum class " : "enum ");
-        builder.append(toString(declaration.getName())).append("\n{");
+        builder.append(toString(declaration.getName())).append("\n").append(indent("{"));
 
         increaseIndentLevel();
         List<String> constants = new ArrayList<>();
@@ -436,29 +436,46 @@ public class CppViewer extends LanguageViewer {
         DeclarationModifier defaultAccess = asStruct ? DeclarationModifier.PUBLIC : DeclarationModifier.PRIVATE;
 
         StringBuilder builder = new StringBuilder();
-        builder.append(toStringClassDeclarationAs(definition.getDeclaration(), asStruct)).append("\n{");
+        builder.append(toStringClassDeclarationAs(definition.getDeclaration(), asStruct)).append("\n").append(indent("{"));
 
         increaseIndentLevel();
         DeclarationModifier currentAccess = defaultAccess;
+        // Печаталась ли уже явная секция доступа: после неё все члены лежат внутри какой-то
+        // секции, в том числе те, чей доступ совпал с умолчанием класса
+        boolean underAccessSpecifier = false;
         var constructor = ctx.viewingIterateBody(definition.getBody().getNodeList());
         for (Node member : constructor) {
-            String memberCode = toString(member);
-            if (memberCode.isEmpty()) {
+            // Член под явной секцией доступа печатается на уровень глубже, чем сама секция.
+            // Уровень поднимается на время рендеринга и вычисления отступа, а не приклеивается
+            // к готовой строке вторым indent(): indent() ставит префикс только первой строке,
+            // поэтому у многострочного члена (метода, вложенного класса) остальные строки берут
+            // отступ из _indentLevel и должны рендериться уже на нужном уровне.
+            // У члена без собственного объявления (комментарий) доступа нет: он остаётся в той
+            // секции, которая открыта, и сам её не переключает.
+            DeclarationModifier memberAccess = getMemberAccess(member);
+            if (memberAccess == null) {
+                memberAccess = currentAccess;
+            }
+            underAccessSpecifier = underAccessSpecifier || memberAccess != currentAccess;
+
+            if (underAccessSpecifier) {
+                increaseIndentLevel();
+            }
+            String memberCode = indent(toString(member));
+            if (underAccessSpecifier) {
+                decreaseIndentLevel();
+            }
+
+            if (memberCode.isBlank()) {
                 continue;
             }
 
-            DeclarationModifier memberAccess = getMemberAccess(member);
             if (memberAccess != currentAccess) {
                 builder.append("\n").append(indent(toCppAccessSpecifier(memberAccess))).append(":");
                 currentAccess = memberAccess;
             }
 
-            builder.append("\n");
-            if (currentAccess == defaultAccess) {
-                builder.append(indent(memberCode));
-            } else {
-                builder.append(indent(indent(memberCode)));
-            }
+            builder.append("\n").append(memberCode);
         }
         constructor.getNodes();
         decreaseIndentLevel();
@@ -489,7 +506,7 @@ public class CppViewer extends LanguageViewer {
             throw new UnsupportedViewingException("C mode does not support empty structures");
         }
 
-        StringBuilder builder = new StringBuilder("typedef struct ").append(name).append("\n{");
+        StringBuilder builder = new StringBuilder("typedef struct ").append(name).append("\n").append(indent("{"));
         increaseIndentLevel();
         for (String field : fields) {
             builder.append("\n").append(indent(field));
@@ -507,12 +524,17 @@ public class CppViewer extends LanguageViewer {
                 || definition.getDeclaration() instanceof StructureDeclaration;
     }
 
+    /** {@code null} — у члена нет собственного объявления, а значит и модификатора доступа. */
+    @Nullable
     private DeclarationModifier getMemberAccess(Node member) {
         List<DeclarationModifier> modifiers = switch (member) {
             case Definition definition -> definition.getDeclaration().getModifiers();
             case Declaration declaration -> declaration.getModifiers();
-            default -> List.of();
+            default -> null;
         };
+        if (modifiers == null) {
+            return null;
+        }
         if (modifiers.contains(DeclarationModifier.PUBLIC)) {
             return DeclarationModifier.PUBLIC;
         }
@@ -611,7 +633,9 @@ public class CppViewer extends LanguageViewer {
 
     private String classMemberOwnerName(MethodDeclaration declaration) {
         if (declaration.getOwner() != null) {
-            return toString(declaration.getOwner().getQualifiedName());
+            // Простое имя, а не квалифицированное: конструктор и деструктор печатаются внутри
+            // тела класса, где вложенный Outer::Inner должен называться Inner
+            return toString(declaration.getOwner().getName());
         }
         if (declaration.getParentDeclaration() != null) {
             return toString(declaration.getParentDeclaration().getName());
@@ -2173,6 +2197,19 @@ public class CppViewer extends LanguageViewer {
                 && scope.getName().equals("std");
     }
 
+    /**
+     * Имя пользовательского типа: цепочка вложенности печатается через {@code ::}, даже если
+     * парсер исходного языка собрал её как {@link ScopedIdentifier}. В C++ {@code ScopedIdentifier}
+     * — это доступ к членам ({@code a.b.c}), а квалификация имени типа пишется через {@code ::},
+     * поэтому вложенный класс из Java/Python нельзя печатать общим кодом для идентификаторов.
+     */
+    private String toStringUserTypeName(@NotNull UserType type) {
+        if (type.getQualifiedName() instanceof ScopedIdentifier scoped) {
+            return String.join("::", scoped.getScopeResolution().stream().map(this::toStringIdentifier).toList());
+        }
+        return toString(type.getQualifiedName());
+    }
+
     private String toStringIdentifier(@NotNull Identifier identifier) {
         return switch (identifier) {
             case SimpleIdentifier simpleIdentifier -> simpleIdentifier.getName();
@@ -2267,8 +2304,8 @@ public class CppViewer extends LanguageViewer {
             case StringType str -> isCStyleString(str)
                     ? "%s *".formatted(charElementSpelling(str))
                     : cCollectionType(stdPrefix() + "string", str);
-            case GenericUserType gusr -> String.format("%s<%s>", toString(gusr.getQualifiedName()), toStringArguments(List.of(gusr.getTypeParameters())));
-            case UserType usr -> toString(usr.getQualifiedName());
+            case GenericUserType gusr -> String.format("%s<%s>", toStringUserTypeName(gusr), toStringArguments(List.of(gusr.getTypeParameters())));
+            case UserType usr -> toStringUserTypeName(usr);
             default -> throw new IllegalStateException("Unexpected value: " + type);
         };
         if (type.isConst() && !(type instanceof ReferenceType) && !(type instanceof PointerType)

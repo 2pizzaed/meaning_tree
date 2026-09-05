@@ -321,6 +321,25 @@ public class PythonViewer extends LanguageViewer {
         return (expression != null) ? "return %s".formatted(toString(expression)) : "return";
     }
 
+    /**
+     * Имя пользовательского типа вместе с цепочкой вложенности: {@code Outer.Inner}. Печатать
+     * везде {@code getName()} значило бы терять квалификацию, которую записал парсер — в том
+     * числе ту, что была в исходном коде. {@code identifierToString} уже склеивает и
+     * {@code ScopedIdentifier}, и {@code QualifiedIdentifier} через точку.
+     * <p>
+     * Исключение — тело класса вне методов (список базовых классов, аннотации полей): оно
+     * выполняется до того, как имя внешнего класса связывается в модуле, поэтому
+     * {@code class Dog(Outer.Animal)} внутри {@code Outer} дал бы {@code NameError}. Там видно
+     * простое имя из собираемого пространства имён класса. Внутри метода наоборот: голое
+     * {@code Inner} уже не разрешается, нужна квалификация.
+     */
+    private String userTypeName(UserType type) {
+        if (ctx.isInNode(ClassDefinition.class) && !ctx.isInNode(FunctionDefinition.class)) {
+            return identifierToString(type.getName());
+        }
+        return identifierToString(type.getQualifiedName());
+    }
+
     private String identifierToString(Identifier identifier) {
         if (identifier instanceof Alias alias) {
             return String.format("%s as %s", toString(alias.getRealName()), toString(alias.getAlias()));
@@ -1016,9 +1035,9 @@ public class PythonViewer extends LanguageViewer {
         } else if (type instanceof TupleType tupleType) {
             typeStr = "tuple[%s]".formatted(tupleType.getTupleElementTypes().stream().map(this::toString).collect(Collectors.joining(", ")));
         } else if (type instanceof GenericUserType generic) {
-            typeStr = String.format("%s[%s]", generic.getName().toString(), String.join(", ", Arrays.stream(generic.getTypeParameters()).map(this::typeToString).toList().toArray(new String[0])));
+            typeStr = String.format("%s[%s]", userTypeName(generic), String.join(", ", Arrays.stream(generic.getTypeParameters()).map(this::typeToString).toList().toArray(new String[0])));
         } else if (type instanceof UserType userType) {
-            typeStr = userType.getName().toString();
+            typeStr = userTypeName(userType);
         } else if (type instanceof NoReturn) {
             typeStr = "None";
         } else if (type instanceof PointerType) {

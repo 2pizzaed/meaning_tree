@@ -36,6 +36,7 @@ import org.vstu.meaningtree.nodes.statements.exceptions.RaiseExceptionStatement;
 import org.vstu.meaningtree.nodes.statements.exceptions.components.CatchClause;
 import org.vstu.meaningtree.nodes.types.UserType;
 import org.vstu.meaningtree.nodes.types.builtin.IntType;
+import org.vstu.meaningtree.nodes.types.builtin.StringType;
 import org.vstu.meaningtree.serializers.json.JsonDeserializer;
 import org.vstu.meaningtree.serializers.json.JsonSerializer;
 import org.vstu.meaningtree.utils.Label;
@@ -539,6 +540,49 @@ public class JSONSerializerTests {
 
         assertFalse(restored.get(2).isLong());
         assertEquals(7L, restored.get(2).getLongValue());
+    }
+
+    /**
+     * Признаки строки записаны в тип, а не выведены заново при чтении: без них Си-строка после
+     * круга через JSON молча превратилась бы в {@code std::string}, а ёмкость буфера исчезла.
+     */
+    @Test
+    void inferredCStringKeepsItsRepresentationAndCapacity() {
+        MeaningTree tree = new CppTranslator(Map.of(
+                "translationUnitMode", "full", "skipErrors", false)).getMeaningTree("""
+                #include <string.h>
+                int main() {
+                    char buf[64];
+                    strcpy(buf, "abc");
+                    return 0;
+                }
+                """);
+
+        List<StringType> restored = nodesOf(
+                new JsonDeserializer().deserializeTree(new JsonSerializer().serialize(tree)),
+                StringType.class
+        );
+
+        assertEquals(1, restored.size());
+        assertTrue(restored.get(0).isCStyleString());
+        assertFalse(restored.get(0).isImmutable());
+        assertEquals(8, restored.get(0).getCharSize());
+        assertEquals(64L, assertInstanceOf(IntegerLiteral.class, restored.get(0).getMaxLength()).getLongValue());
+    }
+
+    @Test
+    void javaStringIsRestoredAsImmutable() {
+        MeaningTree tree = new JavaTranslator(CONFIG).getMeaningTree(
+                "class Main { public static void main(String[] args) { String s = \"a\"; } }");
+
+        List<StringType> restored = nodesOf(
+                new JsonDeserializer().deserializeTree(new JsonSerializer().serialize(tree)),
+                StringType.class
+        );
+
+        assertFalse(restored.isEmpty());
+        assertTrue(restored.get(0).isImmutable());
+        assertFalse(restored.get(0).isCStyleString());
     }
 
     @Test

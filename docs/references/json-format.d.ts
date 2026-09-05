@@ -1155,6 +1155,12 @@ export type UnknownTypeNode = TypeBase<"unknown_type">;
 
 export interface StringTypeNode extends TypeBase<"string_type"> {
     char_size: number;
+    /** String is represented as `char *` / `char[]` rather than a string class. */
+    c_style: boolean;
+    /** The string value itself is immutable (Java `String`, Python `str`). */
+    immutable: boolean;
+    /** Capacity of a fixed-size buffer (`char buf[64]`); absent for pointers and string classes. */
+    max_length?: AnyNode;
 }
 
 export interface PointerTypeNode extends TypeBase<"pointer_type"> {

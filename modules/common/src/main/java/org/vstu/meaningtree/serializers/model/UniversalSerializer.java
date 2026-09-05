@@ -172,9 +172,15 @@ public class UniversalSerializer implements Serializer<AbstractSerializedNode> {
             case ReferenceType ptr -> new SerializedNode("ReferenceType", new HashMap<>() {{
                 put("type", serialize(ptr.getTargetType()));
             }});
-            case StringType str -> new SerializedNode("StringType", new HashMap<>(), new HashMap<>() {{
-                put("charSize", str.charSize);
-            }});
+            case StringType str -> new SerializedNode("StringType",
+                    str.getMaxLength() == null
+                            ? new HashMap<>()
+                            : new HashMap<>() {{ put("maxLength", serialize(str.getMaxLength())); }},
+                    new HashMap<>() {{
+                        put("charSize", str.charSize);
+                        put("cStyleString", str.isCStyleString());
+                        put("immutable", str.isImmutable());
+                    }});
             case ArrayType arr -> new SerializedNode("ArrayType", new HashMap<>() {{
                 put("type", serialize(arr.getItemType()));
                 put("shape", serialize(arr.getShape()));

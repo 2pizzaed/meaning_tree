@@ -2330,6 +2330,11 @@ public class JsonSerializer implements Serializer<JsonObject> {
     private JsonObject serializeStringType(@NotNull StringType t) {
         JsonObject json = serializeType(t);
         json.addProperty("char_size", t.getCharSize());
+        json.addProperty("c_style", t.isCStyleString());
+        json.addProperty("immutable", t.isImmutable());
+        if (t.getMaxLength() != null) {
+            json.add("max_length", serialize(t.getMaxLength()));
+        }
         return json;
     }
 

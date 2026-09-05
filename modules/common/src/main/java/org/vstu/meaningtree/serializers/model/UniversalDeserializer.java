@@ -198,7 +198,12 @@ public class UniversalDeserializer implements Deserializer<AbstractSerializedNod
     private Node deserializeType(SerializedNode serialized) {
         return switch (serialized.nodeName) {
             case "BooleanType" -> new BooleanType();
-            case "StringType" -> new StringType((int) serialized.values.get("charSize"));
+            case "StringType" -> new StringType(
+                    (int) serialized.values.get("charSize"),
+                    (boolean) serialized.values.getOrDefault("cStyleString", false),
+                    (boolean) serialized.values.getOrDefault("immutable", false),
+                    serialized.fields.containsKey("maxLength")
+                            ? (Expression) deserialize(serialized.fields.get("maxLength")) : null);
             case "CharacterType" -> new CharacterType((int) serialized.values.get("size"));
             case "FloatType" -> new FloatType((int) serialized.values.get("size"));
             case "IntType" -> new IntType((int) serialized.values.get("size"));

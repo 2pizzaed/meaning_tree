@@ -1307,7 +1307,11 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             case "boolean_type" -> new BooleanType();
             case "string_type" -> {
                 int charSize = json.has("char_size") ? json.get("char_size").getAsInt() : 8;
-                yield new StringType(charSize);
+                boolean cStyle = json.has("c_style") && json.get("c_style").getAsBoolean();
+                boolean immutable = json.has("immutable") && json.get("immutable").getAsBoolean();
+                Expression maxLength = json.has("max_length") && !json.get("max_length").isJsonNull()
+                        ? deserializeExpression(json.getAsJsonObject("max_length")) : null;
+                yield new StringType(charSize, cStyle, immutable, maxLength);
             }
             case "pointer_type" -> new PointerType(
                     (Type) deserialize(json.getAsJsonObject("target_type"))

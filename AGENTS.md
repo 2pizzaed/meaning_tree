@@ -42,7 +42,7 @@ Before/after baseline workflow and the full `.test` DSL reference (groups, cases
 
 ## Session Handoff Notes
 
-Work that outlives a session lives in `docs/session-handoff/`: `plans/` (agreed scope of a feature — check for an existing plan before designing one, and update it when implementation proves a premise wrong), `bugs/` (defects found but not fixed: symptom, verified cause with file and line, repro), `ideas/` (proposals that are not yet agreed work). Search it before a task, add to it before finishing one. Descriptions of current behavior go to `docs/references/` instead.
+Work that outlives a session lives in `docs/session-handoff/`: `plans/` (agreed scope of a feature — check for an existing plan before designing one, and update it when implementation proves a premise wrong), `bugs/` (defects found but not fixed: symptom, verified cause with file and line, repro), `ideas/` (proposals that are not yet agreed work). Search it before a task, add to it before finishing one. `docs/references/` holds only the files this AGENTS.md links to; do not add feature documentation there unless a new AGENTS.md rule needs it.
 
 ## Tree-Sitter Guidance
 

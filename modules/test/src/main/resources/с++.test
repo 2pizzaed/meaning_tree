@@ -787,3 +787,53 @@ group: StructuresOOP
                 };
                 Color c = Color::RED;
             }
+
+
+group: CStrings
+    case: CharPointerInitializedByLiteral
+        c++:
+            char * s = "abc";
+            const char * a = "abc";
+
+        c++:
+            char * s = "abc";
+            const char * a = "abc";
+
+    case: CharBufferPassedToStringFunction
+        c++:
+            char buf[64];
+            strcpy(buf, "abc");
+
+        c++:
+            char buf[64];
+            strcpy(buf, "abc");
+
+    case: CharArrayLiteralWithTerminator
+        main c++:
+            char t[] = {'h', 'i', '\0'};
+
+        c++:
+            char * t = "hi";
+
+    case: CharPointerWithoutEvidenceStaysPointer
+        c++:
+            char * raw;
+            raw = (char *) malloc(10);
+
+        c++:
+            char * raw;
+            raw = (char *) malloc(10);
+
+    case: ConstPointerToCharStaysPointer
+        c++:
+            char * const d = "test";
+
+        c++:
+            char * const d = "test";
+
+    case: SingleCharacterIsNotAString
+        c++:
+            char c = 'x';
+
+        c++:
+            char c = 'x';

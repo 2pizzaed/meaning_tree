@@ -1431,7 +1431,8 @@ public class JavaParser extends LanguageParser {
                 break;
             case "type_identifier":
                 switch (typeName) {
-                    case "String" -> parsedType = new StringType();
+                    // java.lang.String неизменяем: значение переприсвоить нельзя, переменную — можно
+                    case "String" -> parsedType = new StringType(16, false, true, null);
                     case "Object", "var" -> parsedType = new UnknownType();
                     case "Integer" -> parsedType = new IntType(32);
                     case "Byte" -> parsedType = new IntType(8);

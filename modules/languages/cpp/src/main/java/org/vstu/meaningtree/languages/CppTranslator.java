@@ -42,7 +42,10 @@ public class CppTranslator extends LanguageTranslator {
     protected Config extendConfigParameters() {
         var cMode = ConfigParameters.registerIfNotExists(this, "preferC", new ConfigValue(false), ConfigScope.ANY);
         var heapAllocation = ConfigParameters.registerIfNotExists(this, "preferHeapAlloc", new ConfigValue(false), ConfigScope.VIEWER);
-        return new Config(cMode, heapAllocation);
+        // Включено по умолчанию: без распознавания строка, написанная на Си, приезжает в другие
+        // языки указателем на символ, а это потеря смысла, а не сохранение точности
+        var charArrayAsString = ConfigParameters.registerIfNotExists(this, "preferCharArrayAsString", new ConfigValue(true), ConfigScope.PARSER);
+        return new Config(cMode, heapAllocation, charArrayAsString);
     }
 
     @Override

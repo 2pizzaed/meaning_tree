@@ -17,42 +17,18 @@ import java.util.stream.Stream;
  * Заголовки вообще нужны только здесь — Java печатает коллекции полными именами, а в Python
  * они встроенные, так что соответствие принципиально одностороннее.
  * <p>
- * Реестр строк, а не узлов: заводить семантический узел под каждый тип и каждую функцию — цена,
- * несопоставимая с задачей, потому что все эти конструкции уже типизированы или уже узнаются по
- * имени в той самой точке, где вьюер собирается их напечатать.
+ * Реестр строк, а не узлов: заводить семантический узел под каждый тип — цена, несопоставимая с
+ * задачей, потому что все эти конструкции уже типизированы в той самой точке, где вьюер
+ * собирается их напечатать.
+ * <p>
+ * Здесь только соответствия «тип → заголовок» и «библиотечный модуль чужого языка → заголовок».
+ * Всё, что известно про функции стандартной библиотеки, включая их заголовки, живёт одной
+ * записью на функцию в {@link org.vstu.meaningtree.utils.analysis.library.CppStandardLibrary}:
+ * пока заголовок функции лежал здесь, а её сигнатура — в другой таблице, знание про одну и ту же
+ * функцию было разложено по двум местам с одним ключом.
  */
 public final class CppLibraryImportRegistry {
     private CppLibraryImportRegistry() {}
-
-    /**
-     * Заголовки под функции, которые вьюер печатает по имени, а не по узлу.
-     */
-    private static final Map<String, String> FUNCTION_HEADERS = Map.ofEntries(
-            Map.entry("pow", "cmath"),
-            Map.entry("sqrt", "cmath"),
-            Map.entry("cbrt", "cmath"),
-            Map.entry("exp", "cmath"),
-            Map.entry("log", "cmath"),
-            Map.entry("log2", "cmath"),
-            Map.entry("log10", "cmath"),
-            Map.entry("sin", "cmath"),
-            Map.entry("cos", "cmath"),
-            Map.entry("tan", "cmath"),
-            Map.entry("asin", "cmath"),
-            Map.entry("acos", "cmath"),
-            Map.entry("atan", "cmath"),
-            Map.entry("atan2", "cmath"),
-            Map.entry("ceil", "cmath"),
-            Map.entry("floor", "cmath"),
-            Map.entry("round", "cmath"),
-            Map.entry("trunc", "cmath"),
-            Map.entry("fmod", "cmath"),
-            Map.entry("hypot", "cmath"),
-            Map.entry("fabs", "cmath"),
-            Map.entry("abs", "cstdlib"),
-            Map.entry("min", "algorithm"),
-            Map.entry("max", "algorithm")
-    );
 
     /**
      * Заголовки под библиотечные модули других языков — только там, где соответствие
@@ -129,14 +105,6 @@ public final class CppLibraryImportRegistry {
         });
     }
 
-    /**
-     * Заголовок под свободную функцию, если она из стандартной библиотеки.
-     *
-     * @return имя заголовка без угловых скобок
-     */
-    public static Optional<String> headerForFunction(String functionName) {
-        return Optional.ofNullable(FUNCTION_HEADERS.get(functionName));
-    }
 
     /**
      * Заголовок под библиотечный модуль другого языка.

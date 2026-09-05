@@ -1143,7 +1143,8 @@ public class PythonParser extends LanguageParser {
         }
         switch (getCodePiece(typeNode)) {
             case "str":
-                return new StringType();
+                // str в Python неизменяем: значение переприсвоить нельзя, переменную — можно
+                return new StringType(16, false, true, null);
             case "int":
                 return new IntType();
             case "bool":

@@ -657,6 +657,11 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringDeclarationArgument(DeclarationArgument parameter) {
+        if (isCharBufferString(parameter.getType())) {
+            StringType buffer = (StringType) parameter.getType();
+            return "%s %s[%s]".formatted(charElementSpelling(buffer), toString(parameter.getName()),
+                    toString(buffer.getMaxLength()));
+        }
         if (isCMode() && parameter.getType() instanceof ArrayType array) {
             return "%s %s%s".formatted(toString(array.getItemType()), toString(parameter.getName()),
                     toString(array.getShape()));
@@ -1300,11 +1305,25 @@ public class CppViewer extends LanguageViewer {
         return res;
     }
 
+    /**
+     * Экранирование берётся Си-шное, а не общее: {@code CharacterLiteral.escapedString()} даёт
+     * запись Java, и нулевой символ выходит из неё как {@code '\u0000'} — в Си такой литерал
+     * не собирается.
+     */
     private String toStringCharLiteral(CharacterLiteral cl) {
-        StringBuilder sb = new StringBuilder("'");
-        sb.append(cl.escapedString());
-        sb.append("'");
-        return sb.toString();
+        return "'%s'".formatted(switch (cl.getValue()) {
+            case 0 -> "\\0";
+            case 0x07 -> "\\a";
+            case '\b' -> "\\b";
+            case '\f' -> "\\f";
+            case '\n' -> "\\n";
+            case '\r' -> "\\r";
+            case '\t' -> "\\t";
+            case 0x0B -> "\\v";
+            case '\\' -> "\\\\";
+            case '\'' -> "\\'";
+            default -> cl.escapedString();
+        });
     }
 
     private String toStringComment(Comment comment) {
@@ -1689,7 +1708,43 @@ public class CppViewer extends LanguageViewer {
             ctx.imports().flush();
             return body;
         }
+        collapseHeaderSpellings();
         return ctx.imports().prependPreserved(body, nodes, "", this::toString);
+    }
+
+    /**
+     * Оставляет один заголовок из тех, что подключены под разными написаниями: {@code <string.h>}
+     * и {@code <cstring>} — один и тот же файл. Побеждает то написание, которое встретилось
+     * раньше, то есть написание автора, а не дописанное нами.
+     * <p>
+     * Дедупликация в {@code ImportBuffer} сравнивает имена файлов буквально, и иначе нельзя:
+     * знание о том, что два имени называют один заголовок, — это знание про C++, а буфер общий
+     * для всех языков. В C-режиме то же расхождение снимает {@link #normalizeCHeaderSpelling},
+     * приводя всё к Си-написанию ещё до буферизации; но в C++-режиме исходное написание автора
+     * не переписывается, поэтому схлопывать приходится здесь, когда в буфере лежат уже и
+     * подключения из программы, и дописанные по ходу отрисовки.
+     */
+    private void collapseHeaderSpellings() {
+        Set<String> seen = new HashSet<>();
+        Set<Import> duplicates = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Import buffered : ctx.imports().peek()) {
+            if (!(buffered instanceof Include include)
+                    || include.getIncludeType() != Include.IncludeType.POINTY_BRACKETS_FORM) {
+                continue;
+            }
+            if (!seen.add(canonicalHeaderName(include))) {
+                duplicates.add(buffered);
+            }
+        }
+        if (!duplicates.isEmpty()) {
+            ctx.imports().removeIf(duplicates::contains);
+        }
+    }
+
+    /** Си-написание как единственная форма заголовка: {@code cstring} и {@code string.h} — одно имя. */
+    private static String canonicalHeaderName(Include include) {
+        String fileName = include.getFileName().getUnescapedValue();
+        return CppLibraryImportRegistry.cSpellingOf(fileName).orElse(fileName);
     }
 
     /**
@@ -1752,7 +1807,9 @@ public class CppViewer extends LanguageViewer {
         String variableName = toString(variableDeclarator.getIdentifier());
 
         String arrayDeclarator = "";
-        if (!useHeapArrayAllocation && type instanceof ArrayType array) {
+        if (isCharBufferString(type)) {
+            arrayDeclarator = "[%s]".formatted(toString(((StringType) type).getMaxLength()));
+        } else if (!useHeapArrayAllocation && type instanceof ArrayType array) {
             StringBuilder builder = new StringBuilder();
             for (Expression expr : array.getShape().getDimensions()) {
                 if (expr != null) {
@@ -1795,7 +1852,9 @@ public class CppViewer extends LanguageViewer {
         Type declarationType = variableDeclaration.getType();
         boolean useHeapArrayAllocation = usesHeapArrayAllocation(variableDeclaration);
         String type;
-        if (!useHeapArrayAllocation && declarationType instanceof ArrayType array) {
+        if (isCharBufferString(declarationType)) {
+            type = charElementSpelling((StringType) declarationType);
+        } else if (!useHeapArrayAllocation && declarationType instanceof ArrayType array) {
             type = toString(array.getItemType());
         } else {
             type = useHeapArrayAllocation ? "auto*" : toString(declarationType);
@@ -1908,7 +1967,7 @@ public class CppViewer extends LanguageViewer {
         if (isCMode()) {
             return;
         }
-        CppLibraryImportRegistry.headerForFunction(functionName)
+        languageBehavior().standardLibrary().headerForFunction(functionName)
                 .ifPresent(header -> preserveSystemInclude(header, origin));
     }
 
@@ -2186,18 +2245,43 @@ public class CppViewer extends LanguageViewer {
             case UnmodifiableListType array -> cCollectionType(String.format("std::array<%s>", toStringType(array.getItemType())), array);
             case SetType set -> cCollectionType(String.format("std::set<%s>", toStringType(set.getItemType())), set);
             case PlainCollectionType lst -> cCollectionType(String.format("std::vector<%s>", toStringType(lst.getItemType())), lst);
-            case StringType str -> isCMode()
-                    ? "%schar *".formatted(str.isConst() ? "const " : "")
+            case StringType str -> isCStyleString(str)
+                    ? "%s *".formatted(charElementSpelling(str))
                     : cCollectionType("std::string", str);
             case GenericUserType gusr -> String.format("%s<%s>", toString(gusr.getQualifiedName()), toStringArguments(List.of(gusr.getTypeParameters())));
             case UserType usr -> toString(usr.getQualifiedName());
             default -> throw new IllegalStateException("Unexpected value: " + type);
         };
         if (type.isConst() && !(type instanceof ReferenceType) && !(type instanceof PointerType)
-                && !(isCMode() && type instanceof StringType)) {
+                && !(type instanceof StringType str && isCStyleString(str))) {
             return "const ".concat(initialType);
         }
         return initialType;
+    }
+
+    /**
+     * Печатать ли строку в Си-написании ({@code char *}), а не как {@code std::string}.
+     * <p>
+     * Признак приходит с самим типом, а не только из режима генерации: строка, распознанная
+     * {@code CStringTypeInferrer} в исходном тексте на C++, окружена вызовами
+     * {@code <string.h>}, и {@code std::string} на её месте попросту не собрался бы.
+     */
+    private boolean isCStyleString(@NotNull StringType type) {
+        return type.isCStyleString() || isCMode();
+    }
+
+    /**
+     * Строка в буфере фиксированного размера печатается объявителем массива ({@code char buf[64]}),
+     * как и обычный массив: размер в Си стоит при имени, а не при типе.
+     */
+    private boolean isCharBufferString(@NotNull Type type) {
+        return type instanceof StringType str && str.hasMaxLength() && isCStyleString(str);
+    }
+
+    @NotNull
+    private String charElementSpelling(@NotNull StringType type) {
+        String element = type.getCharSize() > 8 ? "char16_t" : "char";
+        return type.isConst() ? "const ".concat(element) : element;
     }
 
     /**

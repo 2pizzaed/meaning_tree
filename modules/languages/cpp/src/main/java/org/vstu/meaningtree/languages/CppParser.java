@@ -1,6 +1,7 @@
 package org.vstu.meaningtree.languages;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.treesitter.TSNode;
@@ -73,7 +74,11 @@ import org.vstu.meaningtree.nodes.types.user.GenericClass;
 import org.vstu.meaningtree.nodes.types.user.Structure;
 import org.vstu.meaningtree.utils.analysis.imports.CppImportResolver;
 import org.vstu.meaningtree.utils.analysis.imports.ImportResolver;
+import org.vstu.meaningtree.utils.analysis.library.CppStandardLibrary;
+import org.vstu.meaningtree.utils.analysis.types.CStringTypeInferrer;
 import org.vstu.meaningtree.utils.analysis.types.CppTypeConversionSemantics;
+import org.vstu.meaningtree.utils.hooks.HookOrder;
+import org.vstu.meaningtree.utils.hooks.HookPhase;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -84,12 +89,38 @@ public class CppParser extends LanguageParser {
     public CppParser(LanguageTranslator translator) {
         super(translator, new TreeSitterCpp());
         configureTsNodeHandlers();
+        registerCStringInference();
+    }
+
+    /**
+     * Вешает распознавание Си-строк на построенное дерево.
+     * <p>
+     * {@link HookOrder#EARLY} — потому что остальной конвейер анализа зарегистрирован на
+     * {@code NORMAL} и обязан видеть уже исправленные типы: иначе отчёт о преобразованиях
+     * посчитался бы по {@code char *}, а дерево к концу разбора оказалось бы со
+     * {@link org.vstu.meaningtree.nodes.types.builtin.StringType}, и отчёт описывал бы программу,
+     * которой нет.
+     * <p>
+     * Регистрация здесь, а не в {@code AnalysisPipeline}: это правило конкретного языка —
+     * {@code char *} есть только в Си и C++, — а конвейер языконезависим.
+     */
+    private void registerCStringInference() {
+        hooks.intercept(HookPhase.AFTER_TREE_PARSE, HookOrder.EARLY, (tree, value, context) -> {
+            if (getConfigParameter("preferCharArrayAsString").asBoolean()) {
+                new CStringTypeInferrer(value, context.scope(), languageBehavior()).infer();
+            }
+            return value;
+        });
     }
 
     private static final LanguageBehavior BEHAVIOR = LanguageBehavior.defaults()
-            .withTypeConversionSemantics(new CppTypeConversionSemantics());
+            .withTypeConversionSemantics(new CppTypeConversionSemantics())
+            .withStandardLibrary(new CppStandardLibrary());
 
-    /** От умолчаний язык отходит только в правилах преобразования примитивных типов. */
+    /**
+     * От умолчаний язык отходит в правилах преобразования примитивных типов и в описании
+     * стандартной библиотеки.
+     */
     @Override
     protected LanguageBehavior languageBehavior() {
         return BEHAVIOR;
@@ -1046,7 +1077,33 @@ public class CppParser extends LanguageParser {
     }
 
     private Node fromCharLiteral(TSNode node) {
-        return new CharacterLiteral(getCodePiece(node.getNamedChild(0)).charAt(0));
+        return new CharacterLiteral(decodeCharacter(getCodePiece(node.getNamedChild(0))));
+    }
+
+    /**
+     * Кодовая точка символьного литерала.
+     * <p>
+     * Брать первый символ текста нельзя: у экранированной последовательности первый символ —
+     * обратная косая черта, поэтому {@code '\0'} читался как сам разделитель (92), а не как
+     * ноль, и завершающий ноль в массиве символов было не отличить от обычной косой черты.
+     * <p>
+     * Экранирования Си, которых нет в Java ({@code \a}, {@code \v}, {@code \e},
+     * {@code \?}), разбираются здесь, остальные — общим декодировщиком.
+     */
+    private static int decodeCharacter(String literal) {
+        if (literal.length() < 2 || literal.charAt(0) != '\\') {
+            return literal.isEmpty() ? 0 : literal.codePointAt(0);
+        }
+        return switch (literal.charAt(1)) {
+            case 'a' -> 0x07;
+            case 'v' -> 0x0B;
+            case 'e' -> 0x1B;
+            case '?' -> '?';
+            default -> {
+                String decoded = StringEscapeUtils.unescapeJava(literal);
+                yield decoded.isEmpty() ? 0 : decoded.codePointAt(0);
+            }
+        };
     }
 
     private Node fromInitializerList(TSNode node) {

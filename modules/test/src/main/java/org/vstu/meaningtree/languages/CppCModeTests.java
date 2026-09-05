@@ -213,6 +213,24 @@ class CppCModeTests {
                 .contains("#include <math.h>"));
     }
 
+    /**
+     * Если в исходнике уже стоит {@code <cstdlib>}, а {@code malloc}/{@code free} требуют
+     * {@code stdlib.h}, дедупликация не должна путать написание и печатать заголовок дважды.
+     */
+    @Test
+    void doesNotDuplicateHeaderWhenSourceUsesCppSpellingAlready() {
+        String source = """
+                #include <cstdlib>
+                int main() {
+                    int *p = (int*)malloc(sizeof(int));
+                    free(p);
+                    return 0;
+                }
+                """;
+        String generated = translate(source, C_MODE);
+        assertEquals(1, generated.lines().filter(line -> line.contains("#include <stdlib.h>")).count(), generated);
+    }
+
     private static String translate(String source, Map<String, Object> config) {
         CppTranslator translator = new CppTranslator(config);
         return translator.getCode(translator.getMeaningTree(source));

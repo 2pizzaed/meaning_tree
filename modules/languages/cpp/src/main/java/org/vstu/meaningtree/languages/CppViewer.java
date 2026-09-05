@@ -1610,7 +1610,11 @@ public class CppViewer extends LanguageViewer {
             // прежнего варианта, дописывавшего "#include <stdlib.h>" в шапку безусловно.
             preserveSystemInclude("stdlib.h", entryPoint);
         }
-        List<Node> nodes = entryPoint.getBody();
+        // C++-написания Си-заголовков нормализуются до буферизации, а не после: дедупликация в
+        // ImportBuffer сравнивает сырые имена файлов, и "cstdlib" рядом с "stdlib.h" (например,
+        // отложенным preserveSystemInclude) не опознаются как один и тот же заголовок — оба
+        // проходят, а на печати оба переписываются в одинаковую строку, давая дубликат.
+        List<Node> nodes = entryPoint.getBody().stream().map(this::normalizeCHeaderSpelling).toList();
         // #include верхнего уровня уходят в тот же буфер, что и системные подключения,
         // отложенные по ходу отрисовки (preserveSystemInclude), — единая шапка с дедупликацией,
         // а не печать по месту вперемешку с добавленной сверху
@@ -2048,6 +2052,30 @@ public class CppViewer extends LanguageViewer {
                 (StringLiteral) StringLiteral.fromUnescaped(header, StringLiteral.Type.NONE).remap(origin),
                 Include.IncludeType.POINTY_BRACKETS_FORM
         ).remap(origin));
+    }
+
+    /**
+     * Приводит C++-написание Си-заголовка ({@code <cstdlib>}) к Си-написанию ({@code <stdlib.h>})
+     * до того, как узел уйдёт в {@code ImportBuffer}: дедупликация там сравнивает сырые имена
+     * файлов и не опознаёт два написания одного заголовка как один и тот же импорт (см.
+     * {@link #preserveSystemInclude}, который откладывает уже Си-написание). Печать через
+     * {@link #toStringInclude} после этой нормализации становится no-op на том же реестре.
+     */
+    private Node normalizeCHeaderSpelling(Node node) {
+        if (!isCMode() || !(node instanceof Include include)
+                || include.getIncludeType() != Include.IncludeType.POINTY_BRACKETS_FORM) {
+            return node;
+        }
+        Optional<String> cSpelling = CppLibraryImportRegistry.cSpellingOf(include.getFileName().getUnescapedValue());
+        if (cSpelling.isEmpty()) {
+            return node;
+        }
+        Include normalized = new Include(
+                (StringLiteral) StringLiteral.fromUnescaped(cSpelling.get(), StringLiteral.Type.NONE).remap(include),
+                Include.IncludeType.POINTY_BRACKETS_FORM
+        ).remap(include);
+        include.getResolverMetadata().ifPresent(normalized::setResolverMetadata);
+        return normalized;
     }
 
     private String toStringLocalInclude(String dottedName) {

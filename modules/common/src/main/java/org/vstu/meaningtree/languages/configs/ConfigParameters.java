@@ -4,9 +4,11 @@ import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.languages.LanguageTranslator;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class ConfigParameters {
     protected final static Map<String, ConfigParameter> builtinRegistry = new HashMap<>();
@@ -56,7 +58,26 @@ public class ConfigParameters {
             ConfigScope.ANY
     );
 
+    /** Классы, для которых загрузка параметров уже запускалась — в том числе безуспешно. */
+    private final static Set<Class<? extends LanguageTranslator>> bootstrapped = new HashSet<>();
+
+    /**
+     * Заполняет реестр параметров транслятора, если тот ещё пуст.
+     */
+    private static synchronized void ensureRegistered(Class<? extends LanguageTranslator> translator) {
+        if (translator == null || langRegistry.containsKey(translator) || !bootstrapped.add(translator)) {
+            return;
+        }
+        try {
+            translator.getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            // Транслятор без доступного конструктора без аргументов зарегистрирует параметры
+            // сам, при первом создании: прежнее поведение лучше падения на чтении конфига
+        }
+    }
+
     public static ConfigParameter get(Class<? extends LanguageTranslator> translator, String id) {
+        ensureRegistered(translator);
         var registry = langRegistry.getOrDefault(translator, null);
         if (registry == null) {
             return get(id);
@@ -70,6 +91,7 @@ public class ConfigParameters {
     }
 
     public static boolean exists(Class<? extends LanguageTranslator> translator, String id) {
+        ensureRegistered(translator);
         var registry = langRegistry.getOrDefault(translator, null);
         if (registry == null) {
             return builtinRegistry.containsKey(id);

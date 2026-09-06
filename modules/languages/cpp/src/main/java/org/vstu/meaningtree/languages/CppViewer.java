@@ -88,11 +88,16 @@ import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
 import java.util.*;
 import java.util.function.UnaryOperator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator.POW;
 
 public class CppViewer extends LanguageViewer {
+    /** Имя в напечатанном коде: по нему видно, обращается ли вывод к содержимому заголовка. */
+    private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
+
     public CppViewer(LanguageTranslator translator) {
         super(translator);
         _indentation = "    ";
@@ -1759,6 +1764,7 @@ public class CppViewer extends LanguageViewer {
             return body;
         }
         collapseHeaderSpellings();
+        dropSupersededHeaders(body);
         if (usesDefaultNamespace()) {
             // Директива приписывается к телу до того, как сверху ляжет шапка включений:
             // prependPreserved строит шапку из буфера и ставит тело последним, поэтому
@@ -1795,6 +1801,68 @@ public class CppViewer extends LanguageViewer {
         if (!duplicates.isEmpty()) {
             ctx.imports().removeIf(duplicates::contains);
         }
+    }
+
+    /**
+     * Убирает Си-заголовок, вытесненный C++-заголовком: средство, ради которого он подключался,
+     * напечатано средством C++ из другого файла ({@code puts} — потоком из {@code <iostream>},
+     * {@code char *} — {@code std::string} из {@code <string>}). Без этого оба подключения
+     * попадают в шапку разом: вытесняющий заголовок откладывается по ходу отрисовки, а
+     * вытесненный так и стоит в программе, хотя ничего из него в выводе уже нет.
+     * <p>
+     * Отношение «что чем вытесняется» само по себе выбрасывать подключение не разрешает: один
+     * заголовок даёт много средств, и {@code <stdio.h>} рядом с потоками по-прежнему нужен,
+     * если в выводе остался хоть один {@code fopen}. Поэтому решает не таблица, а напечатанный
+     * код — как и в {@code requireDroppableImports}: заголовок уходит, только когда из него в
+     * выводе не осталось ни одного имени. Состав заголовка известен не для всех — о заголовке,
+     * которого нет в реестре, судить не по чему, и он остаётся на месте.
+     * <p>
+     * Неиспользованный заголовок без вытесняющего не трогается: его автор подключил сам, и
+     * выбрасывать его не за что (см. {@code CppCModeTests.keepsCStandardHeaders}).
+     */
+    private void dropSupersededHeaders(String body) {
+        Set<String> supersededHeaders = new HashSet<>();
+        for (Import buffered : ctx.imports().peek()) {
+            if (buffered instanceof Include include
+                    && include.getIncludeType() == Include.IncludeType.POINTY_BRACKETS_FORM) {
+                CppLibraryImportRegistry.headerSupersededBy(canonicalHeaderName(include))
+                        .ifPresent(supersededHeaders::add);
+            }
+        }
+        if (supersededHeaders.isEmpty()) {
+            return;
+        }
+        Set<String> namesInCode = identifiersOf(body);
+        ctx.imports().removeIf(buffered -> buffered instanceof Include include
+                && include.getIncludeType() == Include.IncludeType.POINTY_BRACKETS_FORM
+                && supersededHeaders.contains(canonicalHeaderName(include))
+                && isHeaderUnreferenced(canonicalHeaderName(include), namesInCode));
+    }
+
+    /**
+     * Ни одного имени заголовка в выводе не осталось.
+     * <p>
+     * Состав заголовка спрашивается у {@code CppStandardLibrary} — там же, где живёт всё
+     * остальное знание про имена стандартной библиотеки. Она отвечает только про заголовки,
+     * объявленные полными: у неполного описания пропущенное имя выглядело бы как отсутствие
+     * обращений, и подключение выбрасывалось бы при живом вызове. Такой заголовок считается
+     * используемым — судить о его ненужности не по чему.
+     */
+    private boolean isHeaderUnreferenced(String header, Set<String> namesInCode) {
+        return CppLibraryImportRegistry.cppSpellingOf(header)
+                .flatMap(unit -> languageBehavior().standardLibrary().namesOf(unit))
+                .map(names -> names.stream().noneMatch(namesInCode::contains))
+                .orElse(false);
+    }
+
+    /** Имена, встречающиеся в напечатанном коде, — по ним видно, что заголовок ещё нужен. */
+    private static Set<String> identifiersOf(String code) {
+        Set<String> identifiers = new HashSet<>();
+        Matcher matcher = IDENTIFIER.matcher(code);
+        while (matcher.find()) {
+            identifiers.add(matcher.group());
+        }
+        return identifiers;
     }
 
     /** Си-написание как единственная форма заголовка: {@code cstring} и {@code string.h} — одно имя. */
@@ -2018,13 +2086,35 @@ public class CppViewer extends LanguageViewer {
      * каждую из них в дереве нет, а заводить его ради подключения заголовка — цена, которой
      * задача не стоит. Имя берётся уже отрисованное, поэтому квалифицированный вызов
      * ({@code std::sqrt}) сюда не попадёт — у него заголовок уже подключён вручную.
+     * <p>
+     * Имя, объявленное в самой программе, библиотечным не считается: своя {@code abs} или
+     * {@code remove} — обычная функция автора, и заголовок под неё не подключается. Таблица
+     * имён отвечает только за то, что даёт язык, а кто перекрыл это имя — знает таблица
+     * областей видимости, и спросить её здесь ничего не стоит.
      */
     private void preserveStandardFunctionHeader(String functionName, Node origin) {
-        if (isCMode()) {
+        if (isCMode() || isDeclaredInProgram(functionName)) {
             return;
         }
-        languageBehavior().standardLibrary().headerForFunction(functionName)
+        languageBehavior().standardLibrary().unitFor(functionName)
                 .ifPresent(header -> preserveSystemInclude(header, origin));
+    }
+
+    /**
+     * Объявлена ли функция с таким именем в самой программе.
+     * <p>
+     * Проверка по имени, потому что и решение о заголовке принимается по имени: вызов
+     * {@code pow} вообще приходит из {@code PowOp}, где узла-идентификатора нет.
+     * <p>
+     * Таблица отрисовки наполняется по ходу обхода, поэтому здесь видно то же, что видел бы
+     * компилятор в этой точке: объявленное выше — видно, объявленное ниже — нет. Для C++ этого
+     * достаточно, вызвать функцию до объявления там нельзя; и ошибка возможна только в
+     * безопасную сторону — лишний {@code #include} вместо пропущенного.
+     */
+    private boolean isDeclaredInProgram(String functionName) {
+        return ctx.getScopeTable()
+                .findDeclaration(new SimpleIdentifier(functionName), FunctionDeclaration.class)
+                .isPresent();
     }
 
     @NotNull

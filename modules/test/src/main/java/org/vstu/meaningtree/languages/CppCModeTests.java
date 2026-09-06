@@ -2,6 +2,7 @@ package org.vstu.meaningtree.languages;
 
 import org.junit.jupiter.api.Test;
 import org.vstu.meaningtree.MeaningTree;
+import org.vstu.meaningtree.exceptions.UnsupportedConversionException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
@@ -72,9 +73,9 @@ class CppCModeTests {
     }
 
     @Test
-    void leavesReferencesUnchangedForNow() {
-        String generated = translate("int read(int &value) { return value; }", C_MODE);
-        assertTrue(generated.contains("int & value"));
+    void rejectsReferencesUnlessTheyAreRepresentedAsPointers() {
+        assertThrows(UnsupportedConversionException.class,
+                () -> translate("int read(int &value) { return value; }", C_MODE));
     }
 
     @Test

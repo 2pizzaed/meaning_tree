@@ -10,9 +10,11 @@ import org.vstu.meaningtree.languages.helpers.MultiCatchSplitter;
 import org.vstu.meaningtree.languages.helpers.ResourceContextLowerer;
 import org.vstu.meaningtree.languages.helpers.ScopeDeclarationLowerer;
 import org.vstu.meaningtree.languages.support.features.NonlocalBindingFeature;
+import org.vstu.meaningtree.languages.helpers.ReferenceToPointerLowerer;
 import org.vstu.meaningtree.languages.helpers.TryElseLowerer;
 import org.vstu.meaningtree.languages.support.features.NonDirectionalRangeForFeature;
 import org.vstu.meaningtree.languages.support.features.PointerToMemberOperatorFeature;
+import org.vstu.meaningtree.languages.support.features.ReferenceTypeFeature;
 import org.vstu.meaningtree.languages.support.features.TryFinallyFeature;
 import org.vstu.meaningtree.languages.support.features.UninferableVariableTypeFeature;
 import org.vstu.meaningtree.nodes.*;
@@ -102,9 +104,12 @@ public class CppViewer extends LanguageViewer {
     @Override
     protected MeaningTree preprocessTree(MeaningTree tree) {
         // Владение ресурсами снимается первым: дальше по конвейеру никакой узел о нём не знает
-        return MultiCatchSplitter.lower(TryElseLowerer.lower(
+        MeaningTree lowered = MultiCatchSplitter.lower(TryElseLowerer.lower(
                 LoopElseLowerer.lower(comprehensionLowered(
                         ResourceContextLowerer.flatten(ScopeDeclarationLowerer.dropGlobals(tree))))));
+        // После этого прохода ссылок в дереве не остаётся, и запрет ссылок в режиме Си,
+        // который проверяется уже по подготовленному дереву, к ним не придирается
+        return representsReferencesAsPointers() ? ReferenceToPointerLowerer.lower(lowered) : lowered;
     }
 
     private MeaningTree comprehensionLowered(MeaningTree tree) {
@@ -271,6 +276,10 @@ public class CppViewer extends LanguageViewer {
         registerUnsupportedFeature(new UninferableVariableTypeFeature());
         registerUnsupportedFeature(new TryFinallyFeature());
         registerUnsupportedFeature(new NonlocalBindingFeature());
+        // В Си ссылок нет. Проверка идёт после preprocessTree, то есть после того, как
+        // representReferencesAsPointers уже переписал ссылки указателями: сюда доедет только
+        // то, что переписать не удалось, и это в Си действительно невыразимо
+        registerUnsupportedFeature(new ReferenceTypeFeature(this::isCMode));
         registerUnsupportedFeature(MatMulOp.class);
         // Генераторы и итераторы в C++ не поддерживаются на этом этапе. Запрет объявлен явно:
         // GeneratorDefinition наследует FunctionDefinition, а IteratorDefinition —
@@ -2364,6 +2373,15 @@ public class CppViewer extends LanguageViewer {
 
     private boolean isCMode() {
         return getConfigParameter("preferC").asBoolean();
+    }
+
+    /**
+     * Печатаются ли ссылки указателями. В режиме Си это единственный способ их выразить, но
+     * настройка от режима не зависит: включать её в C++ — осознанный выбор стиля, а не
+     * вынужденная мера, и выключенной она оставляет ссылки в Си неподдерживаемыми.
+     */
+    private boolean representsReferencesAsPointers() {
+        return getConfigParameter("representReferencesAsPointers").asBoolean();
     }
 
     /**

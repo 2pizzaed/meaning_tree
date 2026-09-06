@@ -48,7 +48,10 @@ public class CppTranslator extends LanguageTranslator {
         // Только вывод: разбор принимает оба написания независимо от настройки, иначе прочтение
         // чужого текста зависело бы от того, как мы сами собираемся его печатать
         var defaultNamespace = ConfigParameters.registerIfNotExists(this, "useDefaultNamespace", new ConfigValue(false), ConfigScope.VIEWER);
-        return new Config(cMode, heapAllocation, charArrayAsString, defaultNamespace);
+        // Ссылка выражается указателем. В режиме Си это единственный способ её напечатать
+        // (иначе ссылка объявляется неподдерживаемой), в режиме C++ — осознанный выбор стиля
+        var referencesAsPointers = ConfigParameters.registerIfNotExists(this, "representReferencesAsPointers", new ConfigValue(false), ConfigScope.VIEWER);
+        return new Config(cMode, heapAllocation, charArrayAsString, defaultNamespace, referencesAsPointers);
     }
 
     @Override

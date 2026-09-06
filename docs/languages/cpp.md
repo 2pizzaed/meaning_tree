@@ -254,3 +254,10 @@ public CppViewer(LanguageTokenizer tokenizer)
 - **Comment**
 - **InterpolatedStringLiteral**
 - **MultipleAssignmentStatement**
+- **Нет генераторов и итераторов**: `GeneratorDefinition`, `IteratorDefinition` и
+  `YieldStatement` объявлены неподдерживаемыми в `CppViewer`, и вывод такого дерева отвергается
+  до генерации кода. Запрет объявлен явно узлами, а не оставлен на умолчание: генератор наследует
+  `FunctionDefinition`, а итератор — `ClassDefinition`, и подъём по надклассу молча отрисовал бы
+  их обычной функцией и обычным классом, потеряв весь смысл конструкции. Сопрограммы C++20
+  (`co_yield`, `co_await`, `co_return`) не разбираются и не порождаются. Подробности — в
+  [docs/session-handoff/plans/generators-and-iterators.md](../session-handoff/plans/generators-and-iterators.md).

@@ -1,5 +1,6 @@
 package org.vstu.meaningtree.languages;
 
+import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
@@ -143,10 +144,12 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(DoWhileLoop.class, this::loopToString);
         registerTabRenderer(SwitchStatement.class, this::loopToString);
         registerTabRenderer(MethodDefinition.class, (node, tab) -> functionToString(node, tab));
+        registerTabRenderer(GeneratorDefinition.class, this::generatorToString);
         registerTabRenderer(FunctionDefinition.class, (node, tab) -> functionToString(node, tab));
         registerTabRenderer(ObjectConstructorDefinition.class, this::objectConstructorToString);
         registerTabRenderer(ObjectDestructorDefinition.class, this::objectDestructorToString);
         registerTabRenderer(ClassDeclaration.class, this::classDeclToString);
+        registerTabRenderer(IteratorDefinition.class, this::iteratorToString);
         registerTabRenderer(ClassDefinition.class, this::classToString);
         registerTabRenderer(EnumDeclaration.class, this::enumToString);
         registerTabRenderer(StructureDeclaration.class, this::structDeclToString);
@@ -155,6 +158,7 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(Import.class, (node, tab) -> importToString(node));
         registerTabRenderer(ExpressionStatement.class, (node, tab) -> toString(node));
         registerTabRenderer(ReturnStatement.class, (node, tab) -> returnToString(node));
+        registerTabRenderer(YieldStatement.class, (node, tab) -> yieldToString(node));
         registerTabRenderer(ArrayInitializer.class, (node, tab) -> arrayInitializerToString(node));
         registerTabRenderer(DefinitionArgument.class, (node, tab) -> definitionArgumentToString(node));
         // Объявление пакета — не импорт: оно говорит, где лежит сам файл, а не что он
@@ -426,6 +430,67 @@ public class PythonViewer extends LanguageViewer {
         );
     }
 
+    private String yieldToString(YieldStatement statement) {
+        if (!statement.hasValue()) {
+            return "yield";
+        }
+        return "yield %s%s".formatted(statement.isDelegated() ? "from " : "", toString(statement.getValue()));
+    }
+
+    /**
+     * Генератор отрисовывается как обычная функция: в Python выдача — родная конструкция.
+     * Возвращаемый тип надевается обратно ({@code Iterator[T]}), потому что узел хранит тип
+     * элемента, а не тип последовательности.
+     */
+    private String generatorToString(GeneratorDefinition generator, Tab tab) {
+        Type element = generator.getElementType();
+        String returnType = element == null || element instanceof UnknownType
+                ? null
+                : "Iterator[%s]".formatted(toString(element));
+        return functionToString(generator, tab, returnType);
+    }
+
+    /**
+     * Класс-итератор отрисовывается как есть, а протокол Python дописывается сверху:
+     * {@code __iter__} возвращает сам объект, {@code __next__} спрашивает «есть ли следующий»
+     * и переводит его отрицательный ответ в {@code StopIteration}. Тело класса при этом не
+     * перестраивается — методы остаются под своими именами, и перевод получается дословным.
+     * <p>
+     * Интерфейс итератора из списка родителей убирается: в Python он ничего не даёт, а его
+     * упоминание потребовало бы импорта из {@code typing}.
+     */
+    private String iteratorToString(IteratorDefinition def, Tab tab) {
+        ClassDeclaration decl = def.getDeclaration();
+        List<Type> parents = decl.getParents().stream()
+                .filter(parent -> !isIteratorInterface(parent))
+                .toList();
+
+        StringBuilder builder = new StringBuilder();
+        if (parents.isEmpty()) {
+            builder.append("class %s:\n".formatted(toString(decl.getName())));
+        } else {
+            builder.append("class %s(%s):\n".formatted(toString(decl.getName()),
+                    String.join(", ", parents.stream().map(this::typeToString).toList())));
+        }
+        builder.append(toString(def.getBody(), tab));
+
+        Tab memberTab = tab.up();
+        Tab bodyTab = memberTab.up();
+        builder.append("\n\n");
+        builder.append(memberTab.concat("def __iter__(self):\n"));
+        builder.append(bodyTab.concat("return self\n"));
+        builder.append("\n");
+        builder.append(memberTab.concat("def __next__(self):\n"));
+        builder.append(bodyTab.concat("if not self.%s():\n".formatted(def.getHasNextMethod().getName())));
+        builder.append(bodyTab.up().concat("raise StopIteration\n"));
+        builder.append(bodyTab.concat("return self.%s()\n".formatted(def.getNextMethod().getName())));
+        return builder.toString();
+    }
+
+    private boolean isIteratorInterface(Type parent) {
+        return parent instanceof UserType user && user.getName().getName().equals("Iterator");
+    }
+
     private String classToString(ClassDefinition def, Tab tab) {
         StringBuilder builder = new StringBuilder();
         ClassDeclaration decl = (ClassDeclaration) def.getDeclaration();
@@ -494,6 +559,15 @@ public class PythonViewer extends LanguageViewer {
     }
 
     private String functionToString(Definition func, Tab tab) {
+        return functionToString(func, tab, null);
+    }
+
+    /**
+     * @param renderedReturnType готовая запись возвращаемого типа, если она не выводится из
+     *                           объявления напрямую. Нужна генератору: его объявление хранит
+     *                           тип элемента, а в исходнике стоит тип последовательности.
+     */
+    private String functionToString(Definition func, Tab tab, @Nullable String renderedReturnType) {
         StringBuilder function = new StringBuilder();
         FunctionDeclaration decl = (FunctionDeclaration) func.getDeclaration();
         for (Annotation anno : decl.getAnnotations()) {
@@ -546,7 +620,10 @@ public class PythonViewer extends LanguageViewer {
             }
         }
         function.append(")");
-        if (decl.getReturnType() != null && !(decl.getReturnType() instanceof UnknownType)
+        if (renderedReturnType != null) {
+            function.append(" -> ");
+            function.append(renderedReturnType);
+        } else if (decl.getReturnType() != null && !(decl.getReturnType() instanceof UnknownType)
                 && !(decl instanceof ObjectConstructorDeclaration || decl instanceof ObjectDestructorDeclaration)) {
             function.append(" -> ");
             function.append(toString(decl.getReturnType()));

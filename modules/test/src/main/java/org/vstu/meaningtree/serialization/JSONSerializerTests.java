@@ -12,10 +12,13 @@ import org.vstu.meaningtree.languages.*;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
+import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.MethodDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
 import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
+import org.vstu.meaningtree.nodes.definitions.GeneratorDefinition;
+import org.vstu.meaningtree.nodes.definitions.IteratorDefinition;
 import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
@@ -29,6 +32,7 @@ import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.ResourceContextStatement;
 import org.vstu.meaningtree.nodes.statements.ScopeDeclarationStatement;
+import org.vstu.meaningtree.nodes.statements.YieldStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.ChainedAssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.exceptions.ExceptionCatchStatement;
@@ -512,6 +516,36 @@ public class JSONSerializerTests {
                 }
                 """));
 
+        // ---------- generators and iterators ----------
+        python(snippets, "generatorLoopForm", """
+                def gen(n: int) -> Iterator[int]:
+                    i: int = 0
+                    while i < n:
+                        yield i
+                        i = i + 1
+                """);
+        python(snippets, "generatorFlatFormAndBareYield", """
+                def flat() -> Iterator[int]:
+                    yield 1
+                    yield
+                    yield 3
+                """);
+        python(snippets, "generatorDelegation", """
+                def d(x) -> Iterator[int]:
+                    yield from x
+                """);
+        java(snippets, "iteratorClass", """
+                class Counter implements Iterator<Integer> {
+                    private int i;
+                    public boolean hasNext() {
+                        return this.i < 10;
+                    }
+                    public Integer next() {
+                        return this.i;
+                    }
+                }
+                """);
+
         return snippets;
     }
 
@@ -908,6 +942,72 @@ public class JSONSerializerTests {
                 "Traversal missed some children: " + names);
         assertEquals(1, nodesOf(statement, CatchClause.class).size());
         assertEquals(1, nodesOf(statement, org.vstu.meaningtree.nodes.types.user.Class.class).size());
+    }
+
+    @Test
+    void yieldStatementSurvivesRoundTripWithAndWithoutValue() {
+        for (YieldStatement statement : List.of(
+                new YieldStatement(new SimpleIdentifier("value")),
+                YieldStatement.delegating(new SimpleIdentifier("source")),
+                new YieldStatement())) {
+            JsonObject json = new JsonSerializer().serialize(statement);
+            YieldStatement restored = (YieldStatement) new JsonDeserializer().deserialize(json);
+
+            assertEquals(statement.hasValue(), restored.hasValue());
+            assertEquals(statement.isDelegated(), restored.isDelegated());
+            assertEquals(statement, restored);
+        }
+    }
+
+    @Test
+    void iteratorDefinitionTraversalReachesEveryChild() {
+        IteratorDefinition definition = new IteratorDefinition(
+                new ClassDeclaration(new SimpleIdentifier("Counter")),
+                new CompoundStatement(new ExpressionStatement(new SimpleIdentifier("member"))),
+                new org.vstu.meaningtree.nodes.types.user.Class(new SimpleIdentifier("Element")),
+                new SimpleIdentifier("hasNext"),
+                new SimpleIdentifier("next")
+        );
+
+        List<String> names = nodesOf(definition, SimpleIdentifier.class).stream()
+                .map(SimpleIdentifier::getName)
+                .toList();
+
+        assertTrue(names.containsAll(List.of("Counter", "member", "Element", "hasNext", "next")),
+                "Traversal missed some children: " + names);
+    }
+
+    @Test
+    void iteratorDefinitionSurvivesRoundTrip() {
+        IteratorDefinition definition = new IteratorDefinition(
+                new ClassDeclaration(new SimpleIdentifier("Counter")),
+                new CompoundStatement(new ExpressionStatement(new SimpleIdentifier("member"))),
+                new org.vstu.meaningtree.nodes.types.user.Class(new SimpleIdentifier("Element")),
+                new SimpleIdentifier("hasNext"),
+                new SimpleIdentifier("next")
+        );
+
+        JsonObject json = new JsonSerializer().serialize(definition);
+        IteratorDefinition restored = (IteratorDefinition) new JsonDeserializer().deserialize(json);
+
+        assertEquals("iterator_definition", json.get("type").getAsString(),
+                "the subtype must not be serialized under its superclass name");
+        assertEquals(definition.getElementType(), restored.getElementType());
+        assertEquals(definition.getHasNextMethod(), restored.getHasNextMethod());
+        assertEquals(definition.getNextMethod(), restored.getNextMethod());
+        assertEquals(definition, restored);
+    }
+
+    @Test
+    void generatorDefinitionIsNotSerializedAsAPlainFunction() {
+        GeneratorDefinition definition = new GeneratorDefinition(
+                new FunctionDeclaration(new SimpleIdentifier("gen"), new IntType(), List.of()),
+                new CompoundStatement(new YieldStatement(new SimpleIdentifier("value")))
+        );
+
+        JsonObject json = new JsonSerializer().serialize(definition);
+        assertEquals("generator_definition", json.get("type").getAsString());
+        assertEquals(definition, new JsonDeserializer().deserialize(json));
     }
 
     @Test

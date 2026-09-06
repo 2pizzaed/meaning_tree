@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
+import org.vstu.meaningtree.languages.helpers.GeneratorLowerer;
 import org.vstu.meaningtree.languages.helpers.ComprehensionLowerer;
 import org.vstu.meaningtree.languages.helpers.ScopeDeclarationLowerer;
 import org.vstu.meaningtree.languages.helpers.LoopElseLowerer;
@@ -122,10 +123,20 @@ public class JavaViewer extends LanguageViewer {
         this(translator, 4, true, false, false);
     }
 
+    /**
+     * Протокол обхода в Java: класс-итератор реализует {@code java.util.Iterator<T>}, а
+     * коллекция отдаёт итератор методом {@code iterator()}. Имя интерфейса квалифицировано,
+     * потому что генератор импортов здесь нет: типы стандартной библиотеки Java выводятся
+     * полным именем (ср. {@code java.util.ArrayList} у списков).
+     */
+    private static final GeneratorLowerer.IteratorProtocol ITERATOR_PROTOCOL =
+            new GeneratorLowerer.IteratorProtocol("java.util.Iterator", "iterator", "hasNext", "next");
+
     @Override
     protected MeaningTree preprocessTree(MeaningTree tree) {
         return TryElseLowerer.lower(LoopElseLowerer.lower(
-                comprehensionLowered(ScopeDeclarationLowerer.dropGlobals(tree))));
+                comprehensionLowered(GeneratorLowerer.lower(
+                        ScopeDeclarationLowerer.dropGlobals(tree), ITERATOR_PROTOCOL))));
     }
 
     private MeaningTree comprehensionLowered(MeaningTree tree) {
@@ -230,6 +241,10 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(PowOp.class, this::toStringPowOp);
         registerRenderer(PackageDeclaration.class, this::toStringPackageDeclaration);
         registerRenderer(ClassDeclaration.class, this::toStringClassDeclaration);
+        // Класс-итератор — обычный класс: и реализуемый интерфейс, и методы протокола
+        // уже лежат в его объявлении и теле. Регистрация всё равно нужна явная:
+        // подъём по надклассу сделал бы узел «поддержанным» и в тех языках, где его нет
+        registerRenderer(IteratorDefinition.class, this::toStringClassDefinition);
         registerRenderer(ClassDefinition.class, this::toStringClassDefinition);
         registerRenderer(InterfaceDeclaration.class, this::toStringInterfaceDeclaration);
         registerRenderer(InterfaceDefinition.class, this::toStringInterfaceDefinition);
@@ -313,6 +328,7 @@ public class JavaViewer extends LanguageViewer {
         registerUnsupportedFeature(new MultipleInheritanceForJavaFeature());
         registerUnsupportedFeature(new BareRaiseFeature());
         registerUnsupportedFeature(new NonlocalBindingFeature());
+        registerUnsupportedFeature(new UnloweredGeneratorFeature());
     }
 
 

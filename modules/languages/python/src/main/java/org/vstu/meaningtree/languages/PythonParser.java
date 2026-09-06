@@ -5,6 +5,7 @@ import org.treesitter.TSNode;
 import org.treesitter.TreeSitterPython;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
+import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
@@ -161,6 +162,7 @@ public class PythonParser extends LanguageParser {
         registerTSNodeHandler("named_expression", AssignmentExpression.class, this::fromAssignmentExpressionTSNode);
         registerTSNodeHandler(List.of("assignment", "augmented_assignment"), Node.class, this::fromAssignmentStatementTSNode);
         registerTSNodeHandler("function_definition", FunctionDefinition.class, this::fromFunctionTSNode);
+        registerTSNodeHandler("yield", YieldStatement.class, this::fromYieldTSNode);
         registerTSNodeHandler("decorated_definition", Definition.class, this::detectAnnotated);
         registerTSNodeHandler("while_statement", Loop.class, this::fromWhileLoop);
         registerTSNodeHandler("assert_statement", FunctionCall.class, this::fromAssertTSNode);
@@ -512,10 +514,57 @@ public class PythonParser extends LanguageParser {
         CompoundStatement body = fromCompoundTSNode(node.getChildByFieldName("body"), true);
 
         assert body != null;
+        boolean isGenerator = YieldStatement.isYieldedBy(body);
+        if (isGenerator) {
+            returnType = generatorElementType(returnType);
+        }
         var decl = new FunctionDeclaration(name, returnType, anno, arguments.toArray(new DeclarationArgument[0]));
         if (isStatic) decl.addModifiers(DeclarationModifier.STATIC);
-        return new FunctionDefinition(decl, body);
+        return isGenerator ? new GeneratorDefinition(decl, body) : new FunctionDefinition(decl, body);
     }
+
+    /**
+     * Разбор {@code yield}, {@code yield e} и {@code yield from e}.
+     * <p>
+     * {@code yield} в позиции выражения ({@code x = yield v}) отвергается: за ним стоит
+     * двусторонний протокол {@code send}, которого в модели нет, и молчаливая потеря значения
+     * дала бы неверный перевод.
+     */
+    private Node fromYieldTSNode(TSNode node) {
+        if (!node.getParent().getType().equals("expression_statement")) {
+            throw new UnsupportedParsingException(
+                    "yield in expression position is not supported: it belongs to the two-way "
+                            + "generator protocol (send/throw), which has no representation in the model");
+        }
+        boolean delegated = false;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            if (node.getChild(i).getType().equals("from")) {
+                delegated = true;
+                break;
+            }
+        }
+        Expression value = node.getNamedChildCount() > 0
+                ? (Expression) parseTSNode(node.getNamedChild(0))
+                : null;
+        return new YieldStatement(value, delegated);
+    }
+
+    /**
+     * Тип элемента, выдаваемого генератором, из аннотации возвращаемого типа:
+     * {@code Iterator[T]}, {@code Iterable[T]} и {@code Generator[T, ...]} дают {@code T}.
+     * Узел генератора хранит тип элемента, а не тип самого генератора.
+     */
+    private static Type generatorElementType(Type declared) {
+        if (declared instanceof GenericUserType generic
+                && GENERATOR_RETURN_TYPE_NAMES.contains(generic.getName().getName())
+                && generic.getTypeParameters().length > 0) {
+            return (Type) generic.getTypeParameters()[0].freshClone();
+        }
+        return declared;
+    }
+
+    private static final Set<String> GENERATOR_RETURN_TYPE_NAMES =
+            Set.of("Iterator", "Iterable", "Generator");
 
     private DeclarationArgument fromDeclarationArgument(TSNode namedChild) {
         Type type = new UnknownType();
@@ -709,6 +758,13 @@ public class PythonParser extends LanguageParser {
             if (bodyNode instanceof VariableDeclaration var) {
                 ctx.substituteNode(body, i, var.makeField(List.of(DeclarationModifier.PUBLIC)));
             } else if (bodyNode instanceof FunctionDefinition func) {
+                if (func instanceof GeneratorDefinition) {
+                    // Генератор-метод не выражается: MethodDefinition наследует тот же
+                    // FunctionDefinition, что и GeneratorDefinition, и совместить оба смысла
+                    // одним классом при одиночном наследовании нельзя
+                    throw new UnsupportedParsingException(
+                            "Generator methods are not supported: only module-level generator functions are");
+                }
                 boolean isStatic = false;
                 List<Annotation> anno = new ArrayList<>(func.getDeclaration().getAnnotations());
                 for (Annotation annotation : anno) {

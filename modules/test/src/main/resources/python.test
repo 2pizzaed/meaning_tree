@@ -1101,3 +1101,42 @@ group: StructuresOOP
                     def speak(self) -> int:
                         return 1
 
+
+
+group: Generators
+    case: GeneratorRoundTrip
+        python:
+            def gen(n: int) -> Iterator[int]:
+                i: int = 0
+                while i < n:
+                    yield i
+                    i = i + 1
+
+        python:
+            def gen(n: int) -> Iterator[int]:
+                i: int = 0
+                while i < n:
+                    yield i
+                    i = i + 1
+
+
+    case: DelegationRoundTrip
+        python:
+            def d(x) -> Iterator[int]:
+                yield from x
+
+        python:
+            def d(x) -> Iterator[int]:
+                yield from x
+
+
+    case: BareYieldRoundTrip
+        python:
+            def gen() -> Iterator[int]:
+                yield
+                yield 1
+
+        python:
+            def gen() -> Iterator[int]:
+                yield
+                yield 1

@@ -583,6 +583,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case Include include -> serializeInclude(include);
             case PackageDeclaration packageDeclaration -> serializePackageDeclaration(packageDeclaration);
             case ReturnStatement stmt -> serializeReturnStatement(stmt);
+            case YieldStatement stmt -> serializeYieldStatement(stmt);
             case ChainedAssignmentStatement stmt -> serializeChainedAssignmentStatement(stmt);
             case MultipleAssignmentStatement stmt -> serializeMultipleAssignmentStatement(stmt);
             case ListUnpackingAssignmentStatement stmt -> serializeListUnpackingAssignmentStatement(stmt);
@@ -627,10 +628,12 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case Type t -> serializeType(t);
 
             case InterfaceDefinition id -> serializeClassDefinition(id);
+            case IteratorDefinition itd -> serializeIteratorDefinition(itd);
             case ClassDefinition cd -> serializeClassDefinition(cd);
             case ObjectConstructorDefinition ocd -> serializeObjectConstructorDefinition(ocd);
             case ObjectDestructorDefinition ocdef -> serializeObjectDestructorDefinition(ocdef);
             case MethodDefinition md -> serializeMethodDefinition(md);
+            case GeneratorDefinition gd -> serializeFunctionDefinition(gd);
             case FunctionDefinition fd -> serializeFunctionDefinition(fd);
             case DefinitionArgument defArg -> serializeDefinitionArgument(defArg);
             case DeclarationArgument declarationArgument -> serializeDeclarationArgument(declarationArgument);
@@ -1909,6 +1912,17 @@ public class JsonSerializer implements Serializer<JsonObject> {
     }
 
     @NotNull
+    private JsonObject serializeYieldStatement(@NotNull YieldStatement stmt) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
+        if (stmt.getValue() != null) {
+            json.add("value", serialize(stmt.getValue()));
+        }
+        json.addProperty("delegated", stmt.isDelegated());
+        return json;
+    }
+
+    @NotNull
     private JsonObject serializeChainedAssignmentStatement(@NotNull ChainedAssignmentStatement stmt) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(stmt));
@@ -2431,6 +2445,18 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(def));
         json.add("declaration", serialize(def.getDeclaration()));
         json.add("body", serialize(def.getBody()));
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeIteratorDefinition(@NotNull IteratorDefinition def) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(def));
+        json.add("declaration", serialize(def.getDeclaration()));
+        json.add("body", serialize(def.getBody()));
+        json.add("element_type", serialize(def.getElementType()));
+        json.add("has_next_method", serialize(def.getHasNextMethod()));
+        json.add("next_method", serialize(def.getNextMethod()));
         return json;
     }
 

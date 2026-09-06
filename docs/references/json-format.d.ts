@@ -934,6 +934,17 @@ export interface ReturnStatementNode extends NodeBase<"return_statement"> {
     expression?: AnyNode;
 }
 
+/**
+ * Выдача значения из генератора: `yield e`, `yield` и `yield from e`.
+ * Оператор, а не выражение: `yield` в позиции значения (`x = yield v`) моделью не выражается.
+ */
+export interface YieldStatementNode extends NodeBase<"yield_statement"> {
+    /** Отсутствует у голого `yield`. У делегирующей выдачи — источник последовательности. */
+    value?: AnyNode;
+    /** `true` для `yield from e`. */
+    delegated: boolean;
+}
+
 export interface DeleteStatementNode extends NodeBase<"delete_statement"> {
     expr: AnyNode;
 }
@@ -1285,6 +1296,22 @@ export type ObjectDestructorDefinitionNode = DefinitionNode<"object_destructor_d
  */
 export type MethodDefinitionNode = DefinitionNode<"method_definition">;
 export type FunctionDefinitionNode = DefinitionNode<"function_definition">;
+/**
+ * Функция-генератор. `return_type` её объявления — тип **элемента** последовательности,
+ * а не тип самого генератора.
+ */
+export type GeneratorDefinitionNode = DefinitionNode<"generator_definition">;
+/** Класс-итератор: обычный класс, два метода которого исполняют роли протокола обхода. */
+export interface IteratorDefinitionNode extends DefinitionNode<"iterator_definition"> {
+    declaration: ClassDeclarationNode;
+    body: CompoundStatementNode;
+    /** Тип элемента последовательности. */
+    element_type: AnyNode;
+    /** Имя метода «есть ли ещё элемент». */
+    has_next_method: SimpleIdentifierNode;
+    /** Имя метода «взять следующий элемент». */
+    next_method: SimpleIdentifierNode;
+}
 
 /** Фактический аргумент вызова (в определении вызова). */
 export interface DefinitionArgumentNode extends NodeBase<"definition_argument"> {
@@ -1580,6 +1607,7 @@ export type NodeTypeName =
     | "compound_statement"
     | "expression_statement"
     | "return_statement"
+    | "yield_statement"
     | "chained_assignment_statement"
     | "multiple_assignment_statement"
     | "delete_statement"
@@ -1635,6 +1663,8 @@ export type NodeTypeName =
     | "object_destructor_definition"
     | "method_definition"
     | "function_definition"
+    | "generator_definition"
+    | "iterator_definition"
     | "definition_argument"
     // Объявления
     | "declaration_argument"
@@ -1778,6 +1808,7 @@ export type AnyNode =
     | CompoundStatementNode
     | ExpressionStatementNode
     | ReturnStatementNode
+    | YieldStatementNode
     | DeleteStatementNode
     | VariableDeclarationNode
     | SeparatedVariableDeclarationNode
@@ -1810,6 +1841,8 @@ export type AnyNode =
     | ObjectDestructorDefinitionNode
     | MethodDefinitionNode
     | FunctionDefinitionNode
+    | GeneratorDefinitionNode
+    | IteratorDefinitionNode
     | DefinitionArgumentNode
     | DeclarationArgumentNode
     | AnnotationNode

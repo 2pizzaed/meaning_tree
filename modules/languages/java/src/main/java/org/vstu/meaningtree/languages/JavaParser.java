@@ -35,6 +35,8 @@ import org.vstu.meaningtree.nodes.expressions.newexpr.ArrayNewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
 import org.vstu.meaningtree.nodes.expressions.other.*;
 import org.vstu.meaningtree.nodes.expressions.unary.*;
+import org.vstu.meaningtree.nodes.interfaces.Generic;
+import org.vstu.meaningtree.nodes.interfaces.PrimitiveType;
 import org.vstu.meaningtree.nodes.interfaces.HasVariableDeclaration;
 import org.vstu.meaningtree.nodes.io.PrintCommand;
 import org.vstu.meaningtree.nodes.io.PrintValues;
@@ -58,6 +60,7 @@ import org.vstu.meaningtree.nodes.statements.exceptions.components.CatchClause;
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
+import org.vstu.meaningtree.nodes.types.GenericInterface;
 import org.vstu.meaningtree.nodes.types.NoReturn;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.UserType;
@@ -1049,9 +1052,87 @@ public class JavaParser extends LanguageParser {
             }
         }
         // TODO: нужно поменять getNodes() у CompoundStatement, чтобы он не массив возвращал
-        ClassDefinition def = new ClassDefinition(decl, classBody);
+        ClassDefinition def = asIteratorIfMatches(decl, classBody);
         def.getDeclaration().setAnnotations(annotations);
         return def;
+    }
+
+    private static final String ITERATOR_INTERFACE = "Iterator";
+    private static final String HAS_NEXT_METHOD = "hasNext";
+    private static final String NEXT_METHOD = "next";
+
+    /**
+     * Собирает {@link IteratorDefinition}, если класс реализует {@code Iterator} и содержит
+     * оба метода протокола, иначе — обычный {@link ClassDefinition}.
+     * <p>
+     * Родительский тип при этом пересобирается как {@link GenericInterface} с объектным типом
+     * элемента: в списке родителей интерфейс от базового класса отличается только узлом типа,
+     * а разбор поля {@code interfaces} этого различия не делает, поэтому иначе итератор
+     * отрисовался бы через {@code extends}.
+     */
+    private ClassDefinition asIteratorIfMatches(ClassDeclaration decl, CompoundStatement classBody) {
+        Type iteratorParent = null;
+        for (Type parent : decl.getParents()) {
+            if (parent instanceof UserType user && user.getName().getName().equals(ITERATOR_INTERFACE)) {
+                iteratorParent = parent;
+                break;
+            }
+        }
+        if (iteratorParent == null
+                || findProtocolMethod(classBody, HAS_NEXT_METHOD) == null) {
+            return new ClassDefinition(decl, classBody);
+        }
+        MethodDeclaration nextMethod = findProtocolMethod(classBody, NEXT_METHOD);
+        if (nextMethod == null) {
+            return new ClassDefinition(decl, classBody);
+        }
+
+        Type elementType = iteratorParent instanceof Generic generic && generic.getTypeParameters().length > 0
+                ? (Type) generic.getTypeParameters()[0].freshClone()
+                : (Type) nextMethod.getReturnType().freshClone();
+
+        List<Type> parents = new ArrayList<>();
+        for (Type parent : decl.getParents()) {
+            parents.add(parent == iteratorParent
+                    ? new GenericInterface(
+                            (Identifier) ((UserType) iteratorParent).getQualifiedName().freshClone(),
+                            asObjectType(elementType))
+                    : (Type) parent.freshClone());
+        }
+
+        ClassDeclaration iteratorDecl = ClassDeclaration.withTypeNode(
+                decl.getModifiers(), (Identifier) decl.getName().freshClone(), List.of(),
+                (UserType) decl.getTypeNode().freshClone(), parents.toArray(Type[]::new)
+        );
+        return new IteratorDefinition(iteratorDecl, classBody, elementType,
+                new SimpleIdentifier(HAS_NEXT_METHOD), new SimpleIdentifier(NEXT_METHOD));
+    }
+
+    @Nullable
+    private MethodDeclaration findProtocolMethod(CompoundStatement classBody, String name) {
+        for (Node member : classBody.getNodes()) {
+            MethodDeclaration declaration = switch (member) {
+                case MethodDefinition definition -> definition.getDeclaration();
+                case MethodDeclaration methodDeclaration -> methodDeclaration;
+                default -> null;
+            };
+            if (declaration != null
+                    && declaration.getName().getName().equals(name)
+                    && declaration.getArguments().isEmpty()) {
+                return declaration;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Примитив в позиции параметра обобщённого типа заворачивается в ссылочный тип: языки,
+     * различающие примитив и объект, отрисовывают его типом-обёрткой.
+     */
+    private static Type asObjectType(Type type) {
+        return type instanceof PrimitiveType
+                ? new ReferenceType((Type) type.freshClone())
+                : (Type) type.freshClone();
     }
 
     private InterfaceDefinition fromInterfaceDeclarationTSNode(TSNode node) {

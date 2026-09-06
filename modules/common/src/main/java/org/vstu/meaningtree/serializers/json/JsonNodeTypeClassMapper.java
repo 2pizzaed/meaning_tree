@@ -189,6 +189,7 @@ public class JsonNodeTypeClassMapper {
         register("compound_statement", CompoundStatement.class);
         register("expression_statement", ExpressionStatement.class);
         register("return_statement", ReturnStatement.class);
+        register("yield_statement", YieldStatement.class);
         register("chained_assignment_statement", ChainedAssignmentStatement.class);
         register("multiple_assignment_statement", MultipleAssignmentStatement.class);
         register("delete_statement", DeleteStatement.class);
@@ -252,6 +253,8 @@ public class JsonNodeTypeClassMapper {
         register("object_destructor_definition", ObjectDestructorDefinition.class);
         register("method_definition", MethodDefinition.class);
         register("function_definition", FunctionDefinition.class);
+        register("generator_definition", GeneratorDefinition.class);
+        register("iterator_definition", IteratorDefinition.class);
         register("definition_argument", DefinitionArgument.class);
 
         // Declarations

@@ -272,6 +272,13 @@ public class CppViewer extends LanguageViewer {
         registerUnsupportedFeature(new TryFinallyFeature());
         registerUnsupportedFeature(new NonlocalBindingFeature());
         registerUnsupportedFeature(MatMulOp.class);
+        // Генераторы и итераторы в C++ не поддерживаются на этом этапе. Запрет объявлен явно:
+        // GeneratorDefinition наследует FunctionDefinition, а IteratorDefinition —
+        // ClassDefinition, и подъём по надклассу молча отрисовал бы их обычной функцией
+        // и обычным классом, потеряв весь смысл конструкции
+        registerUnsupportedFeature(GeneratorDefinition.class);
+        registerUnsupportedFeature(IteratorDefinition.class);
+        registerUnsupportedFeature(YieldStatement.class);
     }
 
     private final String _indentation;

@@ -3422,3 +3422,150 @@ group: ScopeBinding
                 int x = 2;
                 return x;
             }
+
+
+group: GeneratorsAndIterators
+    case: LoopFormGeneratorBecomesIteratorClass
+        main python:
+            def gen(n: int) -> Iterator[int]:
+                i: int = 0
+                while i < n:
+                    yield i
+                    i = i + 1
+
+        java:
+            class gen implements java.util.Iterator<Integer> {
+                private int n;
+                private int i;
+                public gen(int n) {
+                    this.n = n;
+                    this.i = 0;
+                }
+                public boolean hasNext() {
+                    return this.i < this.n;
+                }
+
+                public Integer next() {
+                    int _value = this.i;
+                    this.i = this.i + 1;
+                    return _value;
+                }
+
+            }
+
+
+    case: RangeFormGeneratorBecomesIteratorClass
+        main python:
+            def r(n: int) -> Iterator[int]:
+                for i in range(n):
+                    yield i * 2
+
+        java:
+            class r implements java.util.Iterator<Integer> {
+                private int n;
+                private int i;
+                public r(int n) {
+                    this.n = n;
+                    this.i = 0;
+                }
+                public boolean hasNext() {
+                    return this.i < this.n;
+                }
+
+                public Integer next() {
+                    int _value = this.i * 2;
+                    this.i = this.i + 1;
+                    return _value;
+                }
+
+            }
+
+
+    case: FlatFormGeneratorBecomesStateCounter
+        main python:
+            def flat() -> Iterator[int]:
+                yield 1
+                yield 2
+
+        java:
+            class flat implements java.util.Iterator<Integer> {
+                private int _state;
+                public flat() {
+                    this._state = 0;
+                }
+                public boolean hasNext() {
+                    return this._state < 2;
+                }
+
+                public Integer next() {
+                    if (this._state == 0) {
+                        this._state = 1;
+                        return 1;
+                    }
+                    if (this._state == 1) {
+                        this._state = 2;
+                        return 2;
+                    }
+                    return null;
+                }
+
+            }
+
+
+    case: GeneratorCallBecomesObjectCreation
+        main python:
+            def flat() -> Iterator[int]:
+                yield 1
+
+            g = flat()
+
+        java:
+            class flat implements java.util.Iterator<Integer> {
+                private int _state;
+                public flat() {
+                    this._state = 0;
+                }
+                public boolean hasNext() {
+                    return this._state < 1;
+                }
+
+                public Integer next() {
+                    if (this._state == 0) {
+                        this._state = 1;
+                        return 1;
+                    }
+                    return null;
+                }
+
+            }
+            var g = new flat();
+
+
+    case: JavaIteratorClassBecomesPythonProtocol
+        main java:
+            class Counter implements java.util.Iterator<Integer> {
+                private int i;
+                public boolean hasNext() {
+                    return this.i < 10;
+                }
+                public Integer next() {
+                    return this.i;
+                }
+            }
+
+        python:
+            class Counter:
+                i: int
+                def hasNext(self) -> bool:
+                    return self.i < 10
+
+                def next(self) -> int:
+                    return self.i
+
+                def __iter__(self):
+                    return self
+
+                def __next__(self):
+                    if not self.hasNext():
+                        raise StopIteration
+                    return self.next()

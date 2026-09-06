@@ -1128,6 +1128,12 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         ? deserializeExpression(json.getAsJsonObject("expression")) : null;
                 yield expr != null ? new ReturnStatement(expr) : new ReturnStatement();
             }
+            case "yield_statement" -> {
+                Expression value = json.has("value") && !json.get("value").isJsonNull()
+                        ? deserializeExpression(json.getAsJsonObject("value")) : null;
+                boolean delegated = json.has("delegated") && json.get("delegated").getAsBoolean();
+                yield new YieldStatement(value, delegated);
+            }
             case "delete_statement" -> new DeleteStatement(
                     deserializeExpression(json.getAsJsonObject("expr"))
             );
@@ -1553,6 +1559,17 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             );
             case "interface_definition" -> new InterfaceDefinition(
                     (InterfaceDeclaration) deserialize(json.getAsJsonObject("declaration")),
+                    (CompoundStatement) deserialize(json.getAsJsonObject("body"))
+            );
+            case "iterator_definition" -> new IteratorDefinition(
+                    (ClassDeclaration) deserialize(json.getAsJsonObject("declaration")),
+                    (CompoundStatement) deserialize(json.getAsJsonObject("body")),
+                    (Type) deserialize(json.getAsJsonObject("element_type")),
+                    (SimpleIdentifier) deserialize(json.getAsJsonObject("has_next_method")),
+                    (SimpleIdentifier) deserialize(json.getAsJsonObject("next_method"))
+            );
+            case "generator_definition" -> new GeneratorDefinition(
+                    (FunctionDeclaration) deserialize(json.getAsJsonObject("declaration")),
                     (CompoundStatement) deserialize(json.getAsJsonObject("body"))
             );
             case "function_definition" -> new FunctionDefinition(

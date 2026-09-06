@@ -8,6 +8,7 @@ import org.vstu.meaningtree.languages.JavaTranslator;
 import org.vstu.meaningtree.languages.LanguageTranslator;
 import org.vstu.meaningtree.languages.PythonTranslator;
 import org.vstu.meaningtree.nodes.types.builtin.IntType;
+import org.vstu.meaningtree.utils.analysis.library.StandardLibrary;
 import org.vstu.meaningtree.nodes.types.containers.*;
 
 import java.util.Map;
@@ -112,6 +113,21 @@ class StandardLibraryImportTests {
     }
 
     /**
+     * Имя заголовка — имя файла, а не сущности, и совпадение этого слова с чем-нибудь в выводе
+     * ссылкой на подключение не является: {@code <map>} ничего не говорит о переменной
+     * {@code map}, как {@code <format>} — о встроенном {@code String.format}. Раньше такое
+     * совпадение читалось как живая ссылка, и перевод отказывал вместо того, чтобы выбросить
+     * подключение, которого в целевом языке не бывает вовсе.
+     */
+    @Test
+    void cppSystemHeaderDoesNotBlockOnANameThatOnlyLooksLikeIt() {
+        String java = translate(new CppTranslator(fullUnit()), new JavaTranslator(fullUnit()),
+                "#include <map>\nint main() { int map = 1; return map; }");
+        assertTrue(java.contains("int map = 1;"), java);
+        assertFalse(java.contains("import "), java);
+    }
+
+    /**
      * Импорт без соответствия в целевом языке можно убрать только тогда, когда в выводе не
      * осталось ссылок на него. Здесь ссылка остаётся: {@code random.random()} в Java ни к чему
      * не относится, и программа, из которой просто выкинули строку импорта, выглядит целой, но
@@ -137,6 +153,83 @@ class StandardLibraryImportTests {
                 "import random\nx = random.random()\n");
 
         assertFalse(java.contains("import random"), java);
+    }
+
+    /**
+     * Си-заголовок исходной программы, вытесненный C++-заголовком: {@code char *} напечатан
+     * {@code std::string} из {@code <string>}, и из {@code <string.h>} в выводе не осталось
+     * ничего. Раньше в шапку попадали оба — вытесняющий заголовок откладывался по ходу
+     * отрисовки, а вытесненный так и стоял в программе.
+     */
+    @Test
+    void cppDropsCHeaderSupersededByTheCppOne() {
+        String code = translate(new CppTranslator(fullUnit()), new CppTranslator(fullUnit()),
+                "#include <string.h>\nint main() { std::string s = \"a\"; return 0; }");
+        assertTrue(code.contains("#include <string>"), code);
+        assertFalse(code.contains("string.h"), code);
+    }
+
+    /** То же для C++-написания того же файла: {@code <cstring>} — это {@code <string.h>}. */
+    @Test
+    void cppDropsSupersededHeaderInItsCppSpellingToo() {
+        String code = translate(new CppTranslator(fullUnit()), new CppTranslator(fullUnit()),
+                "#include <cstring>\nint main() { std::string s = \"a\"; return 0; }");
+        assertTrue(code.contains("#include <string>"), code);
+        assertFalse(code.contains("cstring"), code);
+    }
+
+    /**
+     * Вытесняющий заголовок сам по себе выбросить вытесненный не разрешает: один файл даёт
+     * много средств, и пока в выводе осталось хоть одно имя из него, подключение нужно.
+     */
+    @Test
+    void cppKeepsSupersededHeaderWhileTheOutputStillUsesIt() {
+        String code = translate(new CppTranslator(fullUnit()), new CppTranslator(fullUnit()),
+                "#include <string.h>\nint main() { std::string s = \"a\"; return (int) strlen(\"b\"); }");
+        assertTrue(code.contains("#include <string>"), code);
+        assertTrue(code.contains("#include <string.h>"), code);
+    }
+
+    /** Без вытесняющего заголовка неиспользованный Си-заголовок остаётся: выбрасывать его не за что. */
+    @Test
+    void cppKeepsUnusedCHeaderWithoutASupersedingOne() {
+        String code = translate(new CppTranslator(fullUnit()), new CppTranslator(fullUnit()),
+                "#include <string.h>\nint main() { return 0; }");
+        assertTrue(code.contains("#include <string.h>"), code);
+    }
+
+    /**
+     * Вытеснение решается по именам вытесненного заголовка, поэтому у каждого объявленного
+     * отношения состав обязан быть описан полностью — иначе правило либо не сработает ни разу,
+     * либо выбросит подключение при живом обращении.
+     */
+    @Test
+    void everyDeclaredSupersessionKnowsTheNamesOfTheSupersededHeader() {
+        StandardLibrary library = new CppTranslator(fullUnit()).getLanguageBehavior().standardLibrary();
+        for (String superseding : new String[] {"iostream", "string"}) {
+            String superseded = CppLibraryImportRegistry.headerSupersededBy(superseding).orElseThrow();
+            String unit = CppLibraryImportRegistry.cppSpellingOf(superseded).orElseThrow();
+            assertTrue(library.namesOf(unit).isPresent(),
+                    () -> "состав " + unit + " не описан полностью");
+        }
+        assertTrue(CppLibraryImportRegistry.headerSupersededBy("vector").isEmpty());
+    }
+
+    /**
+     * Имя, объявленное в самой программе, библиотечным не считается: своя {@code abs} — обычная
+     * функция автора, и заголовок под неё не подключается. Решение принимается по имени, поэтому
+     * без вопроса к таблице областей видимости любое совпадение с библиотечным именем приносило
+     * бы в вывод посторонний заголовок.
+     */
+    @Test
+    void cppAsksTheScopeTableBeforeIncludingAHeaderForACall() {
+        String own = translate(new CppTranslator(fullUnit()), new CppTranslator(fullUnit()),
+                "int abs(int x) { return x; }\nint main() { return abs(-1); }");
+        assertFalse(own.contains("#include"), own);
+
+        String library = translate(new CppTranslator(fullUnit()), new CppTranslator(fullUnit()),
+                "int main() { return abs(-1); }");
+        assertTrue(library.contains("#include <cstdlib>"), library);
     }
 
     @Test

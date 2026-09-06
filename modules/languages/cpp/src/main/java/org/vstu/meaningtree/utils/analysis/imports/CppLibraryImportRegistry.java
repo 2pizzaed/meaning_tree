@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Заголовки стандартной библиотеки C++, без которых сгенерированный код не соберётся.
@@ -84,6 +83,26 @@ public final class CppLibraryImportRegistry {
                     header -> "c" + header.substring(0, header.length() - ".h".length()),
                     header -> header));
 
+    /** Обратный индекс к {@link #C_HEADER_SPELLINGS}: {@code stdio.h} → {@code cstdio}. */
+    private static final Map<String, String> CPP_HEADER_SPELLINGS = C_HEADER_SPELLINGS.entrySet().stream()
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getValue, Map.Entry::getKey));
+
+    /**
+     * Си-заголовок, вытесняемый C++-заголовком: средство, ради которого автор подключал
+     * Си-заголовок, напечатано средством C++ из другого файла ({@code printf} потоками из
+     * {@code <iostream>}, {@code char *} — {@code std::string} из {@code <string>}).
+     * <p>
+     * Здесь записано только само отношение «что чем вытесняется». Выбрасывать вытесненный
+     * заголовок само по себе оно не разрешает: один и тот же файл даёт много средств, и
+     * подключение остаётся нужным, пока в выводе есть хоть одно имя из него. Состав заголовка
+     * знает {@code CppStandardLibrary} — единственное место, где вообще описаны имена
+     * стандартной библиотеки.
+     */
+    private static final Map<String, String> SUPERSEDED_C_HEADERS = Map.of(
+            "iostream", "stdio.h",
+            "string", "string.h"
+    );
+
     /**
      * Заголовок, без которого не соберётся тип, напечатанный вьюером.
      * <p>
@@ -137,5 +156,26 @@ public final class CppLibraryImportRegistry {
      */
     public static Optional<String> cSpellingOf(String header) {
         return Optional.ofNullable(C_HEADER_SPELLINGS.get(header));
+    }
+
+    /**
+     * Си-заголовок, который вытесняет этот C++-заголовок.
+     *
+     * @param header заголовок без угловых скобок, в том написании, в котором он попадёт в вывод
+     * @return пусто, если заголовок ничего не вытесняет
+     */
+    public static Optional<String> headerSupersededBy(String header) {
+        return Optional.ofNullable(SUPERSEDED_C_HEADERS.get(header));
+    }
+
+    /**
+     * C++-написание Си-заголовка: обратная сторона {@link #cSpellingOf}. Нужна там, где по
+     * заголовку спрашивают {@code CppStandardLibrary}: её записи ведутся C++-написаниями, в
+     * которых их печатает вьюер.
+     *
+     * @return пусто, если C++-написания у заголовка нет
+     */
+    public static Optional<String> cppSpellingOf(String header) {
+        return Optional.ofNullable(CPP_HEADER_SPELLINGS.get(header));
     }
 }

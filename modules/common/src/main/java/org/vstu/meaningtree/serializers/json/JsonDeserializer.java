@@ -2008,7 +2008,8 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
         boolean stealth = json.has("stealth") && json.get("stealth").getAsBoolean();
 
         if (!json.has("attr") || json.get("attr").isJsonNull()) {
-            return new Label(id, stealth);
+            Label label = new Label(id);
+            return stealth ? label.setStealth() : label;
         }
 
         JsonElement el = json.get("attr");
@@ -2035,7 +2036,8 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             attr = el;
         }
 
-        return new Label(id, attr, stealth);
+        Label label = new Label(id, attr);
+        return stealth ? label.setStealth() : label;
     }
 
     /**

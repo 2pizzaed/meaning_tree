@@ -40,8 +40,9 @@ public class SerializedLabel extends AbstractSerializedNode {
         Number val = (Number) values.getOrDefault("id", Short.MAX_VALUE);
         boolean stealth = Boolean.TRUE.equals(values.get("stealth"));
         Object attr = values.getOrDefault("attr", null);
-        return attr == null
-                ? new Label(val.shortValue(), stealth)
-                : new Label(val.shortValue(), attr, stealth);
+        Label label = attr == null
+                ? new Label(val.shortValue())
+                : new Label(val.shortValue(), attr);
+        return stealth ? label.setStealth() : label;
     }
 }

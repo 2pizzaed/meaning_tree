@@ -68,33 +68,17 @@ public class Label {
     private short id;
     private Object attribute = null;
     private Class<?> attributeType = null;
-    private final boolean stealth;
+    private boolean stealth;
 
     public Label(short id, Object attribute) {
-        this(id, attribute, false);
-    }
-
-    /**
-     * @param stealth если true, метка не участвует в {@link Node#equals}: узлы, различающиеся
-     *                только наличием такой метки, при сравнении содержимого считаются одинаковыми.
-     *                Нужно для меток, которые описывают происхождение/служебное состояние узла, а
-     *                не его содержимое — например, {@link #REMAPPED}.
-     */
-    public Label(short id, Object attribute, boolean stealth) {
         this.attribute = attribute;
         this.id = id;
         this.attributeType = attribute.getClass();
         typeFits(attribute);
-        this.stealth = stealth;
     }
 
     public Label(short id) {
-        this(id, false);
-    }
-
-    public Label(short id, boolean stealth) {
         this.id = id;
-        this.stealth = stealth;
     }
 
     public short getId() {
@@ -102,15 +86,20 @@ public class Label {
     }
 
     /**
-     * Участвует ли метка в сравнении содержимого узлов.
-     * <p>
-     * {@link #REMAPPED} невидима всегда, независимо от того, каким флагом метка создана: её
-     * смысл — «узел получен из другого узла при выводе», то есть происхождение, а не содержимое.
-     * Благодаря этому JSON, записанный до появления флага, после чтения ведёт себя как прежде:
-     * поля {@code stealth} в нём нет, но равенство узлов оно не ломает.
+     * Исключается ли метка из сравнения содержимого узлов.
      */
     public boolean isStealth() {
-        return stealth || id == REMAPPED;
+        return stealth;
+    }
+
+    /**
+     * Исключает метку из {@link Node#equals сравнения содержимого узлов}.
+     *
+     * @return эта же метка
+     */
+    public Label setStealth() {
+        stealth = true;
+        return this;
     }
 
     private static final Set<Class<?>> ALLOWED_TYPES = Set.of(

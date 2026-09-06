@@ -186,7 +186,7 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
      */
     @SuppressWarnings("unchecked")
     public <T extends Node> T remap(Node other) {
-        setLabel(new Label(Label.REMAPPED, other.getId(), true));
+        setLabel(new Label(Label.REMAPPED, other.getId()).setStealth());
         return (T) this;
     }
 

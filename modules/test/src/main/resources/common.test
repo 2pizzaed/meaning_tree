@@ -3569,3 +3569,78 @@ group: GeneratorsAndIterators
                     if not self.hasNext():
                         raise StopIteration
                     return self.next()
+
+
+group: AssignmentTargets
+    case: AssignmentToFieldThroughThis
+        main java:
+            class Box {
+                private int v;
+                public Box(int v) {
+                    this.v = v;
+                }
+            }
+
+        python:
+            class Box:
+                v: int
+                def __init__(self, v: int):
+                    self.v = v
+
+        c++:
+            class Box
+            {
+                int v;
+                public:
+                    Box(int v)
+                    {
+                        this->v = v;
+                    }
+            };
+
+
+    case: AssignmentToArrayElement
+        main java:
+            int[] a = new int[2];
+            int i = 0;
+            a[i] = 1;
+            a[i] += 2;
+
+        python:
+            a: list[int] = [int() for _ in range(2)]
+            i: int = 0
+            a[i] = 1
+            a[i] += 2
+
+        c++:
+            int a[2];
+            int i = 0;
+            a[i] = 1;
+            a[i] += 2;
+
+
+    case: AssignmentToObjectMember
+        main java:
+            class Point {
+                public int x;
+            }
+            Point p = new Point();
+            p.x = 1;
+            p.x += 2;
+
+        python:
+            class Point:
+                x: int
+            p: Point = Point()
+            p.x = 1
+            p.x += 2
+
+        c++:
+            class Point
+            {
+                public:
+                    int x;
+            };
+            Point p = new Point();
+            p.x = 1;
+            p.x += 2;

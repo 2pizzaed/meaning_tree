@@ -1256,8 +1256,10 @@ public class JavaParser extends LanguageParser {
     }
 
     private AssignmentExpression fromAssignmentExpressionTSNode(TSNode node) {
-        String variableName = getCodePiece(node.getChildByFieldName("left"));
-        SimpleIdentifier identifier = new SimpleIdentifier(variableName);
+        // Приёмник разбирается так же, как правая часть, а не берётся куском исходника:
+        // им может быть доступ к члену, индексация или обращение через this, и текстом
+        // всё это превращалось в один идентификатор с именем вида `this.v` или `a[i]`
+        Expression target = (Expression) parseTSNode(node.getChildByFieldName("left"));
         Expression right = (Expression) parseTSNode(node.getChildByFieldName("right"));
 
         String operatorType = node.getChildByFieldName("operator").getType();
@@ -1277,7 +1279,7 @@ public class JavaParser extends LanguageParser {
             default -> throw new IllegalStateException("Unexpected augmented assignment type: " + operatorType);
         };
 
-        return new AssignmentExpression(identifier, right, augmentedAssignmentOperator);
+        return new AssignmentExpression(target, right, augmentedAssignmentOperator);
     }
 
     private List<TSNode> getChildrenByFieldName(TSNode node, String fieldName) {

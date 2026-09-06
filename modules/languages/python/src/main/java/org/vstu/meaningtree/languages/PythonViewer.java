@@ -186,6 +186,9 @@ public class PythonViewer extends LanguageViewer {
         registerUnsupportedFeature(new LabeledLoopFeature());
         registerUnsupportedFeature(new StatementJumpFeature());
         registerUnsupportedFeature(new ConstructorDelegationFeature());
+        // Параметр без имени бывает только в прототипе C/C++; здесь функция объявляется
+        // вместе с телом, и безымянного параметра не существует
+        registerUnsupportedFeature(new UnnamedParameterFeature());
         registerUnsupportedFeature(new PointerTypeFeature());
         registerUnsupportedFeature(new ConstInFunctionSignatureFeature());
         registerUnsupportedFeature(FallthroughCaseBlock.class);

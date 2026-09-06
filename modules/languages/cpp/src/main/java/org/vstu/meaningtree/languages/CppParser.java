@@ -372,16 +372,7 @@ public class CppParser extends LanguageParser {
 
     private FunctionDefinition fromFunction(TSNode node) {
         // TODO: по-хорошему надо отдельную функцию для определения всех модификаторов
-        var modifiers = new ArrayList<DeclarationModifier>();
-        if (node.getChild(0).getType().equals("storage_class_specifier")
-                && getCodePiece(node.getChild(0)).equals("static")) {
-            // Статик обозначает приватность функции (по отношению к файлу, где она определена)
-            modifiers.add(DeclarationModifier.PRIVATE);
-            modifiers.add(DeclarationModifier.STATIC);
-        }
-        else {
-            modifiers.add(DeclarationModifier.PUBLIC);
-        }
+        var modifiers = freeFunctionModifiers(node);
 
         Type returnType = fromType(node.getChildByFieldName("type"));
         if (hasConstQualifier(node)) {
@@ -411,6 +402,25 @@ public class CppParser extends LanguageParser {
         CompoundStatement body = fromBlock(node.getChildByFieldName("body"));
 
         return new FunctionDefinition(declaration, body);
+    }
+
+    /**
+     * Модификаторы свободной функции — общие у определения и у прототипа: объявление и
+     * определение одной функции обязаны давать одинаковые модификаторы, иначе таблица
+     * областей видимости увидит их как разные сущности.
+     */
+    private List<DeclarationModifier> freeFunctionModifiers(TSNode node) {
+        var modifiers = new ArrayList<DeclarationModifier>();
+        if (node.getChild(0).getType().equals("storage_class_specifier")
+                && getCodePiece(node.getChild(0)).equals("static")) {
+            // Статик обозначает приватность функции (по отношению к файлу, где она определена)
+            modifiers.add(DeclarationModifier.PRIVATE);
+            modifiers.add(DeclarationModifier.STATIC);
+        }
+        else {
+            modifiers.add(DeclarationModifier.PUBLIC);
+        }
+        return modifiers;
     }
 
     private ClassDefinition fromClassSpecifier(TSNode node) {
@@ -821,21 +831,40 @@ public class CppParser extends LanguageParser {
             if (!List.of("parameter_declaration", "variadic_parameter_declaration", "optional_parameter_declaration").contains(child.getType())) {
                 continue;
             }
+            // int main(void) — это Си-запись пустого списка параметров, а не параметр типа void
+            if (isExplicitlyEmptyParameterList(node, child)) {
+                continue;
+            }
             DeclarationArgument parameter = fromFormalParameter(child);
             parameters.add(parameter);
         }
         return parameters;
     }
 
+    /**
+     * Единственное {@code void} без имени — Си-запись «параметров нет»: {@code int main(void)}
+     * объявляет функцию без параметров, а не с одним параметром типа {@code void}. Так пишет и
+     * сам вьюер в C-режиме, поэтому без этой ветки собственный вывод не разбирался обратно.
+     */
+    private boolean isExplicitlyEmptyParameterList(TSNode parameterList, TSNode parameter) {
+        return parameterList.getNamedChildCount() == 1
+                && parameter.getType().equals("parameter_declaration")
+                && parameter.getChildByFieldName("declarator").isNull()
+                && getCodePiece(parameter).strip().equals("void");
+    }
+
     private DeclarationArgument fromFormalParameter(TSNode node) {
         Type type = fromType(node.getChildByFieldName("type"));
-
-        for (int i = 0; i < node.getChildCount(); i++) {
-            TSNode child = node.getChild(i);
-            if (child.getType().equals("type_qualifier") && getCodePiece(child).equals("const")) {
-                type.setConst(true);
-            }
+        TSNode declaratorNode = node.getChildByFieldName("declarator");
+        if (declaratorNode.isNull() || isAbstractDeclarator(declaratorNode)) {
+            // Параметр без имени: в прототипе (double f(double);) имя необязательно, обращаться
+            // к параметру там негде. Выдумывать имя нельзя — в выводе появилось бы то, чего в
+            // исходнике не было; языки, где такой параметр невыразим, откажутся его печатать
+            applyConstQualifier(node, type);
+            return DeclarationArgument.unnamed(abstractDeclaratorType(declaratorNode, type));
         }
+
+        applyConstQualifier(node, type);
 
         var declaration = fromDeclarator(node.getChildByFieldName("declarator"), type);
         SimpleIdentifier name = declaration.getFirstDeclarator().getIdentifier();
@@ -847,6 +876,46 @@ public class CppParser extends LanguageParser {
 
         // Не поддерживается распаковка списков (как в Python)
         return new DeclarationArgument(type,  name, defaultValue);
+    }
+
+    /**
+     * Объявитель без имени: {@code const char *} в {@code int f(const char *);}. Тем же узлом
+     * грамматика описывает и указатель, и ссылку, и массив — с приставкой {@code abstract_},
+     * потому что объявлять там нечего.
+     */
+    private boolean isAbstractDeclarator(@NotNull TSNode declarator) {
+        return declarator.getType().startsWith("abstract_");
+    }
+
+    /**
+     * Тип безымянного параметра: обёртки указателей и ссылок применяются к базовому типу так же,
+     * как у именованного ({@link #unwrapIndirections}), только объявителя под ними нет.
+     * Массивы и указатели на функцию сюда не проходят: у первых нужен размер, у вторых —
+     * сигнатура, и молча выдать их за что-то другое нельзя.
+     */
+    private Type abstractDeclaratorType(@NotNull TSNode declarator, @NotNull Type baseType) {
+        Type type = baseType;
+        TSNode current = declarator;
+        while (!current.isNull() && isAbstractDeclarator(current)) {
+            type = switch (current.getType()) {
+                case "abstract_pointer_declarator" -> new PointerType(type);
+                case "abstract_reference_declarator" -> new ReferenceType(type);
+                default -> throw new UnsupportedParsingException(
+                        "Unnamed parameter of this form is not supported: " + getCodePiece(declarator));
+            };
+            current = current.getChildByFieldName("declarator");
+        }
+        return type;
+    }
+
+    /** {@code const} у параметра стоит рядом с типом отдельным узлом, а не внутри него. */
+    private void applyConstQualifier(TSNode node, Type type) {
+        for (int i = 0; i < node.getChildCount(); i++) {
+            TSNode child = node.getChild(i);
+            if (child.getType().equals("type_qualifier") && getCodePiece(child).equals("const")) {
+                type.setConst(true);
+            }
+        }
     }
 
     private CompoundStatement fromBlock(TSNode node) {
@@ -1863,12 +1932,28 @@ public class CppParser extends LanguageParser {
         }
 
         var declarators = new ArrayList<VariableDeclaration>();
+        var prototypes = new ArrayList<TSNode>();
         for (i += 1; i < node.getNamedChildCount(); i++) {
             TSNode tsDeclarator = node.getNamedChild(i);
+            if (isFunctionPrototypeDeclarator(tsDeclarator)) {
+                prototypes.add(tsDeclarator);
+                continue;
+            }
             var decl = fromDeclarator(tsDeclarator, mainType);
             if (decl != null) {
                 declarators.add(decl);
             }
+        }
+        if (!prototypes.isEmpty()) {
+            // Одно объявление на несколько прототипов (int f(int), g(void);) или прототип
+            // вперемешку с переменными (int a, f(int);) — законный, но редкий Си: узла под
+            // несколько объявлений сразу нет, и выдавать одно из них за всё объявление нельзя
+            if (prototypes.size() > 1 || !declarators.isEmpty()) {
+                throw new UnsupportedParsingException(
+                        "Declaration combines a function prototype with other declarators: "
+                                + getCodePiece(node));
+            }
+            return fromFunctionPrototype(node, prototypes.getFirst(), mainType);
         }
 
         SeparatedVariableDeclaration sepDecl = new SeparatedVariableDeclaration(declarators);
@@ -1876,6 +1961,54 @@ public class CppParser extends LanguageParser {
             return sepDecl.reduce();
         }
         return sepDecl;
+    }
+
+    /**
+     * Прототип ли это функции: {@code int f(int);} — объявление без тела.
+     * <p>
+     * Отличается от переменной-указателя на функцию ({@code int (*f)(int);}) тем, что имя стоит
+     * прямо в {@code function_declarator}: у указателя там {@code parenthesized_declarator}, и
+     * объявляется именно переменная, а не функция. Обёртки указателей и ссылок снимаются, потому
+     * что возвращаемый тип оборачивает объявитель: {@code int *g(int);} — тоже прототип.
+     */
+    private boolean isFunctionPrototypeDeclarator(@NotNull TSNode declarator) {
+        TSNode current = declarator;
+        while (!current.isNull()) {
+            if (current.getType().equals("function_declarator")) {
+                TSNode name = current.getChildByFieldName("declarator");
+                return !name.isNull() && !name.getType().equals("parenthesized_declarator");
+            }
+            if (!current.getType().equals("pointer_declarator")
+                    && !current.getType().equals("reference_declarator")) {
+                return false;
+            }
+            current = current.getChildByFieldName("declarator");
+        }
+        return false;
+    }
+
+    /**
+     * Прототип свободной функции. Собирается тем же путём, что и заголовок определения
+     * ({@link #fromFunction}): тот же {@code function_declarator}, только вместо тела точка с
+     * запятой. Одинаковость важна не сама по себе — по совпадению имени и сигнатуры таблица
+     * областей видимости узнаёт в прототипе и определении одну и ту же функцию.
+     */
+    private FunctionDeclaration fromFunctionPrototype(@NotNull TSNode node,
+                                                      @NotNull TSNode declarator,
+                                                      @NotNull Type returnType) {
+        if (hasConstQualifier(node)) {
+            returnType.setConst(true);
+        }
+        DeclaratorWithType unwrapped = unwrapIndirections(declarator, returnType);
+        TSNode functionDeclarator = unwrapped.declarator();
+
+        Identifier name = (Identifier) fromIdentifier(functionDeclarator.getChildByFieldName("declarator"));
+        List<DeclarationArgument> parameters = fromFunctionParameters(
+                functionDeclarator.getChildByFieldName("parameters"));
+
+        var declaration = new FunctionDeclaration(name, unwrapped.type(), List.of(), parameters);
+        declaration.setModifiers(freeFunctionModifiers(node));
+        return declaration;
     }
 
     /**

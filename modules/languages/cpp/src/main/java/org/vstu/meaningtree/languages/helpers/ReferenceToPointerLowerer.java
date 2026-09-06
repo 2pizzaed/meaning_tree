@@ -150,7 +150,10 @@ public final class ReferenceToPointerLowerer {
         Set<String> references = new HashSet<>();
         for (DeclarationArgument argument : declaration.getArguments()) {
             if (argument.getType() instanceof ReferenceType) {
-                references.add(argument.getName().toString());
+                // Параметр без имени переписывать не в чем: обращений к нему в теле нет
+                if (argument.hasName()) {
+                    references.add(argument.getName().toString());
+                }
             }
         }
         for (NodeInfo info : definition.iterate(true)) {

@@ -20,7 +20,7 @@ public class DeclarationArgument extends Declaration {
     private boolean isListUnpacking;
     private boolean isDictUnpacking;
 
-    @TreeNode private SimpleIdentifier name;
+    @Nullable @TreeNode private SimpleIdentifier name;
     @Nullable @TreeNode private Expression initial;
 
     /**
@@ -44,11 +44,30 @@ public class DeclarationArgument extends Declaration {
         return type;
     }
 
+    /**
+     * Имя параметра.
+     * <p>
+     * {@code null} — параметр без имени: в прототипе C/C++ ({@code double f(double);}) имя
+     * необязательно, потому что обращаться к параметру там негде. Языки, где параметр без имени
+     * невыразим, отказываются печатать такое объявление
+     * ({@code UnnamedParameterFeature}), а не подставляют выдуманное имя.
+     */
+    @Nullable
     public SimpleIdentifier getName() {
         return name;
     }
 
-    public DeclarationArgument(Type type, SimpleIdentifier name, @Nullable Expression initial) {
+    /** Есть ли у параметра имя; см. {@link #getName()}. */
+    public boolean hasName() {
+        return name != null;
+    }
+
+    /** Параметр, объявленный одним типом: {@code double f(double);}. */
+    public static DeclarationArgument unnamed(Type type) {
+        return new DeclarationArgument(type, null, null);
+    }
+
+    public DeclarationArgument(Type type, @Nullable SimpleIdentifier name, @Nullable Expression initial) {
         this.type = type;
         this.name = name;
         this.initial = initial;
@@ -102,7 +121,7 @@ public class DeclarationArgument extends Declaration {
         clone.type = type.clone();
         clone.isListUnpacking = isListUnpacking;
         clone.isDictUnpacking = isDictUnpacking;
-        clone.name = name.clone();
+        clone.name = name == null ? null : name.clone();
         clone.initial = initial == null ? null : initial.clone();
         return clone;
     }

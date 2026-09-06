@@ -121,7 +121,9 @@ final class JavaProceduralProgramTransformer {
 
         return new DeclarationArgument(
                 argument.getType().clone(),
-                argument.getName().clone(),
+                // Параметр без имени в Java невыразим, но отказ выносит проверка поддержки уже
+                // по подготовленному дереву — сюда такое объявление доезжает целым
+                argument.hasName() ? argument.getName().clone() : null,
                 argument.hasInitialExpression() ? argument.getInitialExpression().clone() : null
         );
     }

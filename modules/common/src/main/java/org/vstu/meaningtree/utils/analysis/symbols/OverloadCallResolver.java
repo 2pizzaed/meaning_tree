@@ -436,7 +436,8 @@ public final class OverloadCallResolver {
     private static int findNamedParameter(@NotNull List<DeclarationArgument> parameters,
                                           @NotNull DefinitionArgument argument) {
         for (int index = 0; index < parameters.size(); index++) {
-            if (parameters.get(index).getName().equals(argument.getName())) {
+            DeclarationArgument parameter = parameters.get(index);
+            if (parameter.hasName() && parameter.getName().equals(argument.getName())) {
                 return index;
             }
         }

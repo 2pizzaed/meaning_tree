@@ -28,7 +28,8 @@ public class ConstInFunctionSignatureFeature extends SemanticFeature {
     @Override
     public String description(Node node) {
         if (node instanceof DeclarationArgument argument) {
-            return "Constant type of function argument %s is not supported".formatted(argument.getName());
+            return "Constant type of function argument %s is not supported"
+                    .formatted(argument.hasName() ? argument.getName() : argument.getType());
         }
         return "Constant return type of function %s is not supported".formatted(((FunctionDeclaration) node).getName());
     }

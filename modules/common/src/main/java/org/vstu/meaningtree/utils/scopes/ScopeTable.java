@@ -292,6 +292,16 @@ public class ScopeTable implements Serializable {
             registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
         } else if (node instanceof FunctionDefinition def) {
             registerDefinition(def.getDeclaration().getName().getSimpleIdentifierOrThrow(), def);
+        } else if (node instanceof MethodDeclaration) {
+            // Член типа виден не по вложенности блоков, а по владельцу, и живёт в отдельном
+            // индексе (registerMember). В лексическую область он не заносится: иначе метод
+            // класса стал бы видимым как свободная функция всюду, где виден сам класс
+            return;
+        } else if (node instanceof FunctionDeclaration decl) {
+            // Прототип: объявление без тела. Он и следующее за ним определение — одна и та же
+            // функция, и в таблице остаётся одна запись: DeclarationBucket заменяет запись с
+            // такой же сигнатурой, а не заводит вторую перегрузку
+            registerDeclaration(decl.getName().getSimpleIdentifierOrThrow(), decl);
         } else if (node instanceof VariableDeclaration varDecl) {
             registerVariable(varDecl);
         } else if (node instanceof SeparatedVariableDeclaration sepDecl) {

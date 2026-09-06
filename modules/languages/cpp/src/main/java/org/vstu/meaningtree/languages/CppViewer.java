@@ -239,7 +239,7 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(InfiniteLoop.class, this::toStringInfiniteLoop);
         registerRenderer(SwitchStatement.class, this::toStringSwitchStatement);
         registerRenderer(FunctionDefinition.class, this::toStringFunctionDefinition);
-        registerRenderer(FunctionDeclaration.class, this::toStringFunctionDeclaration);
+        registerRenderer(FunctionDeclaration.class, this::toStringFunctionPrototype);
         registerRenderer(MethodDefinition.class, this::toStringMethodDefinition);
         registerRenderer(MethodDeclaration.class, this::toStringMethodDeclaration);
         registerRenderer(ObjectConstructorDefinition.class, this::toStringObjectConstructorDefinition);
@@ -602,6 +602,18 @@ public class CppViewer extends LanguageViewer {
         return builder.toString();
     }
 
+    /**
+     * Объявление функции, стоящее в программе само по себе, — прототип, и он завершается точкой
+     * с запятой. Внутри определения тот же узел — его заголовок, и точку с запятой там ставить
+     * нельзя, поэтому решает окружение: определение печатает своё объявление через общую
+     * диспетчеризацию (иначе узел не попал бы ни в хуки, ни в source map), и различить два
+     * случая можно только по объемлющему узлу.
+     */
+    private String toStringFunctionPrototype(FunctionDeclaration functionDeclaration) {
+        String signature = toStringFunctionDeclaration(functionDeclaration);
+        return ctx.isDirectlyInNode(FunctionDefinition.class) ? signature : signature + ";";
+    }
+
     private String toStringFunctionDeclaration(FunctionDeclaration functionDeclaration) {
         StringBuilder builder = new StringBuilder();
 
@@ -712,6 +724,11 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringDeclarationArgument(DeclarationArgument parameter) {
+        // Параметр без имени бывает только в прототипе, где имя необязательно: печатается один
+        // тип, ровно как в исходнике
+        if (!parameter.hasName()) {
+            return toString(parameter.getType());
+        }
         if (isCharBufferString(parameter.getType())) {
             StringType buffer = (StringType) parameter.getType();
             return "%s %s[%s]".formatted(charElementSpelling(buffer), toString(parameter.getName()),

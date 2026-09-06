@@ -179,7 +179,10 @@ public final class VariableUsageIndex {
             return;
         }
         for (DeclarationArgument argument : definition.getDeclaration().getArguments()) {
-            bind(argument.getName(), argument);
+            // Параметр без имени связывать не с чем: обращаться к нему в коде нельзя
+            if (argument.hasName()) {
+                bind(argument.getName(), argument);
+            }
         }
     }
 

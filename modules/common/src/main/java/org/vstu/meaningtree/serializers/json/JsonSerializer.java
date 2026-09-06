@@ -410,7 +410,8 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case SeparatedVariableDeclaration separatedVariableDeclaration -> separatedVariableDeclaration.getDeclarations().isEmpty()
                     ? null
                     : declarationIdentifier(separatedVariableDeclaration.getDeclarations().getFirst());
-            case DeclarationArgument declarationArgument -> declarationArgument.getName().getName();
+            case DeclarationArgument declarationArgument ->
+                    declarationArgument.hasName() ? declarationArgument.getName().getName() : null;
             case PackageDeclaration packageDeclaration -> packageDeclaration.getPackageName().internalRepresentation();
             default -> null;
         };

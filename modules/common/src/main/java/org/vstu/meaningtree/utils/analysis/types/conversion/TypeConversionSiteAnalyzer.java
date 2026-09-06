@@ -171,7 +171,7 @@ final class TypeConversionSiteAnalyzer {
         if (source instanceof UnknownType && function != null
                 && returnStatement.getExpression() instanceof SimpleIdentifier identifier) {
             source = function.getDeclaration().getArguments().stream()
-                    .filter(argument -> argument.getName().equals(identifier))
+                    .filter(argument -> argument.hasName() && argument.getName().equals(identifier))
                     .map(DeclarationArgument::getType)
                     .findFirst()
                     .orElse(source);

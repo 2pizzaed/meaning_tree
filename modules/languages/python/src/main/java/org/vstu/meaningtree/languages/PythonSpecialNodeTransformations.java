@@ -285,6 +285,11 @@ public class PythonSpecialNodeTransformations {
         if (decl.getArguments().isEmpty() || decl.getModifiers().contains(DeclarationModifier.STATIC)) {
             return def;
         }
+        // Первый параметр без имени (прототип метода из C++) собой ничего не именует, и
+        // обращений к нему в теле быть не может; отказ вынесет проверка поддержки
+        if (!decl.getArguments().getFirst().hasName()) {
+            return def;
+        }
         SimpleIdentifier instanceName = decl.getArguments().getFirst().getName();
         CollectionFieldDescriptor newArgsDescr = (CollectionFieldDescriptor) decl.getFieldDescriptor("arguments");
         newArgsDescr.ensureWritable();

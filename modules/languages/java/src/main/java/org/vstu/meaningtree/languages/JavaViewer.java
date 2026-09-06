@@ -300,7 +300,7 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(EmptyStatement.class, this::toStringEmptyStatement);
         registerRenderer(ConditionBranch.class, this::toStringConditionBranch);
         registerRenderer(Shape.class, this::toStringShape);
-        registerRenderer(FunctionDeclaration.class, this::toStringFunctionDeclaration);
+        registerRenderer(FunctionDeclaration.class, this::toStringStandaloneFunctionDeclaration);
         registerRenderer(DeclarationArgument.class, this::toStringDeclarationArgument);
         registerRenderer(ListUnpackingVariableDeclaration.class,
                 (node) -> toString(node.toVariableDeclaration()));
@@ -329,6 +329,9 @@ public class JavaViewer extends LanguageViewer {
         registerUnsupportedFeature(new ForEachMultipleDeclaratorsFeature());
         registerUnsupportedFeature(new NonDirectionalRangeForFeature());
         registerUnsupportedFeature(new PointerTypeFeature());
+        // Параметр без имени бывает только в прототипе C/C++; здесь функция объявляется
+        // вместе с телом, и безымянного параметра не существует
+        registerUnsupportedFeature(new UnnamedParameterFeature());
         registerUnsupportedFeature(new ConstInFunctionSignatureFeature());
         registerUnsupportedFeature(new MultipleInheritanceForJavaFeature());
         registerUnsupportedFeature(new BareRaiseFeature());
@@ -355,6 +358,22 @@ public class JavaViewer extends LanguageViewer {
         { builder.append("\n").append(indent(body)).append("\n"); }
 
         return builder.toString();
+    }
+
+    /**
+     * Объявление функции, стоящее в программе само по себе, — предварительное объявление
+     * (прототип) C/C++, которому в Java соответствия нет: метод объявляется вместе с телом, а
+     * сигнатура без тела не компилируется. Поэтому прототип исчезает — всё, что он объявлял,
+     * несёт определение той же функции.
+     * <p>
+     * Внутри определения это тот же узел, но уже заголовок метода, и печатать его надо целиком:
+     * определение печатает своё объявление через общую диспетчеризацию, иначе узел не попал бы
+     * ни в хуки, ни в source map.
+     */
+    private String toStringStandaloneFunctionDeclaration(FunctionDeclaration functionDeclaration) {
+        return ctx.isDirectlyInNode(FunctionDefinition.class)
+                ? toStringFunctionDeclaration(functionDeclaration)
+                : "";
     }
 
     private String toStringFunctionDeclaration(FunctionDeclaration functionDeclaration) {

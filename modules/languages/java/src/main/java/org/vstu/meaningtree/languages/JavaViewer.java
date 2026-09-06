@@ -8,6 +8,7 @@ import org.vstu.meaningtree.languages.helpers.GeneratorLowerer;
 import org.vstu.meaningtree.languages.helpers.ComprehensionLowerer;
 import org.vstu.meaningtree.languages.helpers.ScopeDeclarationLowerer;
 import org.vstu.meaningtree.languages.helpers.LoopElseLowerer;
+import org.vstu.meaningtree.languages.helpers.MeaningTreeTransformations;
 import org.vstu.meaningtree.languages.helpers.TryElseLowerer;
 import org.vstu.meaningtree.languages.support.SemanticFeature;
 import org.vstu.meaningtree.languages.support.features.*;
@@ -134,9 +135,13 @@ public class JavaViewer extends LanguageViewer {
 
     @Override
     protected MeaningTree preprocessTree(MeaningTree tree) {
-        return TryElseLowerer.lower(LoopElseLowerer.lower(
-                comprehensionLowered(GeneratorLowerer.lower(
-                        ScopeDeclarationLowerer.dropGlobals(tree), ITERATOR_PROTOCOL))));
+        return MeaningTreeTransformations.apply(tree, List.of(
+                ScopeDeclarationLowerer::dropGlobals,
+                current -> GeneratorLowerer.lower(current, ITERATOR_PROTOCOL),
+                this::comprehensionLowered,
+                LoopElseLowerer::lower,
+                TryElseLowerer::lower
+        ));
     }
 
     private MeaningTree comprehensionLowered(MeaningTree tree) {

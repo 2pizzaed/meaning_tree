@@ -6,6 +6,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.helpers.ComprehensionLowerer;
 import org.vstu.meaningtree.languages.helpers.LoopElseLowerer;
+import org.vstu.meaningtree.languages.helpers.MeaningTreeTransformations;
 import org.vstu.meaningtree.languages.helpers.MultiCatchSplitter;
 import org.vstu.meaningtree.languages.helpers.ResourceContextLowerer;
 import org.vstu.meaningtree.languages.helpers.ScopeDeclarationLowerer;
@@ -86,6 +87,7 @@ import org.vstu.meaningtree.utils.modules.ImportPathConverter;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
 
 import java.util.*;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator.POW;
@@ -104,12 +106,20 @@ public class CppViewer extends LanguageViewer {
     @Override
     protected MeaningTree preprocessTree(MeaningTree tree) {
         // Владение ресурсами снимается первым: дальше по конвейеру никакой узел о нём не знает
-        MeaningTree lowered = MultiCatchSplitter.lower(TryElseLowerer.lower(
-                LoopElseLowerer.lower(comprehensionLowered(
-                        ResourceContextLowerer.flatten(ScopeDeclarationLowerer.dropGlobals(tree))))));
-        // После этого прохода ссылок в дереве не остаётся, и запрет ссылок в режиме Си,
-        // который проверяется уже по подготовленному дереву, к ним не придирается
-        return representsReferencesAsPointers() ? ReferenceToPointerLowerer.lower(lowered) : lowered;
+        List<UnaryOperator<MeaningTree>> transformations = new ArrayList<>(List.of(
+                ScopeDeclarationLowerer::dropGlobals,
+                ResourceContextLowerer::flatten,
+                this::comprehensionLowered,
+                LoopElseLowerer::lower,
+                TryElseLowerer::lower,
+                MultiCatchSplitter::lower
+        ));
+        if (representsReferencesAsPointers()) {
+            // После этого прохода ссылок в дереве не остаётся, и запрет ссылок в режиме Си,
+            // который проверяется уже по подготовленному дереву, к ним не придирается
+            transformations.add(ReferenceToPointerLowerer::lower);
+        }
+        return MeaningTreeTransformations.apply(tree, transformations);
     }
 
     private MeaningTree comprehensionLowered(MeaningTree tree) {

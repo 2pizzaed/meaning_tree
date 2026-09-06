@@ -981,7 +981,7 @@ public class JavaViewer extends LanguageViewer {
 
     private String toStringUserType(UserType userType) {
         if (userType instanceof GenericUserType generic) {
-            String args = Arrays.stream(generic.getTypeParameters()).map(this::toString).collect(Collectors.joining(", "));
+            String args = Arrays.stream(generic.getTypeParameters()).map(this::wrapperTypeName).collect(Collectors.joining(", "));
             return String.format("%s<%s>", toStringUserTypeName(generic), args);
         }
         return toStringUserTypeName(userType);
@@ -1748,7 +1748,7 @@ public class JavaViewer extends LanguageViewer {
             case SetType setType -> toStringSetType(setType);
             case DictionaryType dictType -> toStringDictionaryType(dictType);
             case PlainCollectionType plain -> toStringPlainCollectionType(plain);
-            case OptionalType optionalType -> "Optional<%s>".formatted(toString(optionalType));
+            case OptionalType optionalType -> "Optional<%s>".formatted(wrapperTypeName(optionalType.getTargetType()));
             default -> throw new IllegalStateException("Unexpected value: " + type.getClass());
         };
     }

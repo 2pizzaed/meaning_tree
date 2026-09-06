@@ -4,10 +4,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
-import org.vstu.meaningtree.nodes.Definition;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
-import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
 import org.vstu.meaningtree.nodes.declarations.FieldDeclaration;
@@ -51,8 +49,6 @@ import org.vstu.meaningtree.nodes.statements.loops.GeneralForLoop;
 import org.vstu.meaningtree.nodes.statements.loops.InfiniteLoop;
 import org.vstu.meaningtree.nodes.statements.loops.RangeForLoop;
 import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
-import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
-import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.nodes.types.GenericInterface;
 import org.vstu.meaningtree.nodes.types.UnknownType;
 import org.vstu.meaningtree.nodes.types.builtin.BooleanType;
@@ -86,7 +82,9 @@ import java.util.Set;
  * остаётся в дереве, и его отвергает анализ поддержки языка.
  * <p>
  * Имена протокола обхода приходят снаружи ({@link IteratorProtocol}), потому что они у каждого
- * языка свои, а сам разбор формы от языка не зависит.
+ * языка свои. Сам разбор формы от языка не зависит и живёт в {@link GeneratorForm}: понижение
+ * строит класс только для формы, которую тот признал, а причину отказа по той же разметке
+ * называет правило поддержки языка.
  * <p>
  * <b>Чего преобразование не сохраняет:</b> генератор в исходном языке ленив целиком — его вызов
  * не выполняет ничего до первого обхода, — а у итератора пролог выполняется конструктором. Для
@@ -139,7 +137,7 @@ public final class GeneratorLowerer {
         Set<String> loweredNames = new LinkedHashSet<>();
         for (GeneratorDefinition generator : collectGenerators(result)) {
             expandDelegations(generator);
-            if (unsupportedReason(generator) != null) {
+            if (GeneratorForm.unsupportedReason(generator) != null) {
                 continue;
             }
             IteratorDefinition iterator = buildIterator(generator, protocol);
@@ -151,98 +149,6 @@ public final class GeneratorLowerer {
             rewriteGeneratorCalls(result, loweredNames);
         }
         return result;
-    }
-
-    /**
-     * Причина, по которой генератор не переводится в итератор, или {@code null}, если
-     * переводится. Используется и понижением, и правилом поддержки языка, чтобы отказ называл
-     * ровно то, что помешало.
-     */
-    @Nullable
-    public static String unsupportedReason(@NotNull GeneratorDefinition generator) {
-        CompoundStatement body = generator.getBody();
-        Node[] statements = body.getNodes();
-
-        if (countYields(body) == 0) {
-            return "generator has no yield statements";
-        }
-        for (NodeInfo info : generator) {
-            if (info.node() instanceof YieldStatement yield && yield.isDelegated()) {
-                return "delegated yield must be expanded before lowering";
-            }
-        }
-
-        int firstYieldingIndex = -1;
-        for (int i = 0; i < statements.length; i++) {
-            if (countYields(statements[i]) > 0) {
-                firstYieldingIndex = i;
-                break;
-            }
-        }
-
-        Node firstYielding = statements[firstYieldingIndex];
-        if (firstYielding instanceof Loop) {
-            return loopFormReason(statements, firstYieldingIndex);
-        }
-        if (firstYielding instanceof YieldStatement) {
-            return flatFormReason(statements, firstYieldingIndex);
-        }
-        return "yield nested in " + firstYielding.getClass().getSimpleName()
-                + " is neither a yielding loop nor a plain sequence of yields";
-    }
-
-    /* ------------------------------------------------------------------ */
-    /* Разбор формы                                                        */
-    /* ------------------------------------------------------------------ */
-
-    @Nullable
-    private static String loopFormReason(Node[] statements, int loopIndex) {
-        if (loopIndex != statements.length - 1) {
-            return "statements after the yielding loop are not supported";
-        }
-        Loop loop = (Loop) statements[loopIndex];
-        if (loop.hasElseBranch()) {
-            return "else branch of a yielding loop is not supported";
-        }
-        if (!(loop instanceof WhileLoop || loop instanceof InfiniteLoop
-                || loop instanceof RangeForLoop || loop instanceof GeneralForLoop
-                || loop instanceof ForEachLoop)) {
-            return "loop of type " + loop.getClass().getSimpleName() + " cannot carry a yield";
-        }
-
-        CompoundStatement loopBody = asCompound(loop.getBody());
-        int topLevelYields = 0;
-        for (Node statement : loopBody.getNodes()) {
-            if (statement instanceof YieldStatement yield) {
-                topLevelYields++;
-                if (!yield.hasValue()) {
-                    return "bare yield inside a loop is not supported";
-                }
-            } else if (countYields(statement) > 0) {
-                return "yield nested inside " + statement.getClass().getSimpleName()
-                        + " is not supported; only a yield directly in the loop body is";
-            }
-        }
-        if (topLevelYields != 1) {
-            return "a yielding loop must contain exactly one yield, found " + topLevelYields;
-        }
-        if (containsJump(loopBody)) {
-            return "break, continue or return inside a yielding loop is not supported";
-        }
-        return null;
-    }
-
-    @Nullable
-    private static String flatFormReason(Node[] statements, int firstYieldIndex) {
-        for (int i = firstYieldIndex; i < statements.length; i++) {
-            if (!(statements[i] instanceof YieldStatement yield)) {
-                return "statements between or after yields are not supported outside a loop";
-            }
-            if (!yield.hasValue()) {
-                return "bare yield is not supported";
-            }
-        }
-        return null;
     }
 
     /* ------------------------------------------------------------------ */
@@ -325,7 +231,7 @@ public final class GeneratorLowerer {
         private CompoundStatement build(SimpleIdentifier className) {
             Node[] statements = generator.getBody().getNodes();
             int firstYieldingIndex = 0;
-            while (countYields(statements[firstYieldingIndex]) == 0) {
+            while (GeneratorForm.countYields(statements[firstYieldingIndex]) == 0) {
                 firstYieldingIndex++;
             }
 
@@ -433,7 +339,7 @@ public final class GeneratorLowerer {
         }
 
         private List<Node> buildLoopNextBody(Loop loop) {
-            Node[] statements = asCompound(loop.getBody()).getNodes();
+            Node[] statements = GeneratorForm.asCompound(loop.getBody()).getNodes();
             int yieldIndex = 0;
             while (!(statements[yieldIndex] instanceof YieldStatement)) {
                 yieldIndex++;
@@ -610,44 +516,6 @@ public final class GeneratorLowerer {
             }
         }
         return generators;
-    }
-
-    private static int countYields(Node node) {
-        return YieldStatement.ownedBy(node).size();
-    }
-
-    /**
-     * Есть ли в поддереве переход, принадлежащий именно ему. Во вложенные определения обход
-     * не заходит по той же причине, что и у выдач: их переходы принадлежат своему телу.
-     */
-    private static boolean containsJump(Node root) {
-        for (NodeInfo info : root.iterate(false)) {
-            boolean isJump = info.node() instanceof BreakStatement
-                    || info.node() instanceof ContinueStatement
-                    || info.node() instanceof ReturnStatement;
-            if (!isJump) {
-                continue;
-            }
-            boolean nested = false;
-            for (NodeInfo parent = info.parent(); parent != null; parent = parent.parent()) {
-                if (parent.node() == root) {
-                    break;
-                }
-                if (parent.node() instanceof Definition) {
-                    nested = true;
-                    break;
-                }
-            }
-            if (!nested) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static CompoundStatement asCompound(Statement statement) {
-        return statement instanceof CompoundStatement compound
-                ? compound : new CompoundStatement(statement);
     }
 
     /**

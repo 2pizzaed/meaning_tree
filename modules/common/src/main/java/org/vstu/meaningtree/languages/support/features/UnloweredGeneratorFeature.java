@@ -1,7 +1,7 @@
 package org.vstu.meaningtree.languages.support.features;
 
 import org.jetbrains.annotations.Nullable;
-import org.vstu.meaningtree.languages.helpers.GeneratorLowerer;
+import org.vstu.meaningtree.languages.helpers.GeneratorForm;
 import org.vstu.meaningtree.languages.support.FeatureContext;
 import org.vstu.meaningtree.languages.support.SemanticFeature;
 import org.vstu.meaningtree.nodes.Node;
@@ -32,7 +32,7 @@ public class UnloweredGeneratorFeature extends SemanticFeature {
         if (!(node instanceof GeneratorDefinition generator)) {
             return "Generator cannot be converted to an iterator class";
         }
-        String reason = GeneratorLowerer.unsupportedReason(generator);
+        String reason = GeneratorForm.unsupportedReason(generator);
         return "Generator `%s` cannot be converted to an iterator class: %s".formatted(
                 generator.getName(), reason == null ? "unrecognized form" : reason);
     }

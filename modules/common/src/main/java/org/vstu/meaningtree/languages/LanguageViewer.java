@@ -113,6 +113,7 @@ abstract public class LanguageViewer extends TranslatorComponent {
             return;
         }
         List<String> stillReferenced = unrenderable.stream()
+                .filter(this::mayBeNamedInCode)
                 .map(this::describeImport)
                 .filter(name -> isReferencedIn(renderedCode, name))
                 .toList();
@@ -123,6 +124,25 @@ abstract public class LanguageViewer extends TranslatorComponent {
                 ("Imports have no counterpart in %s, but the generated code still refers to them: %s. "
                         + "Enable silentlySkipUnknownImports to drop them anyway")
                         .formatted(translator.getLanguageName(), stillReferenced));
+    }
+
+    /**
+     * Может ли имя импорта вообще встретиться в выводе ссылкой на импортированное.
+     * <p>
+     * Подключение стандартной библиотеки C++ ({@code #include <...>}) именует файл, а не
+     * сущность: из {@code <format>} код зовёт {@code std::format}, из {@code <vector>} —
+     * {@code std::vector}, и самим именем файла не пользуется никто. Совпадение этого слова с
+     * чем-нибудь в выводе целевого языка — совпадение, а не ссылка: Java печатает
+     * {@code String.format(...)} своим встроенным средством, и отказ выбросить подключение,
+     * которого в Java не бывает вовсе, был ложным.
+     * <p>
+     * Локальное подключение ({@code #include "utils.h"}) проверяется по-прежнему: его имя —
+     * имя файла проекта, по которому обычно назван и его код, и совпадение с именем в выводе
+     * там значимо.
+     */
+    private boolean mayBeNamedInCode(Import importNode) {
+        return !(importNode instanceof Include include)
+                || include.getIncludeType() != Include.IncludeType.POINTY_BRACKETS_FORM;
     }
 
     /**

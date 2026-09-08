@@ -2,6 +2,7 @@ package org.vstu.meaningtree.nodes.declarations;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.vstu.meaningtree.iterators.utils.NodeReference;
 import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
@@ -13,7 +14,9 @@ import java.util.List;
 import java.util.Objects;
 
 public class MethodDeclaration extends FunctionDeclaration implements NestedDeclaration<ClassDeclaration> {
+    @NodeReference
     private UserType owner;
+    @NodeReference
     private ClassDeclaration parent;
 
     /**
@@ -30,6 +33,7 @@ public class MethodDeclaration extends FunctionDeclaration implements NestedDecl
      * {@link #parent}, они указывают вверх по иерархии дерева, а не являются его частью, и у
      * копии, ещё не прошедшей анализ, их быть не должно.
      */
+    @NodeReference
     private List<MethodDeclaration> overriddenFrom = List.of();
 
     public MethodDeclaration(UserType owner,

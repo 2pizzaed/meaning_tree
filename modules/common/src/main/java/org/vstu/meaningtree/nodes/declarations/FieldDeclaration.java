@@ -1,5 +1,6 @@
 package org.vstu.meaningtree.nodes.declarations;
 
+import org.vstu.meaningtree.iterators.utils.NodeReference;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 
 public class FieldDeclaration extends VariableDeclaration implements NestedDeclaration<ClassDeclaration> {
+    @NodeReference
     private ClassDeclaration parent;
 
     public FieldDeclaration(Type type, SimpleIdentifier name, List<DeclarationModifier> modifiers) {

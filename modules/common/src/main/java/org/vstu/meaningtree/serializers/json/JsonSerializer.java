@@ -4,6 +4,7 @@ import com.google.gson.*;
 import org.jetbrains.annotations.NotNull;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeSerializationException;
+import org.vstu.meaningtree.iterators.utils.NodeReference;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
@@ -78,7 +79,7 @@ import java.util.List;
 import java.util.Collection;
 import java.util.Objects;
 
-/*
+/**
    Читаемая схема JSON-формата, порождаемого этим сериализатором (все документы,
    узлы, перечисления и их поля), описана в файле docs/references/json-format.d.ts
    в виде деклараций TypeScript. Файл не участвует в сборке и служит документацией:
@@ -90,6 +91,11 @@ import java.util.Objects;
    исправить или дописать синхронно. То же касается JsonNodeTypeClassMapper,
    задающего имена узлов, и JsonDeserializer, который должен уметь читать
    описанный формат.
+
+   <p>Поле модели, помеченное {@link NodeReference}, не является структурным потомком.
+   Если такая ссылка сериализуется полным узлом, имя JSON-поля обязано оканчиваться на
+   {@code _ref}, чтобы потребители не включали ссылочную ветвь в индекс дерева. Ссылки,
+   представленные только числовым id, используют суффикс {@code _id} или {@code _ids}.
 */
 public class JsonSerializer implements Serializer<JsonObject> {
     /* -----------------------------
@@ -1723,16 +1729,28 @@ public class JsonSerializer implements Serializer<JsonObject> {
         if (entryPoint.hasMainClass()) {
             json.addProperty("main_class_id", entryPoint.getMainClass().getId());
             if (!isInBody(entryPoint, entryPoint.getMainClass())) {
-                json.add("main_class", serialize(entryPoint.getMainClass()));
+                addNodeReference(json, "main_class_ref", entryPoint.getMainClass());
             }
         }
         if (entryPoint.hasEntryPoint()) {
             json.addProperty("entry_point_node_id", entryPoint.getEntryPoint().getId());
             if (!isInBody(entryPoint, entryPoint.getEntryPoint())) {
-                json.add("entry_point_node", serialize(entryPoint.getEntryPoint()));
+                addNodeReference(json, "entry_point_node_ref", entryPoint.getEntryPoint());
             }
         }
         return json;
+    }
+
+    /**
+     * Добавляет неструктурную ссылку как полный узел и проверяет соглашение об имени поля.
+     */
+    private void addNodeReference(@NotNull JsonObject json, @NotNull String field, Node reference) {
+        if (!field.endsWith("_ref")) {
+            throw new MeaningTreeSerializationException(
+                    "Embedded node reference field must end with _ref: " + field
+            );
+        }
+        json.add(field, serialize(reference));
     }
 
     /**
@@ -2602,7 +2620,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(decl));
             json.add("return_type", serialize(decl.getReturnType()));
         }
-        json.add("owner", serialize(decl.getOwner()));
+        addNodeReference(json, "owner_ref", decl.getOwner());
         json.add("name", serialize(decl.getQualifiedName()));
         JsonArray anno = new JsonArray();
         for (var t : decl.getAnnotations()) anno.add(serialize(t));

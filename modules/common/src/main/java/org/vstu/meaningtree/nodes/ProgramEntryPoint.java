@@ -1,6 +1,7 @@
 package org.vstu.meaningtree.nodes;
 
 import org.jetbrains.annotations.Nullable;
+import org.vstu.meaningtree.iterators.utils.NodeReference;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
 
@@ -19,12 +20,14 @@ public class ProgramEntryPoint extends Node {
     /**
      * Может быть функцией, методом главного класса, либо просто составным оператором (например, как в Python)
      */
+    @NodeReference
     @Nullable
     private Node _entryPointNode;
 
     /**
      * Ссылка на главный класс. Он не исключается из body, нужен для удобства разработчиков поддержки для языков
      */
+    @NodeReference
     @Nullable
     private ClassDefinition _mainClass;
 

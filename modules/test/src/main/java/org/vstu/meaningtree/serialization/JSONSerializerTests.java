@@ -8,10 +8,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeSerializationException;
+import org.vstu.meaningtree.iterators.utils.NodeReference;
+import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.languages.*;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
+import org.vstu.meaningtree.nodes.declarations.FieldDeclaration;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.MethodDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
@@ -22,6 +25,8 @@ import org.vstu.meaningtree.nodes.definitions.IteratorDefinition;
 import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
+import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
+import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.expressions.literals.IntegerLiteral;
 import org.vstu.meaningtree.nodes.expressions.literals.ListLiteral;
@@ -683,9 +688,16 @@ public class JSONSerializerTests {
         assertTrue(original.hasMainClass());
         assertTrue(original.hasEntryPoint());
 
+        JsonObject serialized = new JsonSerializer().serialize(tree);
+        JsonObject serializedEntryPoint = serialized.getAsJsonObject("root_node");
+        assertTrue(serializedEntryPoint.has("main_class_ref"));
+        assertTrue(serializedEntryPoint.has("entry_point_node_ref"));
+        assertFalse(serializedEntryPoint.has("main_class"));
+        assertFalse(serializedEntryPoint.has("entry_point_node"));
+
         ProgramEntryPoint restored = assertInstanceOf(
                 ProgramEntryPoint.class,
-                new JsonDeserializer().deserializeTree(new JsonSerializer().serialize(tree)).getRootNode()
+                new JsonDeserializer().deserializeTree(serialized).getRootNode()
         );
 
         assertTrue(restored.hasMainClass());
@@ -693,6 +705,66 @@ public class JSONSerializerTests {
         assertEquals(original.getMainClass().getId(), restored.getMainClass().getId());
         assertEquals(original.getEntryPoint().getId(), restored.getEntryPoint().getId());
         assertInstanceOf(FunctionDefinition.class, restored.getEntryPoint());
+
+        JsonObject legacy = serialized.deepCopy();
+        JsonObject legacyEntryPoint = legacy.getAsJsonObject("root_node");
+        legacyEntryPoint.add("main_class", legacyEntryPoint.remove("main_class_ref"));
+        legacyEntryPoint.add("entry_point_node", legacyEntryPoint.remove("entry_point_node_ref"));
+
+        ProgramEntryPoint restoredLegacy = assertInstanceOf(
+                ProgramEntryPoint.class,
+                new JsonDeserializer().deserializeTree(legacy).getRootNode()
+        );
+        assertEquals(original.getMainClass().getId(), restoredLegacy.getMainClass().getId());
+        assertEquals(original.getEntryPoint().getId(), restoredLegacy.getEntryPoint().getId());
+    }
+
+    @Test
+    void methodOwnerReferenceUsesRefSuffixAndLegacyNameIsAccepted() {
+        MethodDeclaration original = overrideRoundTripMethod("Animal", "speak", null);
+        JsonObject serialized = new JsonSerializer().serialize(original);
+
+        assertTrue(serialized.has("owner_ref"));
+        assertFalse(serialized.has("owner"));
+
+        MethodDeclaration restored = assertInstanceOf(
+                MethodDeclaration.class,
+                new JsonDeserializer().deserialize(serialized)
+        );
+        assertEquals(original.getOwner(), restored.getOwner());
+
+        JsonObject legacy = serialized.deepCopy();
+        legacy.add("owner", legacy.remove("owner_ref"));
+        MethodDeclaration restoredLegacy = assertInstanceOf(
+                MethodDeclaration.class,
+                new JsonDeserializer().deserialize(legacy)
+        );
+        assertEquals(original.getOwner(), restoredLegacy.getOwner());
+    }
+
+    @Test
+    void nonOwningNodeFieldsAreMarkedAsReferences() throws NoSuchFieldException {
+        assertNodeReference(ProgramEntryPoint.class, "_mainClass");
+        assertNodeReference(ProgramEntryPoint.class, "_entryPointNode");
+        assertNodeReference(FieldDeclaration.class, "parent");
+        assertNodeReference(MethodDeclaration.class, "owner");
+        assertNodeReference(MethodDeclaration.class, "parent");
+        assertNodeReference(MethodDeclaration.class, "overriddenFrom");
+        assertNodeReference(FunctionCall.class, "resolvedDeclaration");
+        assertNodeReference(ConstructorCall.class, "resolvedDeclaration");
+        assertNodeReference(ObjectNewExpression.class, "resolvedDeclaration");
+    }
+
+    private static void assertNodeReference(Class<?> owner, String field) throws NoSuchFieldException {
+        var declaredField = owner.getDeclaredField(field);
+        assertTrue(
+                declaredField.isAnnotationPresent(NodeReference.class),
+                () -> owner.getSimpleName() + "." + field + " must be marked with @NodeReference"
+        );
+        assertFalse(
+                declaredField.isAnnotationPresent(TreeNode.class),
+                () -> owner.getSimpleName() + "." + field + " cannot be both @NodeReference and @TreeNode"
+        );
     }
 
     @Test

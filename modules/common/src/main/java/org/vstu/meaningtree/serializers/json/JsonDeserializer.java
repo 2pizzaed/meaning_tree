@@ -1522,8 +1522,9 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 yield new FunctionDeclaration(name, returnType, annotations, arguments);
             }
             case "method_declaration", "object_constructor_declaration", "object_destructor_declaration" -> {
-                UserType owner = json.has("owner") && !json.get("owner").isJsonNull()
-                        ? (UserType) deserialize(json.getAsJsonObject("owner"))
+                JsonObject ownerReference = getNodeReference(json, "owner_ref", "owner");
+                UserType owner = ownerReference != null
+                        ? (UserType) deserialize(ownerReference)
                         : null;
                 Identifier name = (Identifier) deserialize(json.getAsJsonObject("name"));
                 List<Annotation> annotations = deserializeAnnotations(json.getAsJsonArray("annotations"));
@@ -1617,8 +1618,9 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                     body.add(deserialize(elem.getAsJsonObject()));
                 }
                 ClassDefinition mainClass = (ClassDefinition) resolveEntryPointReference(
-                        json, "main_class_id", "main_class");
-                Node entryPoint = resolveEntryPointReference(json, "entry_point_node_id", "entry_point_node");
+                        json, "main_class_id", "main_class_ref", "main_class");
+                Node entryPoint = resolveEntryPointReference(
+                        json, "entry_point_node_id", "entry_point_node_ref", "entry_point_node");
                 yield new ProgramEntryPoint(body, mainClass, entryPoint);
             }
             case "comment" -> Comment.fromUnescaped(
@@ -1990,15 +1992,31 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
      * Разрешает ссылку точки входа: сначала по id уже разобранного узла, иначе — по вложенной
      * копии узла, которую сериализатор кладёт рядом, если узел не входит в body.
      */
-    private Node resolveEntryPointReference(JsonObject json, String idField, String nodeField) {
+    private Node resolveEntryPointReference(JsonObject json, String idField, String... nodeFields) {
         if (json.has(idField) && !json.get(idField).isJsonNull()) {
             Node cached = nodeCache.get(json.get(idField).getAsLong());
             if (cached != null) {
                 return cached;
             }
         }
-        if (json.has(nodeField) && !json.get(nodeField).isJsonNull()) {
-            return deserialize(json.getAsJsonObject(nodeField));
+        for (String nodeField : nodeFields) {
+            if (json.has(nodeField) && !json.get(nodeField).isJsonNull()) {
+                return deserialize(json.getAsJsonObject(nodeField));
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Читает встроенную Node-ссылку, предпочитая текущее имя с {@code _ref}, но принимая
+     * прежнее имя для обратной совместимости с уже сохранёнными деревьями.
+     */
+    @Nullable
+    private JsonObject getNodeReference(JsonObject json, String field, String legacyField) {
+        for (String candidate : List.of(field, legacyField)) {
+            if (json.has(candidate) && !json.get(candidate).isJsonNull()) {
+                return json.getAsJsonObject(candidate);
+            }
         }
         return null;
     }

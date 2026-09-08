@@ -1,6 +1,7 @@
 package org.vstu.meaningtree.nodes.expressions.newexpr;
 
 import org.jetbrains.annotations.Nullable;
+import org.vstu.meaningtree.iterators.utils.NodeReference;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Type;
@@ -43,6 +44,7 @@ public class ObjectNewExpression extends NewExpression implements Callable {
      * {@link Callable#getResolvedDeclaration()}. Служебная обратная ссылка без
      * {@code @TreeNode}: конструктор уже присутствует в дереве в своём классе.
      */
+    @NodeReference
     @Nullable
     private FunctionDeclaration resolvedDeclaration;
 

@@ -1,6 +1,7 @@
 package org.vstu.meaningtree.nodes.expressions.calls;
 
 import org.jetbrains.annotations.Nullable;
+import org.vstu.meaningtree.iterators.utils.NodeReference;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Type;
@@ -26,6 +27,7 @@ public class ConstructorCall extends Expression implements Callable {
      * текстом, а не результатом анализа, иначе одинаковые вызовы перестали бы совпадать
      * из-за разных исходов разбора.
      */
+    @NodeReference
     @Nullable
     private FunctionDeclaration resolvedDeclaration;
 

@@ -1384,8 +1384,8 @@ export interface MethodDeclarationNode
         "method_declaration" | "object_constructor_declaration" | "object_destructor_declaration"
     > {
     return_type?: AnyType;
-    /** Тип-владелец метода. */
-    owner?: AnyType | null;
+    /** Неструктурная ссылка на тип-владельца метода. */
+    owner_ref?: AnyType | null;
     name: AnyNode;
     annotations: AnnotationNode[];
     modifiers: DeclarationModifier[];
@@ -1485,15 +1485,15 @@ export interface PackageDeclarationNode extends NodeBase<"package_declaration"> 
 /**
  * Точка входа программы — обычно корень дерева.
  *
- * `main_class` / `entry_point_node` присутствуют только тогда, когда
+ * `main_class_ref` / `entry_point_node_ref` присутствуют только тогда, когда
  * соответствующий узел не входит в `body` (иначе достаточно ссылки по id).
  */
 export interface ProgramEntryPointNode extends NodeBase<"program_entry_point"> {
     body: AnyNode[];
     main_class_id?: AstId;
-    main_class?: AnyNode;
+    main_class_ref?: AnyNode;
     entry_point_node_id?: AstId;
-    entry_point_node?: AnyNode;
+    entry_point_node_ref?: AnyNode;
 }
 
 export interface CommentNode extends NodeBase<"comment"> {

@@ -57,6 +57,29 @@ public class SourceMapGeneratorTests {
     }
 
     @Test
+    void generalForLoopWithMissingInitializerOrConditionCanBePreprocessed() {
+        for (Sample sample : List.of(
+                new Sample("java", """
+                        for (; ready; advance()) {
+                        }
+                        for (;;) {
+                        }
+                        """, () -> new JavaTranslator(CONFIG)),
+                new Sample("c++", """
+                        for (; ready; advance()) {
+                        }
+                        for (;;) {
+                        }
+                        """, () -> new CppTranslator(CONFIG))
+        )) {
+            MeaningTree tree = sample.translator().getMeaningTree(sample.code());
+
+            assertDoesNotThrow(() -> new SourceMapGenerator(sample.translator()).process(tree),
+                    "Nullable general-for header parts must survive preprocessing for " + sample.language());
+        }
+    }
+
+    @Test
     void bytePositionsPointToRenderedTextOfNode() {
         JavaTranslator translator = new JavaTranslator(CONFIG);
         MeaningTree tree = translator.getMeaningTree("""

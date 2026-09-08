@@ -111,8 +111,8 @@ public class GeneralForLoop extends ForLoop {
 
     public GeneralForLoop clone() {
         var clone = (GeneralForLoop) super.clone();
-        clone.initializer = initializer.clone();
-        clone.condition = condition.clone();
+        clone.initializer = initializer == null ? null : initializer.clone();
+        clone.condition = condition == null ? null : condition.clone();
         return clone;
     }
 

@@ -23,7 +23,11 @@ Use this skill to operate and understand MeaningTree through its public interfac
 
 ## MCP Toolchain Server
 
-If `compph-toolchain-server` is available as an MCP server in the current client, prefer calling its MCP tools instead of shelling out to the Meaning Tree CLI for routine translation, serialization, generation, language listing, and node hierarchy queries. The MCP server exposes the same toolchain through generated tools named `<module>__<method>`, such as `meaning-tree__translate`, `meaning-tree__generate`, `meaning-tree__list-langs`, and `meaning-tree__node-hierarchy`.
+Before choosing how to run an operation, inspect the tools available in the current agent client. Treat the MCP server as available only when its MeaningTree tools appear in that tool list; a configured URL, a running server process, or a reachable `/mcp` endpoint alone is not sufficient. Raw server tool names are `meaning-tree__translate`, `meaning-tree__generate`, `meaning-tree__list-langs`, and `meaning-tree__node-hierarchy`, but clients may add a server prefix or normalize the names.
+
+When the tools are present, prefer them for routine translation, serialization, generation, language listing, and node hierarchy queries. Read the selected tool's input schema before calling it because MCP parameter names and payload shapes may differ from CLI flags.
+
+When the tools are absent, do not use `curl`, hand-written JSON-RPC, or another HTTP client as a substitute for an MCP tool during routine MeaningTree operations. Use the CLI fallback instead. Direct transport-level requests are appropriate only when the task explicitly asks to test or diagnose the MCP server itself.
 
 Use the CLI directly when the MCP server is not configured or running, when the task specifically asks for CLI commands, when reproducing a command-line failure, or when an operation is not exposed by the MCP schemas. Keep `references/cli.md` as the source for CLI flags, artifact paths, and usage caveats.
 

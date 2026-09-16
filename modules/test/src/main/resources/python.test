@@ -398,6 +398,14 @@ group: SimpleExpressionsTest
             x[10, y]
 
 
+    case: Slicing
+        python:
+            x[:1] + x[1:] + x[:] + x[::2] + x[1:5:2] + x[:5:2] + x[1::2]
+
+        python:
+            x[:1] + x[1:] + x[:] + x[::2] + x[1:5:2] + x[:5:2] + x[1::2]
+
+
 group: ComparisonsTest
     case: LessOp
         python:
@@ -589,6 +597,14 @@ group: SimpleStatements
 
         python:
             a, b = b, a
+
+
+    case: DeclarationFromListConversion
+        main python:
+            r = list([1])
+
+        python:
+            r: list[object] = list[object]([1])
 
 
 group: Conditions

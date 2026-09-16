@@ -1273,29 +1273,20 @@ public class PythonViewer extends LanguageViewer {
         Expression stop = range.getStop();
         Expression step = range.getStep();
 
-
-        String[] parts = new String[] {"", "", ""};
+        // Двоеточие между началом и концом обязательно даже без обеих границ:
+        // без него `x[:1]` вырождается в индекс `x[1]`, а `x[:]` — в `x[]`
+        StringBuilder builder = new StringBuilder();
         if (start != null) {
-            parts[0] = toString(start).concat(":");
+            builder.append(toString(start));
         }
-
+        builder.append(":");
         if (stop != null) {
-            parts[1] = toString(stop);
+            builder.append(toString(stop));
         }
-
         if (step != null) {
-            parts[2] = ":".concat(toString(step));
+            builder.append(":").append(toString(step));
         }
-
-        if (parts[0].isEmpty() && !parts[1].isEmpty() && !parts[2].isEmpty()) {
-            parts[0] = ":";
-        }
-        if (parts[0].isEmpty() && parts[1].isEmpty() && !parts[2].isEmpty()) {
-            parts[0] = ":";
-            parts[1] = ":";
-        }
-
-        return String.join("", parts);
+        return builder.toString();
     }
 
     public String rangeFunctionToString(Range range) {

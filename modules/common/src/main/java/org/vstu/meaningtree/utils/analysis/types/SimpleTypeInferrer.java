@@ -477,8 +477,10 @@ public class SimpleTypeInferrer {
             case CompoundComparison compoundComparison -> inference(compoundComparison, scope);
             case TernaryOperator ternaryOperator -> inference(ternaryOperator, scope);
             case Range range -> inference(range, scope);
-            case CastTypeExpression cast -> cast.getCastType();
-            case ConstructorCall constructorCall -> constructorCall.getOwner();
+            // Выведенный тип попадает в объявление переменной, а узел уже стоит в выражении:
+            // без свежей копии с новыми id один объект оказался бы в дереве дважды
+            case CastTypeExpression cast -> (Type) cast.getCastType().freshClone();
+            case ConstructorCall constructorCall -> (Type) constructorCall.getOwner().freshClone();
             case FunctionCall functionCall when functionCall.hasFunctionName() ->
                     scope.scope().getFunctionReturnType(functionCall.getFunctionName());
             default -> new UnknownType();

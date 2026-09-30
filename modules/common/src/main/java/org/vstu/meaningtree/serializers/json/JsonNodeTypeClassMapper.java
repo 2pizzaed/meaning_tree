@@ -5,6 +5,7 @@ import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
+import org.vstu.meaningtree.nodes.declarations.components.PropertyAccessor;
 import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
@@ -260,6 +261,7 @@ public class JsonNodeTypeClassMapper {
         // Declarations
         register("declaration_argument", DeclarationArgument.class);
         register("annotation", Annotation.class);
+        register("property_accessor", PropertyAccessor.class);
         register("class_declaration", ClassDeclaration.class);
         register("interface_declaration", InterfaceDeclaration.class);
         register("structure_declaration", StructureDeclaration.class);

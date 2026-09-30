@@ -8,6 +8,7 @@ import org.vstu.meaningtree.iterators.utils.NodeReference;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
+import org.vstu.meaningtree.nodes.declarations.components.PropertyAccessor;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
@@ -645,6 +646,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case DefinitionArgument defArg -> serializeDefinitionArgument(defArg);
             case DeclarationArgument declarationArgument -> serializeDeclarationArgument(declarationArgument);
             case Annotation anno -> serializeAnnotation(anno);
+            case PropertyAccessor accessor -> serializePropertyAccessor(accessor);
             case InterfaceDeclaration interfaceDeclaration -> serializeClassDeclaration(interfaceDeclaration);
             case ClassDeclaration classDeclaration -> serializeClassDeclaration(classDeclaration);
             case EnumDeclaration enumDeclaration -> serializeEnumDeclaration(enumDeclaration);
@@ -2631,12 +2633,25 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray targets = new JsonArray();
         for (var t : decl.getArguments()) targets.add(serialize(t));
         json.add("arguments", targets);
+        if (decl.getPropertyAccessor() != null) {
+            json.add("property_accessor", serialize(decl.getPropertyAccessor()));
+        }
         json.addProperty("parent_decl_id", decl.getParentDeclaration() == null ? null : decl.getParentDeclaration().getId());
         if (decl.isOverride()) {
             JsonArray overridden = new JsonArray();
             decl.getOverriddenFrom().forEach(ancestor -> overridden.add(ancestor.getId()));
             json.add("overridden_from_ids", overridden);
         }
+        return json;
+    }
+
+    private JsonObject serializePropertyAccessor(@NotNull PropertyAccessor accessor) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(accessor));
+        json.addProperty("kind", enumToValue(accessor.getKind()));
+        json.add("property_name", serialize(accessor.getPropertyName()));
+        json.addProperty("property_definition", accessor.isPropertyDefinition());
+        json.addProperty("annotation_index", accessor.getAnnotationIndex());
         return json;
     }
 

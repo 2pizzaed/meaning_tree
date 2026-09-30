@@ -3,8 +3,10 @@ package org.vstu.meaningtree.nodes.declarations;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.iterators.utils.NodeReference;
+import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Type;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
+import org.vstu.meaningtree.nodes.declarations.components.PropertyAccessor;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.interfaces.NestedDeclaration;
@@ -18,6 +20,10 @@ public class MethodDeclaration extends FunctionDeclaration implements NestedDecl
     private UserType owner;
     @NodeReference
     private ClassDeclaration parent;
+
+    @TreeNode
+    @Nullable
+    private PropertyAccessor propertyAccessor;
 
     /**
      * Методы предков (по классу или интерфейсу), которые этот метод переопределяет или
@@ -66,6 +72,15 @@ public class MethodDeclaration extends FunctionDeclaration implements NestedDecl
         this.owner = owner;
     }
 
+    @Nullable
+    public PropertyAccessor getPropertyAccessor() {
+        return propertyAccessor;
+    }
+
+    public void setPropertyAccessor(@Nullable PropertyAccessor propertyAccessor) {
+        this.propertyAccessor = propertyAccessor;
+    }
+
     /** Все найденные методы предков с этой сигнатурой; пусто, если связь не установлена. */
     public List<MethodDeclaration> getOverriddenFrom() {
         return overriddenFrom;
@@ -107,18 +122,20 @@ public class MethodDeclaration extends FunctionDeclaration implements NestedDecl
     public boolean equals(Object o) {
         if (!(o instanceof MethodDeclaration nodeInfos)) return false;
         if (!super.equals(o)) return false;
-        return Objects.equals(owner, nodeInfos.owner) && Objects.equals(modifiers, nodeInfos.modifiers);
+        return Objects.equals(owner, nodeInfos.owner) && Objects.equals(modifiers, nodeInfos.modifiers)
+                && Objects.equals(propertyAccessor, nodeInfos.propertyAccessor);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), owner, modifiers);
+        return Objects.hash(super.hashCode(), owner, modifiers, propertyAccessor);
     }
 
     public MethodDeclaration clone() {
         var clone = (MethodDeclaration) super.clone();
         clone.modifiers = List.copyOf(modifiers);
         clone.owner = owner.clone();
+        clone.propertyAccessor = propertyAccessor == null ? null : propertyAccessor.clone();
         // Копия — ещё не проанализированный узел: связь с предком проставляет OverrideResolver,
         // а указывать в чужое дерево она не должна.
         clone.overriddenFrom = List.of();

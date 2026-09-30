@@ -103,7 +103,10 @@ final class PythonOverloadDispatcher {
     private static boolean isOverloadable(Definition definition) {
         // Деструктор перегружаться не может, а его Python-имя (__del__) единственное.
         return definition instanceof FunctionDefinition
-                && !(definition.getDeclaration() instanceof ObjectDestructorDeclaration);
+                && !(definition.getDeclaration() instanceof ObjectDestructorDeclaration)
+                // Property decorators rebind the same name; these are not overloaded methods.
+                && !(definition.getDeclaration() instanceof MethodDeclaration method
+                && method.getPropertyAccessor() != null);
     }
 
     /** Имя, под которым определение будет выведено в Python: конструктор всегда {@code __init__}. */

@@ -6,6 +6,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.languages.*;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
+import org.vstu.meaningtree.nodes.declarations.components.PropertyAccessor;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.expressions.literals.IntegerLiteral;
 import org.vstu.meaningtree.nodes.expressions.literals.StringLiteral;
@@ -37,6 +38,43 @@ public class SourceMapGeneratorTests {
 
     /** Маркеры разметки: если хоть один остался в коде, границы посчитаны неверно. */
     private static final String WORD_JOINER = "⁠";
+
+    @Test
+    void propertyAccessorDecoratorsHaveStableSourceMapRanges() {
+        PythonTranslator translator = new PythonTranslator(CONFIG);
+        MeaningTree tree = translator.getMeaningTree("""
+                class Box:
+                    @property
+                    def value(self) -> int:
+                        return 1
+
+                    @value.setter
+                    def set_value(self, value: int) -> None:
+                        pass
+
+                    @value.getter
+                    def get_value(self) -> int:
+                        return 2
+
+                    @value.deleter
+                    def delete_value(self) -> None:
+                        pass
+                """);
+        SourceMap first = new SourceMapGenerator(translator).process(tree);
+        SourceMap second = new SourceMapGenerator(translator).process(tree);
+        assertEquals(translator.getCode(tree).strip(), first.code().strip());
+        assertEquals(first.bytePositions(), second.bytePositions());
+        byte[] code = first.code().getBytes(StandardCharsets.UTF_8);
+        List<PropertyAccessor> accessors = nodesOf(tree, PropertyAccessor.class);
+        assertEquals(4, accessors.size());
+        for (PropertyAccessor accessor : accessors) {
+            var position = first.bytePositions().get(accessor.getId());
+            assertNotNull(position);
+            String decorator = textOf(code, position);
+            assertTrue(List.of("property", "value.setter", "value.getter", "value.deleter").contains(decorator),
+                    () -> "Unexpected accessor source range: " + decorator);
+        }
+    }
 
     @Test
     void generatedCodeMatchesPlainGenerationForEveryLanguage() {

@@ -5,6 +5,7 @@ import org.vstu.meaningtree.nodes.Definition;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.MethodDeclaration;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
+import org.vstu.meaningtree.nodes.declarations.components.PropertyAccessor;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.interfaces.HasBodyStatement;
@@ -32,12 +33,17 @@ public class FunctionDefinition extends Definition implements HasBodyStatement {
 
     public MethodDefinition makeMethod(UserType owner, List<DeclarationModifier> modifiers) {
         FunctionDeclaration decl = getDeclaration();
-        return new MethodDefinition(
+        MethodDefinition method = new MethodDefinition(
                 new MethodDeclaration(
                         (UserType) owner.freshClone(), decl.getName(), decl.getReturnType(),
                         decl.getAnnotations(), modifiers,
                         decl.getArguments().toArray(new DeclarationArgument[0])),
                 getBody());
+        if (decl instanceof MethodDeclaration source && source.getPropertyAccessor() != null) {
+            method.getDeclaration().setPropertyAccessor(
+                    (PropertyAccessor) source.getPropertyAccessor().freshClone());
+        }
+        return method;
     }
 
     public CompoundStatement getBody() {

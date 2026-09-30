@@ -1060,6 +1060,40 @@ group: StructuresOOP
                 def my_prop(self):
                     return 1.0E31
 
+    case: PropertyAccessors
+        main python:
+            class PropertyBox:
+                _value: int = 0
+
+                @property
+                def value(self) -> int:
+                    return self._value
+
+                @value.setter
+                def value(self, new_value: int) -> None:
+                    self._value = new_value
+
+                @value.deleter
+                def value(self) -> None:
+                    del self._value
+
+        python:
+            class PropertyBox:
+                _value: int = 0
+
+                @property
+                def value(self) -> int:
+                    return self._value
+
+                @value.setter
+                def value(self, new_value: int) -> None:
+                    self._value = new_value
+
+                @value.deleter
+                def value(self) -> None:
+                    del self._value
+
+
     case: NestedClassInsideMethod
         python:
             class Outer:

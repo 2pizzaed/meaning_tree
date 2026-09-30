@@ -12,11 +12,13 @@ import org.vstu.meaningtree.iterators.utils.NodeIterable;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
+import org.vstu.meaningtree.nodes.declarations.components.PropertyAccessor;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
+import org.vstu.meaningtree.nodes.enums.AccessorKind;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.Literal;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
@@ -1531,15 +1533,28 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 List<DeclarationModifier> modifiers = deserializeModifiers(json.getAsJsonArray("modifiers"));
                 List<DeclarationArgument> arguments = deserializeDeclarationArguments(json.getAsJsonArray("arguments"));
 
+                MethodDeclaration declaration;
                 if ("object_constructor_declaration".equals(type)) {
-                    yield new ObjectConstructorDeclaration(owner, name, annotations, modifiers, arguments);
+                    declaration = new ObjectConstructorDeclaration(owner, name, annotations, modifiers, arguments);
                 } else if ("object_destructor_declaration".equals(type)) {
-                    yield new ObjectDestructorDeclaration(owner, name, annotations, modifiers);
+                    declaration = new ObjectDestructorDeclaration(owner, name, annotations, modifiers);
                 } else {
                     Type returnType = (Type) deserialize(json.getAsJsonObject("return_type"));
-                    yield new MethodDeclaration(owner, name, returnType, annotations, modifiers, arguments);
+                    declaration = new MethodDeclaration(owner, name, returnType, annotations, modifiers, arguments);
                 }
+                if (json.has("property_accessor") && !json.get("property_accessor").isJsonNull()) {
+                    declaration.setPropertyAccessor((PropertyAccessor) deserialize(
+                            json.getAsJsonObject("property_accessor")));
+                }
+                yield declaration;
             }
+
+            case "property_accessor" -> new PropertyAccessor(
+                    parseEnum(AccessorKind.class, json.get("kind").getAsString()),
+                    (SimpleIdentifier) deserialize(json.getAsJsonObject("property_name")),
+                    json.get("property_definition").getAsBoolean(),
+                    json.get("annotation_index").getAsInt()
+            );
 
             case "declaration_argument" -> deserializeDeclarationArgument(json);
             case "definition_argument" -> {
@@ -1590,6 +1605,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         decl.getModifiers(), decl.getArguments(), body
                 );
                 restoreId(definition.getDeclaration(), declarationJson);
+                definition.getDeclaration().setPropertyAccessor(decl.getPropertyAccessor());
                 restoreParentDeclaration(definition.getDeclaration(), declarationJson);
                 yield definition;
             }
@@ -1602,6 +1618,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         decl.getModifiers(), body
                 );
                 restoreId(definition.getDeclaration(), declarationJson);
+                definition.getDeclaration().setPropertyAccessor(decl.getPropertyAccessor());
                 restoreParentDeclaration(definition.getDeclaration(), declarationJson);
                 yield definition;
             }

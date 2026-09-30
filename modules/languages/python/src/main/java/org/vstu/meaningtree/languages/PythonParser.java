@@ -10,10 +10,12 @@ import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
+import org.vstu.meaningtree.nodes.declarations.components.PropertyAccessor;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
+import org.vstu.meaningtree.nodes.enums.AccessorKind;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.*;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
@@ -131,7 +133,7 @@ public class PythonParser extends LanguageParser {
         registerTSNodeHandler("float", FloatLiteral.class, this::fromFloatLiteralTSNode);
         registerTSNodeHandler("identifier", Identifier.class, this::fromIdentifier);
         registerTSNodeHandler("keyword_argument", DefinitionArgument.class, this::fromDefinitionArgument);
-        registerTSNodeHandler("delete_statement", DeleteStatement.class, node -> new DeleteStatement((Expression) parseTSNode(node.getChild(0))));
+        registerTSNodeHandler("delete_statement", DeleteStatement.class, node -> new DeleteStatement((Expression) parseTSNode(node.getNamedChild(0))));
         registerTSNodeHandler("comparison_operator", Expression.class, this::fromComparisonTSNode);
         registerTSNodeHandler(List.of("list", "set", "tuple"), PlainCollectionLiteral.class, node -> fromList(node, node.getType()));
         registerTSNodeHandler("dictionary", DictionaryLiteral.class, this::fromDictionary);
@@ -788,6 +790,7 @@ public class PythonParser extends LanguageParser {
                 } else if (method.getName().toString().equals("__init__")) {
                     method = new ObjectConstructorDefinition(decl.getOwner(), decl.getName(), decl.getAnnotations(), decl.getModifiers(), decl.getArguments(), method.getBody());
                 }
+                extractPropertyAccessor(method.getDeclaration());
                 if (method instanceof ObjectConstructorDefinition constructor && !classDecl.getParents().isEmpty()) {
                     Node[] constructorBody = constructor.getBody().getNodes();
                     for (int j = 0; j < constructorBody.length; j++) {
@@ -809,6 +812,45 @@ public class PythonParser extends LanguageParser {
         return isDataclass
                 ? new StructureDefinition(classDecl, body)
                 : new ClassDefinition(classDecl, body);
+    }
+
+    private void extractPropertyAccessor(MethodDeclaration declaration) {
+        List<Annotation> annotations = new ArrayList<>();
+        PropertyAccessor accessor = null;
+        for (Annotation annotation : declaration.getAnnotations()) {
+            AccessorKind kind = null;
+            SimpleIdentifier propertyName = null;
+            boolean propertyDefinition = false;
+            if (annotation.hasName() && annotation.getArguments().length == 0) {
+                if (annotation.getName() instanceof SimpleIdentifier name
+                        && name.equalsIdentifier("property")) {
+                    kind = AccessorKind.GETTER;
+                    propertyName = declaration.getName();
+                    propertyDefinition = true;
+                } else if (annotation.getName() instanceof ScopedIdentifier name
+                        && name.getScopeResolution().size() == 2) {
+                    kind = switch (name.getScopeResolution().getLast().getName()) {
+                        case "getter" -> AccessorKind.GETTER;
+                        case "setter" -> AccessorKind.SETTER;
+                        case "deleter" -> AccessorKind.DELETER;
+                        default -> null;
+                    };
+                    propertyName = name.getScopeResolution().getFirst();
+                }
+            }
+            if (kind == null) {
+                annotations.add(annotation);
+            } else {
+                if (accessor != null) {
+                    throw new UnsupportedParsingException(
+                            "Multiple property accessor decorators on one method are not supported");
+                }
+                accessor = new PropertyAccessor(kind, (SimpleIdentifier) propertyName.freshClone(),
+                        propertyDefinition, annotations.size());
+            }
+        }
+        declaration.setAnnotations(annotations);
+        declaration.setPropertyAccessor(accessor);
     }
 
     private Statement fromForLoop(TSNode node) {

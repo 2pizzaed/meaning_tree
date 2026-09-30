@@ -12,6 +12,7 @@ import org.vstu.meaningtree.languages.utils.Tab;
 import org.vstu.meaningtree.nodes.*;
 import org.vstu.meaningtree.nodes.declarations.*;
 import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
+import org.vstu.meaningtree.nodes.declarations.components.PropertyAccessor;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
@@ -144,6 +145,7 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(DoWhileLoop.class, this::loopToString);
         registerTabRenderer(SwitchStatement.class, this::loopToString);
         registerTabRenderer(MethodDefinition.class, (node, tab) -> functionToString(node, tab));
+        registerRenderer(PropertyAccessor.class, this::propertyAccessorToString);
         registerTabRenderer(GeneratorDefinition.class, this::generatorToString);
         registerTabRenderer(FunctionDefinition.class, (node, tab) -> functionToString(node, tab));
         registerTabRenderer(ObjectConstructorDefinition.class, this::objectConstructorToString);
@@ -573,7 +575,17 @@ public class PythonViewer extends LanguageViewer {
     private String functionToString(Definition func, Tab tab, @Nullable String renderedReturnType) {
         StringBuilder function = new StringBuilder();
         FunctionDeclaration decl = (FunctionDeclaration) func.getDeclaration();
-        for (Annotation anno : decl.getAnnotations()) {
+        PropertyAccessor accessor = decl instanceof MethodDeclaration method
+                ? method.getPropertyAccessor() : null;
+        List<Annotation> annotations = decl.getAnnotations();
+        int accessorIndex = accessor == null ? -1
+                : Math.min(accessor.getAnnotationIndex(), annotations.size());
+        for (int i = 0; i <= annotations.size(); i++) {
+            if (i == accessorIndex) {
+                function.append("@").append(toString(accessor)).append("\n").append(tab);
+            }
+            if (i == annotations.size()) break;
+            Annotation anno = annotations.get(i);
             if (anno.getArguments().length != 0) {
                 function.append(String.format("@%s(%s)\n%s", toString(anno.getFunctionExpression()), argumentsToString(Arrays.asList(anno.getArguments())), tab));
             } else {
@@ -642,6 +654,18 @@ public class PythonViewer extends LanguageViewer {
         return function.toString();
     }
 
+    private String propertyAccessorToString(PropertyAccessor accessor) {
+        if (accessor.isPropertyDefinition()) {
+            return "property";
+        }
+        String suffix = switch (accessor.getKind()) {
+            case GETTER -> "getter";
+            case SETTER -> "setter";
+            case DELETER -> "deleter";
+        };
+        return toString(accessor.getPropertyName()) + "." + suffix;
+    }
+
     private String objectDestructorToString(ObjectDestructorDefinition destructor, Tab tab) {
         MethodDeclaration declaration = destructor.getDeclaration();
         ObjectDestructorDefinition pythonDestructor = new ObjectDestructorDefinition(
@@ -651,6 +675,7 @@ public class PythonViewer extends LanguageViewer {
                 declaration.getModifiers(),
                 destructor.getBody()
         ).remap(destructor);
+        pythonDestructor.getDeclaration().setPropertyAccessor(declaration.getPropertyAccessor());
         return functionToString(pythonDestructor, tab);
     }
 
@@ -664,6 +689,7 @@ public class PythonViewer extends LanguageViewer {
                 declaration.getArguments(),
                 constructor.getBody()
         ).remap(constructor);
+        pythonConstructor.getDeclaration().setPropertyAccessor(declaration.getPropertyAccessor());
         return functionToString(pythonConstructor, tab);
     }
 

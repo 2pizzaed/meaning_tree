@@ -17,6 +17,7 @@ import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
 import org.vstu.meaningtree.nodes.declarations.FieldDeclaration;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.MethodDeclaration;
+import org.vstu.meaningtree.nodes.declarations.components.PropertyAccessor;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.definitions.ClassDefinition;
 import org.vstu.meaningtree.nodes.definitions.FunctionDefinition;
@@ -24,6 +25,7 @@ import org.vstu.meaningtree.nodes.definitions.GeneratorDefinition;
 import org.vstu.meaningtree.nodes.definitions.IteratorDefinition;
 import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
+import org.vstu.meaningtree.nodes.enums.AccessorKind;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
@@ -76,6 +78,134 @@ public class JSONSerializerTests {
     );
 
     private record Snippet(String language, String name, String code) {}
+
+    private static final String PROPERTY_ACCESSORS_CODE = """
+            class Rectangle:
+                width: int = 1
+                height: int = 1
+
+                @outer
+                @property
+                @inner
+                def area(self) -> int:
+                    return self.width * self.height
+
+                @outer
+                @area.setter
+                @inner
+                def set_area(self, value: int) -> None:
+                    self.width = value
+
+                @area.getter
+                def get_area(self) -> int:
+                    return self.width
+
+                @outer
+                @area.deleter
+                def delete_area(self) -> None:
+                    del self.width
+
+                @unrelated
+                def ordinary(self) -> int:
+                    return 0
+            """;
+
+    @Test
+    void pythonPropertyDecoratorsBecomeAccessorNodesAndKeepTheirOrder() {
+        PythonTranslator translator = new PythonTranslator(CONFIG);
+        MeaningTree tree = translator.getMeaningTree(PROPERTY_ACCESSORS_CODE);
+        List<MethodDeclaration> methods = tree.iterate().stream()
+                .map(info -> info.node())
+                .filter(MethodDeclaration.class::isInstance)
+                .map(MethodDeclaration.class::cast)
+                .toList();
+        Map<String, AccessorKind> expected = Map.of(
+                "area", AccessorKind.GETTER, "set_area", AccessorKind.SETTER,
+                "get_area", AccessorKind.GETTER, "delete_area", AccessorKind.DELETER);
+        assertEquals(5, methods.size());
+        for (MethodDeclaration method : methods) {
+            PropertyAccessor accessor = method.getPropertyAccessor();
+            if (method.getName().getName().equals("ordinary")) {
+                assertNull(accessor);
+                assertEquals("unrelated", method.getAnnotations().getFirst().getName().internalRepresentation());
+                continue;
+            }
+            assertNotNull(accessor);
+            assertEquals(expected.get(method.getName().getName()), accessor.getKind());
+            assertEquals("area", accessor.getPropertyName().getName());
+            assertEquals(method.getName().getName().equals("area"), accessor.isPropertyDefinition());
+            assertEquals(method.getName().getName().equals("get_area") ? 0 : 1,
+                    accessor.getAnnotationIndex());
+            assertTrue(method.getAnnotations().stream().allMatch(annotation ->
+                    List.of("outer", "inner").contains(annotation.getName().internalRepresentation())));
+            assertNotEquals(method.getName().getId(), accessor.getPropertyName().getId());
+        }
+        assertEquals(PROPERTY_ACCESSORS_CODE.lines().filter(line -> !line.isBlank()).toList(),
+                translator.getCode(tree).lines().filter(line -> !line.isBlank()).toList());
+        JavaTranslator javaTranslator = new JavaTranslator(CONFIG);
+        String javaCode = String.join("\n", methods.stream()
+                .filter(method -> !method.getName().getName().equals("delete_area"))
+                .map(javaTranslator::getCode).toList());
+        assertFalse(javaCode.contains("@property"));
+        assertFalse(javaCode.contains("@area."));
+        assertTrue(javaCode.contains("@outer"));
+        assertTrue(javaCode.contains("@inner"));
+    }
+
+    @Test
+    void accessorNodesParticipateInTraversalCloningReplacementAndJson() {
+        MethodDeclaration method = findMethodNode(
+                new PythonTranslator(CONFIG).getMeaningTree(PROPERTY_ACCESSORS_CODE), "area", "Rectangle");
+        PropertyAccessor accessor = method.getPropertyAccessor();
+        MethodDeclaration clone = method.clone();
+        assertEquals(method, clone);
+        assertEquals(method.hashCode(), clone.hashCode());
+        assertNotSame(accessor, clone.getPropertyAccessor());
+        assertNotSame(accessor.getPropertyName(), clone.getPropertyAccessor().getPropertyName());
+        assertTrue(method.iterate(false).stream().anyMatch(info -> info.node() == accessor));
+        assertTrue(method.iterate(false).stream().anyMatch(info -> info.node() == accessor.getPropertyName()));
+        MeaningTree standalone = new MeaningTree(accessor);
+        assertDoesNotThrow(standalone::makeIndex);
+        JsonObject json = new JsonSerializer().serialize(accessor);
+        PropertyAccessor restored = assertInstanceOf(PropertyAccessor.class, new JsonDeserializer().deserialize(json));
+        assertEquals(accessor, restored);
+        assertEquals(json, new JsonSerializer().serialize(restored));
+        assertTrue(restored.replace(restored.getFieldDescriptor("propertyName"),
+                new SimpleIdentifier("renamed").remap(restored.getPropertyName())).isSuccess());
+        assertEquals("renamed", restored.getPropertyName().getName());
+        assertNotEquals(accessor, restored);
+        clone.setPropertyAccessor(null);
+        assertNotEquals(method, clone);
+    }
+
+    @Test
+    void legacyMethodJsonWithoutAccessorIsStillAccepted() {
+        MethodDeclaration method = findMethodNode(
+                new PythonTranslator(CONFIG).getMeaningTree(PROPERTY_ACCESSORS_CODE), "area", "Rectangle");
+        JsonObject json = new JsonSerializer().serialize(method);
+        assertTrue(json.has("property_accessor"));
+        json.remove("property_accessor");
+        MethodDeclaration restored = assertInstanceOf(MethodDeclaration.class, new JsonDeserializer().deserialize(json));
+        assertNull(restored.getPropertyAccessor());
+        json.add("property_accessor", com.google.gson.JsonNull.INSTANCE);
+        restored = assertInstanceOf(MethodDeclaration.class, new JsonDeserializer().deserialize(json));
+        assertNull(restored.getPropertyAccessor());
+    }
+
+    @Test
+    void javaAnnotationsAreNotInterpretedAsPropertyAccessors() {
+        JavaTranslator translator = new JavaTranslator(CONFIG);
+        MeaningTree tree = translator.getMeaningTree("""
+                class Box {
+                    @property
+                    public int value() { return 1; }
+                }
+                """);
+        MethodDeclaration method = findMethodNode(tree, "value", "Box");
+        assertNull(method.getPropertyAccessor());
+        assertEquals("property", method.getAnnotations().getFirst().getName().internalRepresentation());
+        assertTrue(translator.getCode(tree).contains("@property"));
+    }
 
     /* -----------------------------
     |      Round trip корпуса       |
@@ -368,6 +498,9 @@ public class JSONSerializerTests {
                     def get(self):
                         return self.value
                 """);
+        python(snippets, "propertyAccessors", PROPERTY_ACCESSORS_CODE);
+        python(snippets, "propertyAccessorsWithSameMethodName", PROPERTY_ACCESSORS_CODE
+                .replace("set_area", "area").replace("get_area", "area").replace("delete_area", "area"));
         python(snippets, "nestedClassDefinition", """
                 class Outer:
                     class Animal:

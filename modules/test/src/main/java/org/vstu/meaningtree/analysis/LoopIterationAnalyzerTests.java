@@ -253,6 +253,20 @@ public class LoopIterationAnalyzerTests {
     }
 
     @Test
+    void constantFoldingFeedsLoopEstimates() {
+        assertFixed(cppLoop("for (int i = 0; i < 2 * 3; i++) { }", RangeForLoop.class), 6);
+        assertFixed(cppLoop("const int n = 2; for (int i = 0; i < n * n + 1; i++) { }", RangeForLoop.class), 5);
+        assertEquals(LoopIterationCount.INFINITE, cppLoop("while (1 < 2) { }", WhileLoop.class).kind());
+        assertEquals(LoopIterationCount.ZERO, cppLoop("const int n = 3; while (n > 5) { }", WhileLoop.class).kind());
+        assertEquals(LoopIterationCount.ONE, cppLoop("do { } while (2 < 1);", DoWhileLoop.class).kind());
+    }
+
+    @Test
+    void overflowingBoundIsNotCounted() {
+        assertManyOrUnknown(cppLoop("for (int i = 0; i < 65536 * 65536; i++) { }", RangeForLoop.class));
+    }
+
+    @Test
     void breakWithoutBracesIsAnExitOfTheLoop() {
         assertUnknown(cppLoop("for (int i = 0; i < 3; i++) break;", RangeForLoop.class));
     }

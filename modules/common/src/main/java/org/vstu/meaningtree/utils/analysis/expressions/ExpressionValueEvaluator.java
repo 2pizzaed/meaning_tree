@@ -16,6 +16,7 @@ import org.vstu.meaningtree.nodes.expressions.logical.NotOp;
 import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitAndOp;
 import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitOrOp;
 import org.vstu.meaningtree.nodes.expressions.math.AddOp;
+import org.vstu.meaningtree.nodes.expressions.math.MulOp;
 import org.vstu.meaningtree.nodes.expressions.math.SubOp;
 import org.vstu.meaningtree.nodes.expressions.unary.UnaryMinusOp;
 import org.vstu.meaningtree.nodes.expressions.unary.UnaryPlusOp;
@@ -23,6 +24,7 @@ import org.vstu.meaningtree.nodes.Declaration;
 import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.nodes.types.builtin.IntType;
 import org.vstu.meaningtree.nodes.statements.Loop;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
@@ -40,14 +42,27 @@ import java.util.Set;
 public class ExpressionValueEvaluator {
     private final MeaningTree tree;
     private final ScopeTable scopeTable;
-    /** Ответ {@link #isEffectivelyConstant} по идентификатору объявления: проверка обходит область видимости. */
-    private final Map<Long, Boolean> scalarConstancy = new HashMap<>();
-    private final Map<Long, Boolean> collectionConstancy = new HashMap<>();
-    /** Есть ли у переменной псевдоним в её области видимости, по идентификатору объявления. */
-    private final Map<Long, Boolean> aliasing = new HashMap<>();
+    /**
+     * Сводки того, что способно изменить поддерево, по идентификатору узла. Область видимости или
+     * оператор обходится один раз, а не заново на каждое имя: иначе длинная функция стоила бы
+     * квадрата её размера.
+     */
+    private final Map<Long, MutationScanner.Summary> scalarSummaries = new HashMap<>();
+    private final Map<Long, MutationScanner.Summary> collectionSummaries = new HashMap<>();
     /** Глубина вложенных поисков значения по присваиваниям: значение одной переменной ссылается на другую. */
     private int flowDepth;
+    /**
+     * Объявления, чьё значение вычисляется прямо сейчас. Инициализатор вправе ссылаться на само
+     * объявление: {@code int x = x + 1;} в C++, {@code n = n + 1} в Python, где первое присваивание
+     * параметру объявляет новую локальную переменную, а таблица областей связывает имя справа с ней
+     * же. Без этого учёта такое значение вычисляло бы себя бесконечно.
+     */
+    private final java.util.Set<Long> resolving = new java.util.HashSet<>();
     private static final int MAX_FLOW_DEPTH = 8;
+    /** Длина цепочки {@code int b = a + 1; int c = b + 1; ...}: дальше ответ «неизвестно», а не переполнение стека. */
+    private static final int MAX_RESOLVE_CHAIN = 64;
+    /** Сколько предыдущих операторов просматривается в поисках присваивания: дальше ответ «неизвестно». */
+    private static final int MAX_SCANNED_STATEMENTS = 256;
 
     public ExpressionValueEvaluator(MeaningTree tree, ScopeTable scopeTable) {
         this.tree = tree;
@@ -65,9 +80,27 @@ public class ExpressionValueEvaluator {
     public void analyze() {
         for (NodeInfo info : tree) {
             if (info.node() instanceof Expression expression) {
-                estimate(expression, expression);
+                estimate(expression, pointOf(expression));
             }
         }
+    }
+
+    /**
+     * Оператор в блоке, внутри которого вычисляется выражение: от него зависят область
+     * видимости имён и «ближайшее присваивание». Сама по себе глубоко вложенное выражение ни
+     * того ни другого не определяет: родитель условия {@code if} — не блок, и имена в нём не
+     * нашлись бы вовсе. Если такого оператора нет, остаётся само выражение.
+     */
+    private Node pointOf(Expression expression) {
+        NodeInfo info = tree.getNodeById(expression.getId());
+        while (info != null && info.parentNode() != null) {
+            Node parent = info.parentNode();
+            if (isStatementInBlock(parent)) {
+                return parent;
+            }
+            info = tree.getNodeById(parent.getId());
+        }
+        return expression;
     }
 
     public Optional<Boolean> evaluateAsBoolean(@Nullable Expression expression,
@@ -166,12 +199,19 @@ public class ExpressionValueEvaluator {
     }
 
     private OptionalLong initialValue(VariableDeclaration declaration, SimpleIdentifier identifier, @Nullable Node point) {
-        for (VariableDeclarator declarator : declaration.getDeclarators()) {
-            if (identifier.equals(declarator.getIdentifier()) && declarator.hasInitialization()) {
-                return evaluateAsLong(declarator.getRValue(), Map.of(), point);
-            }
+        if (resolving.size() >= MAX_RESOLVE_CHAIN || !resolving.add(declaration.getId())) {
+            return OptionalLong.empty();
         }
-        return OptionalLong.empty();
+        try {
+            for (VariableDeclarator declarator : declaration.getDeclarators()) {
+                if (identifier.equals(declarator.getIdentifier()) && declarator.hasInitialization()) {
+                    return evaluateAsLong(declarator.getRValue(), Map.of(), point);
+                }
+            }
+            return OptionalLong.empty();
+        } finally {
+            resolving.remove(declaration.getId());
+        }
     }
 
     /**
@@ -198,8 +238,8 @@ public class ExpressionValueEvaluator {
         }
         Optional<Node> root = scopeRootOf(declaration);
         if (root.isEmpty() || !(root.get() instanceof CompoundStatement)
-                || aliasing.computeIfAbsent(declaration.getId(), id -> MutationScanner.mayAlias(root.get(), identifier))
-                || MutationScanner.mayModify(point, identifier, MutationScanner.Mode.SCALAR, null)) {
+                || summaryOf(root.get(), MutationScanner.Mode.SCALAR).mayAlias(identifier.getName())
+                || mayModify(point, identifier)) {
             return OptionalLong.empty();
         }
 
@@ -213,6 +253,7 @@ public class ExpressionValueEvaluator {
 
     private OptionalLong scanBackwards(SimpleIdentifier identifier, VariableDeclaration declaration, Node point) {
         Node node = point;
+        int scanned = 0;
         while (true) {
             NodeInfo info = tree.getNodeById(node.getId());
             if (info == null) {
@@ -226,6 +267,9 @@ public class ExpressionValueEvaluator {
                     return OptionalLong.empty();
                 }
                 for (int i = index - 1; i >= 0; i--) {
+                    if (++scanned > MAX_SCANNED_STATEMENTS) {
+                        return OptionalLong.empty();
+                    }
                     Optional<OptionalLong> outcome = valueFromStatement(siblings.get(i), identifier, declaration);
                     if (outcome.isPresent()) {
                         return outcome.get();
@@ -237,7 +281,7 @@ public class ExpressionValueEvaluator {
             } else if (parent instanceof IfStatement ifStatement) {
                 // Условия всех ветвей вычисляются до того, как управление дойдёт до тела одной из них
                 for (ConditionBranch branch : ifStatement.getBranches()) {
-                    if (MutationScanner.mayModify(branch.getCondition(), identifier, MutationScanner.Mode.SCALAR, null)) {
+                    if (mayModify(branch.getCondition(), identifier)) {
                         return OptionalLong.empty();
                     }
                 }
@@ -245,7 +289,7 @@ public class ExpressionValueEvaluator {
             } else if (parent instanceof Loop loop) {
                 // Если переменную не меняет ни тело внешнего цикла, ни его заголовок, она на каждом
                 // заходе во внутренний оператор такая же, как при входе во внешний цикл
-                if (MutationScanner.mayModify(loop, identifier, MutationScanner.Mode.SCALAR, null)) {
+                if (mayModify(loop, identifier)) {
                     return OptionalLong.empty();
                 }
                 node = parent;
@@ -276,12 +320,12 @@ public class ExpressionValueEvaluator {
         } else if (statement instanceof AssignmentStatement assignment
                 && assignment.getAugmentedOperator() == AugmentedAssignmentOperator.NONE
                 && identifier.equals(unwrapIdentifier(assignment.getLValue()))) {
-            if (MutationScanner.mayModify(assignment.getRValue(), identifier, MutationScanner.Mode.SCALAR, null)) {
+            if (mayModify(assignment.getRValue(), identifier)) {
                 return Optional.of(OptionalLong.empty());
             }
             return Optional.of(evaluateAsLong(assignment.getRValue(), Map.of(), assignment));
         }
-        return MutationScanner.mayModify(statement, identifier, MutationScanner.Mode.SCALAR, null)
+        return mayModify(statement, identifier)
                 ? Optional.of(OptionalLong.empty())
                 : Optional.empty();
     }
@@ -334,10 +378,24 @@ public class ExpressionValueEvaluator {
         if (declaration.getType() != null && declaration.getType().isConst()) {
             return true;
         }
-        Map<Long, Boolean> cache = mode == MutationScanner.Mode.SCALAR ? scalarConstancy : collectionConstancy;
-        return cache.computeIfAbsent(declaration.getId(), id -> scopeRootOf(declaration)
-                .map(root -> !MutationScanner.mayModify(root, identifier, mode, declaration))
-                .orElse(false));
+        return scopeRootOf(declaration)
+                .map(root -> !summaryOf(root, mode).mayModifyBesidesItsDeclaration(identifier.getName()))
+                .orElse(false);
+    }
+
+    private MutationScanner.Summary summaryOf(Node node, MutationScanner.Mode mode) {
+        Map<Long, MutationScanner.Summary> cache =
+                mode == MutationScanner.Mode.SCALAR ? scalarSummaries : collectionSummaries;
+        MutationScanner.Summary summary = cache.get(node.getId());
+        if (summary == null) {
+            summary = MutationScanner.summarize(node, mode);
+            cache.put(node.getId(), summary);
+        }
+        return summary;
+    }
+
+    private boolean mayModify(Node node, SimpleIdentifier identifier) {
+        return summaryOf(node, MutationScanner.Mode.SCALAR).mayModify(identifier.getName());
     }
 
     private Optional<Node> scopeRootOf(VariableDeclaration declaration) {
@@ -415,18 +473,32 @@ public class ExpressionValueEvaluator {
         if (unwrapped instanceof ShortCircuitAndOp andOp) {
             Optional<Boolean> left = evaluateAsBoolean(andOp.getLeft(), env, contextNode);
             Optional<Boolean> right = evaluateAsBoolean(andOp.getRight(), env, contextNode);
+            // Ложная сторона решает результат, что бы ни стояло с другой: слева она обрывает
+            // вычисление, справа результат всё равно ложен
+            if (left.equals(Optional.of(false)) || right.equals(Optional.of(false))) {
+                return remember(expression, ExpressionValueEstimate.exact(false), env);
+            }
             if (left.isPresent() && right.isPresent()) {
-                return remember(expression, ExpressionValueEstimate.exact(left.get() && right.get()), env);
+                return remember(expression, ExpressionValueEstimate.exact(true), env);
             }
             return remember(expression, ExpressionValueEstimate.possible(Set.of(Boolean.TRUE, Boolean.FALSE), false), env);
         }
         if (unwrapped instanceof ShortCircuitOrOp orOp) {
             Optional<Boolean> left = evaluateAsBoolean(orOp.getLeft(), env, contextNode);
             Optional<Boolean> right = evaluateAsBoolean(orOp.getRight(), env, contextNode);
+            if (left.equals(Optional.of(true)) || right.equals(Optional.of(true))) {
+                return remember(expression, ExpressionValueEstimate.exact(true), env);
+            }
             if (left.isPresent() && right.isPresent()) {
-                return remember(expression, ExpressionValueEstimate.exact(left.get() || right.get()), env);
+                return remember(expression, ExpressionValueEstimate.exact(false), env);
             }
             return remember(expression, ExpressionValueEstimate.possible(Set.of(Boolean.TRUE, Boolean.FALSE), false), env);
+        }
+        if (unwrapped instanceof BinaryComparison binaryComparison) {
+            Optional<Boolean> folded = compareEvaluable(binaryComparison, env, contextNode);
+            if (folded.isPresent()) {
+                return remember(expression, ExpressionValueEstimate.exact(folded.get()), env);
+            }
         }
         ComparisonModel comparison = extractComparison(unwrapped, env, contextNode);
         if (comparison != null) {
@@ -472,8 +544,8 @@ public class ExpressionValueEvaluator {
         }
         if (unwrapped instanceof UnaryMinusOp unaryMinusOp) {
             OptionalLong argumentValue = evaluateAsLong((Expression) unaryMinusOp.getArgument(), env, contextNode);
-            if (argumentValue.isPresent()) {
-                return remember(expression, ExpressionValueEstimate.exact(-argumentValue.getAsLong()), env);
+            if (argumentValue.isPresent() && argumentValue.getAsLong() != Long.MIN_VALUE) {
+                return checkedArithmetic(expression, unwrapped, -argumentValue.getAsLong(), env, contextNode);
             }
             return ExpressionValueEstimate.unknown();
         }
@@ -481,7 +553,12 @@ public class ExpressionValueEvaluator {
             OptionalLong left = evaluateAsLong(addOp.getLeft(), env, contextNode);
             OptionalLong right = evaluateAsLong(addOp.getRight(), env, contextNode);
             if (left.isPresent() && right.isPresent()) {
-                return remember(expression, ExpressionValueEstimate.exact(left.getAsLong() + right.getAsLong()), env);
+                try {
+                    return checkedArithmetic(expression, unwrapped,
+                            Math.addExact(left.getAsLong(), right.getAsLong()), env, contextNode);
+                } catch (ArithmeticException overflow) {
+                    return ExpressionValueEstimate.unknown();
+                }
             }
             return ExpressionValueEstimate.unknown();
         }
@@ -489,11 +566,99 @@ public class ExpressionValueEvaluator {
             OptionalLong left = evaluateAsLong(subOp.getLeft(), env, contextNode);
             OptionalLong right = evaluateAsLong(subOp.getRight(), env, contextNode);
             if (left.isPresent() && right.isPresent()) {
-                return remember(expression, ExpressionValueEstimate.exact(left.getAsLong() - right.getAsLong()), env);
+                try {
+                    return checkedArithmetic(expression, unwrapped,
+                            Math.subtractExact(left.getAsLong(), right.getAsLong()), env, contextNode);
+                } catch (ArithmeticException overflow) {
+                    return ExpressionValueEstimate.unknown();
+                }
+            }
+            return ExpressionValueEstimate.unknown();
+        }
+        if (unwrapped instanceof MulOp mulOp) {
+            OptionalLong left = evaluateAsLong(mulOp.getLeft(), env, contextNode);
+            OptionalLong right = evaluateAsLong(mulOp.getRight(), env, contextNode);
+            if (left.isPresent() && right.isPresent()) {
+                try {
+                    return checkedArithmetic(expression, unwrapped,
+                            Math.multiplyExact(left.getAsLong(), right.getAsLong()), env, contextNode);
+                } catch (ArithmeticException overflow) {
+                    return ExpressionValueEstimate.unknown();
+                }
             }
             return ExpressionValueEstimate.unknown();
         }
         return ExpressionValueEstimate.unknown();
+    }
+
+    /**
+     * Сравнение двух значений, которые удалось вычислить: {@code 1 < 2}, {@code N > 3} при
+     * постоянной {@code N}, {@code (1 + 2) * 3 == 9}. Для {@code ==} и {@code !=} сравниваются и
+     * два вычислимых булевых значения.
+     * <p>
+     * Пусто, если хотя бы одну сторону вычислить нельзя либо если сравнение беззнакового со
+     * знаковым отрицательным значением: в C-семействе отрицательное число там превращается в
+     * большое положительное, и результат отличается от арифметического.
+     */
+    private Optional<Boolean> compareEvaluable(BinaryComparison comparison,
+                                               Map<String, Long> env,
+                                               @Nullable Node contextNode) {
+        if (!isEvaluable(comparison.getClass())) {
+            return Optional.empty();
+        }
+        OptionalLong left = evaluateAsLong(comparison.getLeft(), env, contextNode);
+        OptionalLong right = evaluateAsLong(comparison.getRight(), env, contextNode);
+        if (left.isPresent() && right.isPresent()) {
+            boolean unsignedInvolved = involvesUnsigned(comparison.getLeft(), contextNode)
+                    || involvesUnsigned(comparison.getRight(), contextNode);
+            if (unsignedInvolved && (left.getAsLong() < 0 || right.getAsLong() < 0)) {
+                return Optional.empty();
+            }
+            return Optional.of(testCondition(left.getAsLong(), right.getAsLong(), comparison.getClass()));
+        }
+        if (comparison.getClass() == EqOp.class || comparison.getClass() == NotEqOp.class) {
+            Optional<Boolean> leftFlag = evaluateAsBoolean(comparison.getLeft(), env, contextNode);
+            Optional<Boolean> rightFlag = evaluateAsBoolean(comparison.getRight(), env, contextNode);
+            if (leftFlag.isPresent() && rightFlag.isPresent()) {
+                boolean equal = leftFlag.get().equals(rightFlag.get());
+                return Optional.of(comparison.getClass() == EqOp.class ? equal : !equal);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Результат арифметики принимается, только если он гарантированно такой же, какой получит
+     * программа. Вычисление идёт в {@code long}, а у выражения в C++ или Java тип уже: за
+     * пределами {@code int} результат — переполнение, а не число. Если участвует беззнаковое, то
+     * отрицательный результат — это заворот, а не отрицательное число. В обоих случаях ответ
+     * «неизвестно», а не неверное число. Так же осторожен Python, у которого целые не ограничены:
+     * теряется точность, но не правильность.
+     */
+    private ExpressionValueEstimate<Long> checkedArithmetic(Expression expression,
+                                                            Expression operation,
+                                                            long value,
+                                                            Map<String, Long> env,
+                                                            @Nullable Node contextNode) {
+        boolean fits = involvesUnsigned(operation, contextNode)
+                ? value >= 0 && value <= 0xFFFFFFFFL
+                : value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE;
+        return fits ? remember(expression, ExpressionValueEstimate.exact(value), env) : ExpressionValueEstimate.unknown();
+    }
+
+    /** Есть ли в выражении беззнаковый литерал или переменная беззнакового типа. */
+    private boolean involvesUnsigned(Node expression, @Nullable Node contextNode) {
+        for (NodeInfo info : expression.iterate(true)) {
+            Node node = info.node();
+            if (node instanceof IntegerLiteral literal && literal.isUnsigned()) {
+                return true;
+            }
+            if (node instanceof SimpleIdentifier identifier
+                    && visibleType(identifier, contextNode) instanceof IntType type && type.isUnsigned) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ExpressionValueEstimate<Long> estimateCollectionSize(@Nullable Expression expression,

@@ -31,7 +31,10 @@ import org.vstu.meaningtree.nodes.statements.assignments.MultipleAssignmentState
 import org.vstu.meaningtree.nodes.statements.loops.RangeForLoop;
 import org.vstu.meaningtree.nodes.types.builtin.ReferenceType;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -92,21 +95,45 @@ public final class MutationScanner {
     }
 
     /**
-     * Может ли поддерево изменить переменную {@code identifier}.
-     *
-     * @param ignoredDeclaration объявление самой переменной, которое не считается изменением
-     *                           (при проверке всей области видимости оно в ней лежит), или {@code null}
+     * Что поддерево способно сделать с переменными, по именам. Считается за один проход, поэтому
+     * на вопросы о многих переменных одной области видимости отвечает без повторных обходов:
+     * сводку области строят один раз и спрашивают по имени.
      */
-    public static boolean mayModify(Node subtree,
-                                    SimpleIdentifier identifier,
-                                    Mode mode,
-                                    @Nullable Node ignoredDeclaration) {
-        for (NodeInfo info : subtree.iterate(true)) {
-            if (modifies(info.node(), identifier, mode, ignoredDeclaration)) {
-                return true;
-            }
+    public static final class Summary {
+        private final Set<String> modified = new HashSet<>();
+        private final Set<String> aliased = new HashSet<>();
+        private final Map<String, Integer> declared = new HashMap<>();
+
+        /** Может ли поддерево изменить переменную: записать, дать псевдоним, передать по ссылке или объявить заново. */
+        public boolean mayModify(String name) {
+            return modified.contains(name) || declared.containsKey(name);
         }
-        return false;
+
+        /**
+         * То же для области видимости, в которой объявлена сама переменная: её собственное объявление
+         * изменением не считается, а второе одноимённое (затенение) считается.
+         */
+        public boolean mayModifyBesidesItsDeclaration(String name) {
+            return modified.contains(name) || declared.getOrDefault(name, 0) > 1;
+        }
+
+        /** Может ли поддерево дать переменной псевдоним: адрес или ссылку. */
+        public boolean mayAlias(String name) {
+            return aliased.contains(name);
+        }
+    }
+
+    public static Summary summarize(Node subtree, Mode mode) {
+        Summary summary = new Summary();
+        for (NodeInfo info : subtree.iterate(true)) {
+            collect(info.node(), mode, summary);
+        }
+        return summary;
+    }
+
+    /** Может ли поддерево изменить переменную {@code identifier}. */
+    public static boolean mayModify(Node subtree, SimpleIdentifier identifier, Mode mode) {
+        return summarize(subtree, mode).mayModify(identifier.getName());
     }
 
     /**
@@ -114,80 +141,98 @@ public final class MutationScanner {
      * не содержит имени переменной, поэтому присваивания по имени её не показывают.
      */
     public static boolean mayAlias(Node subtree, SimpleIdentifier identifier) {
-        for (NodeInfo info : subtree.iterate(true)) {
-            if (aliases(info.node(), identifier)) {
-                return true;
-            }
-        }
-        return false;
+        return summarize(subtree, Mode.SCALAR).mayAlias(identifier.getName());
     }
 
-    private static boolean modifies(Node node,
-                                    SimpleIdentifier identifier,
-                                    Mode mode,
-                                    @Nullable Node ignoredDeclaration) {
+    private static void collect(Node node, Mode mode, Summary summary) {
         if (node instanceof VariableDeclaration declaration) {
-            if (ignoredDeclaration != null && declaration.getId() == ignoredDeclaration.getId()) {
-                return false;
-            }
             for (VariableDeclarator declarator : declaration.getDeclarators()) {
-                if (identifier.equals(declarator.getIdentifier())) {
-                    return true;
+                summary.declared.merge(declarator.getIdentifier().getName(), 1, Integer::sum);
+                if (declaration.getType() instanceof ReferenceType && declarator.hasInitialization()) {
+                    alias(declarator.getRValue(), summary);
                 }
             }
-            return aliases(node, identifier);
+            return;
         }
-        if (node instanceof SeparatedVariableDeclaration) {
-            // Его объявления обходятся как самостоятельные узлы
-            return false;
+        if (node instanceof SeparatedVariableDeclaration || node instanceof MultipleAssignmentStatement) {
+            // Их объявления и присваивания обходятся как самостоятельные узлы
+            return;
         }
         if (node instanceof AssignmentStatement assignment) {
-            return isIdentifier(assignment.getLValue(), identifier);
-        }
-        if (node instanceof AssignmentExpression assignment) {
-            return isIdentifier(assignment.getLValue(), identifier);
-        }
-        if (node instanceof PrefixIncrementOp || node instanceof PostfixIncrementOp
+            modify(assignment.getLValue(), summary);
+        } else if (node instanceof AssignmentExpression assignment) {
+            modify(assignment.getLValue(), summary);
+        } else if (node instanceof PrefixIncrementOp || node instanceof PostfixIncrementOp
                 || node instanceof PrefixDecrementOp || node instanceof PostfixDecrementOp) {
-            return isIdentifier(((UnaryExpression) node).getArgument(), identifier);
-        }
-        if (node instanceof ChainedAssignmentStatement chained) {
+            modify(((UnaryExpression) node).getArgument(), summary);
+        } else if (node instanceof ChainedAssignmentStatement chained) {
             // a = b = 5: цели — выражения, отдельных узлов присваивания у них нет
-            return chained.getTargets().stream().anyMatch(target -> isIdentifier(target, identifier));
-        }
-        if (node instanceof ListUnpackingAssignmentStatement unpacking) {
-            return unpacking.getVariableNames().stream().anyMatch(identifier::equals);
-        }
-        if (node instanceof MultipleAssignmentStatement) {
-            // Его присваивания обходятся как самостоятельные узлы
-            return false;
-        }
-        if (node instanceof HasAssignmentEffect) {
+            chained.getTargets().forEach(target -> modify(target, summary));
+        } else if (node instanceof ListUnpackingAssignmentStatement unpacking) {
+            unpacking.getVariableNames().forEach(name -> modify(name, summary));
+        } else if (node instanceof HasAssignmentEffect) {
             // Присваивание неизвестного вида: цель неизвестна, значит, любое упоминание подозрительно
-            return mentions(node, identifier);
-        }
-        if (node instanceof RangeForLoop rangeLoop) {
-            return identifier.equals(rangeLoop.getIdentifier());
-        }
-        if (aliases(node, identifier)) {
-            return true;
-        }
-        if (node instanceof InputCommand input) {
-            return hasBareArgument(input.getArguments(), identifier);
-        }
-        if (node instanceof PrintCommand) {
-            // Печать значение читает и ничего не меняет
-            return false;
-        }
-        if (node instanceof FunctionCall call) {
-            if (mode == Mode.COLLECTION) {
-                return !isKnownNonMutating(call)
-                        && (hasBareArgument(call.getArguments(), identifier)
-                        || (call instanceof MethodCall method && isIdentifier(method.getObject(), identifier)));
+            for (NodeInfo info : node.iterate(true)) {
+                modify(info.node(), summary);
             }
-            return passesByMutableReference(call, identifier);
+        } else if (node instanceof RangeForLoop rangeLoop) {
+            modify(rangeLoop.getIdentifier(), summary);
+        } else if (node instanceof PointerPackOp pack) {
+            alias(pack.getArgument(), summary);
+        } else if (node instanceof InputCommand input) {
+            input.getArguments().forEach(argument -> modify(argument, summary));
+        } else if (node instanceof PrintCommand) {
+            // Печать значение читает и ничего не меняет
+            return;
+        } else if (node instanceof FunctionCall call) {
+            if (mode == Mode.COLLECTION) {
+                if (!isKnownNonMutating(call)) {
+                    call.getArguments().forEach(argument -> modify(argument, summary));
+                    if (call instanceof MethodCall method) {
+                        modify(method.getObject(), summary);
+                    }
+                }
+            } else {
+                modifyByMutableReference(call, summary);
+            }
         }
-        return false;
+    }
+
+    private static void modifyByMutableReference(FunctionCall call, Summary summary) {
+        FunctionDeclaration resolved = call.getResolvedDeclaration();
+        if (resolved == null) {
+            return;
+        }
+        List<Expression> arguments = call.getArguments();
+        List<DeclarationArgument> parameters = resolved.getArguments();
+        for (int i = 0; i < arguments.size() && i < parameters.size(); i++) {
+            Type parameterType = parameters.get(i).getType();
+            if (parameterType instanceof ReferenceType reference && !reference.getTargetType().isConst()) {
+                modify(arguments.get(i), summary);
+            }
+        }
+    }
+
+    private static void modify(@Nullable Node target, Summary summary) {
+        String name = nameOf(target);
+        if (name != null) {
+            summary.modified.add(name);
+        }
+    }
+
+    private static void alias(@Nullable Node target, Summary summary) {
+        String name = nameOf(target);
+        if (name != null) {
+            summary.aliased.add(name);
+            summary.modified.add(name);
+        }
+    }
+
+    private static @Nullable String nameOf(@Nullable Node node) {
+        while (node instanceof ParenthesizedExpression parenthesized) {
+            node = parenthesized.getExpression();
+        }
+        return node instanceof SimpleIdentifier simple ? simple.getName() : null;
     }
 
     private static boolean isKnownNonMutating(FunctionCall call) {
@@ -198,64 +243,5 @@ public final class MutationScanner {
         return call instanceof MethodCall
                 ? NON_MUTATING_METHODS.contains(name)
                 : NON_MUTATING_FUNCTIONS.contains(name);
-    }
-
-    /** Упоминается ли переменная где-либо в поддереве, в том числе только для чтения. */
-    private static boolean mentions(Node subtree, SimpleIdentifier identifier) {
-        for (NodeInfo info : subtree.iterate(true)) {
-            if (info.node() instanceof SimpleIdentifier simple && simple.equals(identifier)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean aliases(Node node, SimpleIdentifier identifier) {
-        if (node instanceof PointerPackOp pack) {
-            return isIdentifier(pack.getArgument(), identifier);
-        }
-        if (node instanceof VariableDeclaration declaration && declaration.getType() instanceof ReferenceType) {
-            for (VariableDeclarator declarator : declaration.getDeclarators()) {
-                if (declarator.hasInitialization() && isIdentifier(declarator.getRValue(), identifier)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private static boolean passesByMutableReference(FunctionCall call, SimpleIdentifier identifier) {
-        FunctionDeclaration resolved = call.getResolvedDeclaration();
-        if (resolved == null) {
-            return false;
-        }
-        List<Expression> arguments = call.getArguments();
-        List<DeclarationArgument> parameters = resolved.getArguments();
-        for (int i = 0; i < arguments.size() && i < parameters.size(); i++) {
-            if (!isIdentifier(arguments.get(i), identifier)) {
-                continue;
-            }
-            Type parameterType = parameters.get(i).getType();
-            if (parameterType instanceof ReferenceType reference && !reference.getTargetType().isConst()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean hasBareArgument(List<Expression> arguments, SimpleIdentifier identifier) {
-        for (Expression argument : arguments) {
-            if (isIdentifier(argument, identifier)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isIdentifier(@Nullable Node node, SimpleIdentifier identifier) {
-        while (node instanceof ParenthesizedExpression parenthesized) {
-            node = parenthesized.getExpression();
-        }
-        return node instanceof SimpleIdentifier simple && simple.equals(identifier);
     }
 }

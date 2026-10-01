@@ -352,7 +352,7 @@ public class LoopIterationAnalyzer {
                     return OptionalLong.empty();
                 }
                 foundStep = step.getAsLong();
-            } else if (MutationScanner.mayModify(statement, identifier, MutationScanner.Mode.SCALAR, null)) {
+            } else if (MutationScanner.mayModify(statement, identifier, MutationScanner.Mode.SCALAR)) {
                 return OptionalLong.empty();
             }
         }
@@ -363,7 +363,7 @@ public class LoopIterationAnalyzer {
     private boolean isBodyStable(Statement body, SimpleIdentifier identifier, @Nullable Node declarationType) {
         return !hasTopLevelEarlyExit(body, false)
                 && !escapesThroughCall(body, identifier, declarationType)
-                && !MutationScanner.mayModify(body, identifier, MutationScanner.Mode.SCALAR, null);
+                && !MutationScanner.mayModify(body, identifier, MutationScanner.Mode.SCALAR);
     }
 
     /**
@@ -379,7 +379,7 @@ public class LoopIterationAnalyzer {
         }
         boolean bodyBreaksEstimate = hasTopLevelEarlyExit(body, false)
                 || (counter != null && !loopVariableRebound
-                && MutationScanner.mayModify(body, counter, MutationScanner.Mode.SCALAR, null));
+                && MutationScanner.mayModify(body, counter, MutationScanner.Mode.SCALAR));
         return bodyBreaksEstimate
                 ? LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false, estimate.direction())
                 : estimate;

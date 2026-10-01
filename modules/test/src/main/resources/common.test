@@ -1326,6 +1326,91 @@ group: ForLoop
             }
 
 
+    case: RangeForLoopDescendingUnitStep
+        main python:
+            for i in range(5, -1, -1):
+                func(i)
+
+        java:
+            for (int i = 5; i > -1; i--) {
+                func(i);
+            }
+
+        c++:
+            for (int i = 5; i > -1; i--)
+            {
+                func(i);
+            }
+
+
+    case: RangeForLoopDescendingStep
+        main c++:
+            for (int i = 10; i > 0; i -= 3)
+            {
+                func(i);
+            }
+
+        java:
+            for (int i = 10; i > 0; i -= 3) {
+                func(i);
+            }
+
+        python:
+            for i in range(10, 0, -3):
+                func(i)
+
+
+    case: RangeForLoopDescendingStepFromJava
+        main java:
+            for (int i = 9; i >= 0; i--) {
+                func(i);
+            }
+
+        c++:
+            for (int i = 9; i >= 0; i--)
+            {
+                func(i);
+            }
+
+        python:
+            for i in range(9, -1, -1):
+                func(i)
+
+
+    case: RangeForLoopInclusiveBound
+        main c++:
+            for (int i = 0; i <= 5; i++)
+            {
+                func(i);
+            }
+
+        java:
+            for (int i = 0; i <= 5; i++) {
+                func(i);
+            }
+
+        python:
+            for i in range(6):
+                func(i)
+
+
+    case: RangeForLoopInclusiveBoundWithStep
+        main c++:
+            for (int i = 2; i <= 10; i += 4)
+            {
+                func(i);
+            }
+
+        java:
+            for (int i = 2; i <= 10; i += 4) {
+                func(i);
+            }
+
+        python:
+            for i in range(2, 11, 4):
+                func(i)
+
+
     case: RangeForLoopWithExpressions
         isolated python:
             v: float = a * b * c

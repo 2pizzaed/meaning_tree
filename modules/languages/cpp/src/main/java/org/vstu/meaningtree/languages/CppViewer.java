@@ -1086,6 +1086,7 @@ public class CppViewer extends LanguageViewer {
             }
         }
         else if (forRangeLoop.getRangeType() == Range.Direction.DOWN) {
+            // Шаг убывающего диапазона хранится со знаком (-1, -3, -s), а в коде вычитается модуль
             long stepValue;
             try {
                 stepValue = forRangeLoop.getRange().getStepValueAsLong();
@@ -1093,14 +1094,21 @@ public class CppViewer extends LanguageViewer {
                 if (forRangeLoop.getStep() == null) {
                     return String.format("%s--", toString(forRangeLoop.getIdentifier()));
                 }
-                return String.format("%s -= %s", toString(forRangeLoop.getIdentifier()), toString(forRangeLoop.getStep()));
+                if (forRangeLoop.getStep() instanceof UnaryMinusOp minus) {
+                    return String.format("%s -= %s", toString(forRangeLoop.getIdentifier()), toString(minus.getArgument()));
+                }
+                return String.format("%s += %s", toString(forRangeLoop.getIdentifier()), toString(forRangeLoop.getStep()));
             }
 
-            if (stepValue == 1) {
+            if (stepValue == -1) {
                 return String.format("%s--", toString(forRangeLoop.getIdentifier()));
             }
+            else if (stepValue < 0) {
+                return String.format("%s -= %d", toString(forRangeLoop.getIdentifier()), -stepValue);
+            }
             else {
-                return String.format("%s -= %d", toString(forRangeLoop.getIdentifier()), stepValue);
+                // Положительный шаг при направлении вниз: цикл как есть, а не «исправленный»
+                return String.format("%s += %d", toString(forRangeLoop.getIdentifier()), stepValue);
             }
         }
 

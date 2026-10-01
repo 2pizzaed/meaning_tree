@@ -3,7 +3,10 @@ package org.vstu.meaningtree.nodes.expressions.other;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Expression;
+import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
 import org.vstu.meaningtree.nodes.expressions.literals.IntegerLiteral;
+import org.vstu.meaningtree.nodes.expressions.unary.UnaryMinusOp;
+import org.vstu.meaningtree.nodes.expressions.unary.UnaryPlusOp;
 import org.vstu.meaningtree.nodes.statements.loops.LoopIterationEstimate;
 import org.vstu.meaningtree.utils.InternalNode;
 
@@ -129,11 +132,7 @@ public class Range extends Expression {
             throw new IllegalStateException("Start value is not specified");
         }
 
-        if (!(start instanceof IntegerLiteral)) {
-            throw new IllegalStateException("Start value cannot be interpreted as long");
-        }
-
-        return ((IntegerLiteral) start).getLongValue();
+        return literalValue(start, "Start value cannot be interpreted as long");
     }
 
     public long getStopValueAsLong() throws IllegalStateException {
@@ -141,11 +140,7 @@ public class Range extends Expression {
             throw new IllegalStateException("Stop value is not specified");
         }
 
-        if (!(stop instanceof IntegerLiteral)) {
-            throw new IllegalStateException("Stop value cannot be interpreted as long");
-        }
-
-        return ((IntegerLiteral) stop).getLongValue();
+        return literalValue(stop, "Stop value cannot be interpreted as long");
     }
 
     public long getStepValueAsLong() throws IllegalStateException {
@@ -153,11 +148,29 @@ public class Range extends Expression {
             throw new IllegalStateException("Step value is not specified");
         }
 
-        if (!(step instanceof IntegerLiteral)) {
-            throw new IllegalStateException("Step value cannot be interpreted as long");
-        }
+        return literalValue(step, "Step value cannot be interpreted as long");
+    }
 
-        return ((IntegerLiteral) step).getLongValue();
+    /**
+     * Значение целочисленной константы, в том числе со знаком: {@code -3} в дереве — это
+     * {@link UnaryMinusOp} над литералом, а не отрицательный литерал, и парсеры C++ и Java
+     * строят шаг {@code i -= 3} именно так. Шаг диапазона хранится со знаком: у убывающего
+     * диапазона он отрицателен.
+     */
+    private static long literalValue(Expression expression, String failureMessage) throws IllegalStateException {
+        if (expression instanceof ParenthesizedExpression parenthesized) {
+            return literalValue(parenthesized.getExpression(), failureMessage);
+        }
+        if (expression instanceof UnaryMinusOp minus) {
+            return Math.negateExact(literalValue(minus.getArgument(), failureMessage));
+        }
+        if (expression instanceof UnaryPlusOp plus) {
+            return literalValue(plus.getArgument(), failureMessage);
+        }
+        if (expression instanceof IntegerLiteral literal) {
+            return literal.getLongValue();
+        }
+        throw new IllegalStateException(failureMessage);
     }
 
     @Override

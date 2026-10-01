@@ -31,6 +31,7 @@ import org.vstu.meaningtree.nodes.expressions.identifiers.*;
 import org.vstu.meaningtree.nodes.expressions.literals.*;
 import org.vstu.meaningtree.nodes.expressions.logical.NotOp;
 import org.vstu.meaningtree.nodes.expressions.logical.ShortCircuitAndOp;
+import org.vstu.meaningtree.nodes.expressions.math.AddOp;
 import org.vstu.meaningtree.nodes.expressions.math.SubOp;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ArrayNewExpression;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
@@ -1315,6 +1316,32 @@ public class PythonViewer extends LanguageViewer {
         return builder.toString();
     }
 
+    /**
+     * Граница, включаемая в диапазон ({@code i <= 5}, {@code i >= 0}), в {@code range} записывается
+     * исключающей: на единицу дальше в сторону движения. Без этого последнее значение терялось бы
+     * молча.
+     */
+    private Expression exclusiveStop(Range range, Expression stop) {
+        boolean descending = isDescending(range);
+        try {
+            return new IntegerLiteral(Math.addExact(range.getStopValueAsLong(), descending ? -1 : 1)).remap(range);
+        } catch (IllegalStateException | ArithmeticException exception) {
+            Expression one = new IntegerLiteral(1).remap(range);
+            return descending ? new SubOp(stop, one) : new AddOp(stop, one);
+        }
+    }
+
+    private boolean isDescending(Range range) {
+        if (range.getDirection() != Range.Direction.UNKNOWN) {
+            return range.getDirection() == Range.Direction.DOWN;
+        }
+        try {
+            return range.getStepValueAsLong() < 0;
+        } catch (IllegalStateException exception) {
+            return range.getStep() instanceof UnaryMinusOp;
+        }
+    }
+
     public String rangeFunctionToString(Range range) {
         Expression start = range.getStart();
         Expression stop = range.getStop();
@@ -1325,6 +1352,9 @@ public class PythonViewer extends LanguageViewer {
 
         if (stop == null) {
             throw new UnsupportedViewingException("Range must contain stop condition at least");
+        }
+        if (!range.isExcludingEnd()) {
+            stop = exclusiveStop(range, stop);
         }
 
         if ((start == null || isStartDefault) && (step == null || isStepDefault)) {

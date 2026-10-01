@@ -374,11 +374,13 @@ public final class GeneratorLowerer {
 
         private Optional<Node> advance(Loop loop) {
             if (loop instanceof RangeForLoop rangeLoop) {
-                Expression step = rangeLoop.getStep() == null
-                        ? new IntegerLiteral("1") : rangeLoop.getStep().clone();
-                Expression advanced = rangeLoop.getRangeType() == Range.Direction.DOWN
-                        ? new SubOp(fieldAccess(rangeLoop.getIdentifier()), step)
-                        : new AddOp(fieldAccess(rangeLoop.getIdentifier()), step);
+                // Шаг диапазона хранится со знаком, поэтому для убывающего он уже отрицателен;
+                // без явного шага убывающий диапазон идёт с -1
+                Expression advanced = rangeLoop.getStep() != null
+                        ? new AddOp(fieldAccess(rangeLoop.getIdentifier()), rangeLoop.getStep().clone())
+                        : rangeLoop.getRangeType() == Range.Direction.DOWN
+                        ? new SubOp(fieldAccess(rangeLoop.getIdentifier()), new IntegerLiteral("1"))
+                        : new AddOp(fieldAccess(rangeLoop.getIdentifier()), new IntegerLiteral("1"));
                 return Optional.of(new AssignmentStatement(fieldAccess(rangeLoop.getIdentifier()), advanced));
             }
             if (loop instanceof GeneralForLoop forLoop && forLoop.hasUpdate()) {

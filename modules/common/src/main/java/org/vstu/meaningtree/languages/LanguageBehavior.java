@@ -43,7 +43,8 @@ public record LanguageBehavior(
         @NotNull AssignmentBinding assignmentBinding,
         @NotNull OverloadSemantics overloadSemantics,
         @NotNull TypeConversionSemantics typeConversionSemantics,
-        @NotNull StandardLibrary standardLibrary) {
+        @NotNull StandardLibrary standardLibrary,
+        boolean loopVariableRebound) {
 
     public LanguageBehavior {
         Objects.requireNonNull(scopePolicy, "scopePolicy must not be null");
@@ -69,6 +70,9 @@ public record LanguageBehavior(
      *       одноимённые определения затеняют друг друга, умолчание заменяет.</li>
      *   <li><b>Преобразования типов только общие</b> — язык со своими правилами уточняет их
      *       собственной реализацией {@link TypeConversionSemantics}.</li>
+     *   <li><b>Переменная счётного цикла общая</b> — так устроено C-семейство: запись в неё в теле
+     *       цикла сдвигает сам цикл. Язык, где переменная привязывается заново на каждой итерации
+     *       (Python), умолчание заменяет.</li>
      *   <li><b>Стандартная библиотека не описана</b> — таблица функций есть только у языка,
      *       которому она понадобилась; пустая означает «неизвестно», а не «функций нет».</li>
      * </ul>
@@ -85,26 +89,35 @@ public record LanguageBehavior(
             AssignmentBinding.ENCLOSING,
             OverloadSemantics.bySignature(),
             TypeConversionSemantics.common(),
-            StandardLibrary.unknown()
+            StandardLibrary.unknown(),
+            false
     );
 
     public LanguageBehavior withScopePolicy(@NotNull ScopePolicy scopePolicy) {
-        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary);
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
     }
 
     public LanguageBehavior withAssignmentBinding(@NotNull AssignmentBinding assignmentBinding) {
-        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary);
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
     }
 
     public LanguageBehavior withOverloadSemantics(@NotNull OverloadSemantics overloadSemantics) {
-        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary);
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
     }
 
     public LanguageBehavior withTypeConversionSemantics(@NotNull TypeConversionSemantics typeConversionSemantics) {
-        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary);
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
     }
 
     public LanguageBehavior withStandardLibrary(@NotNull StandardLibrary standardLibrary) {
-        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary);
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
+    }
+
+    /**
+     * @param loopVariableRebound переменная счётного цикла привязывается заново на каждой итерации,
+     *                            поэтому запись в неё в теле цикла число итераций не меняет
+     */
+    public LanguageBehavior withLoopVariableRebound(boolean loopVariableRebound) {
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
     }
 }

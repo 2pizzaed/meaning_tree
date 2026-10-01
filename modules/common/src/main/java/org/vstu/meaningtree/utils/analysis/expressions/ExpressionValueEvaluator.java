@@ -5,6 +5,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.nodes.declarations.SeparatedVariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
@@ -18,10 +19,19 @@ import org.vstu.meaningtree.nodes.expressions.math.AddOp;
 import org.vstu.meaningtree.nodes.expressions.math.SubOp;
 import org.vstu.meaningtree.nodes.expressions.unary.UnaryMinusOp;
 import org.vstu.meaningtree.nodes.expressions.unary.UnaryPlusOp;
+import org.vstu.meaningtree.nodes.Declaration;
+import org.vstu.meaningtree.nodes.Statement;
+import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.nodes.statements.Loop;
+import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
+import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
+import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 import org.vstu.meaningtree.utils.scopes.ScopeTableElement;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -30,6 +40,14 @@ import java.util.Set;
 public class ExpressionValueEvaluator {
     private final MeaningTree tree;
     private final ScopeTable scopeTable;
+    /** Ответ {@link #isEffectivelyConstant} по идентификатору объявления: проверка обходит область видимости. */
+    private final Map<Long, Boolean> scalarConstancy = new HashMap<>();
+    private final Map<Long, Boolean> collectionConstancy = new HashMap<>();
+    /** Есть ли у переменной псевдоним в её области видимости, по идентификатору объявления. */
+    private final Map<Long, Boolean> aliasing = new HashMap<>();
+    /** Глубина вложенных поисков значения по присваиваниям: значение одной переменной ссылается на другую. */
+    private int flowDepth;
+    private static final int MAX_FLOW_DEPTH = 8;
 
     public ExpressionValueEvaluator(MeaningTree tree, ScopeTable scopeTable) {
         this.tree = tree;
@@ -118,6 +136,16 @@ public class ExpressionValueEvaluator {
         return null;
     }
 
+    /**
+     * Значение целочисленной переменной в точке {@code contextNode}, если оно известно.
+     * <ol>
+     *   <li>Переменная неизменна ({@link #isEffectivelyConstant}): значение её инициализатора.</li>
+     *   <li>Иначе, если контекст — оператор в блоке (цикл, объявление, присваивание), значение
+     *       ближайшего присваивания перед ним ({@link #valueBeforePoint}).</li>
+     * </ol>
+     * Для выражения-контекста действует только первый способ: у выражения нет места в потоке
+     * исполнения, до которого можно искать присваивание.
+     */
     public OptionalLong resolveVisibleConstant(SimpleIdentifier identifier, @Nullable Node contextNode) {
         ScopeTableElement scope = visibleScope(contextNode);
         if (scope == null) {
@@ -128,12 +156,202 @@ public class ExpressionValueEvaluator {
         if (declaration.isEmpty()) {
             return OptionalLong.empty();
         }
-        for (VariableDeclarator declarator : declaration.get().getDeclarators()) {
+        if (!isEffectivelyConstant(declaration.get(), identifier, MutationScanner.Mode.SCALAR)) {
+            return valueBeforePoint(identifier, declaration.get(), contextNode);
+        }
+        // Инициализатор вычисляется в месте объявления, а не там, где переменную прочитали:
+        // int k = n; n = 2; for (..; i < k; ..) — k равно прежнему n, а не новому
+        Node initializerPoint = isStatementInBlock(declaration.get()) ? declaration.get() : contextNode;
+        return initialValue(declaration.get(), identifier, initializerPoint);
+    }
+
+    private OptionalLong initialValue(VariableDeclaration declaration, SimpleIdentifier identifier, @Nullable Node point) {
+        for (VariableDeclarator declarator : declaration.getDeclarators()) {
             if (identifier.equals(declarator.getIdentifier()) && declarator.hasInitialization()) {
-                return evaluateAsLong(declarator.getRValue(), Map.of(), contextNode);
+                return evaluateAsLong(declarator.getRValue(), Map.of(), point);
             }
         }
         return OptionalLong.empty();
+    }
+
+    /**
+     * Значение переменной перед оператором {@code point}: присваивание {@code x = <константа>}
+     * или объявление с константой, ближайшее перед ним в потоке исполнения. Это значение верно
+     * для всего оператора, пока он сам переменную не меняет.
+     * <p>
+     * Поиск идёт назад по предыдущим операторам блока, затем выше, через блоки и {@code if}.
+     * Он безопасен, только пока выполнено всё из следующего, иначе ответ «неизвестно»:
+     * <ul>
+     *   <li>переменная локальная: объявлена в блоке, и в его области видимости у неё нет
+     *       псевдонима ({@code &x}, ссылка) — иначе запись возможна, не называя имени;</li>
+     *   <li>сам оператор {@code point} переменную не меняет, ни в теле цикла, ни в его заголовке;</li>
+     *   <li>между присваиванием и оператором нет записи в переменную: любой оператор, который её
+     *       меняет не как {@code x = <константа>}, обрывает поиск;</li>
+     *   <li>вверх поиск идёт только через блоки, {@code if} с условиями, не меняющими переменную,
+     *       и циклы, которые переменную не меняют нигде. {@code switch}, определение функции или
+     *       {@code try} его обрывают: до оператора управление может дойти по другому пути.</li>
+     * </ul>
+     */
+    private OptionalLong valueBeforePoint(SimpleIdentifier identifier, VariableDeclaration declaration, @Nullable Node point) {
+        if (flowDepth >= MAX_FLOW_DEPTH || point == null || !isStatementInBlock(point)) {
+            return OptionalLong.empty();
+        }
+        Optional<Node> root = scopeRootOf(declaration);
+        if (root.isEmpty() || !(root.get() instanceof CompoundStatement)
+                || aliasing.computeIfAbsent(declaration.getId(), id -> MutationScanner.mayAlias(root.get(), identifier))
+                || MutationScanner.mayModify(point, identifier, MutationScanner.Mode.SCALAR, null)) {
+            return OptionalLong.empty();
+        }
+
+        flowDepth++;
+        try {
+            return scanBackwards(identifier, declaration, point);
+        } finally {
+            flowDepth--;
+        }
+    }
+
+    private OptionalLong scanBackwards(SimpleIdentifier identifier, VariableDeclaration declaration, Node point) {
+        Node node = point;
+        while (true) {
+            NodeInfo info = tree.getNodeById(node.getId());
+            if (info == null) {
+                return OptionalLong.empty();
+            }
+            Node parent = info.parentNode();
+            if (parent instanceof CompoundStatement compound) {
+                List<Node> siblings = compound.getNodeList();
+                int index = indexOf(siblings, node);
+                if (index < 0) {
+                    return OptionalLong.empty();
+                }
+                for (int i = index - 1; i >= 0; i--) {
+                    Optional<OptionalLong> outcome = valueFromStatement(siblings.get(i), identifier, declaration);
+                    if (outcome.isPresent()) {
+                        return outcome.get();
+                    }
+                }
+                node = compound;
+            } else if (parent instanceof ConditionBranch) {
+                node = parent;
+            } else if (parent instanceof IfStatement ifStatement) {
+                // Условия всех ветвей вычисляются до того, как управление дойдёт до тела одной из них
+                for (ConditionBranch branch : ifStatement.getBranches()) {
+                    if (MutationScanner.mayModify(branch.getCondition(), identifier, MutationScanner.Mode.SCALAR, null)) {
+                        return OptionalLong.empty();
+                    }
+                }
+                node = parent;
+            } else if (parent instanceof Loop loop) {
+                // Если переменную не меняет ни тело внешнего цикла, ни его заголовок, она на каждом
+                // заходе во внутренний оператор такая же, как при входе во внешний цикл
+                if (MutationScanner.mayModify(loop, identifier, MutationScanner.Mode.SCALAR, null)) {
+                    return OptionalLong.empty();
+                }
+                node = parent;
+            } else {
+                return OptionalLong.empty();
+            }
+        }
+    }
+
+    /**
+     * Что даёт оператор для поиска значения: пусто — оператор переменную не трогает, искать
+     * дальше; иначе окончательный ответ (возможно, «неизвестно»).
+     */
+    private Optional<OptionalLong> valueFromStatement(Node statement, SimpleIdentifier identifier, VariableDeclaration declaration) {
+        if (statement instanceof SeparatedVariableDeclaration separated) {
+            for (VariableDeclaration inner : separated.getDeclarations()) {
+                Optional<OptionalLong> outcome = valueFromStatement(inner, identifier, declaration);
+                if (outcome.isPresent()) {
+                    return outcome;
+                }
+            }
+            return Optional.empty();
+        }
+        if (statement instanceof VariableDeclaration candidate) {
+            if (candidate.getId() == declaration.getId()) {
+                return Optional.of(initialValue(candidate, identifier, candidate));
+            }
+        } else if (statement instanceof AssignmentStatement assignment
+                && assignment.getAugmentedOperator() == AugmentedAssignmentOperator.NONE
+                && identifier.equals(unwrapIdentifier(assignment.getLValue()))) {
+            if (MutationScanner.mayModify(assignment.getRValue(), identifier, MutationScanner.Mode.SCALAR, null)) {
+                return Optional.of(OptionalLong.empty());
+            }
+            return Optional.of(evaluateAsLong(assignment.getRValue(), Map.of(), assignment));
+        }
+        return MutationScanner.mayModify(statement, identifier, MutationScanner.Mode.SCALAR, null)
+                ? Optional.of(OptionalLong.empty())
+                : Optional.empty();
+    }
+
+    private @Nullable SimpleIdentifier unwrapIdentifier(@Nullable Node node) {
+        Node unwrapped = unwrap(node);
+        return unwrapped instanceof SimpleIdentifier identifier ? identifier : null;
+    }
+
+    /** Оператор, у которого есть место в потоке исполнения: он стоит в блоке или в теле ветви {@code if}. */
+    private boolean isStatementInBlock(Node node) {
+        if (!(node instanceof Statement) && !(node instanceof Declaration)) {
+            return false;
+        }
+        NodeInfo info = tree.getNodeById(node.getId());
+        return info != null
+                && (info.parentNode() instanceof CompoundStatement || info.parentNode() instanceof ConditionBranch);
+    }
+
+    private static int indexOf(List<Node> nodes, Node node) {
+        for (int i = 0; i < nodes.size(); i++) {
+            if (nodes.get(i).getId() == node.getId()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Область видимости, в которой объявлена переменная, то есть всё место, где её значение
+     * могло измениться. Пусто, если объявления нет в таблице или в дереве (параметр функции,
+     * переменная из десериализованной таблицы без дерева).
+     */
+    public Optional<Node> declarationScopeRoot(SimpleIdentifier identifier, @Nullable Node contextNode) {
+        ScopeTableElement scope = visibleScope(contextNode);
+        if (scope == null) {
+            return Optional.empty();
+        }
+        return scope.getVariableDeclaration(identifier, null).flatMap(this::scopeRootOf);
+    }
+
+    /**
+     * Переменная не меняется после объявления: она объявлена константой либо во всей её области
+     * видимости нет ни одной записи, псевдонима или передачи по ссылке (см. {@link MutationScanner}).
+     * Только такое значение инициализатора можно подставлять вместо имени.
+     */
+    public boolean isEffectivelyConstant(VariableDeclaration declaration,
+                                         SimpleIdentifier identifier,
+                                         MutationScanner.Mode mode) {
+        if (declaration.getType() != null && declaration.getType().isConst()) {
+            return true;
+        }
+        Map<Long, Boolean> cache = mode == MutationScanner.Mode.SCALAR ? scalarConstancy : collectionConstancy;
+        return cache.computeIfAbsent(declaration.getId(), id -> scopeRootOf(declaration)
+                .map(root -> !MutationScanner.mayModify(root, identifier, mode, declaration))
+                .orElse(false));
+    }
+
+    private Optional<Node> scopeRootOf(VariableDeclaration declaration) {
+        NodeInfo info = tree.getNodeById(declaration.getId());
+        if (info == null) {
+            return Optional.empty();
+        }
+        // Объявление нескольких переменных через запятую лежит в обёртке: область — её родитель
+        Node parent = info.parentNode();
+        if (parent instanceof SeparatedVariableDeclaration) {
+            NodeInfo wrapper = tree.getNodeById(parent.getId());
+            parent = wrapper == null ? null : wrapper.parentNode();
+        }
+        return Optional.ofNullable(parent);
     }
 
     public @Nullable Node visibleType(SimpleIdentifier identifier, @Nullable Node contextNode) {
@@ -212,7 +430,7 @@ public class ExpressionValueEvaluator {
         }
         ComparisonModel comparison = extractComparison(unwrapped, env, contextNode);
         if (comparison != null) {
-            if (env.containsKey(comparison.identifier().getName())) {
+            if (env.containsKey(comparison.identifier().getName()) && isEvaluable(comparison.operator())) {
                 return remember(
                         expression,
                         ExpressionValueEstimate.exact(testCondition(
@@ -299,7 +517,8 @@ public class ExpressionValueEvaluator {
                 return ExpressionValueEstimate.unknown();
             }
             Optional<VariableDeclaration> declaration = scope.getVariableDeclaration(identifier, null);
-            if (declaration.isEmpty()) {
+            if (declaration.isEmpty()
+                    || !isEffectivelyConstant(declaration.get(), identifier, MutationScanner.Mode.COLLECTION)) {
                 return ExpressionValueEstimate.unknown();
             }
             for (VariableDeclarator declarator : declaration.get().getDeclarators()) {
@@ -340,6 +559,11 @@ public class ExpressionValueEvaluator {
         return comparisonClass;
     }
 
+    private static boolean isEvaluable(Class<? extends BinaryComparison> operator) {
+        return operator == LtOp.class || operator == LeOp.class || operator == GtOp.class
+                || operator == GeOp.class || operator == EqOp.class || operator == NotEqOp.class;
+    }
+
     private boolean testCondition(long value, long bound, Class<? extends BinaryComparison> operator) {
         if (operator == LtOp.class) {
             return value < bound;
@@ -353,7 +577,13 @@ public class ExpressionValueEvaluator {
         if (operator == GeOp.class) {
             return value >= bound;
         }
-        return false;
+        if (operator == EqOp.class) {
+            return value == bound;
+        }
+        if (operator == NotEqOp.class) {
+            return value != bound;
+        }
+        throw new IllegalArgumentException("Unsupported comparison: " + operator.getName());
     }
 
     public record ComparisonModel(SimpleIdentifier identifier,

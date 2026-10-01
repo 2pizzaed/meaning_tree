@@ -92,7 +92,7 @@ public final class AnalysisPipeline {
         typeConversionReport = typeConversionAnalyzer.analyze(tree, scope);
         ExpressionValueEvaluator evaluator = new ExpressionValueEvaluator(tree, scope);
         evaluator.analyze();
-        new LoopIterationAnalyzer().analyze(tree, evaluator);
+        new LoopIterationAnalyzer(behavior.loopVariableRebound()).analyze(tree, evaluator);
         if (withImports) {
             resolveImports();
         }

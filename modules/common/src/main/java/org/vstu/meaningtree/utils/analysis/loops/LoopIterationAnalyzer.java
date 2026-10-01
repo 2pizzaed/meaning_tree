@@ -14,10 +14,13 @@ import org.vstu.meaningtree.nodes.expressions.UnaryExpression;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
 import org.vstu.meaningtree.nodes.expressions.comparison.*;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
+import org.vstu.meaningtree.nodes.expressions.math.AddOp;
+import org.vstu.meaningtree.nodes.expressions.math.SubOp;
 import org.vstu.meaningtree.nodes.expressions.other.AssignmentExpression;
 import org.vstu.meaningtree.nodes.expressions.other.Range;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerPackOp;
 import org.vstu.meaningtree.nodes.expressions.pointers.PointerUnpackOp;
+import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.expressions.unary.PostfixDecrementOp;
 import org.vstu.meaningtree.nodes.expressions.unary.PostfixIncrementOp;
 import org.vstu.meaningtree.nodes.expressions.unary.PrefixDecrementOp;
@@ -26,17 +29,35 @@ import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.Loop;
 import org.vstu.meaningtree.nodes.statements.ReturnStatement;
+import org.vstu.meaningtree.nodes.statements.exceptions.RaiseExceptionStatement;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.GotoStatement;
 import org.vstu.meaningtree.utils.analysis.expressions.ExpressionValueEvaluator;
+import org.vstu.meaningtree.utils.analysis.expressions.MutationScanner;
 import org.vstu.meaningtree.utils.scopes.ScopeTable;
 
 import java.util.*;
 
 public class LoopIterationAnalyzer {
+    /** Запись в переменную счётного цикла в теле число итераций не меняет (Python). */
+    private final boolean loopVariableRebound;
+
+    /** Правила C-семейства: запись счётчика в теле сдвигает цикл, оценка тогда неизвестна. */
+    public LoopIterationAnalyzer() {
+        this(false);
+    }
+
+    /**
+     * @param loopVariableRebound переменная счётного цикла привязывается заново на каждой
+     *                            итерации; см. {@code LanguageBehavior#loopVariableRebound()}
+     */
+    public LoopIterationAnalyzer(boolean loopVariableRebound) {
+        this.loopVariableRebound = loopVariableRebound;
+    }
+
     /**
      * Создаёт собственный вычислитель выражений. Подходит для изолированного вызова
      * (например, из тестов); в конвейере анализа следует передавать уже отработавший
@@ -78,7 +99,7 @@ public class LoopIterationAnalyzer {
     }
 
     private LoopIterationEstimate analyzeInfiniteLoop(InfiniteLoop loop) {
-        if (hasTopLevelEarlyExit(loop.getBody())) {
+        if (hasTopLevelEarlyExit(loop.getBody(), false)) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
         return LoopIterationEstimate.ofKind(LoopIterationCount.INFINITE, true, Range.Direction.UNKNOWN);
@@ -106,19 +127,20 @@ public class LoopIterationAnalyzer {
                 detectRangeOperator(loop.getRange()),
                 direction != Range.Direction.UNKNOWN ? direction : directionFromStep(step)
         );
-        return syncRangeMetadata(loop.getRange(), estimate);
+        // Диапазон задаёт число итераций, только если тело не обрывает цикл и не трогает счётчик
+        return syncRangeMetadata(loop.getRange(), guardBody(loop.getBody(), loop.getIdentifier(), estimate));
     }
 
     private LoopIterationEstimate analyzeForEachLoop(ForEachLoop loop, ExpressionValueEvaluator evaluator) {
         OptionalLong size = evaluator.evaluateCollectionSize(loop.getExpression(), loop);
         return size.isPresent()
-                ? LoopIterationEstimate.exact(size.getAsLong())
+                ? guardBody(loop.getBody(), null, LoopIterationEstimate.exact(size.getAsLong()))
                 : LoopIterationEstimate.ofKind(LoopIterationCount.MANY, false);
     }
 
     private LoopIterationEstimate analyzeGeneralForLoop(GeneralForLoop loop, ExpressionValueEvaluator evaluator) {
         if (!loop.hasCondition()) {
-            return hasTopLevelEarlyExit(loop.getBody())
+            return hasTopLevelEarlyExit(loop.getBody(), false)
                     ? LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false)
                     : LoopIterationEstimate.ofKind(LoopIterationCount.INFINITE, true, Range.Direction.UNKNOWN);
         }
@@ -133,12 +155,16 @@ public class LoopIterationAnalyzer {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
 
-        OptionalLong stepOpt = extractStep(loop.getUpdate(), comparison.identifier(), Map.of(comparison.identifier().getName(), variableState.get().value()), evaluator, loop);
+        OptionalLong stepOpt = extractStepFromNode(loop.getUpdate(), comparison.identifier(), evaluator, loop);
         if (stepOpt.isEmpty()) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
 
-        if (!isBodyStable(loop.getBody(), comparison.identifier(), variableState.get().declarationType())) {
+        // Шаг уже в заголовке, поэтому тело не должно трогать счётчик вовсе. Счётчик, объявленный
+        // не в заголовке, дополнительно не должен иметь псевдонима
+        if (!isBodyStable(loop.getBody(), comparison.identifier(), variableState.get().declarationType())
+                || (loop.getInitializer() instanceof AssignmentStatement
+                && isAliased(comparison.identifier(), evaluator, loop))) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
 
@@ -156,8 +182,8 @@ public class LoopIterationAnalyzer {
         if (constantCondition.isPresent()) {
             return constantCondition.get()
                     ? LoopIterationEstimate.ofKind(
-                            hasTopLevelEarlyExit(loop.getBody()) ? LoopIterationCount.UNDEFINED : LoopIterationCount.INFINITE,
-                            !hasTopLevelEarlyExit(loop.getBody()),
+                            hasTopLevelEarlyExit(loop.getBody(), true) ? LoopIterationCount.UNDEFINED : LoopIterationCount.INFINITE,
+                            !hasTopLevelEarlyExit(loop.getBody(), true),
                             Range.Direction.UNKNOWN
                     )
                     : LoopIterationEstimate.exact(0);
@@ -173,7 +199,7 @@ public class LoopIterationAnalyzer {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
 
-        OptionalLong stepOpt = extractSingleBodyStep(loop.getBody(), comparison.identifier(), initialState.get().declarationType(), Map.of(comparison.identifier().getName(), initialState.get().value()), evaluator, loop);
+        OptionalLong stepOpt = extractSingleBodyStep(loop.getBody(), comparison.identifier(), initialState.get().declarationType(), evaluator, loop);
         if (stepOpt.isEmpty()) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
@@ -205,7 +231,7 @@ public class LoopIterationAnalyzer {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
 
-        OptionalLong stepOpt = extractSingleBodyStep(loop.getBody(), comparison.identifier(), initialState.get().declarationType(), Map.of(comparison.identifier().getName(), initialState.get().value()), evaluator, loop);
+        OptionalLong stepOpt = extractSingleBodyStep(loop.getBody(), comparison.identifier(), initialState.get().declarationType(), evaluator, loop);
         if (stepOpt.isEmpty()) {
             return LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false);
         }
@@ -300,45 +326,74 @@ public class LoopIterationAnalyzer {
         return Optional.empty();
     }
 
+    /**
+     * Шаг счётчика {@code while}/{@code do-while}: ровно один оператор тела, который является
+     * шагом ({@code x--;}, {@code x -= 2;}, {@code x = x + 1;}), стоит прямо в теле и выполняется
+     * на каждой итерации. Любая другая запись счётчика (под {@code if}, во вложенном цикле, вторым
+     * шагом) или псевдоним у него отменяют оценку: число итераций тогда не выводится из кода.
+     */
     private OptionalLong extractSingleBodyStep(Statement body,
                                                SimpleIdentifier identifier,
                                                @Nullable Node declarationType,
-                                               Map<String, Long> env,
                                                ExpressionValueEvaluator evaluator,
                                                Loop contextLoop) {
-        if (!isBodyStable(body, identifier, declarationType)) {
+        if (hasTopLevelEarlyExit(body, true)
+                || escapesThroughCall(body, identifier, declarationType)
+                || isAliased(identifier, evaluator, contextLoop)) {
             return OptionalLong.empty();
         }
 
+        List<Node> statements = body instanceof CompoundStatement compound ? compound.getNodeList() : List.of(body);
         Long foundStep = null;
-        for (NodeInfo info : body.iterate(true)) {
-            Node node = info.node();
-            OptionalLong step = extractStepFromNode(node, identifier, env, evaluator, contextLoop);
+        for (Node statement : statements) {
+            OptionalLong step = extractStepFromNode(statement, identifier, evaluator, contextLoop);
             if (step.isPresent()) {
                 if (foundStep != null) {
                     return OptionalLong.empty();
                 }
                 foundStep = step.getAsLong();
+            } else if (MutationScanner.mayModify(statement, identifier, MutationScanner.Mode.SCALAR, null)) {
+                return OptionalLong.empty();
             }
         }
         return foundStep == null ? OptionalLong.empty() : OptionalLong.of(foundStep);
     }
 
+    /** Тело цикла с шагом в заголовке не должно ни обрывать цикл, ни трогать счётчик. */
     private boolean isBodyStable(Statement body, SimpleIdentifier identifier, @Nullable Node declarationType) {
-        if (hasTopLevelEarlyExit(body)) {
-            return false;
-        }
-        if (escapesThroughCall(body, identifier, declarationType)) {
-            return false;
-        }
+        return !hasTopLevelEarlyExit(body, false)
+                && !escapesThroughCall(body, identifier, declarationType)
+                && !MutationScanner.mayModify(body, identifier, MutationScanner.Mode.SCALAR, null);
+    }
 
-        int writeCount = 0;
-        for (NodeInfo info : body.iterate(true)) {
-            if (writesIdentifier(info.node(), identifier)) {
-                writeCount++;
-            }
+    /**
+     * Оценка цикла со счётным заголовком верна, только если тело не обрывает цикл и не меняет
+     * счётчик. Иначе число итераций из заголовка недостижимо или неверно; цикл, в который тело
+     * не заходит, остаётся нулевым при любом теле.
+     */
+    private LoopIterationEstimate guardBody(Statement body,
+                                            @Nullable SimpleIdentifier counter,
+                                            LoopIterationEstimate estimate) {
+        if (estimate.kind() == LoopIterationCount.ZERO) {
+            return estimate;
         }
-        return writeCount <= 1;
+        boolean bodyBreaksEstimate = hasTopLevelEarlyExit(body, false)
+                || (counter != null && !loopVariableRebound
+                && MutationScanner.mayModify(body, counter, MutationScanner.Mode.SCALAR, null));
+        return bodyBreaksEstimate
+                ? LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false, estimate.direction())
+                : estimate;
+    }
+
+    /**
+     * Есть ли у счётчика псевдоним (адрес, ссылка): запись через него в теле не видна по имени.
+     * Без объявления в таблице (параметр функции) это неизвестно, а неизвестное считается
+     * псевдонимом.
+     */
+    private boolean isAliased(SimpleIdentifier identifier, ExpressionValueEvaluator evaluator, Loop contextLoop) {
+        return evaluator.declarationScopeRoot(identifier, contextLoop)
+                .map(root -> MutationScanner.mayAlias(root, identifier))
+                .orElse(true);
     }
 
     private boolean escapesThroughCall(Statement body, SimpleIdentifier identifier, @Nullable Node declarationType) {
@@ -360,42 +415,48 @@ public class LoopIterationAnalyzer {
         return false;
     }
 
-    private boolean hasTopLevelEarlyExit(Statement body) {
-        return hasTopLevelEarlyExit(body, 0);
-    }
-
-    private boolean hasTopLevelEarlyExit(Node node, int nestedLoopDepth) {
-        if (node instanceof ReturnStatement || node instanceof GotoStatement) {
-            return true;
+    /**
+     * Есть ли в теле выход, меняющий число итераций. {@code break} и {@code continue} внутри
+     * вложенного цикла относятся к нему, а не к этому. {@code continue} учитывается, только если
+     * он пропускает шаг счётчика: у {@code while} шаг в теле, у {@code for} он в заголовке.
+     */
+    private boolean hasTopLevelEarlyExit(Statement body, boolean continueSkipsStep) {
+        List<NodeInfo> nodes = body.iterate(true);
+        // Обход отдаёт всё поддерево разом, а не детей по очереди, поэтому «внутри ли вложенного
+        // цикла» выясняется подъёмом по родителям
+        Map<Long, Node> parents = new HashMap<>();
+        for (NodeInfo info : nodes) {
+            parents.put(info.node().getId(), info.parentNode());
         }
-        if ((node instanceof BreakStatement || node instanceof ContinueStatement) && nestedLoopDepth == 0) {
-            return true;
-        }
-
-        int nextDepth = nestedLoopDepth;
-        if (node instanceof Loop) {
-            nextDepth++;
-        }
-
-        for (NodeInfo info : node.iterate(false)) {
-            if (hasTopLevelEarlyExit(info.node(), nextDepth)) {
+        for (NodeInfo info : nodes) {
+            Node node = info.node();
+            if (node instanceof ReturnStatement || node instanceof GotoStatement || node instanceof RaiseExceptionStatement) {
+                return true;
+            }
+            boolean jumpsOutOfThisLoop = node instanceof BreakStatement
+                    || (continueSkipsStep && node instanceof ContinueStatement);
+            if (jumpsOutOfThisLoop && !isInsideNestedLoop(node, body, parents)) {
                 return true;
             }
         }
         return false;
     }
 
-    private OptionalLong extractStep(@Nullable Expression expression,
-                                     SimpleIdentifier identifier,
-                                     Map<String, Long> env,
-                                     ExpressionValueEvaluator evaluator,
-                                     Loop contextLoop) {
-        return extractStepFromNode(expression, identifier, env, evaluator, contextLoop);
+    private boolean isInsideNestedLoop(Node node, Node root, Map<Long, Node> parents) {
+        if (node.getId() == root.getId()) {
+            return false;
+        }
+        for (Node parent = parents.get(node.getId()); parent != null && parent.getId() != root.getId();
+             parent = parents.get(parent.getId())) {
+            if (parent instanceof Loop) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private OptionalLong extractStepFromNode(@Nullable Node node,
                                              SimpleIdentifier identifier,
-                                             Map<String, Long> env,
                                              ExpressionValueEvaluator evaluator,
                                              Loop contextLoop) {
         if (node == null) {
@@ -414,40 +475,50 @@ public class LoopIterationAnalyzer {
             return OptionalLong.of(-1);
         }
         if (node instanceof AssignmentStatement assignment && isIdentifier(assignment.getLValue(), identifier)) {
-            return extractStepFromAssignment(assignment, identifier, env, evaluator, contextLoop);
+            return extractStepFromAssignment(assignment.getAugmentedOperator(), assignment.getRValue(), identifier, evaluator, contextLoop);
         }
         if (node instanceof ExpressionStatement statement) {
-            return extractStepFromNode(statement.getExpression(), identifier, env, evaluator, contextLoop);
+            return extractStepFromNode(statement.getExpression(), identifier, evaluator, contextLoop);
         }
         if (node instanceof AssignmentExpression assignment && isIdentifier(assignment.getLValue(), identifier)) {
-            return extractStepFromAssignment(
-                    new AssignmentStatement(assignment.getLValue(), assignment.getRValue(), assignment.getAugmentedOperator()),
-                    identifier,
-                    env,
-                    evaluator,
-                    contextLoop
-            );
+            return extractStepFromAssignment(assignment.getAugmentedOperator(), assignment.getRValue(), identifier, evaluator, contextLoop);
         }
         return OptionalLong.empty();
     }
 
-    private OptionalLong extractStepFromAssignment(AssignmentStatement assignment,
+    /**
+     * Шаг присваивания, одинаковый на каждой итерации: {@code x += c}, {@code x -= c},
+     * {@code x = x + c}, {@code x = c + x}, {@code x = x - c}. Правая часть вычисляется без
+     * значения счётчика: {@code x += x} или {@code x = 10 - x} шага не имеют, а {@code x = 5}
+     * не шаг вовсе, а сброс.
+     */
+    private OptionalLong extractStepFromAssignment(AugmentedAssignmentOperator operator,
+                                                   Expression rightValue,
                                                    SimpleIdentifier identifier,
-                                                   Map<String, Long> env,
                                                    ExpressionValueEvaluator evaluator,
                                                    Loop contextLoop) {
-        return switch (assignment.getAugmentedOperator()) {
-            case ADD -> evaluator.evaluateAsLong(assignment.getRValue(), env, contextLoop);
-            case SUB -> evaluator.evaluateAsLong(assignment.getRValue(), env, contextLoop).stream().map(v -> -v).findFirst();
+        return switch (operator) {
+            case ADD -> evaluator.evaluateAsLong(rightValue, Map.of(), contextLoop);
+            case SUB -> negate(evaluator.evaluateAsLong(rightValue, Map.of(), contextLoop));
             case NONE -> {
-                OptionalLong value = evaluator.evaluateAsLong(assignment.getRValue(), env, contextLoop);
-                if (value.isPresent() && env.containsKey(identifier.getName())) {
-                    yield OptionalLong.of(value.getAsLong() - env.get(identifier.getName()));
+                Expression value = unwrap(rightValue);
+                if (value instanceof AddOp add && isIdentifier(add.getLeft(), identifier)) {
+                    yield evaluator.evaluateAsLong(add.getRight(), Map.of(), contextLoop);
+                }
+                if (value instanceof AddOp add && isIdentifier(add.getRight(), identifier)) {
+                    yield evaluator.evaluateAsLong(add.getLeft(), Map.of(), contextLoop);
+                }
+                if (value instanceof SubOp sub && isIdentifier(sub.getLeft(), identifier)) {
+                    yield negate(evaluator.evaluateAsLong(sub.getRight(), Map.of(), contextLoop));
                 }
                 yield OptionalLong.empty();
             }
             default -> OptionalLong.empty();
         };
+    }
+
+    private static OptionalLong negate(OptionalLong value) {
+        return value.isPresent() ? OptionalLong.of(-value.getAsLong()) : value;
     }
 
     private OptionalLong evaluateAssignedValue(AssignmentStatement assignment,
@@ -482,6 +553,19 @@ public class LoopIterationAnalyzer {
 
         if (!testCondition(start, bound, operator)) {
             return LoopIterationEstimate.exact(0);
+        }
+
+        if (operator == NotEqOp.class) {
+            // Условие становится ложным, только когда счётчик попадёт ровно в границу; иначе
+            // он её перешагнёт, и дальше всё решает переполнение, которого дерево не знает
+            long distance = bound - start;
+            return distance % step == 0 && distance / step > 0
+                    ? LoopIterationEstimate.fixed(distance / step, true, direction)
+                    : LoopIterationEstimate.ofKind(LoopIterationCount.UNDEFINED, false, direction);
+        }
+        if (operator == EqOp.class) {
+            // Условие истинно только при start == bound, после первого шага оно ложно
+            return LoopIterationEstimate.exact(1);
         }
 
         if ((step > 0 && (operator == GtOp.class || operator == GeOp.class))
@@ -519,6 +603,12 @@ public class LoopIterationAnalyzer {
         }
         if (operator == GeOp.class) {
             return value >= bound;
+        }
+        if (operator == EqOp.class) {
+            return value == bound;
+        }
+        if (operator == NotEqOp.class) {
+            return value != bound;
         }
         return false;
     }
@@ -591,36 +681,6 @@ public class LoopIterationAnalyzer {
 
     private long floorDiv(long dividend, long divisor) {
         return Math.floorDiv(dividend, divisor);
-    }
-
-    private boolean writesIdentifier(Node node, SimpleIdentifier identifier) {
-        if (node instanceof VariableDeclaration declaration) {
-            for (VariableDeclarator declarator : declaration.getDeclarators()) {
-                if (identifier.equals(declarator.getIdentifier())) {
-                    return true;
-                }
-            }
-        }
-        if (node instanceof SeparatedVariableDeclaration separated) {
-            for (VariableDeclaration declaration : separated.getDeclarations()) {
-                if (writesIdentifier(declaration, identifier)) {
-                    return true;
-                }
-            }
-        }
-        if (node instanceof AssignmentStatement assignment && isIdentifier(assignment.getLValue(), identifier)) {
-            return true;
-        }
-        if (node instanceof AssignmentExpression assignment && isIdentifier(assignment.getLValue(), identifier)) {
-            return true;
-        }
-        if (node instanceof UnaryExpression unaryExpression && (unaryExpression instanceof PrefixIncrementOp
-                || unaryExpression instanceof PostfixIncrementOp
-                || unaryExpression instanceof PrefixDecrementOp
-                || unaryExpression instanceof PostfixDecrementOp)) {
-            return isIdentifier(unaryExpression.getArgument(), identifier);
-        }
-        return false;
     }
 
     private boolean containsIdentifier(Node node, SimpleIdentifier identifier) {

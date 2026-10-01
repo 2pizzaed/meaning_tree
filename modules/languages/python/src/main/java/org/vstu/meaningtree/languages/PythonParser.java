@@ -88,11 +88,14 @@ public class PythonParser extends LanguageParser {
             .withScopePolicy(ScopePolicy.definitionScoped())
             .withAssignmentBinding(AssignmentBinding.LOCAL)
             .withOverloadSemantics(OverloadSemantics.shadowing())
-            .withTypeConversionSemantics(new PythonTypeConversionSemantics());
+            .withTypeConversionSemantics(new PythonTypeConversionSemantics())
+            .withLoopVariableRebound(true);
 
     /**
-     * Python отходит от умолчаний во всех четырёх правилах, и все четыре — об одном: чем
-     * видимость имён и разрешение вызовов в Python отличаются от C-семейства.
+     * Python отходит от умолчаний в пяти правилах. Четыре — об одном: чем видимость имён и
+     * разрешение вызовов в Python отличаются от C-семейства. Пятое — про цикл: переменная
+     * {@code for i in range(n)} привязывается заново на каждой итерации, поэтому
+     * {@code i += 1} в теле число итераций не меняет.
      * <p>
      * <b>Границы областей.</b> В Python область видимости открывает только определение: имя,
      * присвоенное внутри {@code if}, {@code for}, {@code while} или {@code try}, остаётся

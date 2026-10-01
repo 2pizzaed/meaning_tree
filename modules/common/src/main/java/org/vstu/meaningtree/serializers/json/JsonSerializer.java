@@ -710,7 +710,9 @@ public class JsonSerializer implements Serializer<JsonObject> {
             json.addProperty("resolved_declaration_id", callable.getResolvedDeclaration().getId());
         }
 
-        return json;
+        // Оценка значения выражения: пишется для любого выражения, а не только для узлов таблицы
+        // областей, иначе десериализатор, который её читает, никогда бы её не получил
+        return withNodeMetadata(node, json);
     }
 
     /**

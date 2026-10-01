@@ -715,6 +715,81 @@ public class JSONSerializerTests {
     }
 
     /**
+     * Оценка значения выражения пишется в JSON любого узла-выражения, а не только в таблицу
+     * областей: читающий её десериализатор иначе никогда бы её не получил.
+     */
+    @Test
+    void expressionValueEstimateIsWrittenForEveryExpressionAndRestored() {
+        MeaningTree tree = new JavaTranslator(CONFIG).getMeaningTree(
+                "class Main { public static void main(String[] args) { if (true) { } if (!false) { } } }"
+        );
+
+        JsonObject json = new JsonSerializer().serialize(tree);
+        List<JsonObject> estimates = new ArrayList<>();
+        // Корень режима simple ещё раз целиком повторяет класс и точку входа по ссылкам
+        // (main_class_ref, entry_point_node_ref), поэтому считаем только основное тело
+        collectEstimates(json.getAsJsonObject("root_node").getAsJsonArray("body"), estimates);
+        assertEquals(3, estimates.size(), "true, !false and false");
+        for (JsonObject estimate : estimates) {
+            assertFalse(estimate.get("exact_value").isJsonNull());
+            assertEquals(1, estimate.getAsJsonArray("possible_values").size());
+            assertTrue(estimate.get("reliable").getAsBoolean());
+        }
+
+        MeaningTree restored = new JsonDeserializer().deserializeTree(json);
+        long withEstimate = StreamSupport.stream(restored.spliterator(), false)
+                .map(info -> info.node())
+                .filter(node -> node instanceof org.vstu.meaningtree.nodes.Expression expression
+                        && expression.getValueEstimate().isPresent())
+                .count();
+        assertEquals(estimates.size(), withEstimate);
+    }
+
+    @Test
+    void expressionWithoutEstimateHasNoValueEstimateField() {
+        MeaningTree tree = new JavaTranslator(CONFIG).getMeaningTree(
+                "class Main { static int f() { return 1; } public static void main(String[] args) { int x = f(); } }"
+        );
+
+        for (JsonObject node : objectsOfType(new JsonSerializer().serialize(tree), "function_call")) {
+            assertFalse(node.has("value_estimate"), "a call has no estimate");
+        }
+    }
+
+    private static void collectEstimates(JsonElement element, List<JsonObject> out) {
+        if (element instanceof JsonObject object) {
+            if (object.has("value_estimate")) {
+                out.add(object.getAsJsonObject("value_estimate"));
+            }
+            for (String key : object.keySet()) {
+                collectEstimates(object.get(key), out);
+            }
+        } else if (element instanceof JsonArray array) {
+            for (JsonElement item : array) {
+                collectEstimates(item, out);
+            }
+        }
+    }
+
+    private static List<JsonObject> objectsOfType(JsonElement element, String type) {
+        List<JsonObject> found = new ArrayList<>();
+        if (element instanceof JsonObject object) {
+            if (object.has("type") && object.get("type").isJsonPrimitive()
+                    && type.equals(object.get("type").getAsString())) {
+                found.add(object);
+            }
+            for (String key : object.keySet()) {
+                found.addAll(objectsOfType(object.get(key), type));
+            }
+        } else if (element instanceof JsonArray array) {
+            for (JsonElement item : array) {
+                found.addAll(objectsOfType(item, type));
+            }
+        }
+        return found;
+    }
+
+    /**
      * Признаки строки записаны в тип, а не выведены заново при чтении: без них Си-строка после
      * круга через JSON молча превратилась бы в {@code std::string}, а ёмкость буфера исчезла.
      */

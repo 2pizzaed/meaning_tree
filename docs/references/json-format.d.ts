@@ -473,6 +473,12 @@ export interface NodeCommon {
      * Оба случая штатные, поэтому отсутствие поля не означает потерю данных.
      */
     resolved_declaration_id?: AstId;
+    /**
+     * Только для выражений, значение которых удалось оценить (`ExpressionValueEvaluator`):
+     * литералы, `!`, `&&`, `||`, целочисленная арифметика, сравнения. Для вызовов, обращений к
+     * полям и всего, что не оценивается, отсутствует.
+     */
+    value_estimate?: ExpressionValueEstimate;
 }
 
 export interface NodeBase<T extends string = NodeTypeName> extends NodeCommon {

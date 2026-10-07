@@ -23,7 +23,8 @@ import java.util.regex.Pattern;
  * <ol>
  *     <li>после отрисовки узла с комментариями к тексту приписывается невидимая метка
  *     ({@link HookPhase#AFTER_NODE_RENDER});</li>
- *     <li>в готовом коде метка заменяется комментарием: блочный в C/C++/Java остаётся на месте
+ *     <li>в готовом коде метка заменяется комментарием: блочный там, где язык это допускает
+ *     ({@link LanguageBehavior#inlineBlockComments()}), остаётся на месте
  *     ({@code i = 0 /* c *}{@code /;}), остальные уходят в конец строки, где стоит метка. В Python
  *     многострочный комментарий печатается строками {@code #} перед этой строкой.</li>
  * </ol>
@@ -174,7 +175,7 @@ final class TrailingCommentRenderer {
             }
             boolean toLineEnd = false;
             for (Comment comment : commentsByOwner.get(owner)) {
-                if (viewer.allowsInlineComments() && comment.getStyle() != CommentStyle.LINE) {
+                if (viewer.languageBehavior().inlineBlockComments() && comment.getStyle() != CommentStyle.LINE) {
                     if (comment.hasNewline()) {
                         atEnd.add(comment);
                     } else {

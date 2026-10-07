@@ -90,9 +90,13 @@ public class JavaParser extends LanguageParser {
     }
 
     private static final LanguageBehavior BEHAVIOR = LanguageBehavior.defaults()
-            .withTypeConversionSemantics(new JavaTypeConversionSemantics());
+            .withTypeConversionSemantics(new JavaTypeConversionSemantics())
+            .withInlineBlockComments(true);
 
-    /** От умолчаний язык отходит только в правилах преобразования примитивных типов. */
+    /**
+     * От умолчаний язык отходит в правилах преобразования примитивных типов и в том, что
+     * блочный комментарий может стоять посреди строки.
+     */
     @Override
     protected LanguageBehavior languageBehavior() {
         return BEHAVIOR;

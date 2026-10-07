@@ -404,15 +404,6 @@ abstract public class LanguageViewer extends TranslatorComponent {
     public abstract OperatorToken mapToToken(Expression expr);
 
     /**
-     * Можно ли оставить блочный комментарий посреди строки кода ({@code i = 0 /* c *}{@code /;}).
-     * Где нельзя, прикреплённый комментарий уходит в конец строки строчным (см.
-     * {@link TrailingCommentRenderer}).
-     */
-    protected boolean allowsInlineComments() {
-        return false;
-    }
-
-    /**
      * Подготовка дерева перед рендерингом. Переопределение — простой путь для языка;
      * внешний потребитель может добиться того же, зарегистрировав перехватчик на
      * {@link HookPhase#BEFORE_TREE_RENDER}.

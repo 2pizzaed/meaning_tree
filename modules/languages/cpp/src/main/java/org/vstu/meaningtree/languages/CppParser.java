@@ -120,11 +120,12 @@ public class CppParser extends LanguageParser {
 
     private static final LanguageBehavior BEHAVIOR = LanguageBehavior.defaults()
             .withTypeConversionSemantics(new CppTypeConversionSemantics())
-            .withStandardLibrary(new CppStandardLibrary());
+            .withStandardLibrary(new CppStandardLibrary())
+            .withInlineBlockComments(true);
 
     /**
-     * От умолчаний язык отходит в правилах преобразования примитивных типов и в описании
-     * стандартной библиотеки.
+     * От умолчаний язык отходит в правилах преобразования примитивных типов, в описании
+     * стандартной библиотеки и в том, что блочный комментарий может стоять посреди строки.
      */
     @Override
     protected LanguageBehavior languageBehavior() {

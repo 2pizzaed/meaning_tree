@@ -10,9 +10,10 @@ import org.vstu.meaningtree.utils.scopes.ScopePolicy;
 import java.util.Objects;
 
 /**
- * Правила языка, которыми параметризуются разбор и анализ: где проходят границы областей
+ * Правила языка, которыми параметризуются разбор, анализ и вывод: где проходят границы областей
  * видимости, какую переменную связывает присваивание, что считать перегрузкой, как язык
- * уточняет общие правила преобразования типов и что известно про его стандартную библиотеку.
+ * уточняет общие правила преобразования типов, что известно про его стандартную библиотеку и
+ * где в строке кода может стоять комментарий.
  * <p>
  * Одно значение, а не набор независимых методов, потому что он описывает один язык целиком
  * и по частям смысла не имеет: таблица областей, собранная с питоновскими границами и
@@ -44,7 +45,8 @@ public record LanguageBehavior(
         @NotNull OverloadSemantics overloadSemantics,
         @NotNull TypeConversionSemantics typeConversionSemantics,
         @NotNull StandardLibrary standardLibrary,
-        boolean loopVariableRebound) {
+        boolean loopVariableRebound,
+        boolean inlineBlockComments) {
 
     public LanguageBehavior {
         Objects.requireNonNull(scopePolicy, "scopePolicy must not be null");
@@ -75,6 +77,10 @@ public record LanguageBehavior(
      *       (Python), умолчание заменяет.</li>
      *   <li><b>Стандартная библиотека не описана</b> — таблица функций есть только у языка,
      *       которому она понадобилась; пустая означает «неизвестно», а не «функций нет».</li>
+     *   <li><b>Блочного комментария посреди строки нет</b> — прикреплённый комментарий уходит в
+     *       конец строки. Так безопасно для любого языка: язык, где {@code /* *}{@code /}
+     *       закрывается сам, умолчание заменяет, а ошибка в обратную сторону закомментировала бы
+     *       остаток строки.</li>
      * </ul>
      * Это и точка входа для языков: заменять следует только то, в чём язык от умолчания
      * отходит, через {@code with*}. Перечислять весь набор конструктором не надо — тогда
@@ -90,27 +96,28 @@ public record LanguageBehavior(
             OverloadSemantics.bySignature(),
             TypeConversionSemantics.common(),
             StandardLibrary.unknown(),
+            false,
             false
     );
 
     public LanguageBehavior withScopePolicy(@NotNull ScopePolicy scopePolicy) {
-        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound, inlineBlockComments);
     }
 
     public LanguageBehavior withAssignmentBinding(@NotNull AssignmentBinding assignmentBinding) {
-        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound, inlineBlockComments);
     }
 
     public LanguageBehavior withOverloadSemantics(@NotNull OverloadSemantics overloadSemantics) {
-        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound, inlineBlockComments);
     }
 
     public LanguageBehavior withTypeConversionSemantics(@NotNull TypeConversionSemantics typeConversionSemantics) {
-        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound, inlineBlockComments);
     }
 
     public LanguageBehavior withStandardLibrary(@NotNull StandardLibrary standardLibrary) {
-        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound, inlineBlockComments);
     }
 
     /**
@@ -118,6 +125,15 @@ public record LanguageBehavior(
      *                            поэтому запись в неё в теле цикла число итераций не меняет
      */
     public LanguageBehavior withLoopVariableRebound(boolean loopVariableRebound) {
-        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound);
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound, inlineBlockComments);
+    }
+
+    /**
+     * @param inlineBlockComments можно ли оставить блочный комментарий посреди строки кода
+     *                            ({@code i = 0 /* c *}{@code /;}); где нельзя, прикреплённый
+     *                            комментарий уходит в конец строки (см. {@link TrailingCommentRenderer})
+     */
+    public LanguageBehavior withInlineBlockComments(boolean inlineBlockComments) {
+        return new LanguageBehavior(scopePolicy, assignmentBinding, overloadSemantics, typeConversionSemantics, standardLibrary, loopVariableRebound, inlineBlockComments);
     }
 }

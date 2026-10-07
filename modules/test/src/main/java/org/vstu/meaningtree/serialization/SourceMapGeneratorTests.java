@@ -551,7 +551,15 @@ public class SourceMapGeneratorTests {
                             }
                             return x;
                         }
-                        """, () -> new CppTranslator(CONFIG))
+                        """, () -> new CppTranslator(CONFIG)),
+                new Sample("c++", """
+                        struct Point {
+                            int x; // coordinate
+                            int y = 1; /* initial */
+                        };
+                        """, () -> new CppTranslator(Map.of(
+                        "translationUnitMode", "procedural",
+                        "skipErrors", false)))
         );
     }
 

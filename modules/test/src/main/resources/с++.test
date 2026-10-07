@@ -942,6 +942,74 @@ group: StructuresOOP
 
 
 
+    case: TrailingCommentsOnStructFields
+        main c++:
+            struct Point
+            {
+                int x; // coordinate
+                int y = 1; /* initial */
+            };
+
+        c++:
+            struct Point
+            {
+                int x;  // coordinate
+                int y = 1; /* initial */
+            };
+
+        python:
+            from dataclasses import dataclass
+            @dataclass
+            class Point:
+                x: int  # coordinate
+                y: int = 1  # initial
+
+
+    case: TrailingCommentsOnClassFields
+        main c++:
+            class Account
+            {
+                int pin; // secret
+            public:
+                int balance = 0; // cents
+            private:
+                int attempts = 0; // count
+            };
+
+        c++:
+            class Account
+            {
+                int pin;  // secret
+            public:
+                int balance = 0;  // cents
+            private:
+                int attempts = 0;  // count
+            };
+
+        java:
+            class Account {
+                int pin;  // secret
+                public int balance = 0;  // cents
+                int attempts = 0;  // count
+            }
+
+
+    case[dropComments=true]: DropTrailingCommentsOnFields
+        main c++:
+            struct Point
+            {
+                int x; // coordinate
+                int y = 1; /* initial */
+            };
+
+        c++:
+            struct Point
+            {
+                int x;
+                int y = 1;
+            };
+
+
 group: CStrings
     case: CharPointerInitializedByLiteral
         c++:

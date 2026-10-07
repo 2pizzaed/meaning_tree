@@ -249,9 +249,21 @@ abstract public class LanguageParser extends TranslatorComponent {
         if (entry == null) {
             throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));
         }
-        ctx.enterSource(node, entry.produces());
+        return parseTSNode(node, entry.produces(), entry.handler());
+    }
+
+    /**
+     * Разбирает узел обработчиком, выбранным с учётом контекста языка, сохраняя общий
+     * жизненный цикл разбора: кадр исходника, хуки и сопоставление байтовых диапазонов.
+     */
+    protected final Node parseTSNode(TSNode node, Class<? extends Node> produces,
+                                     Function<TSNode, Node> handler) {
+        if (node.isNull()) {
+            return null;
+        }
+        ctx.enterSource(node, produces);
         try {
-            Node parsed = entry.handler().apply(node);
+            Node parsed = handler.apply(node);
             if (parsed == null) {
                 // Сохраняем прежнее поведение: handler, вернувший null, означает «не разобрал»
                 throw new UnsupportedParsingException(String.format("Can't parse %s", node.getType()));

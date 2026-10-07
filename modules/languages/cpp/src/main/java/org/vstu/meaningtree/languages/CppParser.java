@@ -586,7 +586,9 @@ public class CppParser extends LanguageParser {
                     } else if (!functionDeclarator.isNull()) {
                         members.add(fromClassMethodDeclaration(child, functionDeclarator, declaration, visibility));
                     } else {
-                        members.addAll(fromClassFields(child, visibility));
+                        DeclarationModifier fieldVisibility = visibility;
+                        members.add(parseTSNode(child, FieldDeclaration.class,
+                                field -> fromClassField(field, fieldVisibility)));
                     }
                 }
                 case "function_definition" -> members.add(fromClassMethod(child, declaration, visibility));
@@ -712,7 +714,7 @@ public class CppParser extends LanguageParser {
         };
     }
 
-    private List<FieldDeclaration> fromClassFields(TSNode node, DeclarationModifier visibility) {
+    private FieldDeclaration fromClassField(TSNode node, DeclarationModifier visibility) {
         List<DeclarationModifier> modifiers = new ArrayList<>();
         if (visibility != DeclarationModifier.PRIVATE) {
             modifiers.add(visibility);
@@ -726,7 +728,7 @@ public class CppParser extends LanguageParser {
         SimpleIdentifier name = (SimpleIdentifier) fromIdentifier(declarator);
         TSNode defaultValue = node.getChildByFieldName("default_value");
         Expression value = defaultValue.isNull() ? null : (Expression) parseTSNode(defaultValue);
-        return List.of(new FieldDeclaration(type, name, value, modifiers));
+        return new FieldDeclaration(type, name, value, modifiers);
     }
 
     private Node fromClassMethod(TSNode node, ClassDeclaration owner, DeclarationModifier visibility) {

@@ -15,6 +15,9 @@ import org.vstu.meaningtree.nodes.Comment;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
+import org.vstu.meaningtree.nodes.declarations.Annotation;
+import org.vstu.meaningtree.nodes.declarations.EnumConstantDeclaration;
+import org.vstu.meaningtree.nodes.declarations.EnumDeclaration;
 import org.vstu.meaningtree.nodes.declarations.FieldDeclaration;
 import org.vstu.meaningtree.nodes.declarations.FunctionDeclaration;
 import org.vstu.meaningtree.nodes.declarations.MethodDeclaration;
@@ -111,6 +114,112 @@ public class JSONSerializerTests {
                 def ordinary(self) -> int:
                     return 0
             """;
+
+    @Test
+    void enumConstantNodesOwnTheirValuesAndSurviveCloneAndReplacement() {
+        EnumConstantDeclaration red = new EnumConstantDeclaration(new SimpleIdentifier("RED"));
+        EnumConstantDeclaration green = new EnumConstantDeclaration(new SimpleIdentifier("GREEN"),
+                new AddOp(new IntegerLiteral(1), new IntegerLiteral(2)));
+        green.addTrailingComment(Comment.fromUnescaped(" green", CommentStyle.LINE));
+        EnumDeclaration declaration = new EnumDeclaration(List.of(), new SimpleIdentifier("Color"),
+                List.of(red, green));
+        MeaningTree tree = new MeaningTree(declaration);
+
+        assertTrue(declaration.isScoped());
+        assertTrue(declaration.hasConstantValues());
+        assertTrue(declaration.hasConstant(new SimpleIdentifier("RED")));
+        assertSame(green, declaration.getConstant(new SimpleIdentifier("GREEN")));
+        assertNull(declaration.getConstant(new SimpleIdentifier("BLUE")));
+        assertFalse(red.hasValue());
+        assertNull(red.getValue());
+        assertEquals(List.of(red, green), nodesOf(tree, EnumConstantDeclaration.class));
+        assertEquals(2, nodesOf(tree, IntegerLiteral.class).size());
+
+        EnumDeclaration clone = declaration.clone();
+        assertEquals(declaration, clone);
+        assertEquals(declaration.hashCode(), clone.hashCode());
+        EnumConstantDeclaration clonedGreen = clone.getConstants().get(1);
+        assertNotSame(green, clonedGreen);
+        assertNotSame(green.getName(), clonedGreen.getName());
+        assertNotSame(green.getValue(), clonedGreen.getValue());
+        assertNotSame(green.getTrailingComments().getFirst(), clonedGreen.getTrailingComments().getFirst());
+        clonedGreen.setValue(null);
+        assertFalse(clonedGreen.hasValue());
+        assertTrue(green.hasValue());
+        assertNotEquals(declaration, clone);
+
+        Node oldValue = green.getValue();
+        IntegerLiteral newValue = new IntegerLiteral(5).remap(oldValue);
+        assertTrue(tree.replace(oldValue.getId(), newValue).isSuccess());
+        assertSame(newValue, green.getValue());
+        assertEquals(1, nodesOf(tree, IntegerLiteral.class).size());
+        EnumConstantDeclaration blue = new EnumConstantDeclaration(new SimpleIdentifier("BLUE")).remap(red);
+        assertTrue(tree.replace(red.getId(), blue).isSuccess());
+        assertFalse(declaration.hasConstant(new SimpleIdentifier("RED")));
+        assertSame(blue, declaration.getConstant(new SimpleIdentifier("BLUE")));
+
+        EnumDeclaration fresh = (EnumDeclaration) declaration.freshClone();
+        List<Long> originalIds = tree.iterate().stream().map(info -> info.node().getId()).toList();
+        List<Long> freshIds = new MeaningTree(fresh).iterate().stream().map(info -> info.node().getId()).toList();
+        assertTrue(freshIds.stream().noneMatch(originalIds::contains));
+        assertEquals(declaration, fresh);
+        assertFalse(new EnumDeclaration(List.of(), new SimpleIdentifier("Empty"), List.of(), false)
+                .hasConstantValues());
+    }
+
+    @Test
+    void enumConstantJsonPreservesValueMetadataAndTrailingComments() {
+        for (boolean valued : List.of(false, true)) {
+            EnumConstantDeclaration constant = new EnumConstantDeclaration(new SimpleIdentifier("RED"),
+                    valued ? new IntegerLiteral(1) : null);
+            constant.setAnnotations(List.of(new Annotation(new SimpleIdentifier("Deprecated"))));
+            constant.setModifiers(List.of(DeclarationModifier.PUBLIC));
+            constant.addTrailingComment(Comment.fromUnescaped(" first color", CommentStyle.LINE));
+            JsonObject json = new JsonSerializer().serialize(constant);
+
+            assertEquals("enum_constant_declaration", json.get("type").getAsString());
+            EnumConstantDeclaration restored = assertInstanceOf(EnumConstantDeclaration.class,
+                    new JsonDeserializer().deserialize(json));
+            assertEquals(constant, restored);
+            assertEquals(json, new JsonSerializer().serialize(restored));
+            assertEquals(constant.getId(), restored.getId());
+            assertEquals(valued, restored.hasValue());
+            assertEquals(1, restored.getTrailingComments().size());
+        }
+    }
+
+    @Test
+    void legacyEnumJsonUpgradesConstantsWithoutDuplicateNodeIds() {
+        CppTranslator translator = new CppTranslator(CONFIG);
+        MeaningTree original = translator.getMeaningTree("enum Color { RED = 1, GREEN };");
+        EnumDeclaration declaration = nodesOf(original, EnumDeclaration.class).getFirst();
+        JsonObject json = new JsonSerializer().serialize(declaration);
+        JsonArray legacyConstants = new JsonArray();
+        for (JsonElement element : json.getAsJsonArray("constants")) {
+            JsonObject constant = element.getAsJsonObject();
+            JsonObject legacy = new JsonObject();
+            legacy.add("name", constant.get("name"));
+            legacy.add("value", constant.get("value"));
+            legacyConstants.add(legacy);
+        }
+        json.add("constants", legacyConstants);
+        // Этот узел будет прочитан после констант: новые id обязаны учитывать и его.
+        long futureId = declaration.getId() + 1_000_000;
+        json.getAsJsonObject("type_node").addProperty("id", futureId);
+        EnumDeclaration restored = assertInstanceOf(EnumDeclaration.class,
+                new JsonDeserializer().deserialize(json));
+
+        assertEquals(List.of("RED", "GREEN"), restored.getConstants().stream()
+                .map(constant -> constant.getName().internalRepresentation()).toList());
+        assertTrue(restored.getConstants().getFirst().hasValue());
+        assertFalse(restored.getConstants().get(1).hasValue());
+        assertTrue(restored.getConstants().stream().allMatch(constant -> constant.getId() > futureId));
+        assertEquals(translator.getCode(declaration), translator.getCode(restored));
+        MeaningTree tree = new MeaningTree(restored);
+        assertDoesNotThrow(tree::iterate);
+        JsonObject upgraded = new JsonSerializer().serialize(restored);
+        assertEquals(upgraded, new JsonSerializer().serialize(new JsonDeserializer().deserialize(upgraded)));
+    }
 
     @Test
     void pythonPropertyDecoratorsBecomeAccessorNodesAndKeepTheirOrder() {
@@ -382,9 +491,9 @@ public class JSONSerializerTests {
                 """));
         snippets.add(new Snippet("java", "enumDeclaration", """
                 enum Color {
-                    RED,
-                    GREEN,
-                    BLUE
+                    RED, // first color
+                    GREEN, /* second color */
+                    BLUE // last color
                 }
                 """));
         snippets.add(new Snippet("java", "imports", """
@@ -526,8 +635,8 @@ public class JSONSerializerTests {
                 """);
         python(snippets, "enumDeclaration", """
                 class Color(Enum):
-                    RED = auto()
-                    GREEN = 5
+                    RED = auto() # first color
+                    GREEN = 5 # last color
                 """);
         python(snippets, "imports", """
                 import math
@@ -639,9 +748,9 @@ public class JSONSerializerTests {
                 """));
         snippets.add(new Snippet("c++", "enumDeclaration", """
                 enum Color {
-                    RED = 1,
-                    GREEN,
-                    BLUE = 4
+                    RED = 1, // first color
+                    GREEN, /* second color */
+                    BLUE = 4 // last color
                 };
 
                 int main() {

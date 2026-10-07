@@ -650,6 +650,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
             case InterfaceDeclaration interfaceDeclaration -> serializeClassDeclaration(interfaceDeclaration);
             case ClassDeclaration classDeclaration -> serializeClassDeclaration(classDeclaration);
             case EnumDeclaration enumDeclaration -> serializeEnumDeclaration(enumDeclaration);
+            case EnumConstantDeclaration enumConstantDeclaration -> serializeEnumConstantDeclaration(enumConstantDeclaration);
             case ObjectConstructorDeclaration objectConstructorDefinition -> serializeMethodDeclaration(objectConstructorDefinition);
             case ObjectDestructorDeclaration objectDestructorDefinition -> serializeMethodDeclaration(objectDestructorDefinition);
             case SeparatedVariableDeclaration separatedVariableDeclaration -> serializeSeparatedVariableDeclaration(separatedVariableDeclaration);
@@ -2594,11 +2595,8 @@ public class JsonSerializer implements Serializer<JsonObject> {
         json.add("modifiers", modifiers);
         json.add("name", serialize(decl.getName()));
         JsonArray constants = new JsonArray();
-        for (var entry : decl.getConstantsWithValues().entrySet()) {
-            JsonObject constant = new JsonObject();
-            constant.add("name", serialize(entry.getKey()));
-            constant.add("value", entry.getValue() == null ? JsonNull.INSTANCE : serialize(entry.getValue()));
-            constants.add(constant);
+        for (EnumConstantDeclaration constant : decl.getConstants()) {
+            constants.add(serialize(constant));
         }
         json.add("constants", constants);
         json.addProperty("scoped", decl.isScoped());
@@ -2606,6 +2604,21 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonArray anno = new JsonArray();
         for (var t : decl.getAnnotations()) anno.add(serialize(t));
         json.add("annotations", anno);
+        return json;
+    }
+
+    @NotNull
+    private JsonObject serializeEnumConstantDeclaration(@NotNull EnumConstantDeclaration constant) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(constant));
+        json.add("name", serialize(constant.getName()));
+        json.add("value", constant.hasValue() ? serialize(constant.getValue()) : JsonNull.INSTANCE);
+        JsonArray modifiers = new JsonArray();
+        for (var modifier : constant.getModifiers()) modifiers.add(enumToValue(modifier));
+        json.add("modifiers", modifiers);
+        JsonArray annotations = new JsonArray();
+        for (Annotation annotation : constant.getAnnotations()) annotations.add(serialize(annotation));
+        json.add("annotations", annotations);
         return json;
     }
 

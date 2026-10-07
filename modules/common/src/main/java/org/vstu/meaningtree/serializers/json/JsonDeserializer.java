@@ -106,6 +106,8 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
      */
     private final Map<Callable, Long> pendingResolvedDeclarations = new LinkedHashMap<>();
     private int deserializeDepth = 0;
+    private JsonObject serializedRoot;
+    private boolean legacyEnumIdsReserved;
 
     public JsonDeserializer() {
         try {
@@ -571,6 +573,10 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             return null;
         }
 
+        if (deserializeDepth == 0) {
+            serializedRoot = json;
+            legacyEnumIdsReserved = false;
+        }
         deserializeDepth++;
         try {
             return deserializeNode(json);
@@ -579,6 +585,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             if (deserializeDepth == 0) {
                 flushPendingOverriddenFrom();
                 flushPendingResolvedDeclarations();
+                serializedRoot = null;
             }
         }
     }
@@ -1504,14 +1511,12 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             case "enum_declaration" -> {
                 List<DeclarationModifier> modifiers = deserializeModifiers(json.getAsJsonArray("modifiers"));
                 Identifier name = (Identifier) deserialize(json.getAsJsonObject("name"));
-                LinkedHashMap<Identifier, Expression> constants = new LinkedHashMap<>();
+                List<EnumConstantDeclaration> constants = new ArrayList<>();
                 for (JsonElement elem : json.getAsJsonArray("constants")) {
                     JsonObject constant = elem.getAsJsonObject();
-                    JsonElement value = constant.get("value");
-                    constants.put(
-                            (Identifier) deserialize(constant.getAsJsonObject("name")),
-                            value == null || value.isJsonNull() ? null : deserializeExpression(value.getAsJsonObject())
-                    );
+                    constants.add(constant.has("type")
+                            ? (EnumConstantDeclaration) deserialize(constant)
+                            : deserializeLegacyEnumConstant(constant));
                 }
                 boolean scoped = !json.has("scoped") || json.get("scoped").getAsBoolean();
                 org.vstu.meaningtree.nodes.types.user.Enum typeNode = json.has("type_node") && !json.get("type_node").isJsonNull()
@@ -1522,6 +1527,14 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         : EnumDeclaration.withTypeNode(modifiers, name, constants, scoped, typeNode);
                 declaration.setAnnotations(deserializeAnnotations(json.getAsJsonArray("annotations")));
                 yield declaration;
+            }
+            case "enum_constant_declaration" -> {
+                EnumConstantDeclaration constant = new EnumConstantDeclaration(
+                        (Identifier) deserialize(json.getAsJsonObject("name")),
+                        deserializeNullableExpression(json, "value"));
+                constant.setModifiers(deserializeModifiers(json.getAsJsonArray("modifiers")));
+                constant.setAnnotations(deserializeAnnotations(json.getAsJsonArray("annotations")));
+                yield constant;
             }
             case "function_declaration" -> {
                 Identifier name = (Identifier) deserialize(json.getAsJsonObject("name"));
@@ -1881,6 +1894,36 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
         return json.has(fieldName) && !json.get(fieldName).isJsonNull()
                 ? deserializeExpression(json.getAsJsonObject(fieldName))
                 : null;
+    }
+
+    private EnumConstantDeclaration deserializeLegacyEnumConstant(JsonObject json) {
+        // Старый формат не задавал id константы. Новые узлы не должны пересечься с id
+        // ещё не прочитанных частей дерева, поэтому резервируем весь диапазон исходного JSON.
+        if (!legacyEnumIdsReserved) {
+            Node.advanceIdCounter(maxSerializedId(serializedRoot));
+            legacyEnumIdsReserved = true;
+        }
+        Identifier name = (Identifier) deserialize(json.getAsJsonObject("name"));
+        return new EnumConstantDeclaration(name, deserializeNullableExpression(json, "value")).remap(name);
+    }
+
+    private static long maxSerializedId(JsonElement json) {
+        long maximum = 0;
+        if (json.isJsonObject()) {
+            JsonObject object = json.getAsJsonObject();
+            if (object.has("id") && object.get("id").isJsonPrimitive()
+                    && object.getAsJsonPrimitive("id").isNumber()) {
+                maximum = object.get("id").getAsLong();
+            }
+            for (JsonElement value : object.asMap().values()) {
+                maximum = Math.max(maximum, maxSerializedId(value));
+            }
+        } else if (json.isJsonArray()) {
+            for (JsonElement value : json.getAsJsonArray()) {
+                maximum = Math.max(maximum, maxSerializedId(value));
+            }
+        }
+        return maximum;
     }
 
     private <T extends PlainCollectionLiteral> T withTypeHint(T literal, JsonObject json) {

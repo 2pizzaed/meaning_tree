@@ -266,6 +266,7 @@ public class JsonNodeTypeClassMapper {
         register("interface_declaration", InterfaceDeclaration.class);
         register("structure_declaration", StructureDeclaration.class);
         register("enum_declaration", EnumDeclaration.class);
+        register("enum_constant_declaration", EnumConstantDeclaration.class);
         register("object_constructor_declaration", ObjectConstructorDeclaration.class);
         register("object_destructor_declaration", ObjectDestructorDeclaration.class);
         register("separated_variable_declaration", SeparatedVariableDeclaration.class);

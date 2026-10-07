@@ -647,33 +647,36 @@ public class PythonParser extends LanguageParser {
         SimpleIdentifier enumName = (SimpleIdentifier) parseTSNode(node.getChildByFieldName("name"));
         TSNode body = node.getChildByFieldName("body");
 
-        LinkedHashMap<Identifier, Expression> constants = new LinkedHashMap<>();
+        List<EnumConstantDeclaration> constants = new ArrayList<>();
         for (int i = 0; i < getNamedChildCountWithoutExtras(body); i++) {
             TSNode child = getNamedChildWithoutExtras(body, i);
             if (child.getType().equals("pass_statement")) {
                 continue;
             }
-            TSNode assignment = child.getType().equals("expression_statement") && getNamedChildCountWithoutExtras(child) == 1
-                    ? getNamedChildWithoutExtras(child, 0)
-                    : child;
-            if (!assignment.getType().equals("assignment")) {
-                throw new UnsupportedParsingException(
-                        "Python enum member is not supported: " + child.getType());
-            }
-            TSNode left = assignment.getChildByFieldName("left");
-            if (!left.getType().equals("identifier")) {
-                throw new UnsupportedParsingException("Unsupported Python enum constant: " + getCodePiece(left));
-            }
-            TSNode value = assignment.getChildByFieldName("right");
-            constants.put(
-                    (Identifier) parseTSNode(left),
-                    isAutoValue(value) ? null : (Expression) parseTSNode(value)
-            );
+            constants.add((EnumConstantDeclaration) parseTSNode(child,
+                    EnumConstantDeclaration.class, this::fromEnumConstant));
         }
 
         EnumDeclaration declaration = new EnumDeclaration(List.of(), enumName, constants, true);
         declaration.setAnnotations(decorators);
         return declaration;
+    }
+
+    private EnumConstantDeclaration fromEnumConstant(TSNode node) {
+        TSNode assignment = node.getType().equals("expression_statement") && getNamedChildCountWithoutExtras(node) == 1
+                ? getNamedChildWithoutExtras(node, 0)
+                : node;
+        if (!assignment.getType().equals("assignment")) {
+            throw new UnsupportedParsingException("Python enum member is not supported: " + node.getType());
+        }
+        TSNode left = assignment.getChildByFieldName("left");
+        if (!left.getType().equals("identifier")) {
+            throw new UnsupportedParsingException("Unsupported Python enum constant: " + getCodePiece(left));
+        }
+        TSNode value = assignment.getChildByFieldName("right");
+        return new EnumConstantDeclaration(
+                (Identifier) parseTSNode(left),
+                isAutoValue(value) ? null : (Expression) parseTSNode(value));
     }
 
     /**

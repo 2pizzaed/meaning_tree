@@ -35,6 +35,11 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         _id_generator = new AtomicLong(startId);
     }
 
+    /** Сохраняет уже выданные id при создании новых узлов для восстановленного дерева. */
+    public static void advanceIdCounter(long minimum) {
+        _id_generator.accumulateAndGet(minimum, Math::max);
+    }
+
     @Override
     public @NotNull Iterator<NodeInfo> iterator() {
         return new DFSNodeIterator(this, false);

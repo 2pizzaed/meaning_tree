@@ -142,6 +142,7 @@ public class CppParser extends LanguageParser {
         registerTSNodeHandler("class_specifier", ClassDefinition.class, this::fromClassSpecifier);
         registerTSNodeHandler("struct_specifier", StructureDefinition.class, this::fromStructSpecifier);
         registerTSNodeHandler("enum_specifier", EnumDeclaration.class, this::fromEnumSpecifier);
+        registerTSNodeHandler("enumerator", EnumConstantDeclaration.class, this::fromEnumConstant);
         registerTSNodeHandler("function_definition", FunctionDefinition.class, this::fromFunction);
         registerTSNodeHandler("expression_statement", Node.class, this::fromExpressionStatement);
         registerTSNodeHandler("binary_expression", Expression.class, this::fromBinaryExpression);
@@ -508,16 +509,12 @@ public class CppParser extends LanguageParser {
             throw new UnsupportedParsingException("C++ enum with explicit base type is not supported");
         }
 
-        LinkedHashMap<Identifier, Expression> constants = new LinkedHashMap<>();
+        List<EnumConstantDeclaration> constants = new ArrayList<>();
         for (TSNode enumerator : namedMembers(body, 0)) {
             if (!enumerator.getType().equals("enumerator")) {
                 continue;
             }
-            TSNode value = enumerator.getChildByFieldName("value");
-            constants.put(
-                    (Identifier) fromIdentifier(enumerator.getChildByFieldName("name")),
-                    value.isNull() ? null : (Expression) parseTSNode(value)
-            );
+            constants.add((EnumConstantDeclaration) parseTSNode(enumerator));
         }
 
         EnumDeclaration declaration = new EnumDeclaration(
@@ -531,6 +528,13 @@ public class CppParser extends LanguageParser {
         ctx.getScopeTable().registerDeclaration(
                 declaration.getName().getSimpleIdentifierOrThrow(), declaration);
         return declaration;
+    }
+
+    private EnumConstantDeclaration fromEnumConstant(TSNode node) {
+        TSNode value = node.getChildByFieldName("value");
+        return new EnumConstantDeclaration(
+                (Identifier) parseTSNode(node.getChildByFieldName("name")),
+                value.isNull() ? null : (Expression) parseTSNode(value));
     }
 
     /**

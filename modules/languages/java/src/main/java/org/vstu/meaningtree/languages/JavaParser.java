@@ -129,6 +129,7 @@ public class JavaParser extends LanguageParser {
         registerTSNodeHandler("class_declaration", ClassDefinition.class, this::fromClassDeclarationTSNode);
         registerTSNodeHandler("interface_declaration", InterfaceDefinition.class, this::fromInterfaceDeclarationTSNode);
         registerTSNodeHandler("enum_declaration", EnumDeclaration.class, this::fromEnumDeclarationTSNode);
+        registerTSNodeHandler("enum_constant", EnumConstantDeclaration.class, this::fromEnumConstantTSNode);
         registerTSNodeHandler("field_declaration", FieldDeclaration.class, this::fromFieldDeclarationTSNode);
         registerTSNodeHandler("string_literal", StringLiteral.class, this::fromStringLiteralTSNode);
         registerTSNodeHandler("method_declaration", Node.class, this::fromMethodDeclarationTSNode);
@@ -965,22 +966,27 @@ public class JavaParser extends LanguageParser {
         Identifier enumName = fromIdentifierTSNode(node.getChildByFieldName("name"));
         TSNode body = node.getChildByFieldName("body");
 
-        LinkedHashMap<Identifier, Expression> constants = new LinkedHashMap<>();
+        List<EnumConstantDeclaration> constants = new ArrayList<>();
         for (int i = 0; i < getNamedChildCountWithoutExtras(body); i++) {
             TSNode child = getNamedChildWithoutExtras(body, i);
             if (!child.getType().equals("enum_constant")) {
                 throw new UnsupportedParsingException(
                         "Java enum with members is not supported: " + child.getType());
             }
-            if (!child.getChildByFieldName("arguments").isNull() || !child.getChildByFieldName("body").isNull()) {
-                throw new UnsupportedParsingException("Java enum constant with arguments or body is not supported");
-            }
-            constants.put(fromIdentifierTSNode(child.getChildByFieldName("name")), null);
+            constants.add((EnumConstantDeclaration) parseTSNode(child));
         }
 
         EnumDeclaration declaration = new EnumDeclaration(modifiers, enumName, constants, true);
         declaration.setAnnotations(annotations);
         return declaration;
+    }
+
+    private EnumConstantDeclaration fromEnumConstantTSNode(TSNode node) {
+        if (!node.getChildByFieldName("arguments").isNull() || !node.getChildByFieldName("body").isNull()) {
+            throw new UnsupportedParsingException("Java enum constant with arguments or body is not supported");
+        }
+        return new EnumConstantDeclaration(
+                (Identifier) parseTSNode(node.getChildByFieldName("name")));
     }
 
     private ClassDefinition fromClassDeclarationTSNode(TSNode node) {

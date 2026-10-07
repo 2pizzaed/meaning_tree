@@ -27,6 +27,8 @@ public class JsonXmlConverter {
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private static final String ARRAY_WRAPPER = "array";
     private static final String ARRAY_ITEM = "item";
+    private static final String JSON_FIELD = "json_field";
+    private static final String JSON_PRIMITIVE = "json_primitive";
 
     // ==================== JSON → XML ====================
 
@@ -99,6 +101,9 @@ public class JsonXmlConverter {
                 element.appendChild(arrayWrapper);
             } else if (value.isJsonObject()) {
                 Element child = jsonElementToXml(doc, value, sanitizeTagName(snakeToCamel(key)));
+                // Имя тега отражает тип узла, а не поле его владельца. Например, и имя,
+                // и значение константы могут быть Identifier: поле нельзя восстановить по типу.
+                child.setAttribute(JSON_FIELD, key);
                 element.appendChild(child);
             } else if (value.isJsonPrimitive()) {
                 // Атрибуты оставляем в snake_case для сохранения совместимости
@@ -137,6 +142,8 @@ public class JsonXmlConverter {
      */
     private static Element jsonPrimitiveToXml(Document doc, JsonPrimitive primitive, String tagName) {
         Element element = doc.createElement(tagName);
+        element.setAttribute(JSON_PRIMITIVE,
+                primitive.isString() ? "string" : primitive.isBoolean() ? "boolean" : "number");
         element.setTextContent(primitive.getAsString());
         return element;
     }
@@ -175,6 +182,16 @@ public class JsonXmlConverter {
             return JsonNull.INSTANCE;
         }
 
+        if (element.hasAttribute(JSON_PRIMITIVE)) {
+            String text = element.getTextContent();
+            return switch (element.getAttribute(JSON_PRIMITIVE)) {
+                case "string" -> new JsonPrimitive(text);
+                case "boolean" -> new JsonPrimitive(Boolean.parseBoolean(text));
+                case "number" -> new JsonPrimitive(new java.math.BigDecimal(text));
+                default -> throw new IllegalArgumentException("Unknown XML primitive type");
+            };
+        }
+
         JsonObject obj = new JsonObject();
 
         // Добавляем тип из имени элемента (если не root)
@@ -190,7 +207,7 @@ public class JsonXmlConverter {
             String attrName = attr.getNodeName();
             String attrValue = attr.getNodeValue();
 
-            if (!attrName.equals("is_array") && !attrName.equals("null")) {
+            if (!attrName.equals("is_array") && !attrName.equals("null") && !attrName.equals(JSON_FIELD)) {
                 if (attrName.equals("type")) {
                     // type берём напрямую (уже в snake_case)
                     obj.addProperty("type", attrValue);
@@ -220,7 +237,9 @@ public class JsonXmlConverter {
                 String childName = childElement.getTagName();
 
                 // Конвертируем имя обратно в snake_case
-                String jsonKey = camelToSnake(childName);
+                String jsonKey = childElement.hasAttribute(JSON_FIELD)
+                        ? childElement.getAttribute(JSON_FIELD)
+                        : camelToSnake(childName);
 
                 // Проверяем, является ли дочерний элемент массивом
                 if ("true".equals(childElement.getAttribute("is_array"))) {

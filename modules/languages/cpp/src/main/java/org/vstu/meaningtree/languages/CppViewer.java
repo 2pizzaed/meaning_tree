@@ -247,6 +247,7 @@ public class CppViewer extends LanguageViewer {
         registerRenderer(ClassDeclaration.class, this::toStringClassDeclaration);
         registerRenderer(ClassDefinition.class, this::toStringClassDefinition);
         registerRenderer(EnumDeclaration.class, this::toStringEnumDeclaration);
+        registerRenderer(EnumConstantDeclaration.class, this::toStringEnumConstantDeclaration);
         registerRenderer(DeclarationArgument.class, this::toStringDeclarationArgument);
         registerRenderer(ArrayInitializer.class, this::toStringArrayInitializer);
         registerRenderer(ReturnStatement.class, this::toStringReturnStatement);
@@ -442,12 +443,8 @@ public class CppViewer extends LanguageViewer {
 
         increaseIndentLevel();
         List<String> constants = new ArrayList<>();
-        for (Identifier constant : declaration.getConstants()) {
-            Expression value = declaration.getConstant(constant);
-            String constantCode = value == null
-                    ? toString(constant)
-                    : "%s = %s".formatted(toString(constant), toString(value));
-            constants.add(indent(constantCode));
+        for (EnumConstantDeclaration constant : declaration.getConstants()) {
+            constants.add(indent(toString(constant)));
         }
         decreaseIndentLevel();
 
@@ -456,6 +453,12 @@ public class CppViewer extends LanguageViewer {
         }
         builder.append("\n").append(indent("}")).append(";");
         return builder.toString();
+    }
+
+    private String toStringEnumConstantDeclaration(EnumConstantDeclaration constant) {
+        return constant.hasValue()
+                ? "%s = %s".formatted(toString(constant.getName()), toString(constant.getValue()))
+                : toString(constant.getName());
     }
 
     private String toStringClassDefinition(ClassDefinition definition) {

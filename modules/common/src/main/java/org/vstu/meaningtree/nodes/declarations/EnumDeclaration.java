@@ -3,7 +3,6 @@ package org.vstu.meaningtree.nodes.declarations;
 import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.nodes.Declaration;
-import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.types.user.Enum;
@@ -20,10 +19,7 @@ public class EnumDeclaration extends Declaration {
     protected Identifier name;
 
     @TreeNode
-    protected Set<Identifier> constants;
-
-    // отдельный словарь, чтобы исключить выражения из итерации по узлам
-    protected Map<Identifier, Expression> constantsValues;
+    protected List<EnumConstantDeclaration> constants;
 
     @TreeNode
     protected Enum typeNode;
@@ -36,68 +32,61 @@ public class EnumDeclaration extends Declaration {
     protected boolean scoped;
 
     /**
-     * @param constants упорядоченное отображение константы в ее значение; значение может быть
-     *                  {@code null}, если в исходном коде оно не задано явно
+     * @param constants константы в порядке исходного кода
      */
     public EnumDeclaration(List<DeclarationModifier> modifiers,
                            Identifier name,
-                           Map<Identifier, Expression> constants,
+                           List<EnumConstantDeclaration> constants,
                            boolean scoped) {
         this(modifiers, name, constants, scoped, new Enum((Identifier) name.freshClone()));
     }
 
     public EnumDeclaration(List<DeclarationModifier> modifiers,
                            Identifier name,
-                           Map<Identifier, Expression> constants) {
+                           List<EnumConstantDeclaration> constants) {
         this(modifiers, name, constants, true);
     }
 
     protected EnumDeclaration(List<DeclarationModifier> modifiers,
                               Identifier name,
-                              Map<Identifier, Expression> constants,
+                              List<EnumConstantDeclaration> constants,
                               boolean scoped,
                               Enum typeNode) {
         this.modifiers = List.copyOf(modifiers);
         this.name = name;
-        this.constants = new LinkedHashSet<>(constants.keySet());
-        this.constantsValues = new LinkedHashMap<>(constants);
+        this.constants = new ArrayList<>(constants);
         this.scoped = scoped;
         this.typeNode = typeNode;
     }
 
     public static EnumDeclaration withTypeNode(List<DeclarationModifier> modifiers,
                                                Identifier name,
-                                               Map<Identifier, Expression> constants,
+                                               List<EnumConstantDeclaration> constants,
                                                boolean scoped,
                                                Enum typeNode) {
         return new EnumDeclaration(modifiers, name, constants, scoped, typeNode);
     }
 
-    public Set<Identifier> getConstants() {
-        return constants;
+    public List<EnumConstantDeclaration> getConstants() {
+        return List.copyOf(constants);
     }
 
     public boolean hasConstant(Identifier identifier) {
-        return constants.contains(identifier);
+        return getConstant(identifier) != null;
     }
 
     /**
-     * @return явное значение константы или {@code null}, если его нет или константа неизвестна
+     * @return объявление константы или {@code null}, если константа неизвестна
      */
     @Nullable
-    public Expression getConstant(Identifier identifier) {
-        return constantsValues.getOrDefault(identifier, null);
-    }
-
-    /**
-     * @return упорядоченное отображение константы в ее значение, значения могут быть {@code null}
-     */
-    public Map<Identifier, Expression> getConstantsWithValues() {
-        return new LinkedHashMap<>(constantsValues);
+    public EnumConstantDeclaration getConstant(Identifier identifier) {
+        return constants.stream()
+                .filter(constant -> constant.getName().equals(identifier))
+                .findFirst().orElse(null);
     }
 
     public boolean hasConstantValues() {
-        return constantsValues.values().stream().anyMatch(Objects::nonNull);
+        return constants.stream().anyMatch(EnumConstantDeclaration::hasValue);
     }
 
     public Identifier getName() {
@@ -119,28 +108,21 @@ public class EnumDeclaration extends Declaration {
         return scoped == nodeInfos.scoped
                 && Objects.equals(name, nodeInfos.name)
                 && Objects.equals(constants, nodeInfos.constants)
-                && Objects.equals(constantsValues, nodeInfos.constantsValues)
                 && Objects.equals(typeNode, nodeInfos.typeNode);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), name, constants, constantsValues, typeNode, scoped);
+        return Objects.hash(super.hashCode(), name, constants, typeNode, scoped);
     }
 
     public EnumDeclaration clone() {
         var clone = (EnumDeclaration) super.clone();
         clone.name = this.name.clone();
         clone.typeNode = (Enum) this.typeNode.clone();
-        // константы и их значения клонируются одним проходом, чтобы ключи словаря остались
-        // теми же объектами, что лежат в множестве констант
-        clone.constants = new LinkedHashSet<>();
-        clone.constantsValues = new LinkedHashMap<>();
-        for (Identifier constant : this.constants) {
-            Identifier clonedConstant = constant.clone();
-            Expression value = this.constantsValues.get(constant);
-            clone.constants.add(clonedConstant);
-            clone.constantsValues.put(clonedConstant, value == null ? null : value.clone());
+        clone.constants = new ArrayList<>();
+        for (EnumConstantDeclaration constant : constants) {
+            clone.constants.add(constant.clone());
         }
         return clone;
     }

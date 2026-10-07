@@ -559,7 +559,26 @@ public class SourceMapGeneratorTests {
                         };
                         """, () -> new CppTranslator(Map.of(
                         "translationUnitMode", "procedural",
-                        "skipErrors", false)))
+                        "skipErrors", false))),
+                new Sample("c++", """
+                        enum Color {
+                            RED = 1, // first color
+                            GREEN, /* second color */
+                            BLUE = 4 // last color
+                        };
+                        """, () -> new CppTranslator(CONFIG)),
+                new Sample("java", """
+                        enum Color {
+                            RED, // first color
+                            GREEN, /* second color */
+                            BLUE // last color
+                        }
+                        """, () -> new JavaTranslator(CONFIG)),
+                new Sample("python", """
+                        class Color(Enum):
+                            RED = auto() # first color
+                            GREEN = 5 # last color
+                        """, () -> new PythonTranslator(CONFIG))
         );
     }
 

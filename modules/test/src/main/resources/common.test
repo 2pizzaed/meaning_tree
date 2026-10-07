@@ -2570,6 +2570,112 @@ group: NestedClasses
 
 
 group: Enums
+    case: CppEnumTrailingComments
+        main c++:
+            enum class Color {
+                RED, // first color
+                GREEN, /* second color */
+                BLUE // last color
+            };
+
+        c++:
+            enum class Color
+            {
+                RED,  // first color
+                GREEN /* second color */,
+                BLUE  // last color
+            };
+
+        java:
+            enum Color {
+                RED,  // first color
+                GREEN /* second color */,
+                BLUE  // last color
+            }
+
+        python:
+            from enum import Enum, auto
+            class Color(Enum):
+                RED = auto()  # first color
+                GREEN = auto()  # second color
+                BLUE = auto()  # last color
+
+
+    case: JavaEnumTrailingComments
+        main java:
+            enum Color {
+                RED, // first color
+                GREEN, /* second color */
+                BLUE // last color
+            }
+
+        c++:
+            enum class Color
+            {
+                RED,  // first color
+                GREEN /* second color */,
+                BLUE  // last color
+            };
+
+        python:
+            from enum import Enum, auto
+            class Color(Enum):
+                RED = auto()  # first color
+                GREEN = auto()  # second color
+                BLUE = auto()  # last color
+
+
+    case: PythonEnumTrailingComments
+        main python:
+            class Color(Enum):
+                RED = auto() # first color
+                GREEN = 5 # second color
+                BLUE = auto() # last color
+
+        c++:
+            enum class Color
+            {
+                RED,  // first color
+                GREEN = 5,  // second color
+                BLUE  // last color
+            };
+
+        java:
+            enum Color {
+                RED,  // first color
+                GREEN,  // second color
+                BLUE  // last color
+            }
+
+        python:
+            from enum import Enum, auto
+            class Color(Enum):
+                RED = auto()  # first color
+                GREEN = 5  # second color
+                BLUE = auto()  # last color
+
+
+    case[dropComments=true]: DropEnumTrailingComments
+        main c++:
+            enum Color {
+                RED = 1, // first color
+                GREEN = 2 /* last color */
+            };
+
+        c++:
+            enum Color
+            {
+                RED = 1,
+                GREEN = 2
+            };
+
+        python:
+            from enum import Enum
+            class Color(Enum):
+                RED = 1
+                GREEN = 2
+
+
     case: EnumWithoutValues
         main java:
             enum Color {

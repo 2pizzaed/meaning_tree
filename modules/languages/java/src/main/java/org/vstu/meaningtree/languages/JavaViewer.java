@@ -254,6 +254,7 @@ public class JavaViewer extends LanguageViewer {
         registerRenderer(InterfaceDeclaration.class, this::toStringInterfaceDeclaration);
         registerRenderer(InterfaceDefinition.class, this::toStringInterfaceDefinition);
         registerRenderer(EnumDeclaration.class, this::toStringEnumDeclaration);
+        registerRenderer(EnumConstantDeclaration.class, constant -> toString(constant.getName()));
         registerRenderer(Comment.class, this::toStringComment);
         registerRenderer(BreakStatement.class, this::toStringBreakStatement);
         registerRenderer(ContinueStatement.class, this::toStringContinueStatement);

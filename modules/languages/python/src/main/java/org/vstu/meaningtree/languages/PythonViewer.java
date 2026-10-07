@@ -155,6 +155,7 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(IteratorDefinition.class, this::iteratorToString);
         registerTabRenderer(ClassDefinition.class, this::classToString);
         registerTabRenderer(EnumDeclaration.class, this::enumToString);
+        registerTabRenderer(EnumConstantDeclaration.class, (constant, tab) -> enumConstantToString(constant));
         registerTabRenderer(StructureDeclaration.class, this::structDeclToString);
         registerTabRenderer(StructureDefinition.class, this::structToString);
         registerTabRenderer(FunctionDeclaration.class, this::functionDeclarationToString);
@@ -522,13 +523,9 @@ public class PythonViewer extends LanguageViewer {
         Tab constantTab = tab.up();
         List<String> constants = new ArrayList<>();
         boolean needsAuto = false;
-        for (Identifier constant : decl.getConstants()) {
-            Expression value = decl.getConstant(constant);
-            needsAuto |= value == null;
-            constants.add(constantTab.concat("%s = %s".formatted(
-                    toString(constant),
-                    value == null ? "auto()" : toString(value)
-            )));
+        for (EnumConstantDeclaration constant : decl.getConstants()) {
+            needsAuto |= !constant.hasValue();
+            constants.add(constantTab.concat(toString(constant)));
         }
         if (constants.isEmpty()) {
             constants.add(constantTab.concat("pass"));
@@ -545,6 +542,11 @@ public class PythonViewer extends LanguageViewer {
         ).remap(decl));
 
         return "class %s(Enum):\n%s".formatted(toString(decl.getName()), String.join("\n", constants));
+    }
+
+    private String enumConstantToString(EnumConstantDeclaration constant) {
+        return "%s = %s".formatted(toString(constant.getName()),
+                constant.hasValue() ? toString(constant.getValue()) : "auto()");
     }
 
     /**

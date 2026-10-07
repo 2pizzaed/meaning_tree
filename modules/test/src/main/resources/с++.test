@@ -941,6 +941,58 @@ group: StructuresOOP
             };
 
 
+    case: CommentsKeepTheirAccessSection
+        main c++:
+            class Account
+            {
+                // Before any label
+            public:
+                // Balance in cents
+                int balance = 0;
+                // End of public section
+            protected:
+                // Only a comment here
+            private:
+                int pin;
+                // Last line of the body
+            };
+
+        c++:
+            class Account
+            {
+                // Before any label
+            public:
+                // Balance in cents
+                int balance = 0;
+                // End of public section
+            protected:
+                // Only a comment here
+            private:
+                int pin;
+                // Last line of the body
+            };
+
+
+    case: CommentAfterPrivateLabelInStruct
+        main c++:
+            struct Point
+            {
+                int x;
+            private:
+                /* hidden */
+                int secret;
+            };
+
+        c++:
+            struct Point
+            {
+                int x;
+            private:
+                /* hidden */
+                int secret;
+            };
+
+
 
     case: TrailingCommentsOnStructFields
         main c++:

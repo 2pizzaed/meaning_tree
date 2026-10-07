@@ -73,6 +73,7 @@ import org.vstu.meaningtree.nodes.types.containers.components.Shape;
 import org.vstu.meaningtree.nodes.types.user.Class;
 import org.vstu.meaningtree.nodes.types.user.GenericClass;
 import org.vstu.meaningtree.nodes.types.user.Structure;
+import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.analysis.imports.CppImportResolver;
 import org.vstu.meaningtree.utils.analysis.imports.ImportResolver;
 import org.vstu.meaningtree.utils.analysis.library.CppStandardLibrary;
@@ -581,7 +582,13 @@ public class CppParser extends LanguageParser {
         for (TSNode child : namedMembers(body, 0)) {
             switch (child.getType()) {
                 case "access_specifier" -> visibility = fromAccessSpecifier(child);
-                case "comment" -> members.add(parseTSNode(child));
+                case "comment" -> {
+                    // У комментария нет модификаторов: секцию, в которой он написан, хранит метка,
+                    // иначе вывод не отличит комментарий после "public:" от комментария перед ней
+                    Node comment = parseTSNode(child);
+                    comment.setLabel(new Label(Label.ACCESS_SECTION, visibility.name()).setStealth());
+                    members.add(comment);
+                }
                 case "field_declaration" -> {
                     TSNode nestedType = child.getChildByFieldName("type");
                     TSNode functionDeclarator = findDeclarator(child.getChildByFieldName("declarator"), "function_declarator");

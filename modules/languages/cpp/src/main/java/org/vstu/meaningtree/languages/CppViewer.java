@@ -82,6 +82,7 @@ import org.vstu.meaningtree.nodes.types.UserType;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
 import org.vstu.meaningtree.nodes.types.containers.components.Shape;
+import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.analysis.imports.CppLibraryImportRegistry;
 import org.vstu.meaningtree.utils.modules.ImportPathConverter;
 import org.vstu.meaningtree.utils.tokens.OperatorToken;
@@ -484,8 +485,8 @@ public class CppViewer extends LanguageViewer {
             // к готовой строке вторым indent(): indent() ставит префикс только первой строке,
             // поэтому у многострочного члена (метода, вложенного класса) остальные строки берут
             // отступ из _indentLevel и должны рендериться уже на нужном уровне.
-            // У члена без собственного объявления (комментарий) доступа нет: он остаётся в той
-            // секции, которая открыта, и сам её не переключает.
+            // Комментарий, разобранный из C++, открывает секцию, в которой был написан. У прочих
+            // членов без собственного объявления доступа нет: они остаются в открытой секции.
             DeclarationModifier memberAccess = getMemberAccess(member);
             if (memberAccess == null) {
                 memberAccess = currentAccess;
@@ -558,9 +559,15 @@ public class CppViewer extends LanguageViewer {
                 || definition.getDeclaration() instanceof StructureDeclaration;
     }
 
-    /** {@code null} — у члена нет собственного объявления, а значит и модификатора доступа. */
+    /**
+     * {@code null} — у члена нет собственного объявления, а значит и модификатора доступа.
+     * Комментарий берёт доступ из метки {@link Label#ACCESS_SECTION}, если она есть.
+     */
     @Nullable
     private DeclarationModifier getMemberAccess(Node member) {
+        if (member instanceof Comment && member.hasLabel(Label.ACCESS_SECTION)) {
+            return DeclarationModifier.valueOf(member.getLabel(Label.ACCESS_SECTION).attributeAsString());
+        }
         List<DeclarationModifier> modifiers = switch (member) {
             case Definition definition -> definition.getDeclaration().getModifiers();
             case Declaration declaration -> declaration.getModifiers();

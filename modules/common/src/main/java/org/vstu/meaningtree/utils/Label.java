@@ -43,6 +43,14 @@ public class Label {
     public static final short REMAPPED = 5;
 
     /**
+     * Секция доступа, в которой стоял самостоятельный комментарий тела класса. Хранит имя
+     * {@link org.vstu.meaningtree.nodes.enums.DeclarationModifier} ({@code PUBLIC}, {@code PROTECTED}
+     * или {@code PRIVATE}). Нужна языкам с секциями доступа (C++): у комментария нет модификаторов,
+     * а без метки комментарий сразу после {@code public:} выводился бы перед ней. Ставится stealth.
+     */
+    public static final short ACCESS_SECTION = 6;
+
+    /**
      * Зарезервированный номер. Применяется в случае, если метка была не распознана
      */
     public static final short UNKNOWN = Short.MAX_VALUE;

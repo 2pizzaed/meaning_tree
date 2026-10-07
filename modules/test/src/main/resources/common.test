@@ -3729,3 +3729,57 @@ group: AssignmentTargets
             Point p = new Point();
             p.x = 1;
             p.x += 2;
+
+
+
+group: Comments
+    case: CommentInsideJavaExpression
+        main java:
+            int y = max(1, /* first */ 2);
+            int z = /* value */ y;
+
+        python:
+            y: int = max(1, 2)
+            z: int = y
+
+        c++:
+            int y = max(1, 2);
+            int z = y;
+
+
+    case: CommentInsideCppExpression
+        main c++:
+            int y = f(1, /* first */ 2);
+            return /* value */ y;
+
+        java:
+            int y = f(1, 2);
+            return y;
+
+        python:
+            y: int = f(1, 2)
+            return y
+
+
+    case: CommentInsidePythonCollections
+        main python:
+            d = [
+                1,  # first
+                2,
+            ]
+            e = {
+                "a": 1,  # first
+                "b": 2,
+            }
+            y = max(1,  # first
+                    2)
+
+        java:
+            java.util.ArrayList<Integer> d = new java.util.ArrayList<>(java.util.List.of(1, 2));
+            java.util.TreeMap<String, Integer> e = new java.util.TreeMap<>() {{put("a", 1);put("b", 2);}};
+            var y = max(1, 2);
+
+        c++:
+            std::vector<int> d = {1, 2};
+            std::map<std::string, int> e = {{"a", 1}, {"b", 2}};
+            auto y = max(1, 2);

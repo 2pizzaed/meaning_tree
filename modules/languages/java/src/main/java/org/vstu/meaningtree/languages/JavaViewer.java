@@ -714,21 +714,28 @@ public class JavaViewer extends LanguageViewer {
         }
         var iterVarId = toString(forEachLoop.getItem().getDeclarators()[0].getIdentifier());
         var iterable = toString(forEachLoop.getExpression());
-        var body = toString(forEachLoop.getBody());
 
-        StringBuilder builder = new StringBuilder();
-
-        return builder
+        StringBuilder builder = new StringBuilder()
                 .append("for (")
                 .append(type)
                 .append(" ")
                 .append(iterVarId)
                 .append(" : ")
                 .append(iterable)
-                .append(")")
-                .append(_openBracketOnSameLine ? " " : "\n")
-                .append(indent(body))
-                .toString();
+                .append(")");
+
+        // Отступ нужен только телу на новой строке: на строке заголовка он раздвигал ") {"
+        Statement body = forEachLoop.getBody();
+        if (body instanceof CompoundStatement && _openBracketOnSameLine) {
+            builder.append(" ").append(toString(body));
+        } else if (body instanceof CompoundStatement) {
+            builder.append("\n").append(indent(toString(body)));
+        } else {
+            increaseIndentLevel();
+            builder.append("\n").append(indent(toString(body)));
+            decreaseIndentLevel();
+        }
+        return builder.toString();
     }
 
     private String toStringCharacterLiteral(CharacterLiteral characterLiteral) {

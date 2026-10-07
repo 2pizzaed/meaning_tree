@@ -625,6 +625,12 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 }
             }
 
+            if (json.has("trailing_comments") && !json.get("trailing_comments").isJsonNull()) {
+                for (JsonElement comment : json.getAsJsonArray("trailing_comments")) {
+                    node.addTrailingComment((Comment) deserialize(comment.getAsJsonObject()));
+                }
+            }
+
             restoreParentDeclaration(node, json);
             registerPendingOverriddenFrom(node, json);
             registerPendingResolvedDeclaration(node, json);

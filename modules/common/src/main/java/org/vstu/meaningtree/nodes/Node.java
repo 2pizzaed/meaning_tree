@@ -52,6 +52,16 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
     private Set<Label> _labels = new HashSet<>();
 
     /**
+     * Комментарии, записанные в исходном коде на одной строке с узлом, после него
+     * ({@code int s = 0; // acc}). Комментарий на отдельной строке живёт в теле
+     * самостоятельным узлом {@link Comment}.
+     * <p>
+     * В {@link #equals}/{@link #hashCode} не участвуют: комментарий не меняет смысла кода.
+     * Пустой список общий и неизменяемый, поэтому узел без комментариев ничего не тратит.
+     */
+    @TreeNode private List<Comment> _trailingComments = List.of();
+
+    /**
      * Проверяет значение узлов по значению
      * @param o другой объект
      * @return результат эквивалентности
@@ -90,6 +100,7 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
             Node clone = (Node) super.clone();
             clone._id = getId();
             clone._labels = new HashSet<>(_labels);
+            clone._trailingComments = _trailingComments.stream().map(comment -> (Comment) comment.clone()).toList();
             return clone;
         } catch (CloneNotSupportedException e) {
             throw new AssertionError();
@@ -115,6 +126,38 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
 
     public long getId() {
         return _id;
+    }
+
+    public List<Comment> getTrailingComments() {
+        return Collections.unmodifiableList(_trailingComments);
+    }
+
+    public boolean hasTrailingComments() {
+        return !_trailingComments.isEmpty();
+    }
+
+    public Node addTrailingComment(Comment comment) {
+        List<Comment> updated = new ArrayList<>(_trailingComments);
+        updated.add(Objects.requireNonNull(comment));
+        _trailingComments = updated;
+        return this;
+    }
+
+    /**
+     * Комментарий принадлежит месту в коде, а не объекту: замена узла переносит его
+     * комментарии на замену, иначе любая подстановка (вывод типа, нормализация) молча
+     * теряла бы их. Именно переносит, а не копирует — иначе один комментарий оказался бы
+     * в дереве дважды.
+     */
+    private static void moveTrailingComments(Node from, Node to) {
+        if (from == null || from == to || from._trailingComments.isEmpty()) {
+            return;
+        }
+        List<Comment> moved = from._trailingComments;
+        from._trailingComments = List.of();
+        for (Comment comment : moved) {
+            to.addTrailingComment(comment);
+        }
     }
 
     public boolean uniquenessEquals(Node other) {
@@ -355,6 +398,7 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
                 slot.ensureWritable();
                 Node oldNode = ((NodeFieldDescriptor) slot).get();
                 slot.getRawField().set(slot.getOwner(), newNode);
+                moveTrailingComments(oldNode, newNode);
                 return new ReplaceResult(ReplaceStatus.OK, "Node replaced", slot, oldNode, newNode);
             } catch (IllegalAccessException e) {
                 return new ReplaceResult(ReplaceStatus.ILLEGAL_ACCESS, e.getMessage(), slot, null, newNode);
@@ -377,6 +421,7 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
                 }
                 Node oldNode = array[index];
                 array[index] = newNode;
+                moveTrailingComments(oldNode, newNode);
                 return new ReplaceResult(ReplaceStatus.OK, "Array element replaced", slot, oldNode, newNode);
             } catch (IllegalAccessException e) {
                 return new ReplaceResult(ReplaceStatus.ILLEGAL_ACCESS, e.getMessage(), slot, null, newNode);
@@ -407,6 +452,7 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
                 Node oldNode = mutableCopy.set(index, newNode);
                 slot.ensureWritable();
                 slot.getRawField().set(slot.getOwner(), mutableCopy);
+                moveTrailingComments(oldNode, newNode);
                 return new ReplaceResult(ReplaceStatus.OK, "Collection element replaced", slot, oldNode, newNode);
             } catch (IllegalAccessException e) {
                 return new ReplaceResult(ReplaceStatus.ILLEGAL_ACCESS, e.getMessage(), slot, null, newNode);

@@ -476,6 +476,11 @@ export interface NodeCommon {
     unique_hash: number;
     /** Отсутствует, если меток нет. */
     labels?: Label[];
+    /**
+     * Комментарии, записанные в исходном коде на одной строке с узлом, после него
+     * (`int s = 0; // acc`), в порядке следования. Отсутствует, если их нет.
+     */
+    trailing_comments?: CommentNode[];
     /** Только для `Statement` с меткой перехода (цель для `goto`/`break`/`continue`). */
     jump_label?: JumpLabelNode;
     /**

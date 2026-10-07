@@ -694,6 +694,12 @@ public class JsonSerializer implements Serializer<JsonObject> {
             json.add("labels", serializeLabels(labels));
         }
 
+        if (node.hasTrailingComments()) {
+            JsonArray comments = new JsonArray();
+            node.getTrailingComments().forEach(comment -> comments.add(serialize(comment)));
+            json.add("trailing_comments", comments);
+        }
+
         if (node instanceof Statement stmt && stmt.getJumpLabel() != null) {
             json.add("jump_label", serialize(stmt.getJumpLabel()));
         }

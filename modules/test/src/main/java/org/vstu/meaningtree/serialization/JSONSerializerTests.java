@@ -407,6 +407,11 @@ public class JSONSerializerTests {
                            многострочный */
                         int y = 2;
                         /* блочный однострочный */
+                        int z = 3; // хвостовой
+                        for (int i = 0; // init
+                             i < z; i++) {
+                            y += i; /* блочный хвостовой */
+                        }
                     }
 
                     /** Документация. */
@@ -540,6 +545,8 @@ public class JSONSerializerTests {
         python(snippets, "comments", """
                 # строчный
                 x = 1
+                y = max(x,  # аргумент
+                        2)  # хвостовой
                 \"""
                 блочный
                 \"""
@@ -672,7 +679,7 @@ public class JSONSerializerTests {
 
         cpp(snippets, "comments", """
                 // строчный
-                int x = 1;
+                int x = 1; // хвостовой
                 /* блочный */
                 /** Документация. */
                 int f() {
@@ -875,6 +882,33 @@ public class JSONSerializerTests {
         legacy.addProperty("content", "a\nb");
         assertEquals(CommentStyle.BLOCK,
                 assertInstanceOf(Comment.class, new JsonDeserializer().deserialize(legacy)).getStyle());
+    }
+
+    @Test
+    void trailingCommentsAreIgnoredByEqualityAndFollowCloneJsonAndReplacement() {
+        ExpressionStatement statement = new ExpressionStatement(new IntegerLiteral(1));
+        statement.addTrailingComment(Comment.fromUnescaped(" c", CommentStyle.LINE));
+
+        assertEquals(new ExpressionStatement(new IntegerLiteral(1)), statement);
+        assertEquals(new ExpressionStatement(new IntegerLiteral(1)).hashCode(), statement.hashCode());
+
+        Node clone = statement.clone();
+        assertEquals(statement.getTrailingComments(), clone.getTrailingComments());
+        assertNotSame(statement.getTrailingComments().getFirst(), clone.getTrailingComments().getFirst());
+
+        JsonObject json = new JsonSerializer().serialize(statement);
+        assertEquals(1, json.getAsJsonArray("trailing_comments").size());
+        Node restored = new JsonDeserializer().deserialize(json);
+        assertEquals(statement.getTrailingComments(), restored.getTrailingComments());
+        assertEquals(statement.getTrailingComments().getFirst().getId(), restored.getTrailingComments().getFirst().getId());
+        assertFalse(new JsonSerializer().serialize(new IntegerLiteral(1)).has("trailing_comments"));
+
+        // Комментарий принадлежит месту в коде: замена узла переносит его, а не теряет и не дублирует
+        CompoundStatement body = new CompoundStatement(statement);
+        ExpressionStatement replacement = new ExpressionStatement(new IntegerLiteral(2));
+        assertTrue(body.replaceFirst(info -> info.node() == statement, node -> replacement).isSuccess());
+        assertTrue(statement.getTrailingComments().isEmpty());
+        assertEquals(" c", replacement.getTrailingComments().getFirst().getUnescapedContent());
     }
 
     @Test

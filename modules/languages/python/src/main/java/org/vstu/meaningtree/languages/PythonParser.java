@@ -79,6 +79,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.stream.Stream;
 
+import static org.vstu.meaningtree.utils.TreeSitterUtils.getNamedChildWithoutExtras;
+import static org.vstu.meaningtree.utils.TreeSitterUtils.getNamedChildCountWithoutExtras;
+
 public class PythonParser extends LanguageParser {
     public PythonParser(LanguageTranslator translator) {
         super(translator, new TreeSitterPython());
@@ -137,12 +140,12 @@ public class PythonParser extends LanguageParser {
         registerTSNodeHandler("float", FloatLiteral.class, this::fromFloatLiteralTSNode);
         registerTSNodeHandler("identifier", Identifier.class, this::fromIdentifier);
         registerTSNodeHandler("keyword_argument", DefinitionArgument.class, this::fromDefinitionArgument);
-        registerTSNodeHandler("delete_statement", DeleteStatement.class, node -> new DeleteStatement((Expression) parseTSNode(namedChild(node, 0))));
+        registerTSNodeHandler("delete_statement", DeleteStatement.class, node -> new DeleteStatement((Expression) parseTSNode(getNamedChildWithoutExtras(node, 0))));
         registerTSNodeHandler("comparison_operator", Expression.class, this::fromComparisonTSNode);
         registerTSNodeHandler(List.of("list", "set", "tuple"), PlainCollectionLiteral.class, node -> fromList(node, node.getType()));
         registerTSNodeHandler("dictionary", DictionaryLiteral.class, this::fromDictionary);
         registerTSNodeHandler("string", Node.class, this::fromString);
-        registerTSNodeHandler("interpolation", Node.class, node -> parseTSNode(namedChild(node, 0)));
+        registerTSNodeHandler("interpolation", Node.class, node -> parseTSNode(getNamedChildWithoutExtras(node, 0)));
         registerTSNodeHandler("slice", Range.class, this::fromSlice);
         registerTSNodeHandler("for_statement", ForLoop.class, this::fromForLoop);
         // Node, а не ClassDefinition: класс, унаследованный от enum.Enum, разбирается в EnumDeclaration
@@ -151,8 +154,8 @@ public class PythonParser extends LanguageParser {
         registerTSNodeHandler("boolean_operator", BinaryExpression.class, this::fromBooleanOperatorTSNode);
         registerTSNodeHandler("none", NullLiteral.class, node -> new NullLiteral());
         registerTSNodeHandler("type", Type.class, this::determineType);
-        registerTSNodeHandler("list_splat", DefinitionArgument.class, node -> DefinitionArgument.listUnpacking((Expression) parseTSNode(namedChild(node, 0))));
-        registerTSNodeHandler("dictionary_splat", DefinitionArgument.class, node -> DefinitionArgument.dictUnpacking((Expression) parseTSNode(namedChild(node, 0))));
+        registerTSNodeHandler("list_splat", DefinitionArgument.class, node -> DefinitionArgument.listUnpacking((Expression) parseTSNode(getNamedChildWithoutExtras(node, 0))));
+        registerTSNodeHandler("dictionary_splat", DefinitionArgument.class, node -> DefinitionArgument.dictUnpacking((Expression) parseTSNode(getNamedChildWithoutExtras(node, 0))));
         registerTSNodeHandler("true", BoolLiteral.class, node -> new BoolLiteral(true));
         registerTSNodeHandler("false", BoolLiteral.class, node -> new BoolLiteral(false));
         registerTSNodeHandler("call", Expression.class, this::fromFunctionCall);
@@ -194,8 +197,8 @@ public class PythonParser extends LanguageParser {
 
     private Node fromPatternList(TSNode node) {
         List<Expression> expressions = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            expressions.add((Expression) parseTSNode(namedChild(node, i)));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            expressions.add((Expression) parseTSNode(getNamedChildWithoutExtras(node, i)));
         }
         return new ExpressionSequence(expressions);
     }
@@ -208,7 +211,7 @@ public class PythonParser extends LanguageParser {
 
     private Node fromAssertTSNode(TSNode node) {
         return new FunctionCall(new SimpleIdentifier("assert"), (Expression)
-                parseTSNode(namedChild(node, 0)));
+                parseTSNode(getNamedChildWithoutExtras(node, 0)));
     }
 
     private EmptyStatement fromPassStatementOrEllipsis(TSNode node) {
@@ -235,7 +238,7 @@ public class PythonParser extends LanguageParser {
 
         while (!body.isNull()) {
             if (body.getType().equals("if_clause")) {
-                condition = (Expression) parseTSNode(namedChild(body, 0));
+                condition = (Expression) parseTSNode(getNamedChildWithoutExtras(body, 0));
             } else if (body.getType().equals("for_in_clause")) {
                 for_clause = body;
             }
@@ -263,22 +266,22 @@ public class PythonParser extends LanguageParser {
         node = node.getChildByFieldName("body");
         List<CaseBlock> branches = new ArrayList<>();
         DefaultCaseBlock defaultBranch = null;
-        for (int i = 0; i < namedChildCount(node); i++) {
-            TSNode alternative = namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            TSNode alternative = getNamedChildWithoutExtras(node, i);
             Expression condition;
             VariableDeclaration newDecl = null;
-            if (namedChildCount(namedChild(alternative, 0)) == 0) {
+            if (getNamedChildCountWithoutExtras(getNamedChildWithoutExtras(alternative, 0)) == 0) {
                 defaultBranch = new DefaultCaseBlock(
                         (Statement) parseTSNode(alternative.getChildByFieldName("consequence"))
                 );
                 continue;
-            } else if (namedChild(namedChild(alternative, 0), 0).getType().equals("as_pattern")) {
-                condition = (Expression) parseTSNode(namedChild(namedChild(namedChild(namedChild(alternative, 0), 0), 0), 0));
-                SimpleIdentifier ident = (SimpleIdentifier) parseTSNode(namedChild(namedChild(namedChild(alternative, 0), 0), 1));
+            } else if (getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0).getType().equals("as_pattern")) {
+                condition = (Expression) parseTSNode(getNamedChildWithoutExtras(getNamedChildWithoutExtras(getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0), 0), 0));
+                SimpleIdentifier ident = (SimpleIdentifier) parseTSNode(getNamedChildWithoutExtras(getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0), 1));
                 Type variableType = ctx.inferType(condition);
                 newDecl = new VariableDeclaration(variableType, ident, (Expression) condition.freshClone());
             } else {
-                condition = (Expression) parseTSNode(namedChild(namedChild(alternative, 0), 0));
+                condition = (Expression) parseTSNode(getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0));
             }
             CompoundStatement compoundStatement = (CompoundStatement) parseTSNode(alternative.getChildByFieldName("consequence"));
             if (newDecl != null) {
@@ -300,8 +303,8 @@ public class PythonParser extends LanguageParser {
 
     private List<Annotation> fromDecorators(TSNode decoratedDefinition) {
         List<Annotation> annotations = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(decoratedDefinition); i++) {
-            TSNode child = namedChild(decoratedDefinition, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(decoratedDefinition); i++) {
+            TSNode child = getNamedChildWithoutExtras(decoratedDefinition, i);
             if (child.getType().equals("decorator")) {
                 annotations.add(fromDecorator(child));
             }
@@ -339,7 +342,7 @@ public class PythonParser extends LanguageParser {
             }
         } else if (node.getType().equals("import_from_statement")) {
             Identifier scope = (Identifier) parseTSNode(node.getChildByFieldName("module_name"));
-            if (namedChild(node, 1).getType().equals("wildcard_import")) {
+            if (getNamedChildWithoutExtras(node, 1).getType().equals("wildcard_import")) {
                 return tagIfLibraryImport(new ImportAllFromModule(scope), List.of(scope));
             }
             List<Identifier> members = new ArrayList<>();
@@ -423,12 +426,12 @@ public class PythonParser extends LanguageParser {
         if (arguments.getType().equals("generator_expression")) {
             exprs.add((Expression) parseTSNode(arguments));
         } else {
-            for (int i = 0; i < namedChildCount(arguments); i++) {
-                String tsNodeChildType = namedChild(arguments, i).getType();
+            for (int i = 0; i < getNamedChildCountWithoutExtras(arguments); i++) {
+                String tsNodeChildType = getNamedChildWithoutExtras(arguments, i).getType();
                 if (tsNodeChildType.equals("(") || tsNodeChildType.equals(")") || tsNodeChildType.equals(",")) {
                     continue;
                 }
-                Expression expr = (Expression) parseTSNode(namedChild(arguments, i));
+                Expression expr = (Expression) parseTSNode(getNamedChildWithoutExtras(arguments, i));
                 exprs.add(expr);
             }
         }
@@ -442,7 +445,7 @@ public class PythonParser extends LanguageParser {
         }
 
         if (getCodePiece(tsNode).equals("isinstance") && exprs.size() == 2) {
-            Type type = determineType(namedChild(arguments, 1));
+            Type type = determineType(getNamedChildWithoutExtras(arguments, 1));
             return new InstanceOfOp(exprs.getFirst(), type);
         } else if (getCodePiece(tsNode).equals("matmul") && exprs.size() == 2) {
             return new MatMulOp(exprs.getFirst(), exprs.get(1));
@@ -475,7 +478,7 @@ public class PythonParser extends LanguageParser {
     }
 
     private Annotation fromDecorator(TSNode node) {
-        TSNode child = namedChild(node, 0);
+        TSNode child = getNamedChildWithoutExtras(node, 0);
         if (child.getType().equals("call")) {
             Node unknownCall = fromFunctionCall(child);
             if (unknownCall instanceof FunctionCall call) {
@@ -484,7 +487,7 @@ public class PythonParser extends LanguageParser {
                 throw new RuntimeException("Decorator call conflicting with operation node");
             }
         } else {
-            Node ident = parseTSNode(namedChild(node, 0));
+            Node ident = parseTSNode(getNamedChildWithoutExtras(node, 0));
             if (ident instanceof MemberAccess memAccess) {
                 ident = memAccess.toScopedIdentifier();
             }
@@ -496,7 +499,7 @@ public class PythonParser extends LanguageParser {
         List<Annotation> anno = new ArrayList<>();
         boolean isStatic = false;
         if (node.getType().equals("decorated_definition")) {
-            TSNode decorator = namedChild(node, 0);
+            TSNode decorator = getNamedChildWithoutExtras(node, 0);
             anno.add(fromDecorator(decorator));
             while (decorator.getNextNamedSibling().getType().equals("decorator")) {
                 decorator = decorator.getNextNamedSibling();
@@ -512,8 +515,8 @@ public class PythonParser extends LanguageParser {
         anno = anno.stream().filter(an -> !an.getName().equalsIdentifier("staticmethod")).toList();
         SimpleIdentifier name = new SimpleIdentifier(getCodePiece(node.getChildByFieldName("name")));
         List<DeclarationArgument> arguments = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(node.getChildByFieldName("parameters")); i++) {
-            arguments.add(fromDeclarationArgument(namedChild(node.getChildByFieldName("parameters"), i)));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node.getChildByFieldName("parameters")); i++) {
+            arguments.add(fromDeclarationArgument(getNamedChildWithoutExtras(node.getChildByFieldName("parameters"), i)));
         }
         Type returnType = determineType(node.getChildByFieldName("return_type"));
 
@@ -549,8 +552,8 @@ public class PythonParser extends LanguageParser {
                 break;
             }
         }
-        Expression value = namedChildCount(node) > 0
-                ? (Expression) parseTSNode(namedChild(node, 0))
+        Expression value = getNamedChildCountWithoutExtras(node) > 0
+                ? (Expression) parseTSNode(getNamedChildWithoutExtras(node, 0))
                 : null;
         return new YieldStatement(value, delegated);
     }
@@ -579,22 +582,22 @@ public class PythonParser extends LanguageParser {
         boolean isDictUnpacking = false;
         if (namedChild.getType().equals("typed_parameter")) {
             type = determineType(namedChild.getChildByFieldName("type"));
-            namedChild = namedChild(namedChild, 0);
+            namedChild = getNamedChildWithoutExtras(namedChild, 0);
         } else if (namedChild.getType().equals("typed_default_parameter")) {
             type = determineType(namedChild.getChildByFieldName("type"));
             initial = (Expression) parseTSNode(namedChild.getChildByFieldName("value"));
-            namedChild = namedChild(namedChild, 0);
+            namedChild = getNamedChildWithoutExtras(namedChild, 0);
         }
 
         if (namedChild.getType().equals("default_parameter")) {
             initial = (Expression) parseTSNode(namedChild.getChildByFieldName("value"));
-            namedChild = namedChild(namedChild, 0);
+            namedChild = getNamedChildWithoutExtras(namedChild, 0);
         } else if (namedChild.getType().equals("list_splat_pattern")) {
             isListUnpacking = true;
-            namedChild = namedChild(namedChild, 0);
+            namedChild = getNamedChildWithoutExtras(namedChild, 0);
         } else if (namedChild.getType().equals("dictionary_splat_pattern")) {
             isDictUnpacking = true;
-            namedChild = namedChild(namedChild, 0);
+            namedChild = getNamedChildWithoutExtras(namedChild, 0);
         }
 
         SimpleIdentifier identifier = (SimpleIdentifier) parseTSNode(namedChild);
@@ -626,8 +629,8 @@ public class PythonParser extends LanguageParser {
         if (superclasses.isNull()) {
             return false;
         }
-        for (int i = 0; i < namedChildCount(superclasses); i++) {
-            String superclass = getCodePiece(namedChild(superclasses, i));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(superclasses); i++) {
+            String superclass = getCodePiece(getNamedChildWithoutExtras(superclasses, i));
             if (superclass.equals("Enum") || superclass.equals("enum.Enum")) {
                 return true;
             }
@@ -645,13 +648,13 @@ public class PythonParser extends LanguageParser {
         TSNode body = node.getChildByFieldName("body");
 
         LinkedHashMap<Identifier, Expression> constants = new LinkedHashMap<>();
-        for (int i = 0; i < namedChildCount(body); i++) {
-            TSNode child = namedChild(body, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(body); i++) {
+            TSNode child = getNamedChildWithoutExtras(body, i);
             if (child.getType().equals("pass_statement")) {
                 continue;
             }
-            TSNode assignment = child.getType().equals("expression_statement") && namedChildCount(child) == 1
-                    ? namedChild(child, 0)
+            TSNode assignment = child.getType().equals("expression_statement") && getNamedChildCountWithoutExtras(child) == 1
+                    ? getNamedChildWithoutExtras(child, 0)
                     : child;
             if (!assignment.getType().equals("assignment")) {
                 throw new UnsupportedParsingException(
@@ -680,7 +683,7 @@ public class PythonParser extends LanguageParser {
         if (value.isNull() || !value.getType().equals("call")) {
             return false;
         }
-        if (namedChildCount(value.getChildByFieldName("arguments")) != 0) {
+        if (getNamedChildCountWithoutExtras(value.getChildByFieldName("arguments")) != 0) {
             return false;
         }
         String function = getCodePiece(value.getChildByFieldName("function"));
@@ -743,9 +746,9 @@ public class PythonParser extends LanguageParser {
         TSNode superclasses = node.getChildByFieldName("superclasses");
         Type[] supertypes = new Type[0];
         if (!superclasses.isNull()) {
-            supertypes = new Type[namedChildCount(superclasses)];
+            supertypes = new Type[getNamedChildCountWithoutExtras(superclasses)];
             for (int i = 0; i < supertypes.length; i++) {
-                supertypes[i] = resolveSuperclassType(namedChild(superclasses, i));
+                supertypes[i] = resolveSuperclassType(getNamedChildWithoutExtras(superclasses, i));
             }
         }
 
@@ -953,25 +956,25 @@ public class PythonParser extends LanguageParser {
 
     private DictionaryLiteral fromDictionary(TSNode node) {
         LinkedHashMap<Expression, Expression> dict = new LinkedHashMap<>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            Expression key = (Expression) parseTSNode(namedChild(node, i).getChildByFieldName("key"));
-            Expression value = (Expression) parseTSNode(namedChild(node, i).getChildByFieldName("value"));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            Expression key = (Expression) parseTSNode(getNamedChildWithoutExtras(node, i).getChildByFieldName("key"));
+            Expression value = (Expression) parseTSNode(getNamedChildWithoutExtras(node, i).getChildByFieldName("value"));
             dict.put(key, value);
         }
         return new DictionaryLiteral(dict);
     }
 
     private TernaryOperator fromTernaryOperatorTSNode(TSNode node) {
-        Expression thenExpr = (Expression) parseTSNode(namedChild(node, 0));
-        Expression ifCond = (Expression) parseTSNode(namedChild(node, 1));
-        Expression elseExpr = (Expression) parseTSNode(namedChild(node, 2));
+        Expression thenExpr = (Expression) parseTSNode(getNamedChildWithoutExtras(node, 0));
+        Expression ifCond = (Expression) parseTSNode(getNamedChildWithoutExtras(node, 1));
+        Expression elseExpr = (Expression) parseTSNode(getNamedChildWithoutExtras(node, 2));
         return new TernaryOperator(ifCond, thenExpr, elseExpr);
     }
 
     private Identifier fromDottedNameTSNode(TSNode node) {
         List<SimpleIdentifier> members = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            members.add((SimpleIdentifier) parseTSNode(namedChild(node, i)));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            members.add((SimpleIdentifier) parseTSNode(getNamedChildWithoutExtras(node, i)));
         }
         if (members.size() == 1) {
             return members.getFirst();
@@ -1006,8 +1009,8 @@ public class PythonParser extends LanguageParser {
     }
 
     private ReturnStatement fromReturnTSNode(TSNode node) {
-        if (namedChildCount(node) > 0) {
-            return new ReturnStatement((Expression) parseTSNode(namedChild(node, 0)));
+        if (getNamedChildCountWithoutExtras(node) > 0) {
+            return new ReturnStatement((Expression) parseTSNode(getNamedChildWithoutExtras(node, 0)));
         }
         return new ReturnStatement(null);
     }
@@ -1105,7 +1108,7 @@ public class PythonParser extends LanguageParser {
         TSNode content = node.getChild(1);
         if (getCodePiece(node.getChild(0)).equals("\"\"\"")
                 && node.getParent().getType().equals("expression_statement")
-                && namedChildCount(node.getParent()) == 1) {
+                && getNamedChildCountWithoutExtras(node.getParent()) == 1) {
             CommentStyle style = isDocstring(node.getParent()) ? CommentStyle.DOCUMENTATION : CommentStyle.BLOCK;
             return Comment.fromUnescaped(getCodePiece(content), style);
         }
@@ -1118,7 +1121,7 @@ public class PythonParser extends LanguageParser {
 
         if (Stream.of("fr", "f", "rf")
                 .anyMatch((String prefix) -> getCodePiece(node.getChild(0)).startsWith(prefix))) {
-            TSNode contentNode = namedChild(node, 1);
+            TSNode contentNode = getNamedChildWithoutExtras(node, 1);
             List<Expression> interpolation = new ArrayList<>();
 
             while (!contentNode.getType().equals("string_end")) {
@@ -1157,7 +1160,7 @@ public class PythonParser extends LanguageParser {
         if (!owner.equals("function_definition") && !owner.equals("class_definition")) {
             return false;
         }
-        return namedChild(body, 0).equals(expressionStatement);
+        return getNamedChildWithoutExtras(body, 0).equals(expressionStatement);
     }
 
     private Type determineType(TSNode typeNode) {
@@ -1165,9 +1168,9 @@ public class PythonParser extends LanguageParser {
             return new UnknownType();
         }
 
-        if (namedChildCount(typeNode) == 1 &&
-                namedChild(typeNode, 0).getType().equals("string")) {
-            var string = this.getCodePiece(namedChild(typeNode, 0));
+        if (getNamedChildCountWithoutExtras(typeNode) == 1 &&
+                getNamedChildWithoutExtras(typeNode, 0).getType().equals("string")) {
+            var string = this.getCodePiece(getNamedChildWithoutExtras(typeNode, 0));
             string = "x: %s".formatted(string.substring(1, string.length() - 1));
             var node = (ProgramEntryPoint) new PythonTranslator().getMeaningTree(
                     string
@@ -1177,15 +1180,15 @@ public class PythonParser extends LanguageParser {
             return t;
         }
 
-        if (namedChildCount(typeNode) == 1 &&
-                namedChild(typeNode, 0).getType().equals("union_type")) {
-            typeNode = namedChild(typeNode, 0);
+        if (getNamedChildCountWithoutExtras(typeNode) == 1 &&
+                getNamedChildWithoutExtras(typeNode, 0).getType().equals("union_type")) {
+            typeNode = getNamedChildWithoutExtras(typeNode, 0);
             List<TSNode> components = new ArrayList<>();
-            components.add(namedChild(namedChild(typeNode, 1), 0));
-            var descentNode = namedChild(namedChild(typeNode, 0), 0);
+            components.add(getNamedChildWithoutExtras(getNamedChildWithoutExtras(typeNode, 1), 0));
+            var descentNode = getNamedChildWithoutExtras(getNamedChildWithoutExtras(typeNode, 0), 0);
             while (descentNode.getType().equals("union_type")) {
-                components.add(namedChild(namedChild(descentNode, 1), 0));
-                descentNode = namedChild(namedChild(descentNode, 0), 0);
+                components.add(getNamedChildWithoutExtras(getNamedChildWithoutExtras(descentNode, 1), 0));
+                descentNode = getNamedChildWithoutExtras(getNamedChildWithoutExtras(descentNode, 0), 0);
             }
             components.add(descentNode);
             components = components.reversed();
@@ -1202,10 +1205,10 @@ public class PythonParser extends LanguageParser {
             }
         }
 
-        if (namedChildCount(typeNode) == 1 &&
-                namedChild(typeNode, 0).getType().equals("binary_operator")
-                && namedChild(typeNode, 0).getChildByFieldName("operator").getType().equals("|")) {
-            typeNode = namedChild(typeNode, 0);
+        if (getNamedChildCountWithoutExtras(typeNode) == 1 &&
+                getNamedChildWithoutExtras(typeNode, 0).getType().equals("binary_operator")
+                && getNamedChildWithoutExtras(typeNode, 0).getChildByFieldName("operator").getType().equals("|")) {
+            typeNode = getNamedChildWithoutExtras(typeNode, 0);
             List<TSNode> components = new ArrayList<>();
             components.add(typeNode.getChildByFieldName("right"));
             var descentNode = typeNode.getChildByFieldName("left");
@@ -1228,21 +1231,21 @@ public class PythonParser extends LanguageParser {
             }
         }
         if (
-                (namedChildCount(typeNode) > 0 && namedChild(typeNode, 0).getType().equals("generic_type"))
+                (getNamedChildCountWithoutExtras(typeNode) > 0 && getNamedChildWithoutExtras(typeNode, 0).getType().equals("generic_type"))
                 || typeNode.getType().equals("generic_type")
         ) {
             TSNode genericTypeNode;
             if (typeNode.getType().equals("generic_type")) {
                 genericTypeNode = typeNode;
             } else {
-                genericTypeNode = namedChild(typeNode, 0);
+                genericTypeNode = getNamedChildWithoutExtras(typeNode, 0);
             }
             List<Type> genericTypes = new ArrayList<>();
-            String typeName = getCodePiece(namedChild(genericTypeNode, 0));
+            String typeName = getCodePiece(getNamedChildWithoutExtras(genericTypeNode, 0));
             if (typeName.equals("Literal")) {
                 var literals = new ArrayList<Literal>();
-                for (int i = 0; i < namedChildCount(namedChild(genericTypeNode, 1)); i++) {
-                    literals.add((Literal) parseTSNode(namedChild(namedChild(namedChild(genericTypeNode, 1), i), 0)));
+                for (int i = 0; i < getNamedChildCountWithoutExtras(getNamedChildWithoutExtras(genericTypeNode, 1)); i++) {
+                    literals.add((Literal) parseTSNode(getNamedChildWithoutExtras(getNamedChildWithoutExtras(getNamedChildWithoutExtras(genericTypeNode, 1), i), 0)));
                 }
                 var types = literals.stream().map(LiteralType::new).toList();
                 if (types.size() == 1) {
@@ -1251,8 +1254,8 @@ public class PythonParser extends LanguageParser {
                     return new TypeAlternatives(types);
                 }
             }
-            for (int i = 0; i < namedChildCount(namedChild(genericTypeNode, 1)); i++) {
-                genericTypes.add(determineType(namedChild(namedChild(genericTypeNode, 1), i)));
+            for (int i = 0; i < getNamedChildCountWithoutExtras(getNamedChildWithoutExtras(genericTypeNode, 1)); i++) {
+                genericTypes.add(determineType(getNamedChildWithoutExtras(getNamedChildWithoutExtras(genericTypeNode, 1), i)));
             }
             switch (typeName) {
                 case "Optional":
@@ -1304,8 +1307,8 @@ public class PythonParser extends LanguageParser {
     @Nullable
     private TSNode dottedTypeName(TSNode typeNode) {
         TSNode candidate = typeNode;
-        if (candidate.getType().equals("type") && namedChildCount(candidate) > 0) {
-            candidate = namedChild(candidate, 0);
+        if (candidate.getType().equals("type") && getNamedChildCountWithoutExtras(candidate) > 0) {
+            candidate = getNamedChildWithoutExtras(candidate, 0);
         }
         return candidate.getType().equals("attribute") && isDottedName(candidate) ? candidate : null;
     }
@@ -1415,15 +1418,15 @@ public class PythonParser extends LanguageParser {
         if (node.getChildByFieldName("left").getType().equals("pattern_list")) {
             List<Identifier> idents = new ArrayList<>();
             TSNode left = node.getChildByFieldName("left");
-            for (int i = 0; i < namedChildCount(left); i++) {
-                idents.add(fromIdentifier(namedChild(left, i)));
+            for (int i = 0; i < getNamedChildCountWithoutExtras(left); i++) {
+                idents.add(fromIdentifier(getNamedChildWithoutExtras(left, i)));
             }
 
             List<Expression> exprs = new ArrayList<>();
             TSNode rightNode = node.getChildByFieldName("right");
             if (rightNode.getType().equals("expression_list")) {
-                for (int i = 0; i < namedChildCount(rightNode); i++) {
-                    exprs.add((Expression) parseTSNode(namedChild(rightNode, i)));
+                for (int i = 0; i < getNamedChildCountWithoutExtras(rightNode); i++) {
+                    exprs.add((Expression) parseTSNode(getNamedChildWithoutExtras(rightNode, i)));
                 }
             } else {
                 exprs.add((Expression) parseTSNode(rightNode));
@@ -1549,8 +1552,8 @@ public class PythonParser extends LanguageParser {
 
     private Node fromList(TSNode node, String type) {
         List<Expression> exprs = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            Expression expr = (Expression) parseTSNode(namedChild(node, i));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            Expression expr = (Expression) parseTSNode(getNamedChildWithoutExtras(node, i));
             exprs.add(expr);
         }
         return switch (type) {
@@ -1584,8 +1587,8 @@ public class PythonParser extends LanguageParser {
         List<CatchClause> catchClauses = new ArrayList<>();
         Statement elseBranch = null;
         Statement finallyBranch = null;
-        for (int i = 0; i < namedChildCount(node); i++) {
-            TSNode child = namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            TSNode child = getNamedChildWithoutExtras(node, i);
             switch (child.getType()) {
                 case "except_clause" -> catchClauses.add(fromExceptClauseTSNode(child));
                 case "else_clause" -> elseBranch = (Statement) parseTSNode(child.getChildByFieldName("body"));
@@ -1612,8 +1615,8 @@ public class PythonParser extends LanguageParser {
                 : ScopeDeclarationStatement.Kind.NONLOCAL;
 
         List<SimpleIdentifier> names = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            names.add(fromIdentifier(namedChild(node, i)).getSimpleIdentifierOrThrow());
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            names.add(fromIdentifier(getNamedChildWithoutExtras(node, i)).getSimpleIdentifierOrThrow());
         }
         return new ScopeDeclarationStatement(kind, names);
     }
@@ -1650,14 +1653,14 @@ public class PythonParser extends LanguageParser {
      */
     private List<Node> fromWithClauseTSNode(TSNode clause) {
         List<Node> resources = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(clause); i++) {
-            TSNode value = namedChild(clause, i).getChildByFieldName("value");
+        for (int i = 0; i < getNamedChildCountWithoutExtras(clause); i++) {
+            TSNode value = getNamedChildWithoutExtras(clause, i).getChildByFieldName("value");
             if (!value.getType().equals("as_pattern")) {
                 resources.add(parseTSNode(value));
                 continue;
             }
 
-            TSNode target = namedChild(value.getChildByFieldName("alias"), 0);
+            TSNode target = getNamedChildWithoutExtras(value.getChildByFieldName("alias"), 0);
             if (!target.getType().equals("identifier")) {
                 // Распаковка `with a() as (x, y)`: у узла есть имя ресурса, но не набор имён,
                 // и молчаливая потеря цели дала бы неверный перевод
@@ -1668,7 +1671,7 @@ public class PythonParser extends LanguageParser {
             VariableDeclaration declaration = new VariableDeclaration(
                     new UnknownType(),
                     (SimpleIdentifier) parseTSNode(target),
-                    (Expression) parseTSNode(namedChild(value, 0))
+                    (Expression) parseTSNode(getNamedChildWithoutExtras(value, 0))
             );
             // Обычный путь наполнения области (BodyConstructor) видит только узлы тела,
             // а ресурс лежит в заголовке конструкции — регистрируем его отдельно
@@ -1688,13 +1691,13 @@ public class PythonParser extends LanguageParser {
             if (value.getType().equals("as_pattern")) {
                 // `except E as e` — типы лежат первым ребёнком, имя в поле alias,
                 // внутри которого настоящий идентификатор
-                typesNode = namedChild(value, 0);
-                name = (SimpleIdentifier) parseTSNode(namedChild(value.getChildByFieldName("alias"), 0));
+                typesNode = getNamedChildWithoutExtras(value, 0);
+                name = (SimpleIdentifier) parseTSNode(getNamedChildWithoutExtras(value.getChildByFieldName("alias"), 0));
             }
 
             if (typesNode.getType().equals("tuple")) {
-                for (int i = 0; i < namedChildCount(typesNode); i++) {
-                    exceptionTypes.add(determineType(namedChild(typesNode, i)));
+                for (int i = 0; i < getNamedChildCountWithoutExtras(typesNode); i++) {
+                    exceptionTypes.add(determineType(getNamedChildWithoutExtras(typesNode, i)));
                 }
             } else {
                 exceptionTypes.add(determineType(typesNode));
@@ -1715,16 +1718,16 @@ public class PythonParser extends LanguageParser {
         if (!node.getChildByFieldName("cause").isNull()) {
             throw new UnsupportedParsingException("Raising with an explicit cause (raise ... from ...) is not supported");
         }
-        if (namedChildCount(node) == 0) {
+        if (getNamedChildCountWithoutExtras(node) == 0) {
             return new RaiseExceptionStatement();
         }
-        return new RaiseExceptionStatement((Expression) parseTSNode(namedChild(node, 0)));
+        return new RaiseExceptionStatement((Expression) parseTSNode(getNamedChildWithoutExtras(node, 0)));
     }
 
     private static TSNode findNamedChild(TSNode node, String type) {
-        for (int i = 0; i < namedChildCount(node); i++) {
-            if (namedChild(node, i).getType().equals(type)) {
-                return namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            if (getNamedChildWithoutExtras(node, i).getType().equals(type)) {
+                return getNamedChildWithoutExtras(node, i);
             }
         }
         throw new UnsupportedParsingException("Node " + node.getType() + " has no child of type " + type);
@@ -1782,16 +1785,16 @@ public class PythonParser extends LanguageParser {
 
 
     private Node fromExpressionSequencesTSNode(TSNode node) {
-        if (namedChildCount(node) == 1 && node.getType().equals("expression_statement")) {
+        if (getNamedChildCountWithoutExtras(node) == 1 && node.getType().equals("expression_statement")) {
             Node n = parseTSNode(node.getChild(0));
             if (n instanceof Statement || n instanceof Declaration || n instanceof Comment) {
                 return n;
             }
             return new ExpressionStatement((Expression) n);
         } else {
-            Expression[] exprs = new Expression[namedChildCount(node)];
+            Expression[] exprs = new Expression[getNamedChildCountWithoutExtras(node)];
             for (int i = 0; i < exprs.length; i++) {
-                Node n = parseTSNode(namedChild(node, i));
+                Node n = parseTSNode(getNamedChildWithoutExtras(node, i));
                 if (n instanceof Expression expr) {
                     exprs[i] = expr;
                 } else {

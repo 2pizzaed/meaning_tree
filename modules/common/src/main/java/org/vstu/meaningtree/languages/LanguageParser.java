@@ -219,41 +219,6 @@ abstract public class LanguageParser extends TranslatorComponent {
         return true;
     }
 
-    /**
-     * Число именованных детей узла без extra-узлов.
-     * <p>
-     * tree-sitter вставляет extra-узлы (комментарии, в Python ещё и {@code \}-продолжение строки)
-     * дочерними в любое место дерева, и {@link TSNode#getNamedChildCount()}/
-     * {@link TSNode#getNamedChild(int)} их возвращают: обход, ждущий выражения, получает
-     * {@code Comment}, а позиционное обращение сдвигается. Сырые методы остаются только там,
-     * где комментарий — законный элемент: в телах программы, классов и {@code switch}.
-     */
-    protected static int namedChildCount(TSNode node) {
-        int count = 0;
-        for (int i = 0; i < node.getNamedChildCount(); i++) {
-            if (!node.getNamedChild(i).isExtra()) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    /**
-     * Именованный ребёнок узла с номером {@code index} среди детей без extra-узлов
-     * (см. {@link #namedChildCount(TSNode)}). За пределами диапазона, как и
-     * {@link TSNode#getNamedChild(int)}, возвращает нулевой узел ({@link TSNode#isNull()}).
-     */
-    protected static TSNode namedChild(TSNode node, int index) {
-        int seen = 0;
-        for (int i = 0; i < node.getNamedChildCount(); i++) {
-            TSNode child = node.getNamedChild(i);
-            if (!child.isExtra() && seen++ == index) {
-                return child;
-            }
-        }
-        return node.getNamedChild(node.getNamedChildCount());
-    }
-
     private void _lookupErrors(TSNode node, List<String> list) {
         if (node.isNull()) {
             return;

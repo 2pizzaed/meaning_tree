@@ -80,6 +80,9 @@ import org.vstu.meaningtree.utils.scopes.ScopeLookupMode;
 
 import java.util.*;
 
+import static org.vstu.meaningtree.utils.TreeSitterUtils.getNamedChildWithoutExtras;
+import static org.vstu.meaningtree.utils.TreeSitterUtils.getNamedChildCountWithoutExtras;
+
 public class JavaParser extends LanguageParser {
     private final Map<String, UserType> _userTypes;
 
@@ -243,7 +246,7 @@ public class JavaParser extends LanguageParser {
     }
 
     private Node fromClassLiteralTSNode(TSNode node) {
-        return new MemberAccess(fromTypeTSNode(namedChild(node, 0)), new SimpleIdentifier("class"));
+        return new MemberAccess(fromTypeTSNode(getNamedChildWithoutExtras(node, 0)), new SimpleIdentifier("class"));
     }
 
     private Node fromInstanceOfTSNode(TSNode node) {
@@ -273,8 +276,8 @@ public class JavaParser extends LanguageParser {
     private Node fromConstructorDeclarationTSNode(TSNode node) {
         List<DeclarationModifier> modifiers;
         List<Annotation> annotations = new ArrayList<>();
-        if (namedChild(node, 0).getType().equals("modifiers"))
-            { modifiers = fromModifiers(annotations, namedChild(node, 0)); }
+        if (getNamedChildWithoutExtras(node, 0).getType().equals("modifiers"))
+            { modifiers = fromModifiers(annotations, getNamedChildWithoutExtras(node, 0)); }
         else
             { modifiers = List.of(); }
         Identifier name = fromIdentifierTSNode(node.getChildByFieldName("name"));
@@ -289,17 +292,17 @@ public class JavaParser extends LanguageParser {
     private ExpressionStatement fromExplicitConstructorInvocationTSNode(TSNode node) {
         List<Expression> arguments = new ArrayList<>();
         TSNode argumentsNode = node.getChildByFieldName("arguments");
-        for (int i = 0; i < namedChildCount(argumentsNode); i++) {
-            arguments.add((Expression) parseTSNode(namedChild(argumentsNode, i)));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(argumentsNode); i++) {
+            arguments.add((Expression) parseTSNode(getNamedChildWithoutExtras(argumentsNode, i)));
         }
         boolean isBaseClassCall = getCodePiece(node.getChildByFieldName("constructor")).equals("super");
         return new ExpressionStatement(new ConstructorCall(new UnknownType(), isBaseClassCall, arguments));
     }
 
     private Node fromLabeledStmtNode(TSNode node) {
-        Node inner = parseTSNode(namedChild(node, 1));
+        Node inner = parseTSNode(getNamedChildWithoutExtras(node, 1));
         if (inner instanceof Statement stmt) {
-            stmt.setJumpLabel(new JumpLabel(getCodePiece(namedChild(node, 0))));
+            stmt.setJumpLabel(new JumpLabel(getCodePiece(getNamedChildWithoutExtras(node, 0))));
         }
         return inner;
     }
@@ -312,8 +315,8 @@ public class JavaParser extends LanguageParser {
     }
 
     private List<Node> fromClassBody(TSNode node) {
-        if (namedChild(node, 0).getType().equals("block")) {
-            node = namedChild(node, 0);
+        if (getNamedChildWithoutExtras(node, 0).getType().equals("block")) {
+            node = getNamedChildWithoutExtras(node, 0);
         }
         ArrayList<Node> nodes = new ArrayList<>();
         for (int i = 0; i < node.getNamedChildCount(); i++) {
@@ -357,13 +360,13 @@ public class JavaParser extends LanguageParser {
 
         List<CatchClause> catchClauses = new ArrayList<>();
         Statement finallyBranch = null;
-        for (int i = 0; i < namedChildCount(node); i++) {
-            TSNode child = namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            TSNode child = getNamedChildWithoutExtras(node, i);
             switch (child.getType()) {
                 case "catch_clause" -> catchClauses.add(fromCatchClauseTSNode(child));
                 // finally_clause не имеет именованного поля для блока, поэтому берём его как
                 // единственного именованного ребёнка
-                case "finally_clause" -> finallyBranch = (Statement) parseTSNode(namedChild(child, 0));
+                case "finally_clause" -> finallyBranch = (Statement) parseTSNode(getNamedChildWithoutExtras(child, 0));
                 default -> { }
             }
         }
@@ -387,15 +390,15 @@ public class JavaParser extends LanguageParser {
         }
 
         List<Node> resources = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(specification); i++) {
-            TSNode resource = namedChild(specification, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(specification); i++) {
+            TSNode resource = getNamedChildWithoutExtras(specification, i);
             if (!resource.getType().equals("resource")) {
                 continue;
             }
 
             TSNode name = resource.getChildByFieldName("name");
             if (name.isNull()) {
-                resources.add(parseTSNode(namedChild(resource, 0)));
+                resources.add(parseTSNode(getNamedChildWithoutExtras(resource, 0)));
                 continue;
             }
 
@@ -413,14 +416,14 @@ public class JavaParser extends LanguageParser {
     }
 
     private CatchClause fromCatchClauseTSNode(TSNode node) {
-        TSNode parameter = namedChild(node, 0);
+        TSNode parameter = getNamedChildWithoutExtras(node, 0);
         // У catch_formal_parameter перед catch_type может стоять modifiers (например, final),
         // поэтому ищем по типу узла, а не по индексу
         TSNode catchType = findNamedChild(parameter, "catch_type");
 
         List<Type> exceptionTypes = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(catchType); i++) {
-            exceptionTypes.add(fromTypeTSNode(namedChild(catchType, i)));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(catchType); i++) {
+            exceptionTypes.add(fromTypeTSNode(getNamedChildWithoutExtras(catchType, i)));
         }
         SimpleIdentifier name = (SimpleIdentifier) parseTSNode(parameter.getChildByFieldName("name"));
 
@@ -433,24 +436,24 @@ public class JavaParser extends LanguageParser {
     }
 
     private static TSNode findNamedChild(TSNode node, String type) {
-        for (int i = 0; i < namedChildCount(node); i++) {
-            if (namedChild(node, i).getType().equals(type)) {
-                return namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            if (getNamedChildWithoutExtras(node, i).getType().equals(type)) {
+                return getNamedChildWithoutExtras(node, i);
             }
         }
         throw new UnsupportedParsingException("Node " + node.getType() + " has no child of type " + type);
     }
 
     private Node fromThrowStatementTSNode(TSNode node) {
-        return new RaiseExceptionStatement((Expression) parseTSNode(namedChild(node, 0)));
+        return new RaiseExceptionStatement((Expression) parseTSNode(getNamedChildWithoutExtras(node, 0)));
     }
 
     private Node fromReturnStatementTSNode(TSNode node) {
-        if (namedChildCount(node) == 0) {
+        if (getNamedChildCountWithoutExtras(node) == 0) {
             return new ReturnStatement();
         }
 
-        Expression expression = (Expression) parseTSNode(namedChild(node, 0));
+        Expression expression = (Expression) parseTSNode(getNamedChildWithoutExtras(node, 0));
         return new ReturnStatement(expression);
     }
 
@@ -464,12 +467,12 @@ public class JavaParser extends LanguageParser {
         Map<Integer, Expression> dimensions = new HashMap<>();
 
         // Начинаем с первого ребенка, т.к. нужно пропустить type-ребенка
-        LOOP: for (int i = 1; i < namedChildCount(arrayCreationNode); i++) {
-            TSNode dimension = namedChild(arrayCreationNode, i);
+        LOOP: for (int i = 1; i < getNamedChildCountWithoutExtras(arrayCreationNode); i++) {
+            TSNode dimension = getNamedChildWithoutExtras(arrayCreationNode, i);
 
             switch (dimension.getType()) {
                 case "dimensions_expr" -> {
-                    Expression dimensionExpr = (Expression) parseTSNode(namedChild(dimension, 0));
+                    Expression dimensionExpr = (Expression) parseTSNode(getNamedChildWithoutExtras(dimension, 0));
                     dimensions.put(dimensionsCount, dimensionExpr);
                     dimensionsCount += 1;
                 }
@@ -493,8 +496,8 @@ public class JavaParser extends LanguageParser {
 
     private ArrayInitializer fromArrayInitializer(TSNode arrayInitializerNode) {
         List<Expression> values = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(arrayInitializerNode); i++) {
-            Expression value = (Expression) parseTSNode(namedChild(arrayInitializerNode, i));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(arrayInitializerNode); i++) {
+            Expression value = (Expression) parseTSNode(getNamedChildWithoutExtras(arrayInitializerNode, i));
             values.add(value);
         }
         return new ArrayInitializer(values);
@@ -527,12 +530,12 @@ public class JavaParser extends LanguageParser {
 
     private Node fromObjectCreationExpressionTSNode(TSNode objectCreationNode) {
         Type type = fromTypeTSNode(objectCreationNode.getChildByFieldName("type"));
-        TSNode body = namedChild(objectCreationNode, namedChildCount(objectCreationNode) - 1);
+        TSNode body = getNamedChildWithoutExtras(objectCreationNode, getNamedChildCountWithoutExtras(objectCreationNode) - 1);
 
         List<Expression> arguments = new ArrayList<>();
         TSNode tsArguments = objectCreationNode.getChildByFieldName("arguments");
-        for (int i = 0; i < namedChildCount(tsArguments); i++) {
-            TSNode tsArgument = namedChild(tsArguments, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(tsArguments); i++) {
+            TSNode tsArgument = getNamedChildWithoutExtras(tsArguments, i);
             Expression argument = (Expression) parseTSNode(tsArgument);
             arguments.add(argument);
         }
@@ -604,8 +607,8 @@ public class JavaParser extends LanguageParser {
     @NotNull
     private PrintCommand makePrintCall(String outObjectMethodName, TSNode tsNodeArguments) {
         List<Expression> arguments = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(tsNodeArguments); i++) {
-            TSNode tsArgument = namedChild(tsNodeArguments, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(tsNodeArguments); i++) {
+            TSNode tsArgument = getNamedChildWithoutExtras(tsNodeArguments, i);
             Expression argument = (Expression) parseTSNode(tsArgument);
             arguments.add(argument);
         }
@@ -650,18 +653,18 @@ public class JavaParser extends LanguageParser {
                     && (objectMethodName.equals("println") || objectMethodName.equals("print"))) {
                 return makePrintCall(objectMethodName, argumentsNode);
             }
-            if (objectName.equals("Math") && objectMethodName.equals("pow") && namedChildCount(argumentsNode) == 2) {
+            if (objectName.equals("Math") && objectMethodName.equals("pow") && getNamedChildCountWithoutExtras(argumentsNode) == 2) {
                 return new PowOp(
-                        (Expression) parseTSNode(namedChild(argumentsNode, 0)),
-                        (Expression) parseTSNode(namedChild(argumentsNode, 1))
+                        (Expression) parseTSNode(getNamedChildWithoutExtras(argumentsNode, 0)),
+                        (Expression) parseTSNode(getNamedChildWithoutExtras(argumentsNode, 1))
                 );
             }
         }
 
-        if (objectNode.isNull() && objectMethodName.equals("pow") && namedChildCount(argumentsNode) == 2) {
+        if (objectNode.isNull() && objectMethodName.equals("pow") && getNamedChildCountWithoutExtras(argumentsNode) == 2) {
             return new PowOp(
-                    (Expression) parseTSNode(namedChild(argumentsNode, 0)),
-                    (Expression) parseTSNode(namedChild(argumentsNode, 1))
+                    (Expression) parseTSNode(getNamedChildWithoutExtras(argumentsNode, 0)),
+                    (Expression) parseTSNode(getNamedChildWithoutExtras(argumentsNode, 1))
             );
         }
 
@@ -671,8 +674,8 @@ public class JavaParser extends LanguageParser {
         }
 
         List<Expression> arguments = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(argumentsNode); i++) {
-            TSNode tsArgument = namedChild(argumentsNode, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(argumentsNode); i++) {
+            TSNode tsArgument = getNamedChildWithoutExtras(argumentsNode, i);
             Expression argument = (Expression) parseTSNode(tsArgument);
             arguments.add(argument);
         }
@@ -704,7 +707,7 @@ public class JavaParser extends LanguageParser {
     }
 
     private Node fromImportDeclarationTSNode(TSNode importDeclaration) {
-        TSNode scopeNode = namedChild(importDeclaration, 0);
+        TSNode scopeNode = getNamedChildWithoutExtras(importDeclaration, 0);
 
         if (isStaticImport(importDeclaration)) {
             if (isWildcardImport(importDeclaration)) {
@@ -759,7 +762,7 @@ public class JavaParser extends LanguageParser {
 
     private CaseBlock fromSwitchGroupTSNode(TSNode switchGroup) {
         Expression matchValue =
-                (Expression) parseTSNode(namedChild(namedChild(switchGroup, 0), 0));
+                (Expression) parseTSNode(getNamedChildWithoutExtras(getNamedChildWithoutExtras(switchGroup, 0), 0));
 
         var statements = new ArrayList<Node>();
         for (int i = 1; i < switchGroup.getNamedChildCount(); i++) {
@@ -785,16 +788,16 @@ public class JavaParser extends LanguageParser {
 
     private Node fromSwitchExpressionTSNode(TSNode switchNode) {
         Expression matchValue =
-                (Expression) parseTSNode(namedChild(switchNode.getChildByFieldName("condition"), 0));
+                (Expression) parseTSNode(getNamedChildWithoutExtras(switchNode.getChildByFieldName("condition"), 0));
 
         DefaultCaseBlock defaultCaseBlock = null;
         List<CaseBlock> cases = new ArrayList<>();
 
         TSNode switchBlock = switchNode.getChildByFieldName("body");
-        for (int i = 0; i < namedChildCount(switchBlock); i++) {
-            TSNode switchGroup = namedChild(switchBlock, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(switchBlock); i++) {
+            TSNode switchGroup = getNamedChildWithoutExtras(switchBlock, i);
 
-            String labelName = getCodePiece(namedChild(switchGroup, 0));
+            String labelName = getCodePiece(getNamedChildWithoutExtras(switchGroup, 0));
             if (labelName.equals("default")) {
                 var statements = new ArrayList<Node>();
 
@@ -867,8 +870,8 @@ public class JavaParser extends LanguageParser {
     private List<DeclarationArgument> fromMethodParameters(TSNode node) {
         List<DeclarationArgument> parameters = new ArrayList<>();
 
-        for (int i = 0; i < namedChildCount(node); i++) {
-            TSNode child = namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            TSNode child = getNamedChildWithoutExtras(node, i);
             DeclarationArgument parameter = fromFormalParameter(child);
             parameters.add(parameter);
         }
@@ -878,8 +881,8 @@ public class JavaParser extends LanguageParser {
 
     private DeclarationArgument fromFormalParameter(TSNode node) {
         if (node.getType().equals("spread_parameter")) {
-            Type type = fromTypeTSNode(namedChild(node, 0));
-            SimpleIdentifier name = (SimpleIdentifier) fromIdentifierTSNode(namedChild(node, 1)
+            Type type = fromTypeTSNode(getNamedChildWithoutExtras(node, 0));
+            SimpleIdentifier name = (SimpleIdentifier) fromIdentifierTSNode(getNamedChildWithoutExtras(node, 1)
                     .getChildByFieldName("name"));
             return DeclarationArgument.listUnpacking(type, name);
         }
@@ -891,8 +894,8 @@ public class JavaParser extends LanguageParser {
     private StringLiteral fromStringLiteralTSNode(TSNode node) {
         StringBuilder builder = new StringBuilder();
 
-        for (int i = 0; i < namedChildCount(node); i++) {
-            TSNode child = namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            TSNode child = getNamedChildWithoutExtras(node, i);
             builder.append(getCodePiece(child));
         }
 
@@ -963,8 +966,8 @@ public class JavaParser extends LanguageParser {
         TSNode body = node.getChildByFieldName("body");
 
         LinkedHashMap<Identifier, Expression> constants = new LinkedHashMap<>();
-        for (int i = 0; i < namedChildCount(body); i++) {
-            TSNode child = namedChild(body, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(body); i++) {
+            TSNode child = getNamedChildWithoutExtras(body, i);
             if (!child.getType().equals("enum_constant")) {
                 throw new UnsupportedParsingException(
                         "Java enum with members is not supported: " + child.getType());
@@ -994,7 +997,7 @@ public class JavaParser extends LanguageParser {
         List<Type> parents = new ArrayList<>();
         TSNode superclass = node.getChildByFieldName("superclass");
         if (!superclass.isNull()) {
-            parents.add(fromTypeTSNode(namedChild(superclass, 0)));
+            parents.add(fromTypeTSNode(getNamedChildWithoutExtras(superclass, 0)));
         }
         TSNode interfaces = node.getChildByFieldName("interfaces");
         if (!interfaces.isNull()) {
@@ -1152,8 +1155,8 @@ public class JavaParser extends LanguageParser {
 
         Identifier interfaceName = fromIdentifierTSNode(node.getChildByFieldName("name"));
         List<Type> parents = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            TSNode child = namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            TSNode child = getNamedChildWithoutExtras(node, i);
             if (child.getType().equals("extends_interfaces")) {
                 parents.addAll(fromTypeList(child));
             }
@@ -1207,12 +1210,12 @@ public class JavaParser extends LanguageParser {
 
     private List<Type> fromTypeList(TSNode container) {
         TSNode typeList = container;
-        if (!container.getType().equals("type_list") && namedChildCount(container) == 1) {
-            typeList = namedChild(container, 0);
+        if (!container.getType().equals("type_list") && getNamedChildCountWithoutExtras(container) == 1) {
+            typeList = getNamedChildWithoutExtras(container, 0);
         }
         List<Type> result = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(typeList); i++) {
-            result.add(fromTypeTSNode(namedChild(typeList, i)));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(typeList); i++) {
+            result.add(fromTypeTSNode(getNamedChildWithoutExtras(typeList, i)));
         }
         return result;
     }
@@ -1547,12 +1550,12 @@ public class JavaParser extends LanguageParser {
                 }
                 break;
             case "generic_type":
-                TSNode typeNode = namedChild(node, 0);
-                TSNode arguments = namedChild(node, 1);
+                TSNode typeNode = getNamedChildWithoutExtras(node, 0);
+                TSNode arguments = getNamedChildWithoutExtras(node, 1);
 
                 ArrayList<Type> subTypes = new ArrayList<>();
-                for (int i = 0; i < namedChildCount(arguments); i++) {
-                    subTypes.add(fromTypeTSNode(namedChild(arguments, i)));
+                for (int i = 0; i < getNamedChildCountWithoutExtras(arguments); i++) {
+                    subTypes.add(fromTypeTSNode(getNamedChildWithoutExtras(arguments, i)));
                 }
 
                 Type subType = fromTypeTSNode(typeNode);
@@ -1651,13 +1654,13 @@ public class JavaParser extends LanguageParser {
 
     private ScopedIdentifier fromScopedTypeIdentifier(TSNode node) {
         ArrayList<SimpleIdentifier> idents = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            if (namedChild(node, i).getType().equals("scoped_type_identifier")) {
-                idents.addAll(fromScopedTypeIdentifier(namedChild(node, i)).getScopeResolution());
-            } else if (namedChild(node, i).getType().equals("type_identifier")){
-                idents.add(new SimpleIdentifier(getCodePiece(namedChild(node, i))));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            if (getNamedChildWithoutExtras(node, i).getType().equals("scoped_type_identifier")) {
+                idents.addAll(fromScopedTypeIdentifier(getNamedChildWithoutExtras(node, i)).getScopeResolution());
+            } else if (getNamedChildWithoutExtras(node, i).getType().equals("type_identifier")){
+                idents.add(new SimpleIdentifier(getCodePiece(getNamedChildWithoutExtras(node, i))));
             } else {
-                idents.add((SimpleIdentifier) parseTSNode(namedChild(node, i)));
+                idents.add((SimpleIdentifier) parseTSNode(getNamedChildWithoutExtras(node, i)));
             }
         }
         return new ScopedIdentifier(idents);

@@ -87,6 +87,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 
+import static org.vstu.meaningtree.utils.TreeSitterUtils.getNamedChildWithoutExtras;
+import static org.vstu.meaningtree.utils.TreeSitterUtils.getNamedChildCountWithoutExtras;
+
 public class CppParser extends LanguageParser {
     public CppParser(LanguageTranslator translator) {
         super(translator, new TreeSitterCpp());
@@ -134,7 +137,7 @@ public class CppParser extends LanguageParser {
     }
 
     private void configureTsNodeHandlers() {
-        registerTSNodeHandler(List.of("ERROR", "parameter_pack_expansion"), Node.class, node -> parseTSNode(namedChild(node, 0)));
+        registerTSNodeHandler(List.of("ERROR", "parameter_pack_expansion"), Node.class, node -> parseTSNode(getNamedChildWithoutExtras(node, 0)));
         registerTSNodeHandler("translation_unit", ProgramEntryPoint.class, this::fromTranslationUnit);
         registerTSNodeHandler("class_specifier", ClassDefinition.class, this::fromClassSpecifier);
         registerTSNodeHandler("struct_specifier", StructureDefinition.class, this::fromStructSpecifier);
@@ -172,7 +175,7 @@ public class CppParser extends LanguageParser {
         registerTSNodeHandler("pointer_expression", Expression.class, this::fromPointerExpression);
         registerTSNodeHandler("this", SelfReference.class, node -> new SelfReference("this"));
         registerTSNodeHandler("offsetof_expression", FunctionCall.class, this::fromOffsetOf);
-        registerTSNodeHandler("preproc_defined", FunctionCall.class, node -> new FunctionCall(new SimpleIdentifier("defined"), (Expression) parseTSNode(namedChild(node, 0))));
+        registerTSNodeHandler("preproc_defined", FunctionCall.class, node -> new FunctionCall(new SimpleIdentifier("defined"), (Expression) parseTSNode(getNamedChildWithoutExtras(node, 0))));
         registerTSNodeHandler("preproc_include", Include.class, this::fromPreprocInclude);
         registerTSNodeHandler("comment", Comment.class, this::fromComment);
         registerTSNodeHandler("if_statement", IfStatement.class, this::fromIfStatement);
@@ -218,8 +221,8 @@ public class CppParser extends LanguageParser {
         if (node.getType().equals("using_declaration")) {
             return isDefaultNamespaceDirective(node);
         }
-        for (int i = 0; i < namedChildCount(node); i++) {
-            if (lookupDefaultNamespace(namedChild(node, i))) {
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            if (lookupDefaultNamespace(getNamedChildWithoutExtras(node, i))) {
                 return true;
             }
         }
@@ -229,8 +232,8 @@ public class CppParser extends LanguageParser {
     /** {@code using namespace std;} — единственная поддерживаемая форма using-объявления. */
     private boolean isDefaultNamespaceDirective(TSNode usingDeclaration) {
         return hasNamespaceKeyword(usingDeclaration)
-                && namedChildCount(usingDeclaration) == 1
-                && getCodePiece(namedChild(usingDeclaration, 0)).equals("std");
+                && getNamedChildCountWithoutExtras(usingDeclaration) == 1
+                && getCodePiece(getNamedChildWithoutExtras(usingDeclaration, 0)).equals("std");
     }
 
     /** Отличает {@code using namespace X;} от {@code using X::y;}: ключевое слово безымянное. */
@@ -416,13 +419,13 @@ public class CppParser extends LanguageParser {
     private ReturnStatement fromReturn(TSNode node) {
         if (node.getChildCount() == 0)
             return new ReturnStatement();
-        return new ReturnStatement((Expression) parseTSNode(namedChild(node, 0)));
+        return new ReturnStatement((Expression) parseTSNode(getNamedChildWithoutExtras(node, 0)));
     }
 
     private Node fromLabeledStmtNode(TSNode node) {
-        Node inner = parseTSNode(namedChild(node, 1));
+        Node inner = parseTSNode(getNamedChildWithoutExtras(node, 1));
         if (inner instanceof Statement stmt) {
-            stmt.setJumpLabel(new JumpLabel(getCodePiece(namedChild(node, 0))));
+            stmt.setJumpLabel(new JumpLabel(getCodePiece(getNamedChildWithoutExtras(node, 0))));
         }
         return inner;
     }
@@ -552,8 +555,8 @@ public class CppParser extends LanguageParser {
         SimpleIdentifier className = (SimpleIdentifier) fromIdentifier(node.getChildByFieldName("name"));
         TSNode baseClassClause = node.getChildByFieldName("base_class_clause");
         if (baseClassClause.isNull()) {
-            for (int i = 0; i < namedChildCount(node); i++) {
-                TSNode child = namedChild(node, i);
+            for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+                TSNode child = getNamedChildWithoutExtras(node, i);
                 if (child.getType().equals("base_class_clause")) {
                     baseClassClause = child;
                     break;
@@ -691,8 +694,8 @@ public class CppParser extends LanguageParser {
         }
 
         List<Type> parents = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            TSNode child = namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            TSNode child = getNamedChildWithoutExtras(node, i);
             if (!child.getType().equals("access_specifier")) {
                 parents.add(fromType(child));
             }
@@ -744,27 +747,27 @@ public class CppParser extends LanguageParser {
         CompoundStatement body = fromBlock(node.getChildByFieldName("body"));
         if (type.isNull()) {
             if (name.getType().equals("destructor_name")) {
-                SimpleIdentifier destructorName = (SimpleIdentifier) fromIdentifier(namedChild(name, 0));
+                SimpleIdentifier destructorName = (SimpleIdentifier) fromIdentifier(getNamedChildWithoutExtras(name, 0));
                 return new ObjectDestructorDefinition((UserType) owner.getTypeNode().freshClone(), destructorName, List.of(), modifiers, body);
             }
 
             SimpleIdentifier constructorName = (SimpleIdentifier) fromIdentifier(name);
             List<DeclarationArgument> parameters = fromFunctionParameters(declarator.getChildByFieldName("parameters"));
             TSNode initializers = null;
-            for (int i = 0; i < namedChildCount(node); i++) {
-                TSNode child = namedChild(node, i);
+            for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+                TSNode child = getNamedChildWithoutExtras(node, i);
                 if (child.getType().equals("field_initializer_list")) {
                     initializers = child;
                     break;
                 }
             }
-            for (int i = initializers == null ? -1 : namedChildCount(initializers) - 1; i >= 0; i--) {
-                TSNode initializer = namedChild(initializers, i);
-                SimpleIdentifier initializerName = (SimpleIdentifier) fromIdentifier(namedChild(initializer, 0));
-                TSNode argumentsNode = namedChild(initializer, 1);
+            for (int i = initializers == null ? -1 : getNamedChildCountWithoutExtras(initializers) - 1; i >= 0; i--) {
+                TSNode initializer = getNamedChildWithoutExtras(initializers, i);
+                SimpleIdentifier initializerName = (SimpleIdentifier) fromIdentifier(getNamedChildWithoutExtras(initializer, 0));
+                TSNode argumentsNode = getNamedChildWithoutExtras(initializer, 1);
                 List<Expression> arguments = new ArrayList<>();
-                for (int j = 0; j < namedChildCount(argumentsNode); j++) {
-                    arguments.add((Expression) parseTSNode(namedChild(argumentsNode, j)));
+                for (int j = 0; j < getNamedChildCountWithoutExtras(argumentsNode); j++) {
+                    arguments.add((Expression) parseTSNode(getNamedChildWithoutExtras(argumentsNode, j)));
                 }
                 boolean isBaseClassCall = !initializerName.equalsIdentifier(owner.getName().toString());
                 body.insert(0, new ExpressionStatement(new ConstructorCall(
@@ -902,7 +905,7 @@ public class CppParser extends LanguageParser {
      * сам вьюер в C-режиме, поэтому без этой ветки собственный вывод не разбирался обратно.
      */
     private boolean isExplicitlyEmptyParameterList(TSNode parameterList, TSNode parameter) {
-        return namedChildCount(parameterList) == 1
+        return getNamedChildCountWithoutExtras(parameterList) == 1
                 && parameter.getType().equals("parameter_declaration")
                 && parameter.getChildByFieldName("declarator").isNull()
                 && getCodePiece(parameter).strip().equals("void");
@@ -992,7 +995,7 @@ public class CppParser extends LanguageParser {
 
     private CaseBlock fromSwitchGroup(TSNode switchGroup, List<TSNode> statementNodes) {
         Expression matchValue =
-                (Expression) parseTSNode(namedChild(switchGroup, 0));
+                (Expression) parseTSNode(getNamedChildWithoutExtras(switchGroup, 0));
 
         var statements = new ArrayList<Node>();
 
@@ -1014,7 +1017,7 @@ public class CppParser extends LanguageParser {
 
     private Node fromSwitchStatement(TSNode switchNode) {
         Expression matchValue =
-                (Expression) parseTSNode(namedChild(switchNode.getChildByFieldName("condition"), 0));
+                (Expression) parseTSNode(getNamedChildWithoutExtras(switchNode.getChildByFieldName("condition"), 0));
 
         DefaultCaseBlock defaultCaseBlock = null;
         List<CaseBlock> cases = new ArrayList<>();
@@ -1069,8 +1072,8 @@ public class CppParser extends LanguageParser {
         Statement body = (Statement) parseTSNode(node.getChildByFieldName("body"));
 
         List<CatchClause> catchClauses = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            TSNode child = namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            TSNode child = getNamedChildWithoutExtras(node, i);
             if (child.getType().equals("catch_clause")) {
                 catchClauses.add(fromCatchClause(child));
             }
@@ -1108,26 +1111,26 @@ public class CppParser extends LanguageParser {
 
     private static TSNode unwrapCatchDeclarator(TSNode declarator) {
         while (declarator.getType().equals("reference_declarator") || declarator.getType().equals("pointer_declarator")) {
-            declarator = namedChild(declarator, 0);
+            declarator = getNamedChildWithoutExtras(declarator, 0);
         }
         return declarator;
     }
 
     @Nullable
     private static TSNode findNamedChild(TSNode node, String type) {
-        for (int i = 0; i < namedChildCount(node); i++) {
-            if (namedChild(node, i).getType().equals(type)) {
-                return namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            if (getNamedChildWithoutExtras(node, i).getType().equals(type)) {
+                return getNamedChildWithoutExtras(node, i);
             }
         }
         return null;
     }
 
     private Node fromThrowStatement(TSNode node) {
-        if (namedChildCount(node) == 0) {
+        if (getNamedChildCountWithoutExtras(node) == 0) {
             return new RaiseExceptionStatement();
         }
-        return new RaiseExceptionStatement((Expression) parseTSNode(namedChild(node, 0)));
+        return new RaiseExceptionStatement((Expression) parseTSNode(getNamedChildWithoutExtras(node, 0)));
     }
 
     private Node fromBreakStatement(TSNode breakNode) {
@@ -1345,8 +1348,8 @@ public class CppParser extends LanguageParser {
 
     private Node fromConcatenatedString(TSNode node) {
         List<StringLiteral> literals = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            literals.add(fromStringLiteral(namedChild(node, i)));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            literals.add(fromStringLiteral(getNamedChildWithoutExtras(node, i)));
         }
         StringBuilder val = new StringBuilder();
         for (StringLiteral s : literals) {
@@ -1406,7 +1409,7 @@ public class CppParser extends LanguageParser {
     }
 
     private Node fromCharLiteral(TSNode node) {
-        return new CharacterLiteral(decodeCharacter(getCodePiece(namedChild(node, 0))));
+        return new CharacterLiteral(decodeCharacter(getCodePiece(getNamedChildWithoutExtras(node, 0))));
     }
 
     /**
@@ -1437,8 +1440,8 @@ public class CppParser extends LanguageParser {
 
     private Node fromInitializerList(TSNode node) {
         List<Expression> expressions = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            expressions.add((Expression) parseTSNode(namedChild(node, i)));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            expressions.add((Expression) parseTSNode(getNamedChildWithoutExtras(node, i)));
         }
         return new ArrayLiteral(expressions);
     }
@@ -1477,7 +1480,7 @@ public class CppParser extends LanguageParser {
 
     private Node fromDeleteExpression(TSNode node) {
         String line = getCodePiece(node);
-        return new DeleteExpression((Expression) parseTSNode(namedChild(node, 0)), line.contains("[") && line.contains("]"));
+        return new DeleteExpression((Expression) parseTSNode(getNamedChildWithoutExtras(node, 0)), line.contains("[") && line.contains("]"));
     }
 
     private Node fromNewExpression(TSNode node) {
@@ -1496,24 +1499,24 @@ public class CppParser extends LanguageParser {
         } else if (!declarator.isNull()) {
             List<Expression> initList = new ArrayList<>();
             if (!arguments.isNull()) {
-                for (int i = 0; i < namedChildCount(arguments); i++) {
-                    initList.add((Expression) parseTSNode(namedChild(arguments, i)));
+                for (int i = 0; i < getNamedChildCountWithoutExtras(arguments); i++) {
+                    initList.add((Expression) parseTSNode(getNamedChildWithoutExtras(arguments, i)));
                 }
             }
             List<Expression> dimensions = new ArrayList<>();
-            dimensions.add((Expression) parseTSNode(namedChild(declarator, 0)));
-            while (!namedChild(declarator, 1).isNull()
-                    && namedChild(declarator, 1).getType().equals("new_declarator")) {
-                declarator = namedChild(declarator, 1);
-                dimensions.add((Expression) parseTSNode(namedChild(declarator, 0)));
+            dimensions.add((Expression) parseTSNode(getNamedChildWithoutExtras(declarator, 0)));
+            while (!getNamedChildWithoutExtras(declarator, 1).isNull()
+                    && getNamedChildWithoutExtras(declarator, 1).getType().equals("new_declarator")) {
+                declarator = getNamedChildWithoutExtras(declarator, 1);
+                dimensions.add((Expression) parseTSNode(getNamedChildWithoutExtras(declarator, 0)));
             }
             ArrayInitializer initializer = !initList.isEmpty() ? new ArrayInitializer(initList) : null;
             return new ArrayNewExpression(type, new Shape(dimensions.size(), dimensions.toArray(new Expression[0])), initializer);
         } else {
             throw new UnsupportedParsingException("No arguments for new expression");
         }
-        for (int i = 0; i < namedChildCount(childSource); i++) {
-            args.add((Expression) parseTSNode(namedChild(childSource, i)));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(childSource); i++) {
+            args.add((Expression) parseTSNode(getNamedChildWithoutExtras(childSource, i)));
         }
         if (childSource == placement) {
             return new PlacementNewExpression(type, args);
@@ -1623,8 +1626,8 @@ public class CppParser extends LanguageParser {
             Identifier ident = (Identifier) fromIdentifier(node.getChildByFieldName("name"));
             List<Type> subTypes = new ArrayList<>();
             TSNode arguments = node.getChildByFieldName("arguments");
-            for (int i = 0; i < namedChildCount(arguments); i++) {
-                subTypes.add(fromType(namedChild(arguments, i)));
+            for (int i = 0; i < getNamedChildCountWithoutExtras(arguments); i++) {
+                subTypes.add(fromType(getNamedChildWithoutExtras(arguments, i)));
             }
             return new GenericClass(ident, subTypes.toArray(new Type[0]));
         } else if (node.getType().equals("qualified_identifier")) {
@@ -1634,8 +1637,8 @@ public class CppParser extends LanguageParser {
                 TSNode template = node.getChildByFieldName("name");
                 SimpleIdentifier s = new SimpleIdentifier(getCodePiece(template.getChildByFieldName("name")));
                 TSNode arguments = template.getChildByFieldName("arguments");
-                for (int i = 0; i < namedChildCount(arguments); i++) {
-                    generic.add(fromType(namedChild(arguments, i)));
+                for (int i = 0; i < getNamedChildCountWithoutExtras(arguments); i++) {
+                    generic.add(fromType(getNamedChildWithoutExtras(arguments, i)));
                 }
                 q = new QualifiedIdentifier((Identifier) fromIdentifier(node.getChildByFieldName("scope")), s);
             } else {
@@ -1661,8 +1664,8 @@ public class CppParser extends LanguageParser {
             SimpleIdentifier name = new SimpleIdentifier(getCodePiece(node.getChildByFieldName("name")));
             List<Type> generic = new ArrayList<>();
             TSNode arguments = node.getChildByFieldName("arguments");
-            for (int i = 0; i < namedChildCount(arguments); i++) {
-                generic.add(fromType(namedChild(arguments, i)));
+            for (int i = 0; i < getNamedChildCountWithoutExtras(arguments); i++) {
+                generic.add(fromType(getNamedChildWithoutExtras(arguments, i)));
             }
             if (usesDefaultNamespace) {
                 Type stdType = stdCollectionType(name.getName(), generic);
@@ -1740,8 +1743,8 @@ public class CppParser extends LanguageParser {
     @NotNull
     private ExpressionSequence fromSubscriptArgumentList(@NotNull TSNode node) {
         var arguments = new ArrayList<Expression>();
-        for (int i = 0; i < namedChildCount(node); i++) {
-            TSNode tsArgument = namedChild(node, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
+            TSNode tsArgument = getNamedChildWithoutExtras(node, i);
             Expression argument = (Expression) parseTSNode(tsArgument);
             arguments.add(argument);
         }
@@ -1796,8 +1799,8 @@ public class CppParser extends LanguageParser {
 
         TSNode tsArguments = node.getChildByFieldName("arguments");
         List<Expression> arguments = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(tsArguments); i++) {
-            TSNode tsArgument = namedChild(tsArguments, i);
+        for (int i = 0; i < getNamedChildCountWithoutExtras(tsArguments); i++) {
+            TSNode tsArgument = getNamedChildWithoutExtras(tsArguments, i);
             Expression argument = (Expression) parseTSNode(tsArgument);
             arguments.add(argument);
         }
@@ -2038,7 +2041,7 @@ public class CppParser extends LanguageParser {
         int i = 0;
 
         while (!"type".equals(node.getFieldNameForChild(i))) {
-            TSNode currentNode = namedChild(node, i);
+            TSNode currentNode = getNamedChildWithoutExtras(node, i);
             if (currentNode.getType().equals("type_qualifier") && getCodePiece(currentNode).equals("const")) {
                 mainType.setConst(true);
             }
@@ -2047,8 +2050,8 @@ public class CppParser extends LanguageParser {
 
         var declarators = new ArrayList<VariableDeclaration>();
         var prototypes = new ArrayList<TSNode>();
-        for (i += 1; i < namedChildCount(node); i++) {
-            TSNode tsDeclarator = namedChild(node, i);
+        for (i += 1; i < getNamedChildCountWithoutExtras(node); i++) {
+            TSNode tsDeclarator = getNamedChildWithoutExtras(node, i);
             if (isFunctionPrototypeDeclarator(tsDeclarator)) {
                 prototypes.add(tsDeclarator);
                 continue;
@@ -2158,11 +2161,11 @@ public class CppParser extends LanguageParser {
 
     private TSNode innerDeclarator(@NotNull TSNode declarator) {
         TSNode inner = declarator.getChildByFieldName("declarator");
-        if (!inner.isNull() || namedChildCount(declarator) == 0) {
+        if (!inner.isNull() || getNamedChildCountWithoutExtras(declarator) == 0) {
             return inner;
         }
         // У reference_declarator вложенный объявитель не помечен полем
-        return namedChild(declarator, namedChildCount(declarator) - 1);
+        return getNamedChildWithoutExtras(declarator, getNamedChildCountWithoutExtras(declarator) - 1);
     }
 
     /**
@@ -2171,8 +2174,8 @@ public class CppParser extends LanguageParser {
      */
     private ObjectNewExpression fromStackAllocation(@NotNull TSNode argumentList, Type type) {
         List<Expression> arguments = new ArrayList<>();
-        for (int i = 0; i < namedChildCount(argumentList); i++) {
-            arguments.add((Expression) parseTSNode(namedChild(argumentList, i)));
+        for (int i = 0; i < getNamedChildCountWithoutExtras(argumentList); i++) {
+            arguments.add((Expression) parseTSNode(getNamedChildWithoutExtras(argumentList, i)));
         }
         var expression = new ObjectNewExpression((Type) type.freshClone(), arguments);
         expression.setStackAllocated(true);
@@ -2397,10 +2400,10 @@ public class CppParser extends LanguageParser {
 
     @NotNull
     private Node fromExpressionStatement(@NotNull TSNode node) {
-        if (namedChild(node, 0).isNull()) {
+        if (getNamedChildWithoutExtras(node, 0).isNull()) {
             return new ExpressionStatement(null);
         }
-        Expression expr = (Expression) parseTSNode(namedChild(node, 0));
+        Expression expr = (Expression) parseTSNode(getNamedChildWithoutExtras(node, 0));
         if (expr instanceof AssignmentExpression assignmentExpression) {
             return assignmentExpression.toStatement();
         }

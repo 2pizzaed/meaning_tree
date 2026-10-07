@@ -1563,7 +1563,12 @@ public class PythonViewer extends LanguageViewer {
             }
             constructor.appendString(builder.toString());
         }
-        return String.join("\n", constructor.stringBuffer()).stripTrailing();
+        String body = String.join("\n", constructor.stringBuffer()).stripTrailing();
+        // Комментарий — не оператор: блок из одних комментариев без pass синтаксически неверен
+        if (Arrays.stream(node.getNodes()).allMatch(Comment.class::isInstance)) {
+            body += "\n" + tab.concat("pass");
+        }
+        return body;
     }
 
     private String nodeListToString(List<Node> nodes, Tab tab) {

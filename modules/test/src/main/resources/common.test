@@ -3783,3 +3783,31 @@ group: Comments
             std::vector<int> d = {1, 2};
             std::map<std::string, int> e = {{"a", 1}, {"b", 2}};
             auto y = max(1, 2);
+
+
+    case: CommentOnlyBody
+        main java:
+            if (s > 0) {
+                // todo
+            }
+            class A {
+                // nothing
+            }
+
+        python:
+            if s > 0:
+                # todo
+                pass
+            class A:
+                # nothing
+                pass
+
+        c++:
+            if (s > 0)
+            {
+                // todo
+            }
+            class A
+            {
+                // nothing
+            };

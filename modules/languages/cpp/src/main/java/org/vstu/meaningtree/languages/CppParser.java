@@ -85,6 +85,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 
 public class CppParser extends LanguageParser {
     public CppParser(LanguageTranslator translator) {
@@ -256,6 +257,60 @@ public class CppParser extends LanguageParser {
                     "Only `using namespace std;` is supported, got: " + getCodePiece(node));
         }
         return true;
+    }
+
+    /** Условные директивы: {@code #if} и {@code #ifdef}/{@code #ifndef} вместе с ветками. */
+    private static final Set<String> CONDITIONAL_DIRECTIVES = Set.of("preproc_if", "preproc_ifdef");
+
+    /** Поля условной директивы, которые не входят в код её первой ветки. */
+    private static final Set<String> CONDITIONAL_DIRECTIVE_HEADER_FIELDS = Set.of("condition", "name", "alternative");
+
+    /** Директива препроцессора, у которой нет разбора. {@code #include} к ним не относится. */
+    private static boolean isUnknownDirective(TSNode node) {
+        return node.getType().startsWith("preproc_") && !node.getType().equals("preproc_include");
+    }
+
+    /**
+     * Дети тела, которые идут в разбор. При {@code skipUnknownPreprocDirectives} директивы без
+     * разбора убираются, а условная заменяется кодом своей первой ветки: ветки
+     * {@code #elif}/{@code #else} отбрасываются, условие не проверяется. Так защита от
+     * повторного включения ({@code #ifndef A_H ... #endif}) не уносит с собой весь файл.
+     * Без настройки дети остаются как есть, и разбор останавливается на первой же директиве.
+     */
+    private List<TSNode> expandDirectives(List<TSNode> children) {
+        if (!getConfigParameter("skipUnknownPreprocDirectives").asBoolean()) {
+            return children;
+        }
+        List<TSNode> expanded = new ArrayList<>();
+        for (TSNode child : children) {
+            if (!isUnknownDirective(child)) {
+                expanded.add(child);
+            } else if (CONDITIONAL_DIRECTIVES.contains(child.getType())) {
+                expanded.addAll(expandDirectives(firstBranch(child)));
+            }
+        }
+        return expanded;
+    }
+
+    /** Код первой ветки условной директивы — именованные дети без условия и альтернатив. */
+    private static List<TSNode> firstBranch(TSNode directive) {
+        List<TSNode> branch = new ArrayList<>();
+        for (int i = 0; i < directive.getNamedChildCount(); i++) {
+            String field = directive.getFieldNameForNamedChild(i);
+            if (field == null || !CONDITIONAL_DIRECTIVE_HEADER_FIELDS.contains(field)) {
+                branch.add(directive.getNamedChild(i));
+            }
+        }
+        return branch;
+    }
+
+    /** Именованные дети тела с раскрытыми директивами (см. {@link #expandDirectives}). */
+    private List<TSNode> namedMembers(TSNode body, int from) {
+        List<TSNode> children = new ArrayList<>();
+        for (int i = from; i < body.getNamedChildCount(); i++) {
+            children.add(body.getNamedChild(i));
+        }
+        return expandDirectives(children);
     }
 
     @NotNull
@@ -451,8 +506,7 @@ public class CppParser extends LanguageParser {
         }
 
         LinkedHashMap<Identifier, Expression> constants = new LinkedHashMap<>();
-        for (int i = 0; i < namedChildCount(body); i++) {
-            TSNode enumerator = namedChild(body, i);
+        for (TSNode enumerator : namedMembers(body, 0)) {
             if (!enumerator.getType().equals("enumerator")) {
                 continue;
             }
@@ -517,8 +571,7 @@ public class CppParser extends LanguageParser {
         TSNode body = node.getChildByFieldName("body");
         List<Node> members = new ArrayList<>();
         DeclarationModifier visibility = isStructure ? DeclarationModifier.PUBLIC : DeclarationModifier.PRIVATE;
-        for (int i = 0; i < body.getNamedChildCount(); i++) {
-            TSNode child = body.getNamedChild(i);
+        for (TSNode child : namedMembers(body, 0)) {
             switch (child.getType()) {
                 case "access_specifier" -> visibility = fromAccessSpecifier(child);
                 case "comment" -> members.add(parseTSNode(child));
@@ -922,8 +975,11 @@ public class CppParser extends LanguageParser {
 
     private CompoundStatement fromBlock(TSNode node) {
         var statements = ctx.createNodeBody(true);
+        List<TSNode> children = new ArrayList<>();
         for (int i = 1; i < node.getChildCount() - 1; i++) {
-            TSNode child = node.getChild(i);
+            children.add(node.getChild(i));
+        }
+        for (TSNode child : expandDirectives(children)) {
             // Объявление типа внутри блока (enum, class, struct) завершается точкой с запятой,
             // которая лежит в дереве отдельным узлом рядом с ним, а не внутри него
             if (child.getType().equals(";") || isSkippedDirective(child)) {
@@ -934,14 +990,14 @@ public class CppParser extends LanguageParser {
         return statements.build();
     }
 
-    private CaseBlock fromSwitchGroup(TSNode switchGroup) {
+    private CaseBlock fromSwitchGroup(TSNode switchGroup, List<TSNode> statementNodes) {
         Expression matchValue =
                 (Expression) parseTSNode(namedChild(switchGroup, 0));
 
         var statements = new ArrayList<Node>();
 
-        for (int i = 1; i < switchGroup.getNamedChildCount(); i++) {
-            statements.add(parseTSNode(switchGroup.getNamedChild(i)));
+        for (TSNode statement : statementNodes) {
+            statements.add(parseTSNode(statement));
         }
 
         CaseBlock caseBlock;
@@ -964,15 +1020,31 @@ public class CppParser extends LanguageParser {
         List<CaseBlock> cases = new ArrayList<>();
 
         TSNode switchBlock = switchNode.getChildByFieldName("body");
-        for (int i = 0; i < namedChildCount(switchBlock); i++) {
-            TSNode switchGroup = namedChild(switchBlock, i);
+        // Комментарии самого тела switch расставляет CommentAttacher, а комментарии из
+        // раскрытой директивы остаются при операторах своей ветки
+        List<TSNode> members = namedMembers(switchBlock, 0).stream()
+                .filter(member -> !member.isExtra() || !member.getParent().equals(switchBlock))
+                .toList();
+        for (int i = 0; i < members.size(); i++) {
+            TSNode switchGroup = members.get(i);
+            if (switchGroup.isExtra()) {
+                // Комментарий из директивы перед первой веткой: ветки для него ещё нет
+                continue;
+            }
+            boolean isDefault = getCodePiece(switchGroup.getChild(0)).equals("default");
 
-            String labelName = getCodePiece(switchGroup.getChild(0));
-            if (labelName.equals("default")) {
+            List<TSNode> statementNodes = new ArrayList<>(namedMembers(switchGroup, isDefault ? 0 : 1));
+            // Директива внутри ветки обрывает case_statement в дереве tree-sitter: операторы
+            // после неё лежат в теле switch рядом с веткой, и их надо вернуть в неё
+            while (i + 1 < members.size() && !members.get(i + 1).getType().equals("case_statement")) {
+                statementNodes.add(members.get(++i));
+            }
+
+            if (isDefault) {
                 var statements = new ArrayList<Node>();
 
-                for (int j = 0; j < switchGroup.getNamedChildCount(); j++) {
-                    statements.add(parseTSNode(switchGroup.getNamedChild(j)));
+                for (TSNode statement : statementNodes) {
+                    statements.add(parseTSNode(statement));
                 }
 
                 if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
@@ -981,7 +1053,7 @@ public class CppParser extends LanguageParser {
                 defaultCaseBlock = new DefaultCaseBlock(new CompoundStatement(statements));
             }
             else {
-                CaseBlock caseBlock = fromSwitchGroup(switchGroup);
+                CaseBlock caseBlock = fromSwitchGroup(switchGroup, statementNodes);
                 cases.add(caseBlock);
             }
         }
@@ -1285,16 +1357,35 @@ public class CppParser extends LanguageParser {
 
     /**
      * Комментарий внутри директивы препроцессора ({@code #include <x> // c}) не переносится:
-     * директивы в дереве не хранят исходной строки, и комментарию там нет места.
+     * директивы в дереве не хранят исходной строки, и комментарию там нет места. Исключение —
+     * код первой ветки условной директивы, который {@link #expandDirectives} переносит в дерево:
+     * сквозь такую директиву поиск идёт дальше, как если бы её не было.
      */
     @Override
     protected boolean keepsUnparsedComment(TSNode comment) {
-        for (TSNode current = comment.getParent(); !current.isNull(); current = current.getParent()) {
-            if (current.getType().startsWith("preproc_")) {
+        boolean expandsBranches = getConfigParameter("skipUnknownPreprocDirectives").asBoolean();
+        for (TSNode current = comment; !current.getParent().isNull(); current = current.getParent()) {
+            TSNode parent = current.getParent();
+            if (expandsBranches && isFirstBranchMember(parent, current)) {
+                continue;
+            }
+            if (parent.getType().startsWith("preproc_")) {
                 return false;
             }
         }
         return true;
+    }
+
+    private static boolean isFirstBranchMember(TSNode directive, TSNode child) {
+        if (!CONDITIONAL_DIRECTIVES.contains(directive.getType())) {
+            return false;
+        }
+        for (TSNode member : firstBranch(directive)) {
+            if (member.equals(child)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Comment fromComment(TSNode node) {
@@ -2285,8 +2376,7 @@ public class CppParser extends LanguageParser {
     private Node fromTranslationUnit(@NotNull TSNode node) {
         List<Node> nodes = new ArrayList<>();
         Node entryPoint = null;
-        for (int i = 0; i < node.getNamedChildCount(); i++) {
-            TSNode currNode = node.getNamedChild(i);
+        for (TSNode currNode : namedMembers(node, 0)) {
             if (isSkippedDirective(currNode)) {
                 continue;
             }

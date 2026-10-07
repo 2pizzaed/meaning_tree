@@ -51,7 +51,11 @@ public class CppTranslator extends LanguageTranslator {
         // Ссылка выражается указателем. В режиме Си это единственный способ её напечатать
         // (иначе ссылка объявляется неподдерживаемой), в режиме C++ — осознанный выбор стиля
         var referencesAsPointers = ConfigParameters.registerIfNotExists(this, "representReferencesAsPointers", new ConfigValue(false), ConfigScope.VIEWER);
-        return new Config(cMode, heapAllocation, charArrayAsString, defaultNamespace, referencesAsPointers);
+        // Директивы препроцессора, кроме #include, разбор не понимает и по умолчанию на них
+        // останавливается. Флаг позволяет их пропустить ценой точности: от условной директивы
+        // остаётся только код первой ветки
+        var skipUnknownDirectives = ConfigParameters.registerIfNotExists(this, "skipUnknownPreprocDirectives", new ConfigValue(false), ConfigScope.PARSER);
+        return new Config(cMode, heapAllocation, charArrayAsString, defaultNamespace, referencesAsPointers, skipUnknownDirectives);
     }
 
     @Override

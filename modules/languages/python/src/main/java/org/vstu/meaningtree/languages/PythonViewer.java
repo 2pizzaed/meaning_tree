@@ -1287,12 +1287,26 @@ public class PythonViewer extends LanguageViewer {
         }
     }
 
+    /**
+     * Выводится ли комментарий строкой-оператором {@code """..."""}. Такая строка — настоящий
+     * оператор Python, в отличие от {@code #}, и сама делает блок непустым.
+     */
+    private static boolean rendersAsStringStatement(Comment comment) {
+        return switch (comment.getStyle()) {
+            case LINE -> false;
+            // Строка-оператор нужна только многострочному тексту, однострочный читается как #
+            case BLOCK -> comment.hasNewline();
+            case DOCUMENTATION -> true;
+        };
+    }
+
     private String commentToString(Comment comment) {
-        if (comment.isMultiline()) {
-            return String.format("\"\"\"%s\"\"\"", comment.getUnescapedContent());
-        } else {
-            return String.format("#%s", comment.getUnescapedContent());
+        String content = comment.getUnescapedContent();
+        if (rendersAsStringStatement(comment)) {
+            // Внутри строки-оператора """ закрыл бы её раньше времени
+            return "\"\"\"%s\"\"\"".formatted(content.replace("\"\"\"", "\\\"\"\""));
         }
+        return "#" + content.replace("\n", "\n#");
     }
 
     private String rangeToString(Range range) {
@@ -1564,8 +1578,8 @@ public class PythonViewer extends LanguageViewer {
             constructor.appendString(builder.toString());
         }
         String body = String.join("\n", constructor.stringBuffer()).stripTrailing();
-        // Комментарий — не оператор: блок из одних комментариев без pass синтаксически неверен
-        if (Arrays.stream(node.getNodes()).allMatch(Comment.class::isInstance)) {
+        // Комментарий # — не оператор: блок из одних таких комментариев без pass синтаксически неверен
+        if (Arrays.stream(node.getNodes()).allMatch(n -> n instanceof Comment c && !rendersAsStringStatement(c))) {
             body += "\n" + tab.concat("pass");
         }
         return body;

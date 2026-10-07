@@ -16,6 +16,7 @@ import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.AccessorKind;
+import org.vstu.meaningtree.nodes.enums.CommentStyle;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.*;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
@@ -1105,7 +1106,8 @@ public class PythonParser extends LanguageParser {
         if (getCodePiece(node.getChild(0)).equals("\"\"\"")
                 && node.getParent().getType().equals("expression_statement")
                 && namedChildCount(node.getParent()) == 1) {
-            return Comment.fromUnescaped(getCodePiece(content));
+            CommentStyle style = isDocstring(node.getParent()) ? CommentStyle.DOCUMENTATION : CommentStyle.BLOCK;
+            return Comment.fromUnescaped(getCodePiece(content), style);
         }
         StringLiteral.Type type = StringLiteral.Type.NONE;
 
@@ -1138,7 +1140,24 @@ public class PythonParser extends LanguageParser {
     }
 
     private Comment fromComment(TSNode node) {
-        return Comment.fromUnescaped(getCodePiece(node).replace("#", ""));
+        return Comment.fromUnescaped(getCodePiece(node).substring(1), CommentStyle.LINE);
+    }
+
+    /**
+     * Строка-оператор — docstring, если она первый оператор тела функции или класса.
+     * Строку в начале модуля документацией не считаем: аналога в C/C++/Java у неё нет, а
+     * фрагмент кода из одной такой строки — просто блочный комментарий.
+     */
+    private boolean isDocstring(TSNode expressionStatement) {
+        TSNode body = expressionStatement.getParent();
+        if (body.isNull() || !body.getType().equals("block")) {
+            return false;
+        }
+        String owner = body.getParent().getType();
+        if (!owner.equals("function_definition") && !owner.equals("class_definition")) {
+            return false;
+        }
+        return namedChild(body, 0).equals(expressionStatement);
     }
 
     private Type determineType(TSNode typeNode) {

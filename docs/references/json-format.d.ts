@@ -1519,8 +1519,15 @@ export interface ProgramEntryPointNode extends NodeBase<"program_entry_point"> {
 export interface CommentNode extends NodeBase<"comment"> {
     /** Текст без символов комментария. */
     content: string;
-    is_multiline: boolean;
+    /**
+     * Синтаксическая форма: `line` — `//`, `#`; `block` — `/* *\/`, строка-оператор `"""` в Python;
+     * `documentation` — `/** *\/`, docstring. При десериализации необязательно: без него форма
+     * выводится из текста (`block`, если в нём есть перевод строки, иначе `line`).
+     */
+    style: CommentStyle;
 }
+
+export type CommentStyle = "line" | "block" | "documentation";
 
 /* =============================================================================
  * Общие объединения

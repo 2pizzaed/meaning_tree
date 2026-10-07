@@ -3811,3 +3811,69 @@ group: Comments
             {
                 // nothing
             };
+
+
+    case: PythonCommentStyles
+        main python:
+            class A:
+                """Account."""
+                def f(self) -> int:
+                    """Sum."""
+                    # line
+                    return 1
+
+        java:
+            class A {
+                /**Account.*/
+                public int f() {
+                    /**Sum.*/
+                    // line
+                    return 1;
+                }
+            }
+
+        c++:
+            class A
+            {
+                /**Account.*/
+                public:
+                    int f()
+                    {
+                        /**Sum.*/
+                        // line
+                        return 1;
+                    }
+            };
+
+
+    case: JavaCommentStyles
+        main java:
+            class A {
+                /** Sum. */
+                public int f() {
+                    /* block */
+                    // line
+                    return 1;
+                }
+            }
+
+        python:
+            class A:
+                """ Sum. """
+                def f(self) -> int:
+                    # block
+                    # line
+                    return 1
+
+        c++:
+            class A
+            {
+                /** Sum. */
+                public:
+                    virtual int f()
+                    {
+                        /* block */
+                        // line
+                        return 1;
+                    }
+            };

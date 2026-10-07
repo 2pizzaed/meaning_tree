@@ -1407,11 +1407,13 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringComment(Comment comment) {
-        if (comment.isMultiline()) {
-            return "/*" + comment.getUnescapedContent() + "*/";
-        }
-
-        return "//%s".formatted(comment.getUnescapedContent());
+        // Внутри блочного комментария "*/" закрыл бы его раньше времени
+        String content = comment.getUnescapedContent();
+        return switch (comment.getStyle()) {
+            case LINE -> "//" + content.replace("\n", "\n//");
+            case BLOCK -> "/*" + content.replace("*/", "* /") + "*/";
+            case DOCUMENTATION -> "/**" + content.replace("*/", "* /") + "*/";
+        };
     }
 
     private String fromMultipleAssignmentStatement(MultipleAssignmentStatement mas) {

@@ -12,6 +12,7 @@ import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
+import org.vstu.meaningtree.nodes.enums.CommentStyle;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.BinaryExpression;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
@@ -335,11 +336,14 @@ public class JavaParser extends LanguageParser {
 
     private Comment fromCommentTSNode(TSNode node) {
         String comment = getCodePiece(node);
-        return switch (node.getType()) {
-            case "line_comment" -> Comment.fromUnescaped(comment.substring(2));
-            case "block_comment" -> Comment.fromUnescaped(comment.substring(2, comment.length() - 2));
-            default -> throw new IllegalArgumentException();
-        };
+        if (node.getType().equals("line_comment")) {
+            return Comment.fromUnescaped(comment.substring(2), CommentStyle.LINE);
+        }
+        // "/**/" — пустой блочный комментарий, а не документация
+        if (comment.startsWith("/**") && comment.length() > 4) {
+            return Comment.fromUnescaped(comment.substring(3, comment.length() - 2), CommentStyle.DOCUMENTATION);
+        }
+        return Comment.fromUnescaped(comment.substring(2, comment.length() - 2), CommentStyle.BLOCK);
     }
 
     private Node fromTryStatementTSNode(TSNode node) {

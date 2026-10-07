@@ -11,6 +11,7 @@ import org.vstu.meaningtree.exceptions.MeaningTreeSerializationException;
 import org.vstu.meaningtree.iterators.utils.NodeReference;
 import org.vstu.meaningtree.iterators.utils.TreeNode;
 import org.vstu.meaningtree.languages.*;
+import org.vstu.meaningtree.nodes.Comment;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.declarations.ClassDeclaration;
@@ -26,6 +27,7 @@ import org.vstu.meaningtree.nodes.definitions.IteratorDefinition;
 import org.vstu.meaningtree.nodes.definitions.MethodDefinition;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.AccessorKind;
+import org.vstu.meaningtree.nodes.enums.CommentStyle;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.calls.ConstructorCall;
 import org.vstu.meaningtree.nodes.expressions.calls.FunctionCall;
@@ -404,6 +406,12 @@ public class JSONSerializerTests {
                         /* блочный
                            многострочный */
                         int y = 2;
+                        /* блочный однострочный */
+                    }
+
+                    /** Документация. */
+                    static int f() {
+                        return 1;
                     }
                 }
                 """));
@@ -532,6 +540,14 @@ public class JSONSerializerTests {
         python(snippets, "comments", """
                 # строчный
                 x = 1
+                \"""
+                блочный
+                \"""
+
+
+                def f():
+                    \"""Документация.\"""
+                    return 1
                 """);
         python(snippets, "loopElse", """
                 for i in range(5):
@@ -653,6 +669,16 @@ public class JSONSerializerTests {
                     return 0;
                 }
                 """));
+
+        cpp(snippets, "comments", """
+                // строчный
+                int x = 1;
+                /* блочный */
+                /** Документация. */
+                int f() {
+                    return 1;
+                }
+                """);
 
         // ---------- generators and iterators ----------
         python(snippets, "generatorLoopForm", """
@@ -830,6 +856,25 @@ public class JSONSerializerTests {
         assertFalse(restored.isEmpty());
         assertTrue(restored.get(0).isImmutable());
         assertFalse(restored.get(0).isCStyleString());
+    }
+
+    @Test
+    void commentStyleSurvivesRoundTripAndLegacyJsonInfersIt() {
+        for (CommentStyle style : CommentStyle.values()) {
+            Comment comment = Comment.fromUnescaped(" text", style);
+            JsonObject json = new JsonSerializer().serialize(comment);
+            assertEquals(style.name().toLowerCase(), json.get("style").getAsString());
+            assertEquals(comment, new JsonDeserializer().deserialize(json));
+        }
+
+        // До появления style форму комментария задавал только перевод строки в тексте
+        JsonObject legacy = new JsonSerializer().serialize(Comment.fromUnescaped(" text", CommentStyle.DOCUMENTATION));
+        legacy.remove("style");
+        assertEquals(CommentStyle.LINE,
+                assertInstanceOf(Comment.class, new JsonDeserializer().deserialize(legacy)).getStyle());
+        legacy.addProperty("content", "a\nb");
+        assertEquals(CommentStyle.BLOCK,
+                assertInstanceOf(Comment.class, new JsonDeserializer().deserialize(legacy)).getStyle());
     }
 
     @Test

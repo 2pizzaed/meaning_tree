@@ -19,6 +19,7 @@ import org.vstu.meaningtree.nodes.definitions.components.DefinitionArgument;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.enums.AccessorKind;
+import org.vstu.meaningtree.nodes.enums.CommentStyle;
 import org.vstu.meaningtree.nodes.expressions.Identifier;
 import org.vstu.meaningtree.nodes.expressions.Literal;
 import org.vstu.meaningtree.nodes.expressions.ParenthesizedExpression;
@@ -1640,9 +1641,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                         json, "entry_point_node_id", "entry_point_node_ref", "entry_point_node");
                 yield new ProgramEntryPoint(body, mainClass, entryPoint);
             }
-            case "comment" -> Comment.fromUnescaped(
-                    json.get("content").getAsString()
-            );
+            case "comment" -> deserializeComment(json);
 
             default -> throw new MeaningTreeSerializationException("Unknown node type: " + type);
         };
@@ -2150,6 +2149,19 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
 
         return array;
     }
+
+    private Comment deserializeComment(JsonObject json) {
+        String content = json.get("content").getAsString();
+        CommentStyle style;
+        if (json.has("style")) {
+            style = parseEnum(CommentStyle.class, json.get("style").getAsString());
+        } else {
+            // Формат до появления style: форму комментария выдавал только перевод строки в тексте
+            style = content.contains("\n") ? CommentStyle.BLOCK : CommentStyle.LINE;
+        }
+        return Comment.fromUnescaped(content, style);
+    }
+
     private <E extends Enum<E>> E parseEnum(Class<E> enumClass, String value) {
         if (value == null) {
             return null;

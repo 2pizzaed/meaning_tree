@@ -14,6 +14,7 @@ import org.vstu.meaningtree.nodes.declarations.components.DeclarationArgument;
 import org.vstu.meaningtree.nodes.declarations.components.VariableDeclarator;
 import org.vstu.meaningtree.nodes.definitions.*;
 import org.vstu.meaningtree.nodes.enums.AugmentedAssignmentOperator;
+import org.vstu.meaningtree.nodes.enums.CommentStyle;
 import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 import org.vstu.meaningtree.nodes.expressions.*;
 import org.vstu.meaningtree.nodes.expressions.bitwise.*;
@@ -1282,8 +1283,15 @@ public class CppParser extends LanguageParser {
     }
 
     private Comment fromComment(TSNode node) {
-        return Comment.fromUnescaped(getCodePiece(node).replaceFirst("/\\*", "")
-                .replaceFirst("//", "").replace("*/", ""));
+        String comment = getCodePiece(node);
+        if (comment.startsWith("//")) {
+            return Comment.fromUnescaped(comment.substring(2), CommentStyle.LINE);
+        }
+        // "/**/" — пустой блочный комментарий, а не документация
+        if (comment.startsWith("/**") && comment.length() > 4) {
+            return Comment.fromUnescaped(comment.substring(3, comment.length() - 2), CommentStyle.DOCUMENTATION);
+        }
+        return Comment.fromUnescaped(comment.substring(2, comment.length() - 2), CommentStyle.BLOCK);
     }
 
     private Node fromOffsetOf(TSNode node) {

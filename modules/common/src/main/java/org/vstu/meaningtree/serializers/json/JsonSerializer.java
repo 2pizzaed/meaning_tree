@@ -1781,7 +1781,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(comment));
         json.addProperty("content", comment.getUnescapedContent());
-        json.addProperty("is_multiline", comment.isMultiline());
+        json.addProperty("style", enumToValue(comment.getStyle()));
 
         return json;
     }

@@ -9,6 +9,7 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.ConcurrentTranslationException;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedConfigParameterException;
+import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.languages.configs.*;
 import org.vstu.meaningtree.languages.support.SupportReport;
 import org.vstu.meaningtree.nodes.Node;
@@ -458,11 +459,11 @@ public abstract class LanguageTranslator implements Cloneable {
     }
 
     public String getCode(Node node) {
-        return exclusively("getCode(Node)", () -> render(() -> _viewer.toString(node)));
+        return exclusively("getCode(Node)", () -> render(node.iterate(true), () -> _viewer.toString(node)));
     }
 
     public String getCode(MeaningTree mt) {
-        return exclusively("getCode(MeaningTree)", () -> render(() -> _viewer.toString(mt)));
+        return exclusively("getCode(MeaningTree)", () -> render(mt, () -> _viewer.toString(mt)));
     }
 
     /**
@@ -474,9 +475,10 @@ public abstract class LanguageTranslator implements Cloneable {
      * начинал с них. Через {@code tryGetCode}, который гасит исключение и возвращает
      * «не получилось», это был штатный сценарий, а не экзотика.
      */
-    private String render(Supplier<String> rendering) {
+    private String render(Iterable<NodeInfo> tree, Supplier<String> rendering) {
         try {
-            String result = rendering.get();
+            String result = TrailingCommentRenderer.render(_viewer, tree,
+                    getConfigParameter(ConfigParameters.dropComments).asBoolean(), rendering);
             publishRenderScopeTable();
             return result;
         } finally {

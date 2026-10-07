@@ -58,6 +58,16 @@ public class ConfigParameters {
             ConfigScope.ANY
     );
 
+    /**
+     * Отбрасывает комментарии. Парсер не кладёт их в дерево — ни отдельными узлами
+     * {@code Comment}, ни прикреплёнными к узлам ({@code Node.getTrailingComments()}); генератор не
+     * выводит комментарии, которые в дереве есть (например, пришли из JSON).
+     */
+    public static final ConfigParameter dropComments = register("dropComments",
+            new ConfigValue(false),
+            ConfigScope.ANY
+    );
+
     /** Классы, для которых загрузка параметров уже запускалась — в том числе безуспешно. */
     private final static Set<Class<? extends LanguageTranslator>> bootstrapped = new HashSet<>();
 

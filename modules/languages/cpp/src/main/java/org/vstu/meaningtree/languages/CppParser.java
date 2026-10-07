@@ -520,7 +520,7 @@ public class CppParser extends LanguageParser {
             TSNode child = body.getNamedChild(i);
             switch (child.getType()) {
                 case "access_specifier" -> visibility = fromAccessSpecifier(child);
-                case "comment" -> members.add(fromComment(child));
+                case "comment" -> members.add(parseTSNode(child));
                 case "field_declaration" -> {
                     TSNode nestedType = child.getChildByFieldName("type");
                     TSNode functionDeclarator = findDeclarator(child.getChildByFieldName("declarator"), "function_declarator");
@@ -1280,6 +1280,20 @@ public class CppParser extends LanguageParser {
             val.append(s.getUnescapedValue());
         }
         return StringLiteral.fromUnescaped(val.toString(), StringLiteral.Type.NONE);
+    }
+
+    /**
+     * Комментарий внутри директивы препроцессора ({@code #include <x> // c}) не переносится:
+     * директивы в дереве не хранят исходной строки, и комментарию там нет места.
+     */
+    @Override
+    protected boolean keepsUnparsedComment(TSNode comment) {
+        for (TSNode current = comment.getParent(); !current.isNull(); current = current.getParent()) {
+            if (current.getType().startsWith("preproc_")) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Comment fromComment(TSNode node) {

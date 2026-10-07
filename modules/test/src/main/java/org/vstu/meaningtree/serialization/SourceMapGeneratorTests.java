@@ -4,6 +4,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.languages.*;
+import org.vstu.meaningtree.nodes.Comment;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.declarations.components.PropertyAccessor;
@@ -388,6 +389,28 @@ public class SourceMapGeneratorTests {
     }
 
     @Test
+    void trailingCommentsArePlacedOnceAndPointToTheirText() {
+        for (Sample sample : samples()) {
+            LanguageTranslator translator = sample.translator();
+            MeaningTree tree = translator.getMeaningTree(sample.code());
+            SourceMap sourceMap = new SourceMapGenerator(translator).process(tree);
+            byte[] code = sourceMap.code().getBytes(StandardCharsets.UTF_8);
+
+            List<Comment> comments = StreamSupport.stream(tree.spliterator(), false)
+                    .flatMap(info -> info.node().getTrailingComments().stream())
+                    .toList();
+            assertFalse(comments.isEmpty(), "No trailing comments parsed for " + sample.language());
+            for (Comment comment : comments) {
+                String text = comment.getUnescapedContent().strip();
+                assertEquals(1, sourceMap.code().split(java.util.regex.Pattern.quote(text), -1).length - 1,
+                        "Comment `" + text + "` must be rendered exactly once in " + sample.language());
+                assertTrue(textOf(code, sourceMap.bytePositions().get(comment.getId())).contains(text),
+                        "Source map position of `" + text + "` points elsewhere in " + sample.language());
+            }
+        }
+    }
+
+    @Test
     void synthesizedNodesAreMarkedAsTheirOrigin() {
         // Скобки расставляются при отрисовке: в дереве этого узла нет, и его позиция
         // должна приписаться операнду, а не новому id
@@ -462,14 +485,14 @@ public class SourceMapGeneratorTests {
                 new Sample("java", """
                         class Main {
                             public static void main(String[] args) {
-                                int x = 1;
-                                if (x > 0) {
+                                int x = 1; // start
+                                if (x > 0 /* positive */) { // branch
                                     x = 2;
                                 } else {
                                     x = 3;
                                 }
                                 while (x > 0) {
-                                    x--;
+                                    x--; // step
                                 }
                                 try {
                                     x = 4;
@@ -487,7 +510,7 @@ public class SourceMapGeneratorTests {
                         }
                         """, () -> new JavaTranslator(CONFIG)),
                 new Sample("python", """
-                        x = 1
+                        x = 1  # start
                         def bump():
                             global x
                             x = x + 1
@@ -495,8 +518,9 @@ public class SourceMapGeneratorTests {
                             x = 2
                         else:
                             x = 3
-                        for i in range(0, 3):
-                            print(i)
+                        for i in range(0, 3):  # loop
+                            print(i,  # value
+                                  i)
                         try:
                             x = 4
                         except ValueError as e:
@@ -510,12 +534,13 @@ public class SourceMapGeneratorTests {
                         """, () -> new PythonTranslator(CONFIG)),
                 new Sample("c++", """
                         int main() {
-                            int x = 1;
+                            int x = 1; // start
                             if (x > 0) {
                                 x = 2;
-                            }
-                            for (int i = 0; i < 3; i++) {
-                                x += i;
+                            } // branch
+                            for (int i = 0; // init
+                                 i < 3; i++) {
+                                x += i; /* add */
                             }
                             try {
                                 x = 4;

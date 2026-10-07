@@ -3739,12 +3739,13 @@ group: Comments
             int z = /* value */ y;
 
         python:
-            y: int = max(1, 2)
-            z: int = y
+            y: int = max(1,  # first
+                         2)
+            z: int = y  # value
 
         c++:
-            int y = max(1, 2);
-            int z = y;
+            int y = max(1 /* first */, 2);
+            int z = y; /* value */
 
 
     case: CommentInsideCppExpression
@@ -3753,12 +3754,13 @@ group: Comments
             return /* value */ y;
 
         java:
-            int y = f(1, 2);
-            return y;
+            int y = f(1 /* first */, 2);
+            return y; /* value */
 
         python:
-            y: int = f(1, 2)
-            return y
+            y: int = f(1,  # first
+                       2)
+            return y  # value
 
 
     case: CommentInsidePythonCollections
@@ -3775,14 +3777,18 @@ group: Comments
                     2)
 
         java:
-            java.util.ArrayList<Integer> d = new java.util.ArrayList<>(java.util.List.of(1, 2));
-            java.util.TreeMap<String, Integer> e = new java.util.TreeMap<>() {{put("a", 1);put("b", 2);}};
-            var y = max(1, 2);
+            java.util.ArrayList<Integer> d = new java.util.ArrayList<>(java.util.List.of(1,  // first
+                                                                                         2));
+            java.util.TreeMap<String, Integer> e = new java.util.TreeMap<>() {{put("a", 1);put("b", 2);}};  // first
+            var y = max(1,  // first
+                        2);
 
         c++:
-            std::vector<int> d = {1, 2};
-            std::map<std::string, int> e = {{"a", 1}, {"b", 2}};
-            auto y = max(1, 2);
+            std::vector<int> d = {1,  // first
+                                  2};
+            std::map<std::string, int> e = {{"a", 1}, {"b", 2}};  // first
+            auto y = max(1,  // first
+                         2);
 
 
     case: CommentOnlyBody
@@ -3877,3 +3883,123 @@ group: Comments
                         return 1;
                     }
             };
+
+
+    case: TrailingComments
+        main java:
+            int t = 0; // acc
+            for (int x : arr) { // each
+                t += x; // add
+            }
+            if (t > 0) {
+                t = 1;
+            } else { // otherwise
+                t = 2;
+            } // after if
+
+        python:
+            t: int = 0  # acc
+            for x in arr:  # each
+                t += x  # add
+            if t > 0:
+                t = 1
+            else:
+                # otherwise
+                t = 2  # after if
+
+        c++:
+            int t = 0;  // acc
+            for (int x : arr)  // each
+            {
+                t += x;  // add
+            }
+            if (t > 0)
+            {
+                t = 1;
+            }
+            else
+            {
+                // otherwise
+                t = 2;
+            }  // after if
+
+
+    case: CommentsInForHeader
+        main c++:
+            for (int i = 0; // init
+                 i < n; // cond
+                 i++) { // step
+                s -= i;
+            }
+
+        java:
+            for (int i = 0;  // init
+                 i < n; i++) {  // cond
+                // step
+                s -= i;
+            }
+
+        python:
+            for i in range(n):  # init # cond
+                # step
+                s -= i
+
+
+    case: PythonHeaderComments
+        main python:
+            s = 0  # acc
+            for x in arr:  # each
+                s += x  # add
+            if s > 0:  # positive
+                s = 1
+            else:  # otherwise
+                s = 2
+
+        java:
+            int s = 0;  // acc
+            for (int x : arr) {  // each
+                s += x;  // add
+            }
+            if (s > 0) {  // positive
+                s = 1;
+            }
+            else {
+                // otherwise
+                s = 2;
+            }
+
+        c++:
+            int s = 0;  // acc
+            for (int x : arr)  // each
+            {
+                s += x;  // add
+            }
+            if (s > 0)  // positive
+            {
+                s = 1;
+            }
+            else
+            {
+                // otherwise
+                s = 2;
+            }
+
+
+    case[dropComments=true]: DropComments
+        main java:
+            // standalone
+            int t = 0; // acc
+            if (t > 0) { // positive
+                // only a comment
+            }
+
+        python:
+            t: int = 0
+            if t > 0:
+                pass
+
+        c++:
+            int t = 0;
+            if (t > 0)
+            {
+            }

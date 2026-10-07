@@ -47,13 +47,33 @@ abstract public class LanguageParser extends TranslatorComponent {
 
     private final Map<String, HandlerEntry> tsNodeHandlers = new LinkedHashMap<>();
     private TypeConversionReport typeConversionReport;
+    private final CommentAttacher comments = new CommentAttacher(this);
 
     public LanguageParser(LanguageTranslator translator, TSLanguage language) {
         super(translator);
         _tsLanguage = language;
         _tsParser = new TSParser();
         _tsParser.setLanguage(language);
+        registerCommentAttachment();
         registerAnalysisPasses();
+    }
+
+    /**
+     * Комментарии расставляются по дереву общим для всех языков {@link CommentAttacher}: парсер
+     * языка только строит {@link org.vstu.meaningtree.nodes.Comment} там, где тот законный
+     * элемент тела. Узел перехватывается с {@link HookOrder#LATE}, чтобы владельцем стал узел уже
+     * после языковых доработок, а дерево — с {@link HookOrder#EARLY}, чтобы проходы анализа
+     * видели комментарии на своих местах.
+     */
+    private void registerCommentAttachment() {
+        hooks.intercept(HookPhase.AFTER_NODE_PARSE, Node.class, HookOrder.LATE,
+                (node, value, context) -> context.source(TSNode.class)
+                        .map(source -> comments.afterParse(source, value))
+                        .orElse(value));
+        hooks.intercept(HookPhase.AFTER_TREE_PARSE, HookOrder.EARLY, (tree, value, context) -> {
+            comments.finish(value);
+            return value;
+        });
     }
 
     /**
@@ -131,6 +151,7 @@ abstract public class LanguageParser extends TranslatorComponent {
         _byteValueTags.clear();
         _tsTreeCache = null;
         typeConversionReport = null;
+        comments.reset();
         rollbackContext();
     }
 
@@ -187,6 +208,15 @@ abstract public class LanguageParser extends TranslatorComponent {
 
     public String getCodePiece(TSNode node) {
         return TreeSitterUtils.getCodePiece(_code, node);
+    }
+
+    /**
+     * Сохранять ли комментарий, который не разобрал ни один обработчик языка (внутри заголовка,
+     * выражения), — см. {@link CommentAttacher}. Язык отказывается от комментариев там, где их
+     * место не переносится в дерево.
+     */
+    protected boolean keepsUnparsedComment(TSNode comment) {
+        return true;
     }
 
     /**

@@ -1586,6 +1586,11 @@ public class JavaViewer extends LanguageViewer {
     }
 
     @Override
+    protected boolean allowsInlineComments() {
+        return true;
+    }
+
+    @Override
     public OperatorToken mapToToken(Expression expr) {
         return ctx.requireTokenizer().getOperatorByNode(expr);
     }

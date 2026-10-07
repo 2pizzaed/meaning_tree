@@ -44,6 +44,8 @@ public class SourceMapGenerator {
     // Начальный и конечный маркеры для ID
     private static final String START_TAG = "\u2060AST_START_"; // \u2060 = word joiner (невидимый)
     private static final String END_TAG = "\u2060AST_END";
+    /** Маркер начала или конца узла; группы — признак конца, вид разметки и id узла. */
+    static final Pattern MARKER = Pattern.compile(START_TAG + "(/?)([NR])(\\d+)" + END_TAG);
 
     /** Разметка узла собственным рендерингом. */
     private static final char OWN_MARK = 'N';
@@ -166,8 +168,7 @@ public class SourceMapGenerator {
         Map<Long, Pair<Integer, Integer>> ownPositions = new HashMap<>();
         Map<Long, Pair<Integer, Integer>> remappedPositions = new HashMap<>();
 
-        Pattern tagPattern = Pattern.compile(START_TAG + "(/?)([NR])(\\d+)" + END_TAG);
-        Matcher matcher = tagPattern.matcher(instrumentedCode);
+        Matcher matcher = MARKER.matcher(instrumentedCode);
 
         StringBuilder cleanCode = new StringBuilder();
         int lastEnd = 0;

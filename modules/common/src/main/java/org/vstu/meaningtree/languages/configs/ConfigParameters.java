@@ -59,13 +59,21 @@ public class ConfigParameters {
     );
 
     /**
-     * Отбрасывает комментарии. Парсер не кладёт их в дерево — ни отдельными узлами
-     * {@code Comment}, ни прикреплёнными к узлам ({@code Node.getTrailingComments()}); генератор не
-     * выводит комментарии, которые в дереве есть (например, пришли из JSON).
+     * Кладёт комментарии в дерево при разборе. При {@code false} парсер их отбрасывает — ни
+     * отдельными узлами {@code Comment}, ни прикреплёнными к узлам ({@code Node.getTrailingComments()}).
      */
-    public static final ConfigParameter dropComments = register("dropComments",
-            new ConfigValue(false),
-            ConfigScope.ANY
+    public static final ConfigParameter parseComments = register("parseComments",
+            new ConfigValue(true),
+            ConfigScope.PARSER
+    );
+
+    /**
+     * Выводит комментарии из дерева при генерации кода. При {@code false} генератор не выводит
+     * комментарии, которые в дереве есть (например, разобраны из исходника или пришли из JSON).
+     */
+    public static final ConfigParameter viewComments = register("viewComments",
+            new ConfigValue(true),
+            ConfigScope.VIEWER
     );
 
     /** Классы, для которых загрузка параметров уже запускалась — в том числе безуспешно. */

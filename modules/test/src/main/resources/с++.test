@@ -1046,7 +1046,7 @@ group: StructuresOOP
             }
 
 
-    case[dropComments=true]: DropTrailingCommentsOnFields
+    case[viewComments=false]: DropTrailingCommentsOnFields
         main c++:
             struct Point
             {

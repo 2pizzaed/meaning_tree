@@ -96,7 +96,7 @@ final class CommentAttacher {
             if (root == null) {
                 return;
             }
-            if (dropComments()) {
+            if (!parseComments()) {
                 detachAll(tree, node -> node instanceof Comment);
                 return;
             }
@@ -365,8 +365,8 @@ final class CommentAttacher {
         return node.getEndPoint().getColumn() == 0 && row > node.getStartPoint().getRow() ? row - 1 : row;
     }
 
-    private boolean dropComments() {
-        return parser.getConfigParameter("dropComments").asBoolean();
+    private boolean parseComments() {
+        return parser.getConfigParameter("parseComments").asBoolean();
     }
 
     private static boolean isRange(TSNode node, Built entry) {

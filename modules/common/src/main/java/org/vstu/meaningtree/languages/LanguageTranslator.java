@@ -478,7 +478,7 @@ public abstract class LanguageTranslator implements Cloneable {
     private String render(Iterable<NodeInfo> tree, Supplier<String> rendering) {
         try {
             String result = TrailingCommentRenderer.render(_viewer, tree,
-                    getConfigParameter(ConfigParameters.dropComments).asBoolean(), rendering);
+                    !getConfigParameter(ConfigParameters.viewComments).asBoolean(), rendering);
             publishRenderScopeTable();
             return result;
         } finally {

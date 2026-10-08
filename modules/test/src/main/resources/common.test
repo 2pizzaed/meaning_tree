@@ -2655,7 +2655,7 @@ group: Enums
                 BLUE = auto()  # last color
 
 
-    case[dropComments=true]: DropEnumTrailingComments
+    case[viewComments=false]: DropEnumTrailingComments
         main c++:
             enum Color {
                 RED = 1, // first color
@@ -4091,7 +4091,27 @@ group: Comments
             }
 
 
-    case[dropComments=true]: DropComments
+    case[parseComments=false]: SkipCommentsWhenParsing
+        main java:
+            // standalone
+            int t = 0; // acc
+            if (t > 0) { // positive
+                // only a comment
+            }
+
+        python:
+            t: int = 0
+            if t > 0:
+                pass
+
+        c++:
+            int t = 0;
+            if (t > 0)
+            {
+            }
+
+
+    case[viewComments=false]: SkipCommentsWhenViewing
         main java:
             // standalone
             int t = 0; // acc

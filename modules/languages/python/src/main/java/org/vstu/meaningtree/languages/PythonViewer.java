@@ -1494,7 +1494,15 @@ public class PythonViewer extends LanguageViewer {
             return toString(branchStmt, tab);
         }
         Tab inner = tab.up();
+        if (isEmptyStatement(branchStmt)) {
+            return inner.concat("pass");
+        }
         return inner.concat(toString(branchStmt, inner));
+    }
+
+    /** Пустой оператор {@code ;} из C-подобных языков: в Python у него нет записи, кроме {@code pass}. */
+    private static boolean isEmptyStatement(Node node) {
+        return node instanceof ExpressionStatement stmt && stmt.getExpression() == null;
     }
 
     private String conditionToString(IfStatement node, Tab tab) {
@@ -1562,7 +1570,7 @@ public class PythonViewer extends LanguageViewer {
                 : PythonOverloadDispatcher.none();
         var constructor = ctx.viewingIterateBody(node);
         for (Node child : constructor) {
-            if (overloads.suppressed().contains(child.getId())) {
+            if (overloads.suppressed().contains(child.getId()) || isEmptyStatement(child)) {
                 continue;
             }
             StringBuilder builder = new StringBuilder();
@@ -1578,9 +1586,11 @@ public class PythonViewer extends LanguageViewer {
             constructor.appendString(builder.toString());
         }
         String body = String.join("\n", constructor.stringBuffer()).stripTrailing();
-        // Комментарий # — не оператор: блок из одних таких комментариев без pass синтаксически неверен
-        if (Arrays.stream(node.getNodes()).allMatch(n -> n instanceof Comment c && !rendersAsStringStatement(c))) {
-            body += "\n" + tab.concat("pass");
+        // Комментарий # — не оператор, пустой оператор не печатается вовсе: блок только из них
+        // без pass синтаксически неверен
+        if (Arrays.stream(node.getNodes()).allMatch(n ->
+                n instanceof Comment c && !rendersAsStringStatement(c) || isEmptyStatement(n))) {
+            body = body.isEmpty() ? tab.concat("pass") : body + "\n" + tab.concat("pass");
         }
         return body;
     }
@@ -1604,7 +1614,7 @@ public class PythonViewer extends LanguageViewer {
                 : PythonOverloadDispatcher.none();
         var constructor = ctx.viewingIterateBody(nodes);
         for (Node child : constructor) {
-            if (overloads.suppressed().contains(child.getId())) {
+            if (overloads.suppressed().contains(child.getId()) || isEmptyStatement(child)) {
                 continue;
             }
             StringBuilder builder = new StringBuilder();

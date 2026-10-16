@@ -1743,6 +1743,28 @@ group: WhileLoop
                 break;
 
 
+    case: EmptyStatementBodies
+        main c++:
+            int s = 0;
+            while (s > 0);
+            while (s > 1) { ; }
+            while (s > 2) { s--; ; }
+            if (s) ; else s = 1;
+
+        python:
+            s: int = 0
+            while s > 0:
+                pass
+            while s > 1:
+                pass
+            while s > 2:
+                s -= 1
+            if s:
+                pass
+            else:
+                s = 1
+
+
 group: LoopElse
     case: WhileLoopElseWithBreak
         main python:

@@ -17,8 +17,8 @@ public class LabeledLoopFeature extends SemanticFeature {
     @Override
     public boolean matches(Node node, @Nullable FeatureContext context) {
         return node instanceof Loop loop && loop.getJumpLabel() != null
-                || node instanceof ContinueStatement continueStmt && continueStmt.getJumpLabel() != null
-                || node instanceof BreakStatement breakStmt && breakStmt.getJumpLabel() != null
+                || node instanceof ContinueStatement continueStmt && continueStmt.getJumpDestination() != null
+                || node instanceof BreakStatement breakStmt && breakStmt.getJumpDestination() != null
                 ;
     }
 

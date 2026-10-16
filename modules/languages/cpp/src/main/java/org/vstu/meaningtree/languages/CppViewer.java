@@ -273,7 +273,8 @@ public class CppViewer extends LanguageViewer {
 
         registerPostRenderPreparation(Statement.class, (node, code) -> {
             if (node.getJumpLabel() != null) {
-                return "%s:\n%s".formatted(node.getJumpLabel().getName(), code);
+                // Оператор под меткой стоит на своей строке с тем же отступом, что и метка
+                return "%s:\n%s".formatted(node.getJumpLabel().getName(), indent(code));
             }
             return code;
         });

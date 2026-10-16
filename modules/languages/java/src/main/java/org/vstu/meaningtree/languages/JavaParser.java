@@ -754,11 +754,19 @@ public class JavaParser extends LanguageParser {
     }
 
     private Node fromContinueStatementTSNode(TSNode continueNode) {
-        return new ContinueStatement();
+        return new ContinueStatement(fromJumpDestination(continueNode));
     }
 
     private Node fromBreakStatementTSNode(TSNode breakNode) {
-        return new BreakStatement();
+        return new BreakStatement(fromJumpDestination(breakNode));
+    }
+
+    /** Метка цели {@code break outer;} или {@code continue outer;}, без метки — {@code null}. */
+    private JumpLabel fromJumpDestination(TSNode jumpNode) {
+        if (getNamedChildCountWithoutExtras(jumpNode) == 0) {
+            return null;
+        }
+        return new JumpLabel(getCodePiece(getNamedChildWithoutExtras(jumpNode, 0)));
     }
 
     private CaseBlock fromSwitchGroupTSNode(TSNode switchGroup) {
@@ -803,9 +811,13 @@ public class JavaParser extends LanguageParser {
         return statements;
     }
 
-    /** Завершающий break ветки выражается типом ветки, а не узлом в её теле. */
+    /**
+     * Завершающий break ветки выражается типом ветки, а не узлом в её теле. break с меткой
+     * выходит дальше switch и остаётся в теле.
+     */
     private static void removeTrailingBreak(List<Node> statements) {
-        if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
+        if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement br
+                && br.getJumpDestination() == null) {
             statements.removeLast();
         }
     }

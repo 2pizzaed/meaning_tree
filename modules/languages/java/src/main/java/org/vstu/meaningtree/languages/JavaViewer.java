@@ -776,7 +776,7 @@ public class JavaViewer extends LanguageViewer {
             }
         };
 
-        builder.append(indent(loopHeader));
+        builder.append(loopHeader);
         Statement body = infiniteLoop.getBody();
 
         if (rendersAsBlock(body)) {

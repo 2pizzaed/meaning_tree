@@ -919,7 +919,7 @@ public class CppViewer extends LanguageViewer {
     private String toStringInfiniteLoop(InfiniteLoop infiniteLoop) {
         StringBuilder builder = new StringBuilder();
 
-        builder.append(indent("while (true)"));
+        builder.append("while (true)");
         Statement body = infiniteLoop.getBody();
         if (rendersAsBlock(body)) {
             if (_openBracketOnSameLine) {

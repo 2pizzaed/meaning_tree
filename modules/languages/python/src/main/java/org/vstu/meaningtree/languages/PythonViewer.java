@@ -929,7 +929,7 @@ public class PythonViewer extends LanguageViewer {
         } else if (stmt instanceof GeneralForLoop generalFor) {
             return toString(tab, PythonSpecialNodeTransformations.representGeneralFor(generalFor));
         } else if (stmt instanceof DoWhileLoop doWhile) {
-            return toString(PythonSpecialNodeTransformations.representDoWhile(doWhile));
+            return toString(tab, PythonSpecialNodeTransformations.representDoWhile(doWhile));
         } else if (stmt instanceof WhileLoop whileLoop) {
             builder.append(String.format("while %s:\n", toString(whileLoop.getCondition())));
             builder.append(branchStmtToString(whileLoop.getBody(), tab));

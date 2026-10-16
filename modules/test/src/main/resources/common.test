@@ -1689,6 +1689,31 @@ group: WhileLoop
                     break
 
 
+    case: NestedDoWhileLoopTransformation
+        main java:
+            if (a > 0) {
+                do {
+                    a++;
+                } while (a != m);
+            }
+
+        python:
+            if a > 0:
+                while True:
+                    a += 1
+                    if a == m:
+                        break
+
+        c++:
+            if (a > 0)
+            {
+                do
+                {
+                    a++;
+                } while (a != m);
+            }
+
+
     case: SingleStatementLoopBodies
         main java:
             int s = 0;

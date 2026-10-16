@@ -1862,6 +1862,36 @@ group: SwitchStatement
             }
 
 
+    case: NegativeCaseValue
+        python:
+            match a:
+                case -1:
+                    test += 5
+                case _:
+                    test = 0
+
+        java:
+            switch (a) {
+                case -1:
+                    test += 5;
+                    break;
+                default:
+                    test = 0;
+                    break;
+            }
+
+        c++:
+            switch (a)
+            {
+                case -1:
+                    test += 5;
+                    break;
+                default:
+                    test = 0;
+                    break;
+            }
+
+
     case: JavaArrowCasesDoNotFallThrough
         main java:
             switch (a) {

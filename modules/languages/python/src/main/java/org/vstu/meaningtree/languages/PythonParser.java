@@ -276,12 +276,12 @@ public class PythonParser extends LanguageParser {
                 );
                 continue;
             } else if (getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0).getType().equals("as_pattern")) {
-                condition = (Expression) parseTSNode(getNamedChildWithoutExtras(getNamedChildWithoutExtras(getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0), 0), 0));
+                condition = fromCasePatternValue(getNamedChildWithoutExtras(getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0), 0));
                 SimpleIdentifier ident = (SimpleIdentifier) parseTSNode(getNamedChildWithoutExtras(getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0), 1));
                 Type variableType = ctx.inferType(condition);
                 newDecl = new VariableDeclaration(variableType, ident, (Expression) condition.freshClone());
             } else {
-                condition = (Expression) parseTSNode(getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0));
+                condition = fromCasePatternValue(getNamedChildWithoutExtras(alternative, 0));
             }
             CompoundStatement compoundStatement = (CompoundStatement) parseTSNode(alternative.getChildByFieldName("consequence"));
             if (newDecl != null) {
@@ -290,6 +290,16 @@ public class PythonParser extends LanguageParser {
             branches.add(new BasicCaseBlock(condition, compoundStatement));
         }
         return new SwitchStatement(target, branches, defaultBranch);
+    }
+
+    /**
+     * Значение образца {@code case}. Отрицательное число в образце — не {@code unary_operator}:
+     * минус лежит в {@code case_pattern} отдельным безымянным ребёнком перед числом.
+     */
+    private Expression fromCasePatternValue(TSNode casePattern) {
+        Expression value = (Expression) parseTSNode(getNamedChildWithoutExtras(casePattern, 0));
+        TSNode first = casePattern.getChild(0);
+        return first.getType().equals("-") && !first.isNamed() ? new UnaryMinusOp(value) : value;
     }
 
     private Node detectAnnotated(TSNode node) {

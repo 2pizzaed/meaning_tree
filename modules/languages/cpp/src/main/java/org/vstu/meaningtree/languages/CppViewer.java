@@ -831,12 +831,8 @@ public class CppViewer extends LanguageViewer {
 
             increaseIndentLevel();
 
-            var constructor = ctx.viewingIterateBody(nodesList);
-            for (Node node : constructor) {
-                constructor.appendString(indent(toString(node)));
-            }
-            if (!constructor.stringBuffer().isEmpty()) {
-                builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            if (!nodesList.isEmpty()) {
+                builder.append(indent(caseBodyToString(caseBlockBody, nodesList))).append("\n");
             }
 
             if (endsWithBreak) {
@@ -858,6 +854,20 @@ public class CppViewer extends LanguageViewer {
         return builder.toString();
     }
 
+    /**
+     * Операторы тела ветки case без скобок блока, первая строка - без отступа. Рендерер блока
+     * здесь не вызывается, поэтому хуки (разметка карты кода, комментарии) применяются к телу
+     * явно: иначе у тела не было бы позиции, а его диапазон начинается с первого оператора.
+     */
+    private String caseBodyToString(Statement body, List<Node> nodes) {
+        var constructor = ctx.viewingIterateBody(nodes);
+        for (Node node : constructor) {
+            constructor.appendString(toString(node));
+        }
+        String statements = String.join("\n" + indent(""), constructor.stringBuffer());
+        return body instanceof CompoundStatement ? applyHooks(body, statements) : statements;
+    }
+
     private String toStringSwitchStatement(SwitchStatement switchStatement) {
         StringBuilder builder = new StringBuilder();
 
@@ -875,13 +885,13 @@ public class CppViewer extends LanguageViewer {
         increaseIndentLevel();
         for (CaseBlock caseBlock : switchStatement.getCases()) {
             builder
-                    .append(indent(toStringCaseBlock(caseBlock)))
+                    .append(indent(toString(caseBlock)))
                     .append("\n");
         }
 
         if (switchStatement.hasDefaultCase()) {
             builder
-                    .append(indent(toStringCaseBlock(switchStatement.getDefaultCase())))
+                    .append(indent(toString(switchStatement.getDefaultCase())))
                     .append("\n");
         }
         decreaseIndentLevel();

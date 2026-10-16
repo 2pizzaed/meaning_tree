@@ -54,6 +54,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.components.BasicCaseBlock;
 import org.vstu.meaningtree.nodes.statements.conditions.components.CaseBlock;
 import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
+import org.vstu.meaningtree.nodes.statements.conditions.components.DefaultCaseBlock;
 import org.vstu.meaningtree.nodes.statements.conditions.components.FallthroughCaseBlock;
 import org.vstu.meaningtree.nodes.statements.exceptions.ExceptionCatchStatement;
 import org.vstu.meaningtree.nodes.statements.exceptions.RaiseExceptionStatement;
@@ -145,6 +146,7 @@ public class PythonViewer extends LanguageViewer {
         registerTabRenderer(WhileLoop.class, this::loopToString);
         registerTabRenderer(DoWhileLoop.class, this::loopToString);
         registerTabRenderer(SwitchStatement.class, this::loopToString);
+        registerTabRenderer(CaseBlock.class, this::caseBlockToString);
         registerTabRenderer(MethodDefinition.class, (node, tab) -> functionToString(node, tab));
         registerRenderer(PropertyAccessor.class, this::propertyAccessorToString);
         registerTabRenderer(GeneratorDefinition.class, this::generatorToString);
@@ -939,34 +941,11 @@ public class PythonViewer extends LanguageViewer {
                 if (caseBranch == null) {
                     continue;
                 }
-                switch (caseBranch) {
-                    case BasicCaseBlock basicCaseBlock -> {
-                        builder.append(
-                                String.format(
-                                        "%scase %s:\n%s\n",
-                                        tab,
-                                        basicCaseBlock.getMatchValues().stream()
-                                                .map(matchValue -> toString(matchValue))
-                                                .collect(Collectors.joining(" | ")),
-                                        branchStmtToString(basicCaseBlock.getBody(), tab)
-                                )
-                        );
-                    }
-                    case FallthroughCaseBlock fallthroughCaseBlock -> {
-                        throw new UnsupportedOperationException("Cannot translate fallthrough case branches");
-                    }
-                    default -> throw new IllegalStateException("Unexpected case block: " + caseBranch.getClass());
-                }
+                builder.append(tab).append(toString(caseBranch, tab)).append("\n");
             }
 
             if (switchStmt.hasDefaultCase()) {
-                builder.append(
-                        String.format(
-                                "%scase _:\n%s\n",
-                                tab,
-                                toString(switchStmt.getDefaultCase().getBody(), tab)
-                        )
-                );
+                builder.append(tab).append(toString(switchStmt.getDefaultCase(), tab)).append("\n");
             }
         } else if (stmt instanceof InfiniteLoop infLoop) {
             builder.append("while True:\n");
@@ -974,6 +953,22 @@ public class PythonViewer extends LanguageViewer {
             builder.append(loopElseToString(infLoop, tab));
         }
         return builder.toString();
+    }
+
+    private String caseBlockToString(CaseBlock caseBlock, Tab tab) {
+        return switch (caseBlock) {
+            case BasicCaseBlock basicCaseBlock -> String.format(
+                    "case %s:\n%s",
+                    basicCaseBlock.getMatchValues().stream()
+                            .map(matchValue -> toString(matchValue))
+                            .collect(Collectors.joining(" | ")),
+                    branchStmtToString(basicCaseBlock.getBody(), tab)
+            );
+            case DefaultCaseBlock defaultCaseBlock -> String.format(
+                    "case _:\n%s", toString(defaultCaseBlock.getBody(), tab)
+            );
+            default -> throw new IllegalStateException("Unexpected case block: " + caseBlock.getClass());
+        };
     }
 
     private String exceptionCatchToString(ExceptionCatchStatement stmt, Tab tab) {

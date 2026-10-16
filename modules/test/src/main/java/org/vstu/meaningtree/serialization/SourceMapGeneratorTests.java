@@ -15,6 +15,8 @@ import org.vstu.meaningtree.nodes.expressions.math.AddOp;
 import org.vstu.meaningtree.nodes.expressions.math.MulOp;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
+import org.vstu.meaningtree.nodes.statements.conditions.components.CaseBlock;
+import org.vstu.meaningtree.nodes.statements.conditions.components.DefaultCaseBlock;
 import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
 import org.vstu.meaningtree.utils.SourceMap;
 
@@ -147,6 +149,72 @@ public class SourceMapGeneratorTests {
             Pair<Integer, Integer> position = sourceMap.bytePositions().get(identifier.getId());
             if (position != null) {
                 assertEquals("counter", textOf(code, position));
+            }
+        }
+    }
+
+    @Test
+    void caseBranchesAndTheirBodiesPointToTheirText() {
+        List<Sample> switches = List.of(
+                new Sample("java", """
+                        class Main {
+                            public static void main(String[] args) {
+                                switch (x) {
+                                    case 1:
+                                        a();
+                                        b();
+                                        break;
+                                    default:
+                                        d();
+                                }
+                            }
+                        }
+                        """, () -> new JavaTranslator(CONFIG)),
+                new Sample("c++", """
+                        int main() {
+                            switch (x) {
+                                case 1:
+                                    a();
+                                    b();
+                                    break;
+                                default:
+                                    d();
+                            }
+                        }
+                        """, () -> new CppTranslator(CONFIG)),
+                new Sample("python", """
+                        match x:
+                            case 1:
+                                a()
+                                b()
+                            case _:
+                                d()
+                        """, () -> new PythonTranslator(CONFIG))
+        );
+        for (Sample sample : switches) {
+            LanguageTranslator translator = sample.translator();
+            MeaningTree tree = translator.getMeaningTree(sample.code());
+            SourceMap sourceMap = new SourceMapGenerator(translator).process(tree);
+            byte[] code = sourceMap.code().getBytes(StandardCharsets.UTF_8);
+
+            List<CaseBlock> branches = nodesOf(tree, CaseBlock.class);
+            assertEquals(2, branches.size(), sample.language());
+            for (CaseBlock branch : branches) {
+                Pair<Integer, Integer> branchPosition = sourceMap.bytePositions().get(branch.getId());
+                Pair<Integer, Integer> bodyPosition = sourceMap.bytePositions().get(branch.getBody().getId());
+                assertNotNull(branchPosition, sample.language() + ": no position of " + branch);
+                assertNotNull(bodyPosition, sample.language() + ": no position of the body of " + branch);
+
+                String branchText = textOf(code, branchPosition);
+                String bodyText = textOf(code, bodyPosition).strip();
+                boolean isDefault = branch instanceof DefaultCaseBlock;
+                assertTrue(branchText.startsWith(isDefault ? "case _:" : "case 1:") || isDefault && branchText.startsWith("default:"),
+                        sample.language() + ": unexpected branch text " + branchText);
+                assertTrue(bodyText.startsWith(isDefault ? "d()" : "a()") && (isDefault || bodyText.contains("b()")),
+                        sample.language() + ": unexpected body text " + bodyText);
+                assertTrue(bodyPosition.getLeft() > branchPosition.getLeft()
+                                && childEnd(bodyPosition) <= childEnd(branchPosition),
+                        sample.language() + ": body is outside its branch");
             }
         }
     }

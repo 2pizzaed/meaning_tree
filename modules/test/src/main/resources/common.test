@@ -1862,6 +1862,52 @@ group: SwitchStatement
             }
 
 
+    case: JavaArrowCasesDoNotFallThrough
+        main java:
+            switch (a) {
+                case 1 -> test += 5;
+                case 2 -> {
+                    test += 2;
+                    test *= 3;
+                }
+                case 3 -> {
+                    test -= 4;
+                    break;
+                }
+                default -> test = 0;
+            }
+
+        python:
+            match a:
+                case 1:
+                    test += 5
+                case 2:
+                    test += 2
+                    test *= 3
+                case 3:
+                    test -= 4
+                case _:
+                    test = 0
+
+        c++:
+            switch (a)
+            {
+                case 1:
+                    test += 5;
+                    break;
+                case 2:
+                    test += 2;
+                    test *= 3;
+                    break;
+                case 3:
+                    test -= 4;
+                    break;
+                default:
+                    test = 0;
+                    break;
+            }
+
+
 group: Functions
     case: SimplePythonFunction
         python:

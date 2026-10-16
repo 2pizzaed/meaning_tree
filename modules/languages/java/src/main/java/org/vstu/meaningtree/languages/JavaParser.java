@@ -765,26 +765,45 @@ public class JavaParser extends LanguageParser {
         Expression matchValue =
                 (Expression) parseTSNode(getNamedChildWithoutExtras(getNamedChildWithoutExtras(switchGroup, 0), 0));
 
+        List<Node> statements = fromSwitchGroupStatements(switchGroup);
+        // Ветка со стрелкой (switch_rule) никогда не проваливается в следующую, break ей не нужен
+        boolean isRule = switchGroup.getType().equals("switch_rule");
+        if (isRule || !statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
+            removeTrailingBreak(statements);
+            return new BasicCaseBlock(matchValue, new CompoundStatement(statements));
+        }
+        return new FallthroughCaseBlock(matchValue, new CompoundStatement(statements));
+    }
+
+    /**
+     * Операторы ветки switch без её меток. Блок ветки со стрелкой ({@code case 1 -> { ... }})
+     * раскрывается в свои операторы: тело ветки и так составное, а вложенный блок исказил бы
+     * его при генерации.
+     */
+    private List<Node> fromSwitchGroupStatements(TSNode switchGroup) {
+        boolean isRule = switchGroup.getType().equals("switch_rule");
         var statements = new ArrayList<Node>();
-        for (int i = 1; i < switchGroup.getNamedChildCount(); i++) {
-            statements.add(parseTSNode(switchGroup.getNamedChild(i)));
+        for (int i = 0; i < switchGroup.getNamedChildCount(); i++) {
+            TSNode child = switchGroup.getNamedChild(i);
+            if (child.getType().equals("switch_label")) {
+                continue;
+            }
+            Node statement = parseTSNode(child);
+            if (isRule && statement instanceof CompoundStatement block) {
+                statements.addAll(List.of(block.getNodes()));
+            }
+            else {
+                statements.add(statement);
+            }
         }
+        return statements;
+    }
 
-        CaseBlock caseBlock;
+    /** Завершающий break ветки выражается типом ветки, а не узлом в её теле. */
+    private static void removeTrailingBreak(List<Node> statements) {
         if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
-            caseBlock = new BasicCaseBlock(
-                    matchValue,
-                    new CompoundStatement(statements.subList(0, statements.size() - 1))
-            );
+            statements.removeLast();
         }
-        else {
-            caseBlock = new FallthroughCaseBlock(
-                    matchValue,
-                    new CompoundStatement(statements)
-            );
-        }
-
-        return caseBlock;
     }
 
     private Node fromSwitchExpressionTSNode(TSNode switchNode) {
@@ -800,20 +819,8 @@ public class JavaParser extends LanguageParser {
 
             String labelName = getCodePiece(getNamedChildWithoutExtras(switchGroup, 0));
             if (labelName.equals("default")) {
-                var statements = new ArrayList<Node>();
-
-                for (int j = 0; j < switchGroup.getNamedChildCount(); j++) {
-                    if (switchGroup.getNamedChild(j).getType().equals("switch_label")) {
-                        continue;
-                    }
-
-                    statements.add(parseTSNode(switchGroup.getNamedChild(j)));
-                }
-
-                if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
-                    statements.removeLast();
-                }
-
+                List<Node> statements = fromSwitchGroupStatements(switchGroup);
+                removeTrailingBreak(statements);
                 defaultCaseBlock = new DefaultCaseBlock(new CompoundStatement(statements));
             }
             else {

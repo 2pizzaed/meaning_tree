@@ -1539,6 +1539,31 @@ group: ForLoop
             del a
 
 
+    case: GeneralForContinueAfterNestedLoop
+        java:
+            for (int a = x; a != m; m = g()) {
+                for (int j = 0; j < 3; j++) {
+                    func(a, j);
+                }
+                if (a == m + 1) {
+                    continue;
+                }
+                x++;
+            }
+
+        isolated python:
+            a: int = x
+            while a != m:
+                for j in range(3):
+                    func(a, j)
+                if a == m + 1:
+                    m = g()
+                    continue
+                x += 1
+                m = g()
+            del a
+
+
 group: WhileLoop
     case: SimpleWhileLoop
         python:

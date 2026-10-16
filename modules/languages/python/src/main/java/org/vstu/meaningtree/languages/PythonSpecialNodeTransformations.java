@@ -25,12 +25,12 @@ import org.vstu.meaningtree.nodes.expressions.other.AssignmentExpression;
 import org.vstu.meaningtree.nodes.interfaces.HasBodyStatement;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.DeleteStatement;
+import org.vstu.meaningtree.nodes.statements.Loop;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.components.CaseBlock;
 import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
 import org.vstu.meaningtree.nodes.statements.loops.DoWhileLoop;
-import org.vstu.meaningtree.nodes.statements.loops.ForLoop;
 import org.vstu.meaningtree.nodes.statements.loops.GeneralForLoop;
 import org.vstu.meaningtree.nodes.statements.loops.WhileLoop;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
@@ -105,8 +105,9 @@ public class PythonSpecialNodeTransformations {
             compound.insert(found, update);
         }
         for (Node node : compound.getNodes()) {
-            if (node instanceof ForLoop || node instanceof WhileLoop) {
-                return;
+            // continue вложенного цикла относится к нему, но операторы после цикла ещё надо обойти
+            if (node instanceof Loop) {
+                continue;
             } else if (node instanceof IfStatement ifStmt) {
                 ifStmt.makeCompoundBranches();
                 for (ConditionBranch branch : ifStmt.getBranches()) {

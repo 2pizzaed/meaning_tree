@@ -4597,3 +4597,84 @@ group: Comments
             if (t > 0)
             {
             }
+
+
+group[forceCompoundBodies=true]: ForceCompoundBodies
+    case: SingleStatementBodiesFromJava
+        main java:
+            int s = 0;
+            for (int i = 0; i < 10; i++)
+                if (i % 2 == 0)
+                    s += i;
+                else if (i == 3)
+                    s -= 1;
+                else
+                    s *= 2;
+            while (s > 100)
+                s -= 1;
+
+        c++:
+            int s = 0;
+            for (int i = 0; i < 10; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    s += i;
+                }
+                else if (i == 3)
+                {
+                    s--;
+                }
+                else
+                {
+                    s *= 2;
+                }
+            }
+            while (s > 100)
+            {
+                s--;
+            }
+
+        python:
+            s: int = 0
+            for i in range(10):
+                if i % 2 == 0:
+                    s += i
+                elif i == 3:
+                    s -= 1
+                else:
+                    s *= 2
+            while s > 100:
+                s -= 1
+
+
+    case: SingleStatementBodiesFromCpp
+        main c++:
+            int s = 0;
+            while (s > 100)
+                s -= 1;
+            if (s > 0)
+                s = 1;
+            else
+                s = 2;
+
+        java:
+            int s = 0;
+            while (s > 100) {
+                s--;
+            }
+            if (s > 0) {
+                s = 1;
+            }
+            else {
+                s = 2;
+            }
+
+        python:
+            s: int = 0
+            while s > 100:
+                s -= 1
+            if s > 0:
+                s = 1
+            else:
+                s = 2

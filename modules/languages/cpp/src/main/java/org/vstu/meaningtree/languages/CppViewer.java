@@ -361,7 +361,8 @@ public class CppViewer extends LanguageViewer {
             iterVarId = toString(forEachLoop.getItem().getDeclarators()[0].getIdentifier());
         }
         var iterable = toString(forEachLoop.getExpression());
-        var body = toString(forEachLoop.getBody());
+        Statement loopBody = forEachLoop.getBody();
+        var body = rendersAsBlock(loopBody) ? toStringBodyAsBlock(loopBody) : toString(loopBody);
 
         StringBuilder builder = new StringBuilder();
 
@@ -920,15 +921,15 @@ public class CppViewer extends LanguageViewer {
 
         builder.append(indent("while (true)"));
         Statement body = infiniteLoop.getBody();
-        if (body instanceof CompoundStatement compoundStatement) {
+        if (rendersAsBlock(body)) {
             if (_openBracketOnSameLine) {
                 builder
                         .append(" ")
-                        .append(toString(compoundStatement));
+                        .append(toStringBodyAsBlock(body));
             }
             else {
                 builder.append("\n");
-                builder.append(indent(toString(body)));
+                builder.append(indent(toStringBodyAsBlock(body)));
             }
         }
         else {
@@ -972,12 +973,12 @@ public class CppViewer extends LanguageViewer {
         String header = "while (" + toString(whileLoop.getCondition()) + ")";
 
         Statement body = whileLoop.getBody();
-        if (body instanceof CompoundStatement compStmt) {
+        if (rendersAsBlock(body)) {
             // indent сдвигает только первую строку, а это как раз открывающая скобка тела:
             // без него она осталась бы в нулевой колонке у вложенного цикла
             return header + (_openBracketOnSameLine
-                    ? " " + toString(compStmt)
-                    : "\n" + indent(toString(compStmt)));
+                    ? " " + toStringBodyAsBlock(body)
+                    : "\n" + indent(toStringBodyAsBlock(body)));
         }
         else {
             increaseIndentLevel();
@@ -992,10 +993,10 @@ public class CppViewer extends LanguageViewer {
         Statement body = doWhileLoop.getBody();
         String condition = "while (" + toString(doWhileLoop.getCondition()) + ");";
 
-        if (body instanceof CompoundStatement compoundStatement) {
+        if (rendersAsBlock(body)) {
             String renderedBody = _openBracketOnSameLine
-                    ? " " + toString(compoundStatement)
-                    : "\n" + indent(toString(compoundStatement));
+                    ? " " + toStringBodyAsBlock(body)
+                    : "\n" + indent(toStringBodyAsBlock(body));
             return header + renderedBody + " " + condition;
         }
 
@@ -1059,17 +1060,17 @@ public class CppViewer extends LanguageViewer {
         }
 
         Statement body = generalForLoop.getBody();
-        if (body instanceof CompoundStatement compoundStatement) {
+        if (rendersAsBlock(body)) {
             builder.append(")");
 
             if (_openBracketOnSameLine) {
                 builder
                         .append(" ")
-                        .append(toString(compoundStatement));
+                        .append(toStringBodyAsBlock(body));
             }
             else {
                 builder.append("\n");
-                builder.append(indent(toString(body)));
+                builder.append(indent(toStringBodyAsBlock(body)));
             }
         }
         else {
@@ -1196,14 +1197,14 @@ public class CppViewer extends LanguageViewer {
         builder.append(header);
 
         Statement body = forRangeLoop.getBody();
-        if (body instanceof CompoundStatement compoundStatement) {
+        if (rendersAsBlock(body)) {
             if (_openBracketOnSameLine) {
                 builder
                         .append(" ")
-                        .append(toString(compoundStatement));
+                        .append(toStringBodyAsBlock(body));
             } else {
                 builder.append("\n");
-                builder.append(indent(toString(body)));
+                builder.append(indent(toStringBodyAsBlock(body)));
             }
         } else {
             builder.append("\n");
@@ -1294,13 +1295,23 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringBlockAfterHeader(Statement body) {
-        if (body instanceof CompoundStatement compound) {
-            return (_openBracketOnSameLine ? " " : "\n") + indent(toString(compound));
+        return (_openBracketOnSameLine ? " " : "\n") + indent(toStringBodyAsBlock(body));
+    }
+
+    /**
+     * Тело в фигурных скобках. Одиночному оператору скобки дописываются текстом: создавать
+     * узел на каждый вызов рендера нельзя — у него был бы новый id, и карта исходников
+     * менялась бы от прохода к проходу. Вывод совпадает с выводом блока из одного оператора.
+     */
+    private String toStringBodyAsBlock(Statement body) {
+        if (body instanceof CompoundStatement) {
+            return toString(body);
         }
         increaseIndentLevel();
-        String rendered = indent(toString(body));
+        String inner = toString(body);
+        inner = inner.isEmpty() ? "" : indent(inner);
         decreaseIndentLevel();
-        return (_openBracketOnSameLine ? " {\n" : "\n" + indent("{") + "\n") + rendered + "\n" + indent("}");
+        return "{\n" + inner + "\n" + indent("}");
     }
 
     /*******************************************************************/
@@ -1330,16 +1341,16 @@ public class CppViewer extends LanguageViewer {
                         .append(" ")
                         .append(toString(innerIfStmt));
             }
-            else if (elseBranch instanceof CompoundStatement innerCompStmt) {
+            else if (rendersAsBlock(elseBranch)) {
                 if (_openBracketOnSameLine) {
                     builder
                             .append(" ")
-                            .append(toString(innerCompStmt));
+                            .append(toStringBodyAsBlock(elseBranch));
                 }
                 else {
                     builder
                             .append("\n")
-                            .append(indent(toString(innerCompStmt)));
+                            .append(indent(toStringBodyAsBlock(elseBranch)));
                 }
             }
             else {
@@ -1369,7 +1380,7 @@ public class CppViewer extends LanguageViewer {
                 .append(")");
 
         Statement body = branch.getBody();
-        if (body instanceof CompoundStatement compStmt) {
+        if (rendersAsBlock(body)) {
             // Если телом ветки является блок кода, то необходимо определить
             // куда нужно добавить фигурные скобки и добавить само тело
             // Пример (для случая, когда скобка на той же строке):
@@ -1379,12 +1390,12 @@ public class CppViewer extends LanguageViewer {
             if (_openBracketOnSameLine) {
                 builder
                         .append(" ")
-                        .append(toString(compStmt));
+                        .append(toStringBodyAsBlock(body));
             }
             else {
                 builder
                         .append("\n")
-                        .append(indent(toString(compStmt)));
+                        .append(indent(toStringBodyAsBlock(body)));
             }
         }
         else {

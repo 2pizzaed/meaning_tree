@@ -13,10 +13,12 @@ import org.vstu.meaningtree.languages.support.SupportIssue;
 import org.vstu.meaningtree.languages.support.SupportReport;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SelfReference;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SuperClassReference;
 import org.vstu.meaningtree.nodes.modules.*;
+import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.utils.InternalNode;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.ParenthesesFiller;
@@ -399,6 +401,16 @@ abstract public class LanguageViewer extends TranslatorComponent {
         } finally {
             ctx.leaveFrame();
         }
+    }
+
+    /**
+     * Печатать ли тело цикла или ветки {@code if} блоком в скобках. Помимо составного тела —
+     * любое, если включён {@link ConfigParameters#forceCompoundBodies}: дерево при этом не
+     * меняется, скобки дописывает рендерер языка.
+     */
+    protected boolean rendersAsBlock(Statement body) {
+        return body instanceof CompoundStatement
+                || getConfigParameter(ConfigParameters.forceCompoundBodies).asBoolean();
     }
 
     public abstract OperatorToken mapToToken(Expression expr);

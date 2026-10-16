@@ -730,10 +730,10 @@ public class JavaViewer extends LanguageViewer {
 
         // Отступ нужен только телу на новой строке: на строке заголовка он раздвигал ") {"
         Statement body = forEachLoop.getBody();
-        if (body instanceof CompoundStatement && _openBracketOnSameLine) {
-            builder.append(" ").append(toString(body));
-        } else if (body instanceof CompoundStatement) {
-            builder.append("\n").append(indent(toString(body)));
+        if (rendersAsBlock(body) && _openBracketOnSameLine) {
+            builder.append(" ").append(toStringBodyAsBlock(body));
+        } else if (rendersAsBlock(body)) {
+            builder.append("\n").append(indent(toStringBodyAsBlock(body)));
         } else {
             increaseIndentLevel();
             builder.append("\n").append(indent(toString(body)));
@@ -779,15 +779,15 @@ public class JavaViewer extends LanguageViewer {
         builder.append(indent(loopHeader));
         Statement body = infiniteLoop.getBody();
 
-        if (body instanceof CompoundStatement compoundStatement) {
+        if (rendersAsBlock(body)) {
             if (_openBracketOnSameLine) {
                 builder
                         .append(" ")
-                        .append(toString(compoundStatement));
+                        .append(toStringBodyAsBlock(body));
             }
             else {
                 builder.append("\n");
-                builder.append(indent(toString(body)));
+                builder.append(indent(toStringBodyAsBlock(body)));
             }
         }
         else {
@@ -2093,7 +2093,7 @@ public class JavaViewer extends LanguageViewer {
                 .append(")");
 
         Statement body = branch.getBody();
-        if (body instanceof CompoundStatement compStmt) {
+        if (rendersAsBlock(body)) {
             // Если телом ветки является блок кода, то необходимо определить
             // куда нужно добавить фигурные скобки и добавить само тело
             // Пример (для случая, когда скобка на той же строке):
@@ -2103,12 +2103,12 @@ public class JavaViewer extends LanguageViewer {
             if (_openBracketOnSameLine) {
                 builder
                         .append(" ")
-                        .append(toString(compStmt));
+                        .append(toStringBodyAsBlock(body));
             }
             else {
                 builder
                         .append("\n")
-                        .append(indent(toString(compStmt)));
+                        .append(indent(toStringBodyAsBlock(body)));
             }
         }
         else {
@@ -2234,19 +2234,25 @@ public class JavaViewer extends LanguageViewer {
      * {@code finally}), с учётом настройки положения открывающей скобки.
      */
     private String toStringBlockAfterHeader(Statement body) {
-        String rendered;
-        if (body instanceof CompoundStatement) {
-            rendered = toString(body);
-        } else {
-            // Java не разрешает одиночный оператор в этих позициях, поэтому скобки
-            // дописываются текстом: создавать узел на каждый вызов рендера нельзя —
-            // у него был бы новый id, и карта исходников менялась бы от прохода к проходу
-            increaseIndentLevel();
-            String inner = indent(toString(body));
-            decreaseIndentLevel();
-            rendered = "{\n" + inner + "\n" + indent("}");
-        }
+        // Java не разрешает одиночный оператор в этих позициях
+        String rendered = toStringBodyAsBlock(body);
         return _openBracketOnSameLine ? " " + rendered : "\n" + indent(rendered);
+    }
+
+    /**
+     * Тело в фигурных скобках. Одиночному оператору скобки дописываются текстом: создавать
+     * узел на каждый вызов рендера нельзя — у него был бы новый id, и карта исходников
+     * менялась бы от прохода к проходу. Вывод совпадает с выводом блока из одного оператора.
+     */
+    private String toStringBodyAsBlock(Statement body) {
+        if (body instanceof CompoundStatement) {
+            return toString(body);
+        }
+        increaseIndentLevel();
+        String inner = toString(body);
+        inner = inner.isEmpty() ? "" : indent(inner);
+        decreaseIndentLevel();
+        return "{\n" + inner + "\n" + indent("}");
     }
 
     public String toStringIfStatement(IfStatement stmt) {
@@ -2274,16 +2280,16 @@ public class JavaViewer extends LanguageViewer {
                         .append(" ")
                         .append(toString(innerIfStmt));
             }
-            else if (elseBranch instanceof CompoundStatement innerCompStmt) {
+            else if (rendersAsBlock(elseBranch)) {
                 if (_openBracketOnSameLine) {
                     builder
                             .append(" ")
-                            .append(toString(innerCompStmt));
+                            .append(toStringBodyAsBlock(elseBranch));
                 }
                 else {
                     builder
                             .append("\n")
-                            .append(indent(toString(innerCompStmt)));
+                            .append(indent(toStringBodyAsBlock(elseBranch)));
                 }
             }
             else {
@@ -2361,17 +2367,17 @@ public class JavaViewer extends LanguageViewer {
         }
 
         Statement body = generalForLoop.getBody();
-        if (body instanceof CompoundStatement compoundStatement) {
+        if (rendersAsBlock(body)) {
             builder.append(")");
 
             if (_openBracketOnSameLine) {
                 builder
                         .append(" ")
-                        .append(toString(compoundStatement));
+                        .append(toStringBodyAsBlock(body));
             }
             else {
                 builder.append("\n");
-                builder.append(indent(toString(body)));
+                builder.append(indent(toStringBodyAsBlock(body)));
             }
         }
         else {
@@ -2487,15 +2493,15 @@ public class JavaViewer extends LanguageViewer {
         builder.append(header);
 
         Statement body = forRangeLoop.getBody();
-        if (body instanceof CompoundStatement compoundStatement) {
+        if (rendersAsBlock(body)) {
             if (_openBracketOnSameLine) {
                 builder
                         .append(" ")
-                        .append(toString(compoundStatement));
+                        .append(toStringBodyAsBlock(body));
             }
             else {
                 builder.append("\n");
-                builder.append(indent(toString(body)));
+                builder.append(indent(toStringBodyAsBlock(body)));
             }
         }
         else {
@@ -2823,8 +2829,8 @@ public class JavaViewer extends LanguageViewer {
         String header = "while (" + toString(whileLoop.getCondition()) + ")";
 
         Statement body = whileLoop.getBody();
-        if (body instanceof CompoundStatement compStmt) {
-            return header + (_openBracketOnSameLine ? " " : "\n") + toString(compStmt);
+        if (rendersAsBlock(body)) {
+            return header + (_openBracketOnSameLine ? " " : "\n") + toStringBodyAsBlock(body);
         }
         else {
             increaseIndentLevel();

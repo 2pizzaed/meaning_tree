@@ -7,6 +7,7 @@ import org.treesitter.TSTree;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
 import org.vstu.meaningtree.languages.configs.ConfigParameters;
+import org.vstu.meaningtree.languages.helpers.CompoundBodyEnforcer;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
@@ -55,7 +56,23 @@ abstract public class LanguageParser extends TranslatorComponent {
         _tsParser = new TSParser();
         _tsParser.setLanguage(language);
         registerCommentAttachment();
+        registerCompoundBodyEnforcement();
         registerAnalysisPasses();
+    }
+
+    /**
+     * Делает тела циклов и ветки {@code if} составными, если включён
+     * {@link ConfigParameters#forceCompoundBodies}. Идёт с {@link HookOrder#EARLY}, после
+     * расстановки комментариев, чтобы проходы анализа видели дерево уже в итоговой форме.
+     */
+    private void registerCompoundBodyEnforcement() {
+        if (!translator.getConfigParameter(ConfigParameters.forceCompoundBodies).asBoolean()) {
+            return;
+        }
+        hooks.intercept(HookPhase.AFTER_TREE_PARSE, HookOrder.EARLY, (tree, value, context) -> {
+            CompoundBodyEnforcer.apply(value);
+            return value;
+        });
     }
 
     /**

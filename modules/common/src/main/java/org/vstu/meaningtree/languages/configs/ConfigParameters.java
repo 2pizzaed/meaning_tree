@@ -76,6 +76,20 @@ public class ConfigParameters {
             ConfigScope.VIEWER
     );
 
+    /**
+     * Тело цикла и ветки {@code if} всегда составные, а не одиночный оператор.
+     * <p>
+     * Парсер оборачивает одиночное тело в {@code CompoundStatement} — дерево меняется. Viewer
+     * печатает такое тело в фигурных скобках, не трогая дерево: так выводятся и деревья,
+     * построенные без этого параметра (из JSON или другим транслятором). Ветка {@code else},
+     * которая сама является {@code if}, не оборачивается, чтобы цепочка {@code else if}
+     * осталась цепочкой.
+     */
+    public static final ConfigParameter forceCompoundBodies = register("forceCompoundBodies",
+            new ConfigValue(false),
+            ConfigScope.ANY
+    );
+
     /** Классы, для которых загрузка параметров уже запускалась — в том числе безуспешно. */
     private final static Set<Class<? extends LanguageTranslator>> bootstrapped = new HashSet<>();
 

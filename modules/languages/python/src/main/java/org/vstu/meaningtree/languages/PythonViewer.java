@@ -5,6 +5,8 @@ import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.MeaningTreeException;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.helpers.ContextualNodeRenderer;
+import org.vstu.meaningtree.languages.helpers.LabeledJumpLowerer;
+import org.vstu.meaningtree.languages.helpers.MeaningTreeTransformations;
 import org.vstu.meaningtree.languages.helpers.ResourceContextLowerer;
 import org.vstu.meaningtree.languages.support.features.*;
 import org.vstu.meaningtree.languages.utils.PythonSpecificFeatures;
@@ -87,9 +89,15 @@ public class PythonViewer extends LanguageViewer {
 
     @Override
     protected MeaningTree preprocessTree(MeaningTree tree) {
-        // `with` не совмещается с `except` в одном операторе, поэтому ресурсы java-try
-        // уходят во вложенный `with` — конструкции владения в Python больше нет
-        return ResourceContextLowerer.nest(tree);
+        return MeaningTreeTransformations.apply(tree, List.of(
+                // `with` не совмещается с `except` в одном операторе, поэтому ресурсы java-try
+                // уходят во вложенный `with` — конструкции владения в Python больше нет
+                ResourceContextLowerer::nest,
+                // Сначала уходят break, выходящие из switch: после следующего прохода break без
+                // метки в ветке match означает уже выход из цикла, как в Python
+                PythonSwitchBreakLowerer::lower,
+                lowered -> LabeledJumpLowerer.lower(lowered, false)
+        ));
     }
 
     private void configureSupportAndRenderers() {

@@ -132,7 +132,7 @@ public class PythonSpecialNodeTransformations {
         }
     }
 
-    private static Expression negateCondition(Expression condition) {
+    static Expression negateCondition(Expression condition) {
         return switch (condition) {
             case BoolLiteral boolLiteral -> (boolLiteral.getValue() ? new BoolLiteral(false) : new BoolLiteral(true))
                     .remap(boolLiteral);

@@ -1786,6 +1786,43 @@ group: LoopElse
             int y = 1;
 
 
+    case: LoopElseWithBreakInsideMatch
+        main python:
+            while x < m:
+                match x:
+                    case 1:
+                        break
+                    case _:
+                        x += 1
+            else:
+                y = 1
+
+        c++:
+            bool _loop_else_1 = true;
+            while (x < m)
+            {
+                bool _break_1 = false;
+                switch (x)
+                {
+                    case 1:
+                        _loop_else_1 = false;
+                        _break_1 = true;
+                        break;
+                    default:
+                        x++;
+                        break;
+                }
+                if (_break_1)
+                {
+                    break;
+                }
+            }
+            if (_loop_else_1)
+            {
+                int y = 1;
+            }
+
+
 group: SwitchStatement
     case: SimpleMatch
         python:
@@ -2036,6 +2073,148 @@ group: SwitchStatement
             }
 
 
+    case: MatchBreakLeavesEnclosingLoop
+        main python:
+            for i in range(3):
+                match a:
+                    case 1:
+                        test += 1
+                        break
+                    case 2:
+                        test += 2
+
+        java:
+            loop1:
+            for (int i = 0; i < 3; i++) {
+                switch (a) {
+                    case 1:
+                        test++;
+                        break loop1;
+                    case 2:
+                        test += 2;
+                        break;
+                }
+            }
+
+        c++:
+            for (int i = 0; i < 3; i++)
+            {
+                bool _break_1 = false;
+                switch (a)
+                {
+                    case 1:
+                        test++;
+                        _break_1 = true;
+                        break;
+                    case 2:
+                        test += 2;
+                        break;
+                }
+                if (_break_1)
+                {
+                    break;
+                }
+            }
+
+
+    case: MatchBreakInNestedLoopStaysUnlabeled
+        python:
+            for i in range(3):
+                match a:
+                    case 1:
+                        for j in range(3):
+                            break
+                    case _:
+                        test += 2
+
+        java:
+            for (int i = 0; i < 3; i++) {
+                switch (a) {
+                    case 1:
+                        for (int j = 0; j < 3; j++) {
+                            break;
+                        }
+                        break;
+                    default:
+                        test += 2;
+                        break;
+                }
+            }
+
+
+    case: SwitchBreakInMiddleOfBranch
+        main java:
+            for (int i = 0; i < 3; i++) {
+                switch (a) {
+                    case 1:
+                        if (c) {
+                            break;
+                        }
+                        test += 1;
+                        break;
+                    default:
+                        test = 0;
+                        break;
+                }
+                test *= 2;
+            }
+
+        python:
+            for i in range(3):
+                match a:
+                    case 1:
+                        if not (c):
+                            test += 1
+                    case _:
+                        test = 0
+                test *= 2
+
+        c++:
+            for (int i = 0; i < 3; i++)
+            {
+                switch (a)
+                {
+                    case 1:
+                        if (c)
+                        {
+                            break;
+                        }
+                        test++;
+                        break;
+                    default:
+                        test = 0;
+                        break;
+                }
+                test *= 2;
+            }
+
+
+    case: SwitchBreakMovesRestIntoElse
+        main java:
+            switch (a) {
+                case 1:
+                    if (c) {
+                        test = 1;
+                        break;
+                    } else if (d) {
+                        test = 2;
+                    }
+                    test += 3;
+                    break;
+            }
+
+        python:
+            match a:
+                case 1:
+                    if c:
+                        test = 1
+                    elif d:
+                        test = 2
+                        test += 3
+                    else:
+                        test += 3
+
+
     case: BranchEndingWithJumpHasNoExtraBreak
         java:
             for (int i = 0; i < 3; i++) {
@@ -2068,6 +2247,87 @@ group: SwitchStatement
                         continue
                     case _:
                         test += 2
+
+
+    case: LabeledJumpsThroughNestedLoop
+        main java:
+            outer:
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    if (c) {
+                        continue outer;
+                    }
+                    if (d) {
+                        break outer;
+                    }
+                }
+            }
+
+        python:
+            for i in range(3):
+                _break_1: bool = False
+                _continue_2: bool = False
+                for j in range(3):
+                    if c:
+                        _continue_2 = True
+                        break
+                    if d:
+                        _break_1 = True
+                        break
+                if _continue_2:
+                    continue
+                if _break_1:
+                    break
+
+        c++:
+            for (int i = 0; i < 3; i++)
+            {
+                bool _break_1 = false;
+                bool _continue_2 = false;
+                for (int j = 0; j < 3; j++)
+                {
+                    if (c)
+                    {
+                        _continue_2 = true;
+                        break;
+                    }
+                    if (d)
+                    {
+                        _break_1 = true;
+                        break;
+                    }
+                }
+                if (_continue_2)
+                {
+                    continue;
+                }
+                if (_break_1)
+                {
+                    break;
+                }
+            }
+
+
+    case: LabeledBreakThroughSwitchOnly
+        main java:
+            outer:
+            for (int i = 0; i < 3; i++) {
+                switch (a) {
+                    case 1:
+                        break outer;
+                    default:
+                        test = 0;
+                        break;
+                }
+            }
+
+        python:
+            for i in range(3):
+                match a:
+                    case 1:
+                        break
+                    case _:
+                        test = 0
 
 
 group: Functions

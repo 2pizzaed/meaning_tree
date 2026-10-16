@@ -71,6 +71,10 @@ public class IfStatement extends Statement {
         return _elseBranch != null;
     }
 
+    public void setElseBranch(@Nullable Statement elseBranch) {
+        _elseBranch = elseBranch;
+    }
+
     public void makeCompoundBranches() {
         for (ConditionBranch branch : branches) {
             branch.makeCompoundBody();

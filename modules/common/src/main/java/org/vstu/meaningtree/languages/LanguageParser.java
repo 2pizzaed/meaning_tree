@@ -6,9 +6,12 @@ import org.treesitter.TSParser;
 import org.treesitter.TSTree;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedParsingException;
+import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.languages.configs.ConfigParameters;
-import org.vstu.meaningtree.languages.helpers.CompoundBodyEnforcer;
 import org.vstu.meaningtree.nodes.Node;
+import org.vstu.meaningtree.nodes.statements.Loop;
+import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
+import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
 import org.vstu.meaningtree.utils.Label;
 import org.vstu.meaningtree.utils.TreeSitterUtils;
 import org.vstu.meaningtree.utils.analysis.AnalysisPipeline;
@@ -70,9 +73,28 @@ abstract public class LanguageParser extends TranslatorComponent {
             return;
         }
         hooks.intercept(HookPhase.AFTER_TREE_PARSE, HookOrder.EARLY, (tree, value, context) -> {
-            CompoundBodyEnforcer.apply(value);
+            enforceCompoundBodies(value);
             return value;
         });
+    }
+
+    private static void enforceCompoundBodies(MeaningTree tree) {
+        // Сначала собрать, потом менять: обход не переживает подмену детей на ходу
+        List<Node> targets = new ArrayList<>();
+        for (NodeInfo info : tree) {
+            if (info.node() instanceof Loop || info.node() instanceof IfStatement) {
+                targets.add(info.node());
+            }
+        }
+        for (Node node : targets) {
+            if (node instanceof Loop loop) {
+                loop.makeCompoundBody();
+                loop.makeCompoundElseBody();
+            } else if (node instanceof IfStatement ifStatement) {
+                ifStatement.getBranches().forEach(ConditionBranch::makeCompoundBody);
+                ifStatement.makeCompoundElseBranch();
+            }
+        }
     }
 
     /**

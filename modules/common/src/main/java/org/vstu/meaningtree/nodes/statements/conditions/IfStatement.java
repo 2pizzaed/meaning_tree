@@ -82,6 +82,17 @@ public class IfStatement extends Statement {
         _elseBranch = _elseBranch == null ? null : CompoundStatement.wrap(_elseBranch);
     }
 
+    /**
+     * Делает составной ветку {@code else}, если она есть и сама не является {@code if}: цепочка
+     * {@code else if} остаётся цепочкой. {@link #makeCompoundBranches()} оборачивает и её —
+     * на это рассчитывают те, кто после вызова приводит ветку к {@link CompoundStatement}.
+     */
+    public void makeCompoundElseBranch() {
+        if (_elseBranch != null && !(_elseBranch instanceof IfStatement)) {
+            _elseBranch = CompoundStatement.wrap(_elseBranch);
+        }
+    }
+
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof IfStatement nodeInfos)) return false;

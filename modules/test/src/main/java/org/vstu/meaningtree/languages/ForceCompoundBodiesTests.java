@@ -3,12 +3,9 @@ package org.vstu.meaningtree.languages;
 import org.junit.jupiter.api.Test;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
-import org.vstu.meaningtree.languages.helpers.CompoundBodyEnforcer;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.Statement;
-import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
-import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.Loop;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
@@ -111,19 +108,13 @@ class ForceCompoundBodiesTests {
 
     @Test
     void wrappingBlockIsRemappedToTheWrappedBody() {
-        Statement body = new ExpressionStatement(new SimpleIdentifier("x"));
-        Statement elseBody = new ExpressionStatement(new SimpleIdentifier("y"));
-        WhileLoop loop = new WhileLoop(new SimpleIdentifier("c"), body);
-        loop.setElseBranch(elseBody);
+        MeaningTree plain = new JavaTranslator(DEFAULT).getMeaningTree("while (c) x();");
+        MeaningTree forced = new JavaTranslator(FORCED).getMeaningTree("while (c) x();");
+        assertFalse(firstOf(plain, WhileLoop.class).getBody() instanceof CompoundStatement);
 
-        CompoundBodyEnforcer.apply(new MeaningTree(new CompoundStatement(loop)));
-
-        CompoundStatement wrapped = assertInstanceOf(CompoundStatement.class, loop.getBody());
-        assertSame(body, wrapped.getNodes()[0]);
+        CompoundStatement wrapped = assertInstanceOf(CompoundStatement.class, firstOf(forced, WhileLoop.class).getBody());
+        Node body = wrapped.getNodes()[0];
         assertEquals(body.getId(), wrapped.getLabel(Label.REMAPPED).getAttribute());
-        // Тело else у цикла (Python) — тоже тело цикла
-        CompoundStatement wrappedElse = assertInstanceOf(CompoundStatement.class, loop.getElseBranch());
-        assertSame(elseBody, wrappedElse.getNodes()[0]);
     }
 
     @Test

@@ -15,6 +15,10 @@ public abstract class JumpStatement extends Statement {
         return jumpDestination;
     }
 
+    public void setJumpDestination(@Nullable JumpLabel jumpDestination) {
+        this.jumpDestination = jumpDestination;
+    }
+
     public JumpStatement(JumpLabel jumpDestination) {
         super();
         this.jumpDestination = jumpDestination;

@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.languages.helpers.ComprehensionLowerer;
+import org.vstu.meaningtree.languages.helpers.LabeledJumpLowerer;
 import org.vstu.meaningtree.languages.helpers.LoopElseLowerer;
 import org.vstu.meaningtree.languages.helpers.MeaningTreeTransformations;
 import org.vstu.meaningtree.languages.helpers.MultiCatchSplitter;
@@ -118,6 +119,8 @@ public class CppViewer extends LanguageViewer {
                 ResourceContextLowerer::flatten,
                 this::comprehensionLowered,
                 LoopElseLowerer::lower,
+                // После LoopElseLowerer: тот ставит сброс своего флага перед break с меткой
+                lowered -> LabeledJumpLowerer.lower(lowered, true),
                 TryElseLowerer::lower,
                 MultiCatchSplitter::lower
         ));
@@ -942,16 +945,17 @@ public class CppViewer extends LanguageViewer {
     /* Перевод операторов управления циклов */
     @NotNull
     private String toStringBreakStatement(BreakStatement stmt) {
-        if (stmt.getJumpLabel() != null) {
-            return toString(stmt.toGoto());
+        // Переходы к циклу с меткой уже выражены флагом в LabeledJumpLowerer
+        if (stmt.getJumpDestination() != null) {
+            throw new UnsupportedViewingException("C++ has no break to a labeled statement that is not a loop");
         }
         return "break;";
     }
 
     @NotNull
     private String toStringContinueStatement(ContinueStatement stmt) {
-        if (stmt.getJumpLabel() != null) {
-            return toString(stmt.toGoto());
+        if (stmt.getJumpDestination() != null) {
+            throw new UnsupportedViewingException("C++ has no continue to a labeled statement that is not a loop");
         }
         return "continue;";
     }

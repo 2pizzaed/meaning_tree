@@ -101,7 +101,8 @@ public final class LoopElseLowerer {
             return breakTargetsLoop(br, targetLoop, depth);
         }
         int nextDepth = depth;
-        if (node instanceof Loop && node != targetLoop) {
+        // An unlabeled break leaves the nearest loop or switch
+        if (node instanceof Loop && node != targetLoop || node instanceof SwitchStatement) {
             nextDepth++;
         }
         for (NodeInfo info : node.iterate(false)) {
@@ -124,8 +125,8 @@ public final class LoopElseLowerer {
     /**
      * Inserts `flag = false;` immediately before every break belonging to targetLoop.
      * Only descends into nested Loop/If/Switch/HasBodyStatement bodies (same shape as
-     * PythonSpecialNodeTransformations' continue-injection walker); a nested Loop increases
-     * the depth used to decide whether an unlabeled break still belongs to targetLoop.
+     * PythonSpecialNodeTransformations' continue-injection walker); a nested Loop or Switch
+     * increases the depth used to decide whether an unlabeled break still belongs to targetLoop.
      */
     private static void rewriteBreaks(CompoundStatement compound, SimpleIdentifier flag, Loop targetLoop, int depth) {
         Node[] nodes = compound.getNodes();
@@ -156,10 +157,10 @@ public final class LoopElseLowerer {
         } else if (node instanceof SwitchStatement switchStmt) {
             switchStmt.makeCompoundBranches();
             for (CaseBlock branch : switchStmt.getCases()) {
-                rewriteBreaks((CompoundStatement) branch.getBody(), flag, targetLoop, depth);
+                rewriteBreaks((CompoundStatement) branch.getBody(), flag, targetLoop, depth + 1);
             }
             if (switchStmt.hasDefaultCase()) {
-                rewriteBreaks((CompoundStatement) switchStmt.getDefaultCase().getBody(), flag, targetLoop, depth);
+                rewriteBreaks((CompoundStatement) switchStmt.getDefaultCase().getBody(), flag, targetLoop, depth + 1);
             }
         } else if (node instanceof HasBodyStatement hasBody) {
             hasBody.makeCompoundBody();

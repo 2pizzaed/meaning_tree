@@ -157,7 +157,7 @@ public class JavaParser extends LanguageParser {
         registerTSNodeHandler("explicit_constructor_invocation", ExpressionStatement.class, this::fromExplicitConstructorInvocationTSNode);
         registerTSNodeHandler("this", SelfReference.class, this::fromThisTSNode);
         registerTSNodeHandler("character_literal", CharacterLiteral.class, this::fromCharacterLiteralTSNode);
-        registerTSNodeHandler("do_statement", DoWhileLoop.class, this::fromDoStatementTSNode);
+        registerTSNodeHandler("do_statement", Loop.class, this::fromDoStatementTSNode);
         registerTSNodeHandler("instanceof_expression", InstanceOfOp.class, this::fromInstanceOfTSNode);
         registerTSNodeHandler("labeled_statement", Node.class, this::fromLabeledStmtNode);
         registerTSNodeHandler("class_literal", MemberAccess.class, this::fromClassLiteralTSNode);
@@ -255,11 +255,15 @@ public class JavaParser extends LanguageParser {
         return new InstanceOfOp((Expression) parseTSNode(node.getChildByFieldName("left")), fromTypeTSNode(node.getChildByFieldName("right")));
     }
 
-    private Node fromDoStatementTSNode(TSNode node) {
+    private Loop fromDoStatementTSNode(TSNode node) {
         Statement body = (Statement) parseTSNode(node.getChildByFieldName("body"));
         Expression condition = (Expression) parseTSNode(node.getChildByFieldName("condition"));
         if (condition instanceof ParenthesizedExpression parenthesizedExpression) {
             condition = parenthesizedExpression.getExpression();
+        }
+        // Как и while (true): тип цикла сохраняет исходную запись
+        if (condition instanceof BoolLiteral boolLiteral && boolLiteral.getValue()) {
+            return new InfiniteLoop(body, getLoopType(node));
         }
         return new DoWhileLoop(condition, body);
     }

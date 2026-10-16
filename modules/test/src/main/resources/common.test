@@ -1685,8 +1685,55 @@ group: WhileLoop
 
         isolated python:
             while True:
-                if False:
-                    break
+                pass
+
+
+    case: InfiniteDoWhileLoop
+        java:
+            if (a > 0) {
+                do {
+                    a++;
+                    if (a == m) {
+                        break;
+                    }
+                } while (true);
+            }
+
+        c++:
+            if (a > 0)
+            {
+                do
+                {
+                    a++;
+                    if (a == m)
+                    {
+                        break;
+                    }
+                } while (true);
+            }
+
+        isolated python:
+            if a > 0:
+                while True:
+                    a += 1
+                    if a == m:
+                        break
+
+
+    case: InfiniteDoWhileLoopWithSingleStatement
+        main c++:
+            do
+                a++;
+            while (true);
+
+        java:
+            do {
+                a++;
+            } while (true);
+
+        python:
+            while True:
+                a += 1
 
 
     case: NestedDoWhileLoopTransformation

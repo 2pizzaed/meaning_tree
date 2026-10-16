@@ -913,6 +913,10 @@ public class CppViewer extends LanguageViewer {
     /*******************************************************************/
     /* Перевод бесконечного цикла */
     private String toStringInfiniteLoop(InfiniteLoop infiniteLoop) {
+        if (infiniteLoop.getLoopType() == LoopType.DO_WHILE) {
+            return toStringDoWhile(infiniteLoop.getBody(), null);
+        }
+
         StringBuilder builder = new StringBuilder();
 
         builder.append("while (true)");
@@ -985,9 +989,15 @@ public class CppViewer extends LanguageViewer {
     }
 
     private String toStringDoWhileLoop(DoWhileLoop doWhileLoop) {
+        return toStringDoWhile(doWhileLoop.getBody(), doWhileLoop.getCondition());
+    }
+
+    /**
+     * @param loopCondition условие продолжения; {@code null} — бесконечный цикл, условие {@code true}
+     */
+    private String toStringDoWhile(Statement body, @Nullable Expression loopCondition) {
         String header = "do";
-        Statement body = doWhileLoop.getBody();
-        String condition = "while (" + toString(doWhileLoop.getCondition()) + ");";
+        String condition = "while (" + (loopCondition == null ? "true" : toString(loopCondition)) + ");";
 
         if (rendersAsBlock(body)) {
             String renderedBody = _openBracketOnSameLine

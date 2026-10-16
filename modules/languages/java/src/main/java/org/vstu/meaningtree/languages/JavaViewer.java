@@ -660,6 +660,13 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringDoWhileLoop(DoWhileLoop doWhileLoop) {
+        return toStringDoWhile(doWhileLoop.getBody(), doWhileLoop.getCondition());
+    }
+
+    /**
+     * @param condition условие продолжения; {@code null} — бесконечный цикл, условие {@code true}
+     */
+    private String toStringDoWhile(Statement body, @Nullable Expression condition) {
         StringBuilder builder = new StringBuilder();
 
         builder.append("do");
@@ -672,7 +679,6 @@ public class JavaViewer extends LanguageViewer {
         }
 
         List<Node> nodes = new ArrayList<>();
-        Statement body = doWhileLoop.getBody();
         if (body instanceof CompoundStatement) {
             nodes.addAll(Arrays.asList(((CompoundStatement) body).getNodes()));
         }
@@ -688,24 +694,16 @@ public class JavaViewer extends LanguageViewer {
         builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
         decreaseIndentLevel();
 
+        String tail = "while (%s);".formatted(condition == null ? "true" : toString(condition));
         if (_openBracketOnSameLine) {
             builder
                     .append(indent("} "))
-                    .append(
-                            "while (%s);".formatted(
-                                    toString(doWhileLoop.getCondition())
-                            )
-                    );
+                    .append(tail);
         }
         else {
             builder
                     .append(indent("}\n"))
-                    .append(
-                            indent("while (%s);".formatted(
-                                        toString(doWhileLoop.getCondition())
-                                    )
-                            )
-                    );;
+                    .append(indent(tail));
         }
 
         return builder.toString();
@@ -764,17 +762,12 @@ public class JavaViewer extends LanguageViewer {
     }
 
     private String toStringInfiniteLoop(InfiniteLoop infiniteLoop) {
-        StringBuilder builder = new StringBuilder();
+        if (infiniteLoop.getLoopType() == LoopType.DO_WHILE) {
+            return toStringDoWhile(infiniteLoop.getBody(), null);
+        }
 
-        boolean trailingWhile = false;
-        var loopHeader = switch (infiniteLoop.getLoopType()) {
-            case FOR -> "for (;;)";
-            case WHILE -> "while (true)";
-            case DO_WHILE -> {
-                trailingWhile = true;
-                yield "do";
-            }
-        };
+        StringBuilder builder = new StringBuilder();
+        var loopHeader = infiniteLoop.getLoopType() == LoopType.FOR ? "for (;;)" : "while (true)";
 
         builder.append(loopHeader);
         Statement body = infiniteLoop.getBody();
@@ -795,10 +788,6 @@ public class JavaViewer extends LanguageViewer {
             increaseIndentLevel();
             builder.append(indent(toString(body)));
             decreaseIndentLevel();
-        }
-
-        if (trailingWhile) {
-            builder.append("while (true);\n");
         }
 
         return builder.toString();

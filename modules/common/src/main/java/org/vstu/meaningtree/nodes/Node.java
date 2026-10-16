@@ -238,6 +238,17 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         return (T) this;
     }
 
+    /**
+     * {@link #remap} для узла и всех его потомков: так помечается синтетическое поддерево,
+     * которое целиком происходит из одного узла.
+     */
+    public <T extends Node> T remapTree(Node other) {
+        for (NodeInfo info : this) {
+            info.node().remap(other);
+        }
+        return remap(other);
+    }
+
     @Override
     public boolean removeLabel(Label label) {
         return _labels.remove(label);

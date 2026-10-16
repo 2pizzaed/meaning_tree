@@ -71,19 +71,18 @@ public final class LoopElseLowerer {
         }
 
         SimpleIdentifier flag = new SimpleIdentifier("_loop_else_" + ordinal).remap(loop);
-        VariableDeclaration flagDeclaration = remapSyntheticTree(
-                new VariableDeclaration(new BooleanType(), flag.clone(), new BoolLiteral(true)), loop
-        );
+        VariableDeclaration flagDeclaration =
+                new VariableDeclaration(new BooleanType(), flag.clone(), new BoolLiteral(true)).remapTree(loop);
 
         // Присваивание встаёт перед break, поэтому у каждого break родителем должен быть блок
         LabeledJumpLowerer.makeCompoundBodies(loop);
         for (NodeInfo info : ownBreaks(loop)) {
             CompoundStatement block = (CompoundStatement) info.parentNode();
             block.insert(indexOf(block.getNodes(), info.node()),
-                    remapSyntheticTree(makeFlagAssignment(flag, loop), loop));
+                    makeFlagAssignment(flag, loop).remapTree(loop));
         }
 
-        IfStatement guardedElse = remapSyntheticTree(new IfStatement(flag.clone(), elseBody), loop);
+        IfStatement guardedElse = new IfStatement(flag.clone(), elseBody).remapTree(loop);
 
         insertBefore(container, loop, List.of(flagDeclaration));
         insertAfter(container, loop, List.of(guardedElse));
@@ -150,13 +149,5 @@ public final class LoopElseLowerer {
             }
         }
         throw new IllegalStateException("Loop anchor was not found in its container");
-    }
-
-    private static <T extends Node> T remapSyntheticTree(T node, Node origin) {
-        node.remap(origin);
-        for (NodeInfo info : node) {
-            info.node().remap(origin);
-        }
-        return node;
     }
 }

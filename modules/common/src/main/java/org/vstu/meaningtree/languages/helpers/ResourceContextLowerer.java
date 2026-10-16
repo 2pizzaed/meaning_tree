@@ -110,7 +110,7 @@ public final class ResourceContextLowerer {
         List<Node> acquisitions = new ArrayList<>();
         for (Node resource : resources) {
             acquisitions.add(resource instanceof Expression expression
-                    ? remapSyntheticTree(new ExpressionStatement(expression), resource)
+                    ? new ExpressionStatement(expression).remapTree(resource)
                     : resource);
         }
         return acquisitions;
@@ -129,7 +129,7 @@ public final class ResourceContextLowerer {
             }
             // freshClone, а не clone: обычный clone сохраняет id, и имя в delete совпало бы
             // по id с именем в объявлении, дав в дереве повторяющиеся id
-            releases.add(remapSyntheticTree(new DeleteStatement((SimpleIdentifier) name.freshClone()), origin));
+            releases.add(new DeleteStatement((SimpleIdentifier) name.freshClone()).remapTree(origin));
         }
         return releases;
     }
@@ -159,13 +159,5 @@ public final class ResourceContextLowerer {
             }
         }
         return found;
-    }
-
-    private static <T extends Node> T remapSyntheticTree(T node, Node origin) {
-        node.remap(origin);
-        for (NodeInfo info : node) {
-            info.node().remap(origin);
-        }
-        return node;
     }
 }

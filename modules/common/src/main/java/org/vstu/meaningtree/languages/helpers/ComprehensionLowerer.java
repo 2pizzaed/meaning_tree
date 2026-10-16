@@ -100,10 +100,10 @@ public final class ComprehensionLowerer {
     private static List<Node> lowerComprehension(Comprehension comprehension, int ordinal, Target target) {
         CollectionKind kind = kindOf(comprehension);
         SimpleIdentifier temporary = new SimpleIdentifier("_tmp_compreh_" + ordinal).remap(comprehension);
-        Type collectionType = remapSyntheticTree(target.collectionType(kind), comprehension);
+        Type collectionType = target.collectionType(kind).remapTree(comprehension);
         Expression initialization = target.createCollection(kind);
         if (initialization != null) {
-            remapSyntheticTree(initialization, comprehension);
+            initialization.remapTree(comprehension);
         }
         VariableDeclaration declaration = new VariableDeclaration(
                 collectionType,
@@ -192,13 +192,6 @@ public final class ComprehensionLowerer {
         }
     }
 
-    private static <T extends Node> T remapSyntheticTree(T node, Node origin) {
-        node.remap(origin);
-        for (NodeInfo info : node) {
-            info.node().remap(origin);
-        }
-        return node;
-    }
 
     private static void insertBefore(Node container, Node anchor, List<Node> nodes) {
         if (container instanceof CompoundStatement compound) {

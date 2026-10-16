@@ -131,16 +131,16 @@ public final class LabeledJumpLowerer {
             SimpleIdentifier flag = flags.computeIfAbsent(jump.kind(),
                     kind -> new SimpleIdentifier(kind.flagPrefix + ordinal++).remap(loop));
             replace(jump.container(), jump.statement(), List.of(
-                    synthetic(new AssignmentStatement(flag.clone(), new BoolLiteral(true)), jump.statement()),
-                    synthetic(new BreakStatement(), jump.statement())
+                    new AssignmentStatement(flag.clone(), new BoolLiteral(true)).remapTree(jump.statement()),
+                    new BreakStatement().remapTree(jump.statement())
             ));
             insertChecks(jump, flag, insertedChecks);
         }
 
         int index = 0;
         for (SimpleIdentifier flag : flags.values()) {
-            loopBody.insert(index++, synthetic(
-                    new VariableDeclaration(new BooleanType(), flag.clone(), new BoolLiteral(false)), loop));
+            loopBody.insert(index++,
+                    new VariableDeclaration(new BooleanType(), flag.clone(), new BoolLiteral(false)).remapTree(loop));
         }
     }
 
@@ -159,7 +159,7 @@ public final class LabeledJumpLowerer {
             if (insertedChecks.computeIfAbsent(intermediate, key -> new LinkedHashSet<>()).add(flag.getName())) {
                 JumpStatement exit = continues ? new ContinueStatement() : new BreakStatement();
                 IfStatement check = new IfStatement(flag.clone(), new CompoundStatement(exit));
-                insertAfter(jump.intermediateContainers().get(i), intermediate, synthetic(check, jump.statement()));
+                insertAfter(jump.intermediateContainers().get(i), intermediate, check.remapTree(jump.statement()));
             }
             if (continues) {
                 return;
@@ -259,13 +259,5 @@ public final class LabeledJumpLowerer {
             }
         }
         throw new IllegalStateException("Jump anchor was not found in its container");
-    }
-
-    private static <T extends Node> T synthetic(T node, Node origin) {
-        node.remap(origin);
-        for (NodeInfo info : node) {
-            info.node().remap(origin);
-        }
-        return node;
     }
 }

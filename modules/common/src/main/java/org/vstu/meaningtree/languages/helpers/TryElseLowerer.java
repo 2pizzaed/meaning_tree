@@ -73,16 +73,13 @@ public final class TryElseLowerer {
         stmt.setElseBranch(null);
 
         SimpleIdentifier flag = new SimpleIdentifier("_try_else_" + ordinal).remap(stmt);
-        VariableDeclaration flagDeclaration = remapSyntheticTree(
-                new VariableDeclaration(new BooleanType(), flag.clone(), new BoolLiteral(false)), stmt
-        );
+        VariableDeclaration flagDeclaration =
+                new VariableDeclaration(new BooleanType(), flag.clone(), new BoolLiteral(false)).remapTree(stmt);
 
         CompoundStatement body = stmt.makeCompoundBody();
-        body.insert(body.getLength(), remapSyntheticTree(
-                new AssignmentStatement(flag.clone(), new BoolLiteral(true)), stmt
-        ));
+        body.insert(body.getLength(), new AssignmentStatement(flag.clone(), new BoolLiteral(true)).remapTree(stmt));
 
-        IfStatement guardedElse = remapSyntheticTree(new IfStatement(flag.clone(), elseBody), stmt);
+        IfStatement guardedElse = new IfStatement(flag.clone(), elseBody).remapTree(stmt);
 
         if (!stmt.hasFinallyBranch()) {
             insertBefore(container, stmt, List.of(flagDeclaration));
@@ -151,13 +148,5 @@ public final class TryElseLowerer {
             }
         }
         throw new IllegalStateException("Try anchor was not found in its container");
-    }
-
-    private static <T extends Node> T remapSyntheticTree(T node, Node origin) {
-        node.remap(origin);
-        for (NodeInfo info : node) {
-            info.node().remap(origin);
-        }
-        return node;
     }
 }

@@ -1042,9 +1042,6 @@ public class PythonViewer extends LanguageViewer {
         if (!loop.hasElseBranch()) {
             return "";
         }
-        if (!(loop.getElseBranch() instanceof CompoundStatement)) {
-            return String.format("\n%selse:\n%s\n", tab, branchStmtToString(loop.getElseBranch(), tab.up()));
-        }
         return String.format("\n%selse:\n%s\n", tab, branchStmtToString(loop.getElseBranch(), tab));
     }
 
@@ -1488,11 +1485,16 @@ public class PythonViewer extends LanguageViewer {
         return String.join(", ", exprStrings);
     }
 
+    /**
+     * Тело после заголовка с двоеточием. Блок сам сдвигает свои строки на уровень глубже
+     * ({@link #blockToString}), одиночный оператор сдвигается здесь.
+     */
     private String branchStmtToString(Statement branchStmt, Tab tab) {
         if (branchStmt instanceof CompoundStatement) {
             return toString(branchStmt, tab);
         }
-        return tab.concat(toString(branchStmt, tab));
+        Tab inner = tab.up();
+        return inner.concat(toString(branchStmt, inner));
     }
 
     private String conditionToString(IfStatement node, Tab tab) {
@@ -1500,22 +1502,13 @@ public class PythonViewer extends LanguageViewer {
         for (int i = 0; i < node.getBranches().size(); i++) {
             ConditionBranch branch = node.getBranches().get(i);
             if (i == 0) {
-                if (!(branch.getBody() instanceof CompoundStatement))
-                    sb.append(String.format("if %s:\n%s\n", toString(branch.getCondition()), branchStmtToString(branch.getBody(), tab.up())));
-                else
-                    sb.append(String.format("if %s:\n%s\n", toString(branch.getCondition()), branchStmtToString(branch.getBody(), tab)));
+                sb.append(String.format("if %s:\n%s\n", toString(branch.getCondition()), branchStmtToString(branch.getBody(), tab)));
             } else {
-                if (!(branch.getBody() instanceof CompoundStatement))
-                    sb.append(String.format("%selif %s:\n%s\n", tab, toString(branch.getCondition()), branchStmtToString(branch.getBody(), tab.up())));
-                else
-                    sb.append(String.format("%selif %s:\n%s\n", tab, toString(branch.getCondition()), branchStmtToString(branch.getBody(), tab)));
+                sb.append(String.format("%selif %s:\n%s\n", tab, toString(branch.getCondition()), branchStmtToString(branch.getBody(), tab)));
             }
         }
         if (node.hasElseBranch()) {
-            if (!(node.getElseBranch() instanceof CompoundStatement))
-                sb.append(String.format("%selse:\n%s\n", tab, branchStmtToString(node.getElseBranch(), tab.up())));
-            else
-                sb.append(String.format("%selse:\n%s\n", tab, branchStmtToString(node.getElseBranch(), tab)));
+            sb.append(String.format("%selse:\n%s\n", tab, branchStmtToString(node.getElseBranch(), tab)));
         }
         return sb.toString().stripTrailing();
     }

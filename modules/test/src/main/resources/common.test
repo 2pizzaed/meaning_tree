@@ -2358,7 +2358,7 @@ group: SwitchStatement
             }
 
 
-    case: SwitchBreakMovesRestIntoElse
+    case: SwitchBreakRestAfterSeveralBranches
         main java:
             switch (a) {
                 case 1:
@@ -2375,13 +2375,53 @@ group: SwitchStatement
         python:
             match a:
                 case 1:
+                    _match_exit_1: bool = False
                     if c:
                         test = 1
+                        _match_exit_1 = True
                     elif d:
                         test = 2
+                    if not _match_exit_1:
                         test += 3
-                    else:
-                        test += 3
+
+
+    case: SwitchBreakInsideTry
+        main java:
+            for (int i = 0; i < 3; i++) {
+                switch (a) {
+                    case 1:
+                        try {
+                            if (c) {
+                                break;
+                            }
+                            test += 1;
+                        } catch (Exception e) {
+                            test = 0;
+                        }
+                        test *= 2;
+                        break;
+                    default:
+                        test = 3;
+                        break;
+                }
+            }
+
+        python:
+            for i in range(3):
+                match a:
+                    case 1:
+                        _match_exit_1: bool = False
+                        try:
+                            if c:
+                                _match_exit_1 = True
+                            else:
+                                test += 1
+                        except Exception as e:
+                            test = 0
+                        if not _match_exit_1:
+                            test *= 2
+                    case _:
+                        test = 3
 
 
     case: BranchEndingWithJumpHasNoExtraBreak

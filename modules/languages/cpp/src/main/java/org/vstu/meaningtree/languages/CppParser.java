@@ -63,6 +63,7 @@ import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.GotoStatement;
+import org.vstu.meaningtree.nodes.statements.loops.control.JumpStatement;
 import org.vstu.meaningtree.nodes.types.GenericUserType;
 import org.vstu.meaningtree.nodes.types.NoReturn;
 import org.vstu.meaningtree.nodes.types.UnknownType;
@@ -1017,8 +1018,8 @@ public class CppParser extends LanguageParser {
         }
 
         CaseBlock caseBlock;
-        if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
-            statements.removeLast();
+        if (endsWithoutFallthrough(statements)) {
+            removeTrailingBreak(statements);
             caseBlock = new BasicCaseBlock(matchValue, new CompoundStatement(statements));
         }
         else {
@@ -1026,6 +1027,23 @@ public class CppParser extends LanguageParser {
         }
 
         return caseBlock;
+    }
+
+    /**
+     * Ветка не проваливается в следующую, если кончается безусловным переходом: break, continue,
+     * goto, return или throw.
+     */
+    private static boolean endsWithoutFallthrough(List<Node> statements) {
+        return !statements.isEmpty() && (statements.getLast() instanceof JumpStatement
+                || statements.getLast() instanceof ReturnStatement
+                || statements.getLast() instanceof RaiseExceptionStatement);
+    }
+
+    /** Завершающий break ветки выражается типом ветки, а не узлом в её теле. */
+    private static void removeTrailingBreak(List<Node> statements) {
+        if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
+            statements.removeLast();
+        }
     }
 
     private Node fromSwitchStatement(TSNode switchNode) {
@@ -1063,9 +1081,7 @@ public class CppParser extends LanguageParser {
                     statements.add(parseTSNode(statement));
                 }
 
-                if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
-                    statements.removeLast();
-                }
+                removeTrailingBreak(statements);
                 defaultCaseBlock = new DefaultCaseBlock(new CompoundStatement(statements));
             }
             else {

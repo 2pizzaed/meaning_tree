@@ -2011,6 +2011,40 @@ group: SwitchStatement
             }
 
 
+    case: BranchEndingWithJumpHasNoExtraBreak
+        java:
+            for (int i = 0; i < 3; i++) {
+                switch (a) {
+                    case 1:
+                        continue;
+                    default:
+                        test += 2;
+                        break;
+                }
+            }
+
+        c++:
+            for (int i = 0; i < 3; i++)
+            {
+                switch (a)
+                {
+                    case 1:
+                        continue;
+                    default:
+                        test += 2;
+                        break;
+                }
+            }
+
+        python:
+            for i in range(3):
+                match a:
+                    case 1:
+                        continue
+                    case _:
+                        test += 2
+
+
 group: Functions
     case: SimplePythonFunction
         python:

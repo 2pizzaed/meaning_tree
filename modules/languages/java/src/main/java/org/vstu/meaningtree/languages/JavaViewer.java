@@ -66,6 +66,7 @@ import org.vstu.meaningtree.nodes.statements.exceptions.components.CatchClause;
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
+import org.vstu.meaningtree.nodes.statements.loops.control.JumpStatement;
 import org.vstu.meaningtree.nodes.types.*;
 import org.vstu.meaningtree.nodes.types.builtin.*;
 import org.vstu.meaningtree.nodes.types.containers.*;
@@ -1156,6 +1157,12 @@ public class JavaViewer extends LanguageViewer {
         return "null";
     }
 
+    private static boolean endsWithJump(List<Node> nodes) {
+        return !nodes.isEmpty() && (nodes.getLast() instanceof JumpStatement
+                || nodes.getLast() instanceof ReturnStatement
+                || nodes.getLast() instanceof RaiseExceptionStatement);
+    }
+
     private String toStringCaseBlock(CaseBlock caseBlock) {
         StringBuilder builder = new StringBuilder();
 
@@ -1194,8 +1201,10 @@ public class JavaViewer extends LanguageViewer {
             }
         }
 
-        // Пустая ветка тоже заканчивается break, иначе она провалится в следующую
-        boolean endsWithBreak = caseBlock instanceof BasicCaseBlock || caseBlock instanceof DefaultCaseBlock;
+        // Пустая ветка тоже заканчивается break, иначе она провалится в следующую. После
+        // безусловного перехода break недостижим, а в Java это ошибка компиляции
+        boolean endsWithBreak = (caseBlock instanceof BasicCaseBlock || caseBlock instanceof DefaultCaseBlock)
+                && !endsWithJump(nodesList);
         if (!nodesList.isEmpty() || endsWithBreak) {
             if (_bracketsAroundCaseBranches || hasDeclarationInside) {
                 if (_openBracketOnSameLine) {

@@ -61,6 +61,7 @@ import org.vstu.meaningtree.nodes.statements.exceptions.components.CatchClause;
 import org.vstu.meaningtree.nodes.statements.loops.*;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
+import org.vstu.meaningtree.nodes.statements.loops.control.JumpStatement;
 import org.vstu.meaningtree.nodes.types.GenericInterface;
 import org.vstu.meaningtree.nodes.types.NoReturn;
 import org.vstu.meaningtree.nodes.types.UnknownType;
@@ -780,7 +781,7 @@ public class JavaParser extends LanguageParser {
         List<Node> statements = fromSwitchGroupStatements(switchGroup);
         // Ветка со стрелкой (switch_rule) никогда не проваливается в следующую, break ей не нужен
         boolean isRule = switchGroup.getType().equals("switch_rule");
-        if (isRule || !statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
+        if (isRule || endsWithoutFallthrough(statements)) {
             removeTrailingBreak(statements);
             return new BasicCaseBlock(matchValues, new CompoundStatement(statements));
         }
@@ -809,6 +810,16 @@ public class JavaParser extends LanguageParser {
             }
         }
         return statements;
+    }
+
+    /**
+     * Ветка не проваливается в следующую, если кончается безусловным переходом: break, continue,
+     * return или throw.
+     */
+    private static boolean endsWithoutFallthrough(List<Node> statements) {
+        return !statements.isEmpty() && (statements.getLast() instanceof JumpStatement
+                || statements.getLast() instanceof ReturnStatement
+                || statements.getLast() instanceof RaiseExceptionStatement);
     }
 
     /**

@@ -3,7 +3,6 @@ package org.vstu.meaningtree.languages.helpers;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.nodes.Definition;
-import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
@@ -16,6 +15,7 @@ import org.vstu.meaningtree.nodes.statements.Loop;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
+import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
 import org.vstu.meaningtree.nodes.statements.exceptions.ExceptionCatchStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.ContinueStatement;
@@ -99,26 +99,23 @@ public final class LabeledJumpLowerer {
     private List<Loop> targetLoops(MeaningTree tree) {
         List<Loop> loops = new ArrayList<>();
         for (NodeInfo info : tree) {
-            if (isLabeledLoopJump(info.node())) {
-                Loop target = findTarget(info, (JumpStatement) info.node());
-                if (target != null && loops.stream().noneMatch(loop -> loop == target)) {
-                    loops.add(target);
-                }
+            if (isLabeledLoopJump(info.node())
+                    && JumpTargets.target(info, switchCapturesBreak) instanceof Loop target
+                    && loops.stream().noneMatch(loop -> loop == target)) {
+                loops.add(target);
             }
         }
         return loops;
     }
 
     private void lowerLoop(Loop loop) {
-        // Флаги и проверки вставляются между операторами, поэтому все тела внутри цикла
-        // должны быть составными
         makeCompoundBodies(loop);
         CompoundStatement loopBody = loop.makeCompoundBody();
 
         List<Jump> jumps = new ArrayList<>();
         // Обход от самого цикла: цепочка родителей перехода должна до него дойти
         for (NodeInfo info : loop.iterate(true)) {
-            if (isLabeledLoopJump(info.node()) && findTarget(info, (JumpStatement) info.node()) == loop) {
+            if (isLabeledLoopJump(info.node()) && JumpTargets.target(info, switchCapturesBreak) == loop) {
                 jumps.add(describeJump(info, loop));
             }
         }
@@ -186,18 +183,12 @@ public final class LabeledJumpLowerer {
         JumpStatement statement = (JumpStatement) info.node();
         List<Statement> intermediates = new ArrayList<>();
         List<CompoundStatement> containers = new ArrayList<>();
-        for (NodeInfo current = info.parent(); current.node() != target; current = current.parent()) {
-            if (capturesBreak(current.node())) {
-                intermediates.add((Statement) current.node());
-                containers.add((CompoundStatement) current.parentNode());
-            }
+        for (NodeInfo crossed : JumpTargets.crossed(info, target, switchCapturesBreak)) {
+            intermediates.add((Statement) crossed.node());
+            containers.add((CompoundStatement) crossed.parentNode());
         }
         Kind kind = statement instanceof BreakStatement ? Kind.BREAK : Kind.CONTINUE;
         return new Jump(statement, (CompoundStatement) info.parentNode(), kind, intermediates, containers);
-    }
-
-    private boolean capturesBreak(Node node) {
-        return node instanceof Loop || switchCapturesBreak && node instanceof SwitchStatement;
     }
 
     private static boolean isLabeledLoopJump(Node node) {
@@ -206,37 +197,16 @@ public final class LabeledJumpLowerer {
     }
 
     /**
-     * Ближайший охватывающий цикл с меткой перехода. Переход не выходит за определение
-     * функции или класса и за выражение (тело лямбды).
+     * Делает составными все тела внутри цикла: флаги и проверки встают между операторами.
+     * Цепочка {@code else if} остаётся цепочкой.
      */
-    private static Loop findTarget(NodeInfo info, JumpStatement jump) {
-        String label = jump.getJumpDestination().getName();
-        for (NodeInfo current = info.parent(); current != null; current = current.parent()) {
-            Node node = current.node();
-            if (node instanceof Definition || node instanceof Expression) {
-                return null;
-            }
-            if (node instanceof Loop loop && loop.getJumpLabel() != null
-                    && loop.getJumpLabel().getName().equals(label) && !isInElseBranch(info, loop)) {
-                return loop;
-            }
-        }
-        return null;
-    }
-
-    /** Ветка else цикла выполняется после него, переход из неё к самому циклу не относится. */
-    private static boolean isInElseBranch(NodeInfo info, Loop loop) {
-        NodeInfo current = info;
-        while (current.parent() != null && current.parentNode() != loop) {
-            current = current.parent();
-        }
-        return loop.hasElseBranch() && current.node() == loop.getElseBranch();
-    }
-
-    private static void makeCompoundBodies(Loop loop) {
+    static void makeCompoundBodies(Loop loop) {
         for (NodeInfo info : loop.iterate(true)) {
             switch (info.node()) {
-                case IfStatement ifStatement -> ifStatement.makeCompoundBranches();
+                case IfStatement ifStatement -> {
+                    ifStatement.getBranches().forEach(ConditionBranch::makeCompoundBody);
+                    ifStatement.makeCompoundElseBranch();
+                }
                 case SwitchStatement switchStatement -> switchStatement.makeCompoundBranches();
                 case ExceptionCatchStatement tryStatement -> tryStatement.makeCompoundBranches();
                 case Loop nested -> {

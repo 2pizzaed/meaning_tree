@@ -27,7 +27,6 @@ import org.vstu.meaningtree.nodes.expressions.comparison.*;
 import org.vstu.meaningtree.nodes.expressions.comprehensions.Comprehension;
 import org.vstu.meaningtree.nodes.expressions.comprehensions.ContainerBasedComprehension;
 import org.vstu.meaningtree.nodes.expressions.comprehensions.RangeBasedComprehension;
-import org.vstu.meaningtree.nodes.expressions.identifiers.JumpLabel;
 import org.vstu.meaningtree.nodes.expressions.identifiers.ScopedIdentifier;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.expressions.literals.*;
@@ -72,6 +71,8 @@ import org.vstu.meaningtree.utils.analysis.types.PythonTypeConversionSemantics;
 import org.vstu.meaningtree.utils.analysis.types.SimpleTypeInferrer;
 import org.vstu.meaningtree.utils.modules.ImportPathConverter;
 import org.vstu.meaningtree.utils.scopes.OverloadSemantics;
+import org.vstu.meaningtree.utils.hooks.HookOrder;
+import org.vstu.meaningtree.utils.hooks.HookPhase;
 import org.vstu.meaningtree.utils.scopes.AssignmentBinding;
 import org.vstu.meaningtree.utils.scopes.ScopePolicy;
 import org.vstu.meaningtree.utils.scopes.ScopeLookupMode;
@@ -87,6 +88,10 @@ public class PythonParser extends LanguageParser {
     public PythonParser(LanguageTranslator translator) {
         super(translator, new TreeSitterPython());
         configureTsNodeHandlers();
+        hooks.intercept(HookPhase.AFTER_TREE_PARSE, HookOrder.EARLY, (tree, value, context) -> {
+            PythonMatchBreakLabeler.label(value);
+            return value;
+        });
     }
 
     private static final LanguageBehavior BEHAVIOR = LanguageBehavior.defaults()
@@ -188,7 +193,6 @@ public class PythonParser extends LanguageParser {
     @Override
     public synchronized MeaningTree getMeaningTree(String code) {
         setCode(code);
-        loopLabelCount = 0;
         TSNode rootNode = getRootNode();
         List<String> errors = lookupErrors(rootNode);
         if (!errors.isEmpty() && !getConfigParameter("skipErrors").asBoolean()) {
@@ -208,7 +212,6 @@ public class PythonParser extends LanguageParser {
     @Override
     public MeaningTree getMeaningTree(TSNode node, String code) {
         setCode(code);
-        loopLabelCount = 0;
         return new MeaningTree(parseTSNode(node));
     }
 
@@ -929,7 +932,6 @@ public class PythonParser extends LanguageParser {
             loop = new ForEachLoop(decl, (Expression) right, body);
         }
         loop.setElseBranch(elseBranch);
-        labelMatchBreaks(loop);
         return loop;
     }
 
@@ -948,46 +950,7 @@ public class PythonParser extends LanguageParser {
             loop = new WhileLoop(condition, body);
         }
         loop.setElseBranch(elseBranch);
-        labelMatchBreaks(loop);
         return loop;
-    }
-
-    /**
-     * break в ветке match выходит из цикла, а break без метки в дереве выходит из ближайшего
-     * цикла или switch, как в C. Поэтому такой break получает метку своего цикла.
-     */
-    private void labelMatchBreaks(Loop loop) {
-        List<BreakStatement> matchBreaks = new ArrayList<>();
-        for (NodeInfo info : loop.iterate(true)) {
-            if (info.node() instanceof BreakStatement br && br.getJumpDestination() == null
-                    && leavesMatchToLoop(info, loop)) {
-                matchBreaks.add(br);
-            }
-        }
-        if (matchBreaks.isEmpty()) {
-            return;
-        }
-        String label = "loop" + ++loopLabelCount;
-        loop.setJumpLabel(new JumpLabel(label));
-        for (BreakStatement br : matchBreaks) {
-            br.setJumpDestination(new JumpLabel(label));
-        }
-    }
-
-    /** Лежит ли break внутри match в теле самого цикла, а не во вложенном цикле или функции. */
-    private static boolean leavesMatchToLoop(NodeInfo breakInfo, Loop loop) {
-        boolean insideMatch = false;
-        NodeInfo current = breakInfo;
-        while (current.parentNode() != loop) {
-            current = current.parent();
-            Node node = current.node();
-            if (node instanceof Loop || node instanceof Definition || node instanceof Expression) {
-                return false;
-            }
-            insideMatch |= node instanceof SwitchStatement;
-        }
-        // Ветка else выполняется после цикла, её break относится к внешнему циклу
-        return insideMatch && current.node() == loop.getBody();
     }
 
     @Nullable
@@ -2007,8 +1970,6 @@ public class PythonParser extends LanguageParser {
     }
 
     private final PythonImportResolver importResolver = new PythonImportResolver();
-    /** Сколько циклов уже получили метку для break из match: метки вложенных циклов различаются. */
-    private int loopLabelCount;
 
     @Override
     protected ImportResolver getImportResolver() {

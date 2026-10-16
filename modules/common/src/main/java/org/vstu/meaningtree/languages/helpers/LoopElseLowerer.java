@@ -5,17 +5,12 @@ import org.vstu.meaningtree.iterators.utils.NodeInfo;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.ProgramEntryPoint;
 import org.vstu.meaningtree.nodes.Statement;
-import org.vstu.meaningtree.nodes.expressions.identifiers.JumpLabel;
 import org.vstu.meaningtree.nodes.expressions.identifiers.SimpleIdentifier;
 import org.vstu.meaningtree.nodes.expressions.literals.BoolLiteral;
-import org.vstu.meaningtree.nodes.interfaces.HasBodyStatement;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.Loop;
 import org.vstu.meaningtree.nodes.statements.assignments.AssignmentStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
-import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
-import org.vstu.meaningtree.nodes.statements.conditions.components.CaseBlock;
-import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
 import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.declarations.VariableDeclaration;
 import org.vstu.meaningtree.nodes.types.builtin.BooleanType;
@@ -70,7 +65,7 @@ public final class LoopElseLowerer {
         Statement elseBody = loop.getElseBranch();
         loop.setElseBranch(null);
 
-        if (!hasOwnBreak(loop.getBody(), loop, 0)) {
+        if (ownBreaks(loop).isEmpty()) {
             insertAfter(container, loop, flattenStatements(elseBody));
             return;
         }
@@ -80,8 +75,13 @@ public final class LoopElseLowerer {
                 new VariableDeclaration(new BooleanType(), flag.clone(), new BoolLiteral(true)), loop
         );
 
-        loop.makeCompoundBody();
-        rewriteBreaks((CompoundStatement) loop.getBody(), flag, loop, 0);
+        // Присваивание встаёт перед break, поэтому у каждого break родителем должен быть блок
+        LabeledJumpLowerer.makeCompoundBodies(loop);
+        for (NodeInfo info : ownBreaks(loop)) {
+            CompoundStatement block = (CompoundStatement) info.parentNode();
+            block.insert(indexOf(block.getNodes(), info.node()),
+                    remapSyntheticTree(makeFlagAssignment(flag, loop), loop));
+        }
 
         IfStatement guardedElse = remapSyntheticTree(new IfStatement(flag.clone(), elseBody), loop);
 
@@ -96,76 +96,15 @@ public final class LoopElseLowerer {
         return List.of(statement);
     }
 
-    private static boolean hasOwnBreak(Node node, Loop targetLoop, int depth) {
-        if (node instanceof BreakStatement br) {
-            return breakTargetsLoop(br, targetLoop, depth);
-        }
-        int nextDepth = depth;
-        // An unlabeled break leaves the nearest loop or switch
-        if (node instanceof Loop && node != targetLoop || node instanceof SwitchStatement) {
-            nextDepth++;
-        }
-        for (NodeInfo info : node.iterate(false)) {
-            if (hasOwnBreak(info.node(), targetLoop, nextDepth)) {
-                return true;
+    /** break, которые выходят из этого цикла; ветку else вызывающий уже снял с цикла. */
+    private static List<NodeInfo> ownBreaks(Loop loop) {
+        List<NodeInfo> breaks = new ArrayList<>();
+        for (NodeInfo info : loop.iterate(true)) {
+            if (info.node() instanceof BreakStatement && JumpTargets.target(info, true) == loop) {
+                breaks.add(info);
             }
         }
-        return false;
-    }
-
-    private static boolean breakTargetsLoop(BreakStatement br, Loop targetLoop, int depth) {
-        JumpLabel destination = br.getJumpDestination();
-        if (destination == null) {
-            return depth == 0;
-        }
-        JumpLabel loopLabel = targetLoop.getJumpLabel();
-        return loopLabel != null && destination.getName().equals(loopLabel.getName());
-    }
-
-    /**
-     * Inserts `flag = false;` immediately before every break belonging to targetLoop.
-     * Only descends into nested Loop/If/Switch/HasBodyStatement bodies (same shape as
-     * PythonSpecialNodeTransformations' continue-injection walker); a nested Loop or Switch
-     * increases the depth used to decide whether an unlabeled break still belongs to targetLoop.
-     */
-    private static void rewriteBreaks(CompoundStatement compound, SimpleIdentifier flag, Loop targetLoop, int depth) {
-        Node[] nodes = compound.getNodes();
-        int offset = 0;
-        for (int i = 0; i < nodes.length; i++) {
-            Node node = nodes[i];
-            if (node instanceof BreakStatement br && breakTargetsLoop(br, targetLoop, depth)) {
-                compound.insert(i + offset, remapSyntheticTree(makeFlagAssignment(flag, targetLoop), targetLoop));
-                offset++;
-            } else {
-                descendAndRewriteBreaks(node, flag, targetLoop, depth);
-            }
-        }
-    }
-
-    private static void descendAndRewriteBreaks(Node node, SimpleIdentifier flag, Loop targetLoop, int depth) {
-        if (node instanceof Loop nestedLoop && nestedLoop != targetLoop) {
-            nestedLoop.makeCompoundBody();
-            rewriteBreaks((CompoundStatement) nestedLoop.getBody(), flag, targetLoop, depth + 1);
-        } else if (node instanceof IfStatement ifStmt) {
-            ifStmt.makeCompoundBranches();
-            for (ConditionBranch branch : ifStmt.getBranches()) {
-                rewriteBreaks((CompoundStatement) branch.getBody(), flag, targetLoop, depth);
-            }
-            if (ifStmt.hasElseBranch()) {
-                rewriteBreaks((CompoundStatement) ifStmt.getElseBranch(), flag, targetLoop, depth);
-            }
-        } else if (node instanceof SwitchStatement switchStmt) {
-            switchStmt.makeCompoundBranches();
-            for (CaseBlock branch : switchStmt.getCases()) {
-                rewriteBreaks((CompoundStatement) branch.getBody(), flag, targetLoop, depth + 1);
-            }
-            if (switchStmt.hasDefaultCase()) {
-                rewriteBreaks((CompoundStatement) switchStmt.getDefaultCase().getBody(), flag, targetLoop, depth + 1);
-            }
-        } else if (node instanceof HasBodyStatement hasBody) {
-            hasBody.makeCompoundBody();
-            rewriteBreaks((CompoundStatement) hasBody.getBody(), flag, targetLoop, depth);
-        }
+        return breaks;
     }
 
     private static AssignmentStatement makeFlagAssignment(SimpleIdentifier flag, Node origin) {

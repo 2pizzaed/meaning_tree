@@ -2265,6 +2265,52 @@ group: SwitchStatement
             }
 
 
+    case: MatchBreakInLoopElseLeavesOuterLoop
+        main python:
+            for i in range(3):
+                for j in range(3):
+                    test += j
+                else:
+                    match a:
+                        case 1:
+                            break
+                test *= 2
+
+        java:
+            loop1:
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    test += j;
+                }
+                switch (a) {
+                    case 1:
+                        break loop1;
+                }
+                test *= 2;
+            }
+
+        c++:
+            for (int i = 0; i < 3; i++)
+            {
+                bool _break_1 = false;
+                for (int j = 0; j < 3; j++)
+                {
+                    test += j;
+                }
+                switch (a)
+                {
+                    case 1:
+                        _break_1 = true;
+                        break;
+                }
+                if (_break_1)
+                {
+                    break;
+                }
+                test *= 2;
+            }
+
+
     case: SwitchBreakInMiddleOfBranch
         main java:
             for (int i = 0; i < 3; i++) {

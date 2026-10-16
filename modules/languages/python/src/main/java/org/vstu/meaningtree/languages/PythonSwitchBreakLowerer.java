@@ -3,12 +3,11 @@ package org.vstu.meaningtree.languages;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.exceptions.UnsupportedViewingException;
 import org.vstu.meaningtree.iterators.utils.NodeInfo;
-import org.vstu.meaningtree.nodes.Definition;
+import org.vstu.meaningtree.languages.helpers.JumpTargets;
 import org.vstu.meaningtree.nodes.Expression;
 import org.vstu.meaningtree.nodes.Node;
 import org.vstu.meaningtree.nodes.Statement;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
-import org.vstu.meaningtree.nodes.statements.Loop;
 import org.vstu.meaningtree.nodes.statements.ReturnStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.IfStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.SwitchStatement;
@@ -19,7 +18,10 @@ import org.vstu.meaningtree.nodes.statements.loops.control.BreakStatement;
 import org.vstu.meaningtree.nodes.statements.loops.control.JumpStatement;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Убирает break без метки из веток switch: в дереве он выходит из switch, а в Python break
@@ -30,7 +32,11 @@ import java.util.List;
  * ветки else цикла не поддерживается. Работает с копией дерева и не меняет дерево вызывающего.
  */
 final class PythonSwitchBreakLowerer {
-    private PythonSwitchBreakLowerer() {
+    /** break, выходящие из обрабатываемого switch; сравнение по ссылке. */
+    private final Set<Node> exits;
+
+    private PythonSwitchBreakLowerer(Set<Node> exits) {
+        this.exits = exits;
     }
 
     static MeaningTree lower(MeaningTree source) {
@@ -45,6 +51,10 @@ final class PythonSwitchBreakLowerer {
             }
         }
         for (SwitchStatement switchStatement : switches) {
+            PythonSwitchBreakLowerer lowerer = new PythonSwitchBreakLowerer(exitsOf(switchStatement));
+            if (lowerer.exits.isEmpty()) {
+                continue;
+            }
             switchStatement.makeCompoundBranches();
             List<CaseBlock> branches = new ArrayList<>(switchStatement.getCases());
             if (switchStatement.hasDefaultCase()) {
@@ -52,7 +62,7 @@ final class PythonSwitchBreakLowerer {
             }
             for (CaseBlock branch : branches) {
                 CompoundStatement body = (CompoundStatement) branch.getBody();
-                setNodes(body, withoutSwitchExits(body.getNodeList()));
+                setNodes(body, lowerer.withoutSwitchExits(body.getNodeList()));
             }
         }
         return result;
@@ -60,23 +70,25 @@ final class PythonSwitchBreakLowerer {
 
     private static boolean hasSwitchExit(MeaningTree tree) {
         for (NodeInfo info : tree) {
-            if (info.node() instanceof SwitchStatement switchStatement && containsSwitchExitInBranches(switchStatement)) {
+            if (info.node() instanceof BreakStatement && JumpTargets.target(info, true) instanceof SwitchStatement) {
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean containsSwitchExitInBranches(SwitchStatement switchStatement) {
-        List<CaseBlock> branches = new ArrayList<>(switchStatement.getCases());
-        if (switchStatement.hasDefaultCase()) {
-            branches.add(switchStatement.getDefaultCase());
+    private static Set<Node> exitsOf(SwitchStatement switchStatement) {
+        Set<Node> exits = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (NodeInfo info : switchStatement.iterate(true)) {
+            if (info.node() instanceof BreakStatement && JumpTargets.target(info, true) == switchStatement) {
+                exits.add(info.node());
+            }
         }
-        return branches.stream().anyMatch(branch -> containsSwitchExit(branch.getBody()));
+        return exits;
     }
 
     /** Операторы без break, выходящих из switch, с тем же порядком выполнения. */
-    private static List<Node> withoutSwitchExits(List<Node> statements) {
+    private List<Node> withoutSwitchExits(List<Node> statements) {
         List<Node> result = new ArrayList<>();
         for (int i = 0; i < statements.size(); i++) {
             Node statement = statements.get(i);
@@ -94,7 +106,7 @@ final class PythonSwitchBreakLowerer {
     }
 
     /** Переносит код после оператора с break в те его ветви, после которых этот код выполнялся. */
-    private static List<Node> restructure(Statement statement, List<Node> rest) {
+    private List<Node> restructure(Statement statement, List<Node> rest) {
         if (statement instanceof CompoundStatement block) {
             List<Node> nodes = new ArrayList<>(block.getNodeList());
             nodes.addAll(rest);
@@ -131,7 +143,7 @@ final class PythonSwitchBreakLowerer {
     }
 
     /** {@code if c: pass else: a()} становится {@code if not c: a()}. */
-    private static IfStatement simplifyEmptyThen(IfStatement ifStatement) {
+    private IfStatement simplifyEmptyThen(IfStatement ifStatement) {
         if (ifStatement.getBranches().size() != 1 || !ifStatement.hasElseBranch()) {
             return ifStatement;
         }
@@ -149,7 +161,7 @@ final class PythonSwitchBreakLowerer {
      * Копия кода для ещё одной ветви: у её узлов свои идентификаторы, иначе в дереве появились
      * бы одинаковые, а в карте исходников копия указывает на исходные узлы.
      */
-    private static List<Node> copyOf(List<Node> statements) {
+    private List<Node> copyOf(List<Node> statements) {
         List<Node> copies = new ArrayList<>();
         for (Node statement : statements) {
             Node copy = statement.freshClone();
@@ -157,6 +169,10 @@ final class PythonSwitchBreakLowerer {
             List<NodeInfo> copied = copy.iterate(true);
             for (int i = 0; i < originals.size(); i++) {
                 copied.get(i).node().remap(originals.get(i).node());
+                // Копия break из switch выходит из него так же, как оригинал
+                if (exits.contains(originals.get(i).node())) {
+                    exits.add(copied.get(i).node());
+                }
             }
             copies.add(copy);
         }
@@ -186,37 +202,12 @@ final class PythonSwitchBreakLowerer {
         return statement instanceof CompoundStatement compound ? compound.getNodeList() : List.of(statement);
     }
 
-    private static boolean isSwitchExit(Node node) {
-        return node instanceof BreakStatement br && br.getJumpDestination() == null;
+    private boolean isSwitchExit(Node node) {
+        return exits.contains(node);
     }
 
-    private static boolean containsSwitchExit(Node root) {
-        for (NodeInfo info : root.iterate(true)) {
-            if (isSwitchExit(info.node()) && exitsThrough(info, root)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Выходит ли break за пределы root: его не перехватывает вложенный цикл или switch, и он
-     * не лежит в функции или лямбде. Ветка else цикла break не перехватывает.
-     */
-    private static boolean exitsThrough(NodeInfo breakInfo, Node root) {
-        NodeInfo current = breakInfo;
-        while (current.node() != root) {
-            NodeInfo parent = current.parent();
-            Node node = parent.node();
-            if (node instanceof Loop loop && !(loop.hasElseBranch() && current.node() == loop.getElseBranch())) {
-                return false;
-            }
-            if (node instanceof SwitchStatement || node instanceof Definition || node instanceof Expression) {
-                return false;
-            }
-            current = parent;
-        }
-        return true;
+    private boolean containsSwitchExit(Node root) {
+        return root.iterate(true).stream().anyMatch(info -> exits.contains(info.node()));
     }
 
     private static void setNodes(CompoundStatement compound, List<Node> nodes) {

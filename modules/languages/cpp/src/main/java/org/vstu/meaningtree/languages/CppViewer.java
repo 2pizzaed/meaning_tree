@@ -780,9 +780,12 @@ public class CppViewer extends LanguageViewer {
 
         Statement caseBlockBody;
         if (caseBlock instanceof MatchValueCaseBlock mvcb) {
-            builder.append("case ");
-            builder.append(toString(mvcb.getMatchValue()));
-            builder.append(":");
+            // У метки case в C++ одно значение, поэтому несколько значений - это метки подряд
+            List<String> labels = new ArrayList<>();
+            for (Expression matchValue : mvcb.getMatchValues()) {
+                labels.add("case " + toString(matchValue) + ":");
+            }
+            builder.append(String.join("\n" + indent(""), labels));
             caseBlockBody = mvcb.getBody();
         }
         else if (caseBlock instanceof DefaultCaseBlock dcb) {

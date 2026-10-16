@@ -52,6 +52,7 @@ import org.vstu.meaningtree.nodes.statements.conditions.components.BasicCaseBloc
 import org.vstu.meaningtree.nodes.statements.conditions.components.ConditionBranch;
 import org.vstu.meaningtree.nodes.statements.conditions.components.DefaultCaseBlock;
 import org.vstu.meaningtree.nodes.statements.conditions.components.FallthroughCaseBlock;
+import org.vstu.meaningtree.nodes.statements.conditions.components.MatchValueCaseBlock;
 import org.vstu.meaningtree.nodes.statements.exceptions.ExceptionCatchStatement;
 import org.vstu.meaningtree.nodes.statements.exceptions.RaiseExceptionStatement;
 import org.vstu.meaningtree.nodes.statements.exceptions.components.CatchClause;
@@ -1982,7 +1983,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(block));
         json.add("body", serialize(block.getBody()));
-        json.add("match_value", serialize(block.getMatchValue()));
+        addMatchValues(json, block);
         return json;
     }
 
@@ -1998,9 +1999,24 @@ public class JsonSerializer implements Serializer<JsonObject> {
     private JsonObject serializeFallthroughCaseBlock(@NotNull FallthroughCaseBlock block) {
         JsonObject json = new JsonObject();
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(block));
-        json.add("match_value", serialize(block.getMatchValue()));
+        addMatchValues(json, block);
         json.add("body", serialize(block.getBody()));
         return json;
+    }
+
+    /**
+     * Единственное значение ветки пишется прежним полем {@code match_value}, чтобы не менять
+     * формат обычных веток; несколько значений — списком {@code match_values}.
+     */
+    private void addMatchValues(@NotNull JsonObject json, @NotNull MatchValueCaseBlock block) {
+        List<Expression> values = block.getMatchValues();
+        if (values.size() == 1) {
+            json.add("match_value", serialize(values.getFirst()));
+            return;
+        }
+        JsonArray array = new JsonArray();
+        for (Expression value : values) array.add(serialize(value));
+        json.add("match_values", array);
     }
 
     @NotNull

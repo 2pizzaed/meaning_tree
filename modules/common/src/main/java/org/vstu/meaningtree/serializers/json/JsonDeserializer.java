@@ -1224,14 +1224,14 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
                 yield new SwitchStatement(targetExpr, cases, defaultCase);
             }
             case "basic_case_block" -> new BasicCaseBlock(
-                    deserializeExpression(json.getAsJsonObject("match_value")),
+                    deserializeMatchValues(json),
                     (Statement) deserialize(json.getAsJsonObject("body"))
             );
             case "default_case_block" -> new DefaultCaseBlock(
                     (Statement) deserialize(json.getAsJsonObject("body"))
             );
             case "fallthrough_case_block" -> new FallthroughCaseBlock(
-                    deserializeExpression(json.getAsJsonObject("match_value")),
+                    deserializeMatchValues(json),
                     (Statement) deserialize(json.getAsJsonObject("body"))
             );
 
@@ -1687,6 +1687,14 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
 
     private Expression deserializeExpression(JsonObject json) {
         return (Expression) deserialize(json);
+    }
+
+    /** Ветка с одним значением хранит его в {@code match_value}, с несколькими — в {@code match_values}. */
+    private List<Expression> deserializeMatchValues(JsonObject caseBlock) {
+        if (caseBlock.has("match_values")) {
+            return deserializeExpressionList(caseBlock.getAsJsonArray("match_values"));
+        }
+        return List.of(deserializeExpression(caseBlock.getAsJsonObject("match_value")));
     }
 
     private NewExpression restoreStackAllocation(NewExpression expression, JsonObject json) {

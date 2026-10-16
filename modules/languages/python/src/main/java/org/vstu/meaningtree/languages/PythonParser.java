@@ -268,38 +268,58 @@ public class PythonParser extends LanguageParser {
         DefaultCaseBlock defaultBranch = null;
         for (int i = 0; i < getNamedChildCountWithoutExtras(node); i++) {
             TSNode alternative = getNamedChildWithoutExtras(node, i);
-            Expression condition;
-            VariableDeclaration newDecl = null;
-            if (getNamedChildCountWithoutExtras(getNamedChildWithoutExtras(alternative, 0)) == 0) {
+            TSNode pattern = getNamedChildWithoutExtras(alternative, 0);
+            if (getNamedChildCountWithoutExtras(pattern) == 0) {
                 defaultBranch = new DefaultCaseBlock(
                         (Statement) parseTSNode(alternative.getChildByFieldName("consequence"))
                 );
                 continue;
-            } else if (getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0).getType().equals("as_pattern")) {
-                condition = fromCasePatternValue(getNamedChildWithoutExtras(getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0), 0));
-                SimpleIdentifier ident = (SimpleIdentifier) parseTSNode(getNamedChildWithoutExtras(getNamedChildWithoutExtras(getNamedChildWithoutExtras(alternative, 0), 0), 1));
-                Type variableType = ctx.inferType(condition);
-                newDecl = new VariableDeclaration(variableType, ident, (Expression) condition.freshClone());
-            } else {
-                condition = fromCasePatternValue(getNamedChildWithoutExtras(alternative, 0));
             }
+            SimpleIdentifier alias = null;
+            TSNode asPattern = getNamedChildWithoutExtras(pattern, 0);
+            if (asPattern.getType().equals("as_pattern")) {
+                pattern = getNamedChildWithoutExtras(asPattern, 0);
+                alias = (SimpleIdentifier) parseTSNode(getNamedChildWithoutExtras(asPattern, 1));
+            }
+            List<Expression> values = fromCasePatternValues(pattern);
             CompoundStatement compoundStatement = (CompoundStatement) parseTSNode(alternative.getChildByFieldName("consequence"));
-            if (newDecl != null) {
-                compoundStatement.insert(0, newDecl);
+            if (alias != null) {
+                // При нескольких вариантах имя получает совпавшее значение, то есть сам субъект match
+                Expression aliasValue = values.size() == 1 ? values.getFirst() : target;
+                Type variableType = ctx.inferType(aliasValue);
+                compoundStatement.insert(0, new VariableDeclaration(variableType, alias, (Expression) aliasValue.freshClone()));
             }
-            branches.add(new BasicCaseBlock(condition, compoundStatement));
+            branches.add(new BasicCaseBlock(values, compoundStatement));
         }
         return new SwitchStatement(target, branches, defaultBranch);
     }
 
     /**
-     * Значение образца {@code case}. Отрицательное число в образце — не {@code unary_operator}:
-     * минус лежит в {@code case_pattern} отдельным безымянным ребёнком перед числом.
+     * Значения образца {@code case}: одно или варианты {@code union_pattern} ({@code case 2 | 3:}).
+     * Отрицательное число в образце — не {@code unary_operator}: минус лежит отдельным безымянным
+     * ребёнком перед числом, поэтому дети перебираются вместе с безымянными.
      */
-    private Expression fromCasePatternValue(TSNode casePattern) {
-        Expression value = (Expression) parseTSNode(getNamedChildWithoutExtras(casePattern, 0));
-        TSNode first = casePattern.getChild(0);
-        return first.getType().equals("-") && !first.isNamed() ? new UnaryMinusOp(value) : value;
+    private List<Expression> fromCasePatternValues(TSNode casePattern) {
+        TSNode container = getNamedChildWithoutExtras(casePattern, 0);
+        if (!container.getType().equals("union_pattern")) {
+            container = casePattern;
+        }
+        List<Expression> values = new ArrayList<>();
+        boolean negative = false;
+        for (int i = 0; i < container.getChildCount(); i++) {
+            TSNode child = container.getChild(i);
+            if (child.isExtra()) {
+                continue;
+            }
+            if (!child.isNamed()) {
+                negative = child.getType().equals("-");
+                continue;
+            }
+            Expression value = (Expression) parseTSNode(child);
+            values.add(negative ? new UnaryMinusOp(value) : value);
+            negative = false;
+        }
+        return values;
     }
 
     private Node detectAnnotated(TSNode node) {

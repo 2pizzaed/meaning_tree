@@ -41,6 +41,7 @@ import org.vstu.meaningtree.nodes.expressions.literals.StringLiteral;
 import org.vstu.meaningtree.nodes.expressions.math.AddOp;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
+import org.vstu.meaningtree.nodes.statements.conditions.components.BasicCaseBlock;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
 import org.vstu.meaningtree.nodes.statements.ResourceContextStatement;
 import org.vstu.meaningtree.nodes.statements.ScopeDeclarationStatement;
@@ -429,6 +430,10 @@ public class JSONSerializerTests {
                         x = 5;
                         break;
                 }
+                switch (x) {
+                    case 6, 7 -> x = 8;
+                    default -> x = 9;
+                }
                 """);
         java(snippets, "io", """
                 System.out.println("hi");
@@ -566,6 +571,15 @@ public class JSONSerializerTests {
                     print(i)
                 for v in [1, 2]:
                     continue
+                """);
+        python(snippets, "matchWithAlternatives", """
+                match x:
+                    case 1:
+                        x = 2
+                    case 2 | -3:
+                        x = 4
+                    case _:
+                        x = 5
                 """);
         java(snippets, "exceptions", """
                 try {
@@ -1018,6 +1032,23 @@ public class JSONSerializerTests {
         assertTrue(body.replaceFirst(info -> info.node() == statement, node -> replacement).isSuccess());
         assertTrue(statement.getTrailingComments().isEmpty());
         assertEquals(" c", replacement.getTrailingComments().getFirst().getUnescapedContent());
+    }
+
+    @Test
+    void caseBlockKeepsSingleMatchValueFieldAndListsOnlySeveralValues() {
+        BasicCaseBlock single = new BasicCaseBlock(new IntegerLiteral(1), new CompoundStatement());
+        BasicCaseBlock several = new BasicCaseBlock(
+                List.of(new IntegerLiteral(2), new IntegerLiteral(3)), new CompoundStatement());
+
+        JsonObject singleJson = new JsonSerializer().serialize(single);
+        JsonObject severalJson = new JsonSerializer().serialize(several);
+
+        assertTrue(singleJson.get("match_value").isJsonObject());
+        assertFalse(singleJson.has("match_values"));
+        assertEquals(2, severalJson.getAsJsonArray("match_values").size());
+        assertFalse(severalJson.has("match_value"));
+        assertEquals(single, new JsonDeserializer().deserialize(singleJson));
+        assertEquals(several, new JsonDeserializer().deserialize(severalJson));
     }
 
     @Test

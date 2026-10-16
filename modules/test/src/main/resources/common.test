@@ -1892,6 +1892,45 @@ group: SwitchStatement
             }
 
 
+    case: SeveralCaseValues
+        python:
+            match a:
+                case 1 | 2:
+                    test += 5
+                case 3:
+                    test -= 4
+                case _:
+                    test = 0
+
+        java:
+            switch (a) {
+                case 1, 2:
+                    test += 5;
+                    break;
+                case 3:
+                    test -= 4;
+                    break;
+                default:
+                    test = 0;
+                    break;
+            }
+
+        isolated c++:
+            switch (a)
+            {
+                case 1:
+                case 2:
+                    test += 5;
+                    break;
+                case 3:
+                    test -= 4;
+                    break;
+                default:
+                    test = 0;
+                    break;
+            }
+
+
     case: JavaArrowCasesDoNotFallThrough
         main java:
             switch (a) {

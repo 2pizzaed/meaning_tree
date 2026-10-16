@@ -762,17 +762,21 @@ public class JavaParser extends LanguageParser {
     }
 
     private CaseBlock fromSwitchGroupTSNode(TSNode switchGroup) {
-        Expression matchValue =
-                (Expression) parseTSNode(getNamedChildWithoutExtras(getNamedChildWithoutExtras(switchGroup, 0), 0));
+        // У одной метки бывает несколько значений: case 2, 3:
+        TSNode label = getNamedChildWithoutExtras(switchGroup, 0);
+        List<Expression> matchValues = new ArrayList<>();
+        for (int i = 0; i < getNamedChildCountWithoutExtras(label); i++) {
+            matchValues.add((Expression) parseTSNode(getNamedChildWithoutExtras(label, i)));
+        }
 
         List<Node> statements = fromSwitchGroupStatements(switchGroup);
         // Ветка со стрелкой (switch_rule) никогда не проваливается в следующую, break ей не нужен
         boolean isRule = switchGroup.getType().equals("switch_rule");
         if (isRule || !statements.isEmpty() && statements.getLast() instanceof BreakStatement) {
             removeTrailingBreak(statements);
-            return new BasicCaseBlock(matchValue, new CompoundStatement(statements));
+            return new BasicCaseBlock(matchValues, new CompoundStatement(statements));
         }
-        return new FallthroughCaseBlock(matchValue, new CompoundStatement(statements));
+        return new FallthroughCaseBlock(matchValues, new CompoundStatement(statements));
     }
 
     /**

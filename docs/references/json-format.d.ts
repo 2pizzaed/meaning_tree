@@ -1021,15 +1021,21 @@ export interface SwitchStatementNode extends NodeBase<"switch_statement"> {
     default?: DefaultCaseBlockNode;
 }
 
-export interface BasicCaseBlockNode extends NodeBase<"basic_case_block"> {
-    body: AnyNode;
-    match_value: AnyNode;
-}
+/**
+ * Значения ветки case: единственное значение пишется полем `match_value`, несколько
+ * (`case 2, 3:` в Java, `case 2 | 3:` в Python) — списком `match_values`.
+ */
+export type CaseMatchValues =
+    | { match_value: AnyNode; match_values?: never }
+    | { match_values: AnyNode[]; match_value?: never };
 
-export interface FallthroughCaseBlockNode extends NodeBase<"fallthrough_case_block"> {
-    match_value: AnyNode;
+export type BasicCaseBlockNode = NodeBase<"basic_case_block"> & CaseMatchValues & {
     body: AnyNode;
-}
+};
+
+export type FallthroughCaseBlockNode = NodeBase<"fallthrough_case_block"> & CaseMatchValues & {
+    body: AnyNode;
+};
 
 export interface DefaultCaseBlockNode extends NodeBase<"default_case_block"> {
     body: AnyNode;

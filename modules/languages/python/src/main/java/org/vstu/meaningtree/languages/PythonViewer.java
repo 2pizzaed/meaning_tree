@@ -945,7 +945,9 @@ public class PythonViewer extends LanguageViewer {
                                 String.format(
                                         "%scase %s:\n%s\n",
                                         tab,
-                                        toString(basicCaseBlock.getMatchValue()),
+                                        basicCaseBlock.getMatchValues().stream()
+                                                .map(matchValue -> toString(matchValue))
+                                                .collect(Collectors.joining(" | ")),
                                         branchStmtToString(basicCaseBlock.getBody(), tab)
                                 )
                         );

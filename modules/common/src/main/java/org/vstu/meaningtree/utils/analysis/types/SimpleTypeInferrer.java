@@ -746,7 +746,11 @@ public class SimpleTypeInferrer {
     private static void inferenceHeader(@NotNull HasBodyStatement hasBodyStatement, @NotNull ScopeTable scope) {
         switch (hasBodyStatement) {
             case ConditionBranch conditionBranch -> inference(conditionBranch.getCondition(), scope);
-            case MatchValueCaseBlock matchValueCaseBlock -> inference(matchValueCaseBlock.getMatchValue(), scope);
+            case MatchValueCaseBlock matchValueCaseBlock -> {
+                for (Expression matchValue : matchValueCaseBlock.getMatchValues()) {
+                    inference(matchValue, scope);
+                }
+            }
             case WhileLoop whileLoop -> inference(whileLoop.getCondition(), scope);
             case DoWhileLoop doWhileLoop -> inference(doWhileLoop.getCondition(), scope);
             case GeneralForLoop generalForLoop -> {

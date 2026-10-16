@@ -1160,7 +1160,9 @@ public class JavaViewer extends LanguageViewer {
         Statement caseBlockBody;
         if (caseBlock instanceof MatchValueCaseBlock mvcb) {
             builder.append("case ");
-            builder.append(toString(mvcb.getMatchValue()));
+            builder.append(mvcb.getMatchValues().stream()
+                    .map(matchValue -> toString(matchValue))
+                    .collect(Collectors.joining(", ")));
             builder.append(":");
             caseBlockBody = mvcb.getBody();
         }

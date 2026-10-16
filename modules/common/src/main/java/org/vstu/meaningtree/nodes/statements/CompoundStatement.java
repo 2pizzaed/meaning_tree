@@ -19,6 +19,17 @@ public class CompoundStatement extends Statement {
         this.nodes = new ArrayList<>(nodes);
     }
 
+    /**
+     * Оператор как блок: составной возвращается как есть, одиночный оборачивается в новый блок,
+     * который ссылается на него через {@link Node#remap} — карта исходников ведёт от блока к
+     * обёрнутому оператору.
+     */
+    public static CompoundStatement wrap(Statement statement) {
+        return statement instanceof CompoundStatement compound
+                ? compound
+                : new CompoundStatement(statement).remap(statement);
+    }
+
     public int getLength() {
         return nodes.size();
     }

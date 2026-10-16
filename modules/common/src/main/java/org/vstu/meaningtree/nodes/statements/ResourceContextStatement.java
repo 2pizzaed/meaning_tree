@@ -58,9 +58,7 @@ public class ResourceContextStatement extends Statement implements HasBodyStatem
 
     @Override
     public CompoundStatement makeCompoundBody() {
-        if (!(body instanceof CompoundStatement)) {
-            body = new CompoundStatement(body);
-        }
+        body = CompoundStatement.wrap(body);
         return (CompoundStatement) body;
     }
 

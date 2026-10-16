@@ -48,10 +48,8 @@ public abstract class Loop extends Statement implements HasBodyStatement {
     }
 
     public CompoundStatement makeCompoundElseBody() {
-        if (elseBranch != null && !(elseBranch instanceof CompoundStatement)) {
-            elseBranch = new CompoundStatement(elseBranch);
-        }
-        return elseBranch != null ? (CompoundStatement) elseBranch : null;
+        elseBranch = elseBranch == null ? null : CompoundStatement.wrap(elseBranch);
+        return (CompoundStatement) elseBranch;
     }
 
     @Override

@@ -32,9 +32,7 @@ public class GeneralForLoop extends ForLoop {
 
     @Override
     public CompoundStatement makeCompoundBody() {
-        if (!(body instanceof CompoundStatement)) {
-            body = new CompoundStatement(getBody());
-        }
+        body = CompoundStatement.wrap(body);
         return (CompoundStatement) body;
     }
 

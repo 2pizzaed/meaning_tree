@@ -23,9 +23,7 @@ public abstract class CaseBlock extends Statement implements HasBodyStatement {
 
     @Override
     public CompoundStatement makeCompoundBody() {
-        if (!(body instanceof CompoundStatement)) {
-            body = new CompoundStatement(getBody());
-        }
+        body = CompoundStatement.wrap(body);
         return (CompoundStatement) body;
     }
 

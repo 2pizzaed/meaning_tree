@@ -134,7 +134,7 @@ public class ExceptionCatchStatement extends Statement {
     }
 
     public CompoundStatement makeCompoundBody() {
-        body = makeCompound(body);
+        body = CompoundStatement.wrap(body);
         return (CompoundStatement) body;
     }
 
@@ -143,16 +143,12 @@ public class ExceptionCatchStatement extends Statement {
      * не могут отрендерить одиночный оператор в этих позициях.
      */
     public void makeCompoundBranches() {
-        body = makeCompound(body);
+        body = CompoundStatement.wrap(body);
         for (CatchClause clause : catchClauses) {
             clause.makeCompoundBody();
         }
-        _elseBranch = _elseBranch == null ? null : makeCompound(_elseBranch);
-        _finallyBranch = _finallyBranch == null ? null : makeCompound(_finallyBranch);
-    }
-
-    private static Statement makeCompound(@NotNull Statement statement) {
-        return statement instanceof CompoundStatement ? statement : new CompoundStatement(statement);
+        _elseBranch = _elseBranch == null ? null : CompoundStatement.wrap(_elseBranch);
+        _finallyBranch = _finallyBranch == null ? null : CompoundStatement.wrap(_finallyBranch);
     }
 
     @Override

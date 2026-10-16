@@ -79,9 +79,7 @@ public class IfStatement extends Statement {
         for (ConditionBranch branch : branches) {
             branch.makeCompoundBody();
         }
-        if (_elseBranch != null && !(_elseBranch instanceof CompoundStatement)) {
-            _elseBranch = new CompoundStatement(_elseBranch);
-        }
+        _elseBranch = _elseBranch == null ? null : CompoundStatement.wrap(_elseBranch);
     }
 
     @Override

@@ -77,9 +77,7 @@ public class CatchClause extends Statement implements HasBodyStatement {
 
     @Override
     public CompoundStatement makeCompoundBody() {
-        if (!(body instanceof CompoundStatement)) {
-            body = new CompoundStatement(body);
-        }
+        body = CompoundStatement.wrap(body);
         return (CompoundStatement) body;
     }
 

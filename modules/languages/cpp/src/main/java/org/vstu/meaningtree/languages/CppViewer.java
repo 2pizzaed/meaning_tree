@@ -361,22 +361,18 @@ public class CppViewer extends LanguageViewer {
             iterVarId = toString(forEachLoop.getItem().getDeclarators()[0].getIdentifier());
         }
         var iterable = toString(forEachLoop.getExpression());
-        Statement loopBody = forEachLoop.getBody();
-        var body = rendersAsBlock(loopBody) ? toStringBodyAsBlock(loopBody) : toString(loopBody);
+        String header = "for (" + type + " " + iterVarId + " : " + iterable + ")";
 
-        StringBuilder builder = new StringBuilder();
-
-        return builder
-                .append("for (")
-                .append(type)
-                .append(" ")
-                .append(iterVarId)
-                .append(" : ")
-                .append(iterable)
-                .append(")")
-                .append(_openBracketOnSameLine ? " " : "\n")
-                .append(indent(body))
-                .toString();
+        Statement body = forEachLoop.getBody();
+        if (rendersAsBlock(body)) {
+            return header + (_openBracketOnSameLine
+                    ? " " + toStringBodyAsBlock(body)
+                    : "\n" + indent(toStringBodyAsBlock(body)));
+        }
+        increaseIndentLevel();
+        String result = header + "\n" + indent(toString(body));
+        decreaseIndentLevel();
+        return result;
     }
 
     private String toStringEmptyStatement(EmptyStatement emptyStatement) {

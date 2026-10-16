@@ -814,7 +814,9 @@ public class CppViewer extends LanguageViewer {
             }
         }
 
-        if (!nodesList.isEmpty()) {
+        // Пустая ветка тоже заканчивается break, иначе она провалится в следующую
+        boolean endsWithBreak = caseBlock instanceof BasicCaseBlock || caseBlock instanceof DefaultCaseBlock;
+        if (!nodesList.isEmpty() || endsWithBreak) {
             if (_bracketsAroundCaseBranches || hasDeclarationInside) {
                 if (_openBracketOnSameLine) {
                     builder.append(" {\n");
@@ -833,9 +835,11 @@ public class CppViewer extends LanguageViewer {
             for (Node node : constructor) {
                 constructor.appendString(indent(toString(node)));
             }
-            builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            if (!constructor.stringBuffer().isEmpty()) {
+                builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            }
 
-            if (caseBlock instanceof BasicCaseBlock || caseBlock instanceof DefaultCaseBlock) {
+            if (endsWithBreak) {
                 builder.append(indent("break;"));
             }
             else {
@@ -1701,14 +1705,18 @@ public class CppViewer extends LanguageViewer {
             for (var node : constructor) {
                 constructor.appendString(indent(toString(node)));
             }
-            builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            if (!constructor.stringBuffer().isEmpty()) {
+                builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            }
         }
         else {
             var constructor = ctx.viewingIterateBody(notMethods);
             for (var node : constructor) {
                 constructor.appendString(indent(toString(node)));
             }
-            builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            if (!constructor.stringBuffer().isEmpty()) {
+                builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            }
         }
 
         decreaseIndentLevel();
@@ -1776,7 +1784,9 @@ public class CppViewer extends LanguageViewer {
             for (var node : constructor) {
                 constructor.appendString(indent(toString(node)));
             }
-            builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            if (!constructor.stringBuffer().isEmpty()) {
+                builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            }
         } else {
             builder.append(indent(toString(entryPointNode))).append("\n");
         }

@@ -1931,6 +1931,40 @@ group: SwitchStatement
             }
 
 
+    case: EmptyCaseBranchKeepsBreak
+        java:
+            switch (a) {
+                case 1:
+                    break;
+                case 2:
+                    test += 5;
+                    break;
+                default:
+                    break;
+            }
+
+        c++:
+            switch (a)
+            {
+                case 1:
+                    break;
+                case 2:
+                    test += 5;
+                    break;
+                default:
+                    break;
+            }
+
+        isolated python:
+            match a:
+                case 1:
+                    pass
+                case 2:
+                    test += 5
+                case _:
+                    pass
+
+
     case: JavaArrowCasesDoNotFallThrough
         main java:
             switch (a) {

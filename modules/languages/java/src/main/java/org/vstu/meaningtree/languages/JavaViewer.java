@@ -1192,7 +1192,9 @@ public class JavaViewer extends LanguageViewer {
             }
         }
 
-        if (!nodesList.isEmpty()) {
+        // Пустая ветка тоже заканчивается break, иначе она провалится в следующую
+        boolean endsWithBreak = caseBlock instanceof BasicCaseBlock || caseBlock instanceof DefaultCaseBlock;
+        if (!nodesList.isEmpty() || endsWithBreak) {
             if (_bracketsAroundCaseBranches || hasDeclarationInside) {
                 if (_openBracketOnSameLine) {
                     builder.append(" {\n");
@@ -1213,7 +1215,7 @@ public class JavaViewer extends LanguageViewer {
                         .append("\n");
             }
 
-            if (caseBlock instanceof BasicCaseBlock || caseBlock instanceof DefaultCaseBlock) {
+            if (endsWithBreak) {
                 builder.append(indent("break;"));
             }
             else {
@@ -2543,7 +2545,9 @@ public class JavaViewer extends LanguageViewer {
                 for (var node : constructor) {
                     constructor.appendString(indent(toString(node)));
                 }
+                if (!constructor.stringBuffer().isEmpty()) {
                 builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            }
             } finally {
                 ctx.remove(SYNTHETIC_VOID_MAIN);
             }
@@ -2572,7 +2576,9 @@ public class JavaViewer extends LanguageViewer {
                 for (var node : constructor) {
                     constructor.appendString(indent(toString(node)));
                 }
+                if (!constructor.stringBuffer().isEmpty()) {
                 builder.append(String.join("\n", constructor.stringBuffer())).append("\n");
+            }
             } finally {
                 ctx.remove(SYNTHETIC_VOID_MAIN);
             }

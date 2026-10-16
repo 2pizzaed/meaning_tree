@@ -17,7 +17,8 @@ public class CodeFormatter {
     }
 
     public boolean equals(String codeA, String codeB) {
-        // При сравнении всегда удаляем отступы и пустые строки, независимо от _indentSensitive
+        // Пустые строки не значат ничего. Отступы удаляются только там, где они не значат ничего:
+        // в Python от них зависит смысл, и сломанный отступ в выводе должен ронять тест
         String[] linesA = codeA.replaceAll("\\r\\n", "\n")
                              .replaceAll("\\t", " ".repeat(TAB_SIZE))
                              .split("\n");
@@ -27,11 +28,11 @@ public class CodeFormatter {
                              
         String strippedA = Arrays.stream(linesA)
                             .filter(Predicate.not(String::isBlank))  // Удаляем пустые строки
-                            .map(String::strip)
+                            .map(_indentSensitive ? String::stripTrailing : String::strip)
                             .collect(Collectors.joining("\n"));
         String strippedB = Arrays.stream(linesB)
                             .filter(Predicate.not(String::isBlank))  // Удаляем пустые строки
-                            .map(String::strip)
+                            .map(_indentSensitive ? String::stripTrailing : String::strip)
                             .collect(Collectors.joining("\n"));
                             
         // Нормализуем пробелы вокруг else

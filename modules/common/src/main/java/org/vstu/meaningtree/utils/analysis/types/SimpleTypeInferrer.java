@@ -682,7 +682,12 @@ public class SimpleTypeInferrer {
 
     public static void inference(@NotNull Node node, @NotNull ScopeTable scope) {
         switch (node) {
-            case ExpressionStatement expressionStatement -> inference(expressionStatement.getExpression(), scope);
+            case ExpressionStatement expressionStatement -> {
+                // Пустой оператор `;` — ExpressionStatement без выражения
+                if (expressionStatement.getExpression() != null) {
+                    inference(expressionStatement.getExpression(), scope);
+                }
+            }
             case HasAssignmentEffect assignmentStatement -> inference(assignmentStatement, scope);
             case Annotation annotation -> inference(List.of(annotation.getArguments()), scope);
             case CompoundStatement compoundStatement -> inference(compoundStatement, scope);

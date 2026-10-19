@@ -2,6 +2,8 @@ package org.vstu.meaningtree.serialization;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.vstu.meaningtree.MeaningTree;
 import org.vstu.meaningtree.languages.*;
 import org.vstu.meaningtree.nodes.Comment;
@@ -42,6 +44,43 @@ public class SourceMapGeneratorTests {
     /** Маркеры разметки: если хоть один остался в коде, границы посчитаны неверно. */
     private static final String WORD_JOINER = "⁠";
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "class A:\n    def m(self, x):\n        return x\ny = 1  # <! T >",
+            "class A:\n    def m(self):\n        return 1",
+            "class A:\n    def m(self):\n        return 1\nclass B:\n    def n(self):\n        return 2\ny = 1",
+            "def f():\n    return 1\ny = 1",
+            "def outer():\n    def inner():\n        return 1\ny = 1",
+            "def outer():\n    def inner():\n        return 1\n    return inner()\ny = 1",
+            "if ready:\n    def f():\n        return 1\ny = 1",
+            "if ready:\n    x = 1\nelse:\n    def f():\n        return 1\ny = 1",
+            "while ready:\n    def f():\n        return 1\ny = 1",
+            "try:\n    def f():\n        return 1\nexcept ValueError:\n    pass\ny = 1",
+            "with open('a') as stream:\n    def f():\n        return 1\ny = 1",
+            "class A:\n    def m(self):\n        return 'текст'\nконец = 1  # <! T >"
+    })
+    void pythonDefinitionsKeepSourceMapAndTokenOffsetsAligned(String source) {
+        PythonTranslator translator = new PythonTranslator(Map.of(
+                "translationUnitMode", "procedural", "skipErrors", false));
+        MeaningTree tree = translator.getMeaningTree(source);
+        String plainCode = translator.getCode(tree);
+        SourceMap sourceMap = new SourceMapGenerator(translator).process(tree);
+
+        assertEquals(plainCode, sourceMap.code(), "Watermarking changed whitespace");
+        byte[] code = sourceMap.code().getBytes(StandardCharsets.UTF_8);
+        for (var token : translator.getCodeAsTokens(tree, true, false, false)) {
+            var position = token.bytePos();
+            if (position != null) {
+                assertEquals(token.value, new String(code, Math.toIntExact(position.offset()),
+                        position.length(), StandardCharsets.UTF_8), "Wrong offset for " + token);
+            }
+        }
+        for (Comment comment : nodesOf(tree, Comment.class)) {
+            assertTrue(textOf(code, sourceMap.bytePositions().get(comment.getId()))
+                    .contains(comment.getUnescapedContent().strip()));
+        }
+    }
+
     @Test
     void propertyAccessorDecoratorsHaveStableSourceMapRanges() {
         PythonTranslator translator = new PythonTranslator(CONFIG);
@@ -65,7 +104,7 @@ public class SourceMapGeneratorTests {
                 """);
         SourceMap first = new SourceMapGenerator(translator).process(tree);
         SourceMap second = new SourceMapGenerator(translator).process(tree);
-        assertEquals(translator.getCode(tree).strip(), first.code().strip());
+        assertEquals(translator.getCode(tree), first.code());
         assertEquals(first.bytePositions(), second.bytePositions());
         byte[] code = first.code().getBytes(StandardCharsets.UTF_8);
         List<PropertyAccessor> accessors = nodesOf(tree, PropertyAccessor.class);

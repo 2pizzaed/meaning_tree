@@ -77,7 +77,11 @@ public class SourceMapGenerator {
                 return rendered;
             }
             char mark = isRemapped ? REMAPPED_MARK : OWN_MARK;
-            return START_TAG + mark + id + END_TAG + rendered + START_TAG + '/' + mark + id + END_TAG;
+            // Хвостовые пробелы должны оставаться доступными для stripTrailing() родителя:
+            // закрывающий маркер после них менял бы форматирование сгенерированного кода.
+            int contentEnd = rendered.stripTrailing().length();
+            return START_TAG + mark + id + END_TAG + rendered.substring(0, contentEnd)
+                    + START_TAG + '/' + mark + id + END_TAG + rendered.substring(contentEnd);
         }
     }
 

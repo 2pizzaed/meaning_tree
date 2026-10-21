@@ -40,6 +40,7 @@ import org.vstu.meaningtree.nodes.expressions.literals.ListLiteral;
 import org.vstu.meaningtree.nodes.expressions.literals.StringLiteral;
 import org.vstu.meaningtree.nodes.expressions.math.AddOp;
 import org.vstu.meaningtree.nodes.expressions.newexpr.ObjectNewExpression;
+import org.vstu.meaningtree.nodes.expressions.other.InstanceOfOp;
 import org.vstu.meaningtree.nodes.statements.CompoundStatement;
 import org.vstu.meaningtree.nodes.statements.conditions.components.BasicCaseBlock;
 import org.vstu.meaningtree.nodes.statements.ExpressionStatement;
@@ -377,6 +378,7 @@ public class JSONSerializerTests {
                 int z = +x;
                 """);
         java(snippets, "ternary", "int x = 1 > 2 ? 3 : 4;");
+        java(snippets, "instanceOf", "boolean result = value instanceof Integer;");
         java(snippets, "augmentedAssignments", """
                 int x = 1;
                 x += 2;
@@ -694,6 +696,12 @@ public class JSONSerializerTests {
                 """);
         python(snippets, "chainedComparison", "b = 1 < 2 < 3");
         python(snippets, "containsOperator", "b = 1 in [1, 2]");
+        python(snippets, "instanceOf", """
+                x = [1]
+                print(isinstance(x, list))
+                primitive = isinstance(x, int)
+                custom = isinstance(x, Box)
+                """);
         python(snippets, "io", """
                 print("hi")
                 x = input()
@@ -1341,6 +1349,33 @@ public class JSONSerializerTests {
         assertNull(restored.projectRootPath());
         assertNull(restored.projectFileRelPath());
         assertEquals(new JsonSerializer().serialize(sourceMap.root()), json.getAsJsonObject("origin"));
+    }
+
+    @Test
+    void instanceOfSourceMapPreservesNodeKindAndTargetType() {
+        PythonTranslator translator = new PythonTranslator(CONFIG);
+        MeaningTree tree = translator.getMeaningTree("x = [1]\nprint(isinstance(x, list))\n");
+        InstanceOfOp check = nodesOf(tree, InstanceOfOp.class).getFirst();
+        JsonSerializer serializer = new JsonSerializer();
+        JsonObject checkJson = serializer.serialize(check);
+
+        assertEquals("instance_of_operator", checkJson.get("type").getAsString());
+        assertEquals("list_type", checkJson.getAsJsonObject("target_type").get("type").getAsString());
+        assertEquals(serializer.serialize(check.getLeft()), checkJson.getAsJsonObject("expression"));
+
+        SourceMap sourceMap = new SourceMapGenerator(translator).process(tree);
+        JsonObject json = serializer.serialize(sourceMap);
+        SourceMap restored = new JsonDeserializer().deserializeSourceMap(json);
+
+        assertEquals(json.getAsJsonObject("origin"), serializer.serialize(restored.root()));
+        assertEquals(sourceMap.code(), restored.code());
+        assertEquals(sourceMap.language(), restored.language());
+        assertEquals(sourceMap.bytePositions(), restored.bytePositions());
+        MeaningTree restoredTree = assertInstanceOf(MeaningTree.class, restored.root());
+        assertEquals(sourceMap.code(), translator.getCode(restoredTree));
+        InstanceOfOp restoredCheck = nodesOf(restoredTree, InstanceOfOp.class).getFirst();
+        assertEquals(check.getId(), restoredCheck.getId());
+        assertEquals(check.getRight(), restoredCheck.getRight());
     }
 
     @Test

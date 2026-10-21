@@ -1144,7 +1144,7 @@ public class JsonSerializer implements Serializer<JsonObject> {
 
         json.addProperty("type", JsonNodeTypeClassMapper.getTypeForNode(op));
         json.add("expression", serialize(op.getLeft()));
-        json.add("type", serialize(op.getRight()));
+        json.add("target_type", serialize(op.getRight()));
 
         return json;
     }

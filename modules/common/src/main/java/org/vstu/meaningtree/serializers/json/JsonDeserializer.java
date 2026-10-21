@@ -889,7 +889,7 @@ public class JsonDeserializer implements Deserializer<JsonObject> {
             );
             case "instance_of_operator" -> new InstanceOfOp(
                     deserializeExpression(json.getAsJsonObject("expression")),
-                    (Type) deserialize(json.getAsJsonObject("type"))
+                    (Type) deserialize(json.getAsJsonObject("target_type"))
             );
             case "contains_operator" -> new ContainsOp(
                     deserializeExpression(json.getAsJsonObject("element")),

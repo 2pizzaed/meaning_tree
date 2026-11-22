@@ -337,11 +337,12 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
             }
             skipChildren = true;
         }
-        TSNode prev = null;
+        int previousEndByte = node.getStartByte();
         for (int i = 0; i < node.getChildCount() && !skipChildren; i++) {
-            if (prev != null && navigablePseudoTokens) {
-                int prevEndUtf16 = byteOffsetToCharIndex(code, prev.getEndByte());
-                int currStartUtf16 = byteOffsetToCharIndex(code, node.getChild(i).getStartByte());
+            TSNode child = node.getChild(i);
+            if (navigablePseudoTokens && previousEndByte < child.getStartByte()) {
+                int prevEndUtf16 = byteOffsetToCharIndex(code, previousEndByte);
+                int currStartUtf16 = byteOffsetToCharIndex(code, child.getStartByte());
                 String between = code.substring(prevEndUtf16, currStartUtf16);
                 String whites = between.replaceAll("[^ \t\n]", "");
                 StringBuilder buffer = new StringBuilder();
@@ -361,8 +362,8 @@ public abstract class LanguageTokenizer extends TranslatorComponent {
                     tokens.add(new Whitespace(buffer.toString(), TokenType.UNKNOWN));
                 }
             }
-            collectTokens(node.getChild(i), tokens, true, null);
-            if (node.getChild(i) != null) prev = node.getChild(i);
+            collectTokens(child, tokens, true, null);
+            previousEndByte = child.getEndByte();
         }
         int stop = tokens.size();
         return new TokenGroup(start, stop, tokens);

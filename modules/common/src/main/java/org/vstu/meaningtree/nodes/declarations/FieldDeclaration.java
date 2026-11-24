@@ -57,7 +57,7 @@ public class FieldDeclaration extends VariableDeclaration implements NestedDecla
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), modifiers);
+        return Objects.hash(super.hashCode(), modifiersHashCode());
     }
 
     public FieldDeclaration clone() {

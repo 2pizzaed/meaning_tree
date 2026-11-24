@@ -45,6 +45,6 @@ public class InterpolatedStringLiteral extends Literal {
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), components, type);
+        return Objects.hash(super.hashCode(), components, enumName(type));
     }
 }

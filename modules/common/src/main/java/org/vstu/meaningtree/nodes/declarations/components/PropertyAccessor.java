@@ -74,6 +74,6 @@ public class PropertyAccessor extends Node {
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), kind, propertyName, propertyDefinition, annotationIndex);
+        return Objects.hash(super.hashCode(), enumName(kind), propertyName, propertyDefinition, annotationIndex);
     }
 }

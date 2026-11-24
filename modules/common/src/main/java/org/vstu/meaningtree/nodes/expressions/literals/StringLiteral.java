@@ -79,7 +79,7 @@ public class StringLiteral extends Literal {
 
     @Override
     public int hashCode() {
-        return Objects.hash(value, stringType, charSize);
+        return Objects.hash(value, enumName(stringType), charSize);
     }
 
 }

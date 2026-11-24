@@ -57,7 +57,7 @@ public class EnumConstantDeclaration extends Declaration {
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), name, value, modifiers, annotations);
+        return Objects.hash(super.hashCode(), name, value, modifiersHashCode(), annotations);
     }
 
     @Override

@@ -6,6 +6,7 @@ import org.vstu.meaningtree.nodes.enums.DeclarationModifier;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public abstract class Declaration extends Node {
     @TreeNode
@@ -40,6 +41,15 @@ public abstract class Declaration extends Node {
 
     public void setModifiers(List<DeclarationModifier> modifiers) {
         this.modifiers = new ArrayList<>(modifiers);
+    }
+
+    /** Hashes the ordered modifier list by name to avoid enum identity hashes. */
+    protected int modifiersHashCode() {
+        int hash = 1;
+        for (DeclarationModifier modifier : modifiers) {
+            hash = 31 * hash + Objects.hashCode(enumName(modifier));
+        }
+        return hash;
     }
 
     public void addModifiers(DeclarationModifier ... modifiers) {

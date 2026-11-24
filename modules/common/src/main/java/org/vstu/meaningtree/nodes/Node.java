@@ -99,6 +99,11 @@ abstract public class Node implements Serializable, Cloneable, LabelAttachable, 
         return Objects.hash(toHash.toArray(new Object[0]));
     }
 
+    /** Returns the stable name of an enum used as a hash input. */
+    protected static String enumName(Enum<?> value) {
+        return value == null ? null : value.name();
+    }
+
     @Override
     public Node clone() {
         try {

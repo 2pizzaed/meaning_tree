@@ -120,7 +120,7 @@ public class MeaningTree implements Serializable, LabelAttachable, Cloneable, No
     public int hashCode() {
         List<Object> toHash = new ArrayList<>();
         toHash.add(rootNode);
-        toHash.addAll(_labels);
+        _labels.stream().sorted(Comparator.comparingInt(Label::getId)).forEach(toHash::add);
         return Objects.hash(toHash.toArray(new Object[0]));
     }
 

@@ -128,7 +128,7 @@ public class MethodDeclaration extends FunctionDeclaration implements NestedDecl
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), owner, modifiers, propertyAccessor);
+        return Objects.hash(super.hashCode(), owner, modifiersHashCode(), propertyAccessor);
     }
 
     public MethodDeclaration clone() {

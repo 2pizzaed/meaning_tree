@@ -77,6 +77,6 @@ public class AssignmentStatement extends Statement implements HasInitialization,
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), lvalue, rvalue, operatorType, realType);
+        return Objects.hash(super.hashCode(), lvalue, rvalue, enumName(operatorType), realType);
     }
 }

@@ -116,7 +116,7 @@ public class IntegerLiteral extends NumericLiteral {
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), _value, _isLongNumber, _isUnsigned, _repr);
+        return Objects.hash(super.hashCode(), _value, _isLongNumber, _isUnsigned, enumName(_repr));
     }
 
     @Override

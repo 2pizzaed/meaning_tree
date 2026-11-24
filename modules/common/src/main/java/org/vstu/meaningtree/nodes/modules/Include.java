@@ -43,6 +43,6 @@ public class Include extends Import {
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), filename, includeType);
+        return Objects.hash(super.hashCode(), filename, enumName(includeType));
     }
 }

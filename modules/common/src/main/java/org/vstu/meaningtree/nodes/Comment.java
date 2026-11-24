@@ -40,6 +40,6 @@ public class Comment extends Node {
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), _content, _style);
+        return Objects.hash(super.hashCode(), _content, enumName(_style));
     }
 }

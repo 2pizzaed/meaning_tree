@@ -65,6 +65,7 @@ import org.vstu.meaningtree.utils.tokens.TokenList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.StreamSupport;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -83,6 +84,18 @@ public class JSONSerializerTests {
             "translationUnitMode", "simple",
             "skipErrors", false
     );
+
+    @Test
+    void stringLiteralHashesUseStableEnumNames() {
+        var literal = StringLiteral.fromUnescaped("example", StringLiteral.Type.RAW);
+        literal.setTypeCharSize(8);
+        var serializer = new JsonSerializer();
+
+        int expected = Objects.hash("example", "RAW", 8);
+        assertEquals(expected, serializer.serialize(literal).get("unique_hash").getAsInt());
+        assertEquals(Objects.hash(expected),
+                serializer.serialize(new MeaningTree(literal)).get("unique_hash").getAsInt());
+    }
 
     private record Snippet(String language, String name, String code) {}
 

@@ -69,7 +69,7 @@ public class AssignmentExpression extends BinaryExpression implements HasInitial
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), left, right, operatorType, realType);
+        return Objects.hash(super.hashCode(), left, right, enumName(operatorType), realType);
     }
 
     @Override

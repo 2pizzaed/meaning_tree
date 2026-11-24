@@ -92,7 +92,7 @@ public class ClassDeclaration extends Declaration {
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), modifiers, name, parentTypes, typeParameters, typeNode);
+        return Objects.hash(super.hashCode(), modifiersHashCode(), name, parentTypes, typeParameters, typeNode);
     }
 
     public ClassDeclaration clone() {

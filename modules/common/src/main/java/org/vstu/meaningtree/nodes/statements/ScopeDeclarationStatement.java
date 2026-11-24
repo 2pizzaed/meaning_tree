@@ -75,7 +75,7 @@ public class ScopeDeclarationStatement extends Statement {
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), kind, names);
+        return Objects.hash(super.hashCode(), enumName(kind), names);
     }
 
     @Override
